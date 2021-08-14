@@ -1,0 +1,5 @@
+{
+	"type": "svg",
+	"attrs": { "a": "string", "b": -1, "c": true, "d": false },
+	"children": []
+}

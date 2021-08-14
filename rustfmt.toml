@@ -1,0 +1,12 @@
+# combine_control_expr = false
+# force_multiline_blocks = true
+# format_code_in_doc_comments = true
+# group_imports = "StdExternalCrate"
+hard_tabs = true
+# imports_granularity = "Module"
+# imports_layout = "HorizontalVertical"
+# normalize_doc_attributes = true
+# reorder_impl_items = true
+# reorder_imports = true
+# reorder_modules = true
+# wrap_comments = true
