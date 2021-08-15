@@ -3,6 +3,8 @@ mod decode;
 mod fibroblast;
 use decode::decoding_error::ClgnDecodingError;
 
+use crate::fibroblast::Fibroblast;
+
 fn main() -> Result<(), ClgnDecodingError> {
 	// let archive = get_manifest_json_from_zip_path("./test/image.zip");
 	// println!("{:?}", archive)
@@ -12,7 +14,7 @@ fn main() -> Result<(), ClgnDecodingError> {
 	);
 
 	let reader = std::fs::File::open("./test/image/collagen.json")?;
-	let f: fibroblast::Fibroblast = serde_json::from_reader(reader)?;
-	println!("{:?}", f.to_svg());
+	// let f: Fibroblast = serde_json::from_reader(reader)?;
+	// println!("{:?}", f.to_svg());
 	Ok(())
 }
