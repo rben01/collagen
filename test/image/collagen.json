@@ -1,5 +1,12 @@
 {
-	"tag": "svg",
 	"attrs": { "a": "string", "b": -1, "c": true, "d": false },
-	"children": []
+	"children": [
+		{
+			"tag": "rect",
+			"attrs": { "x": 1, "y": 2 }
+		},
+		{
+			"path": "./image.png"
+		}
+	]
 }
