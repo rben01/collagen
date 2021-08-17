@@ -4,7 +4,7 @@ use data_types::SimpleValue;
 
 use quick_xml::{
 	events::{BytesEnd, BytesStart, BytesText, Event as XmlEvent},
-	Result as XmlResult, Writer,
+	Writer,
 };
 
 use serde::{Deserialize, Serialize};
@@ -12,24 +12,29 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::Cursor;
 
-pub(crate) type XmlAttrs = HashMap<String, SimpleValue>;
-type AttrValueIterator<'a> = Box<dyn Iterator<Item = (&'a str, Cow<'a, SimpleValue>)> + 'a>;
-type AttrStringIterator<'a> = Box<dyn Iterator<Item = (&'a str, String)> + 'a>;
+use crate::decode::decoding_error::ClgnDecodingResult;
 
-fn attrs_to_iterable_pairs(attrs: &XmlAttrs) -> AttrValueIterator {
-	Box::from(attrs.iter().map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))))
+pub(crate) type XmlAttrs = HashMap<String, SimpleValue>;
+type AttrKVIteratorResult<'a> =
+	ClgnDecodingResult<Box<dyn Iterator<Item = (&'a str, Cow<'a, SimpleValue>)> + 'a>>;
+
+fn attrs_to_iterable_pairs(attrs: &XmlAttrs) -> AttrKVIteratorResult {
+	Ok(Box::from(
+		attrs.iter().map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
+	))
 }
 
 pub(crate) trait TagLike {
 	fn tag_name(&self) -> &str;
 	fn text(&self) -> &str;
 	fn children(&self) -> &[ChildTag];
-	fn attrs_raw<'a>(&'a self) -> Box<dyn Iterator<Item = (&str, Cow<'_, SimpleValue>)> + 'a>;
+	fn attrs_raw(&self) -> AttrKVIteratorResult;
 
-	fn attrs(&self) -> AttrStringIterator {
+	fn attrs<'a>(&'a self) -> ClgnDecodingResult<Box<dyn Iterator<Item = (&'a str, String)> + 'a>> {
 		use SimpleValue::*;
 
-		Box::from(self.attrs_raw().into_iter().filter_map(|(k, v)| {
+		let attrs_raw = self.attrs_raw()?;
+		Ok(Box::from(attrs_raw.into_iter().filter_map(|(k, v)| {
 			let v_maybe_string = match &*v {
 				Number(x) => Some(x.to_string()),
 				Text(s) => Some((*s).to_string()),
@@ -38,15 +43,18 @@ pub(crate) trait TagLike {
 			};
 
 			v_maybe_string.map(|v_string| (k, v_string))
-		}))
+		})))
 	}
 
-	fn to_svg_through_writer(&self, writer: &mut Writer<Cursor<Vec<u8>>>) -> XmlResult<()> {
+	fn to_svg_through_writer(
+		&self,
+		writer: &mut Writer<Cursor<Vec<u8>>>,
+	) -> ClgnDecodingResult<()> {
 		let tag_name = self.tag_name();
-		let bytes = tag_name.as_bytes();
-		let mut curr_elem = BytesStart::owned(bytes, bytes.len());
+		let tag_name_bytes = tag_name.as_bytes();
+		let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
 
-		let attributes = self.attrs().collect::<Vec<_>>();
+		let attributes = self.attrs()?.collect::<Vec<_>>();
 		curr_elem.extend_attributes(attributes.iter().map(|(k, v)| (*k, v.as_ref())));
 		writer.write_event(XmlEvent::Start(curr_elem))?;
 
@@ -55,14 +63,12 @@ pub(crate) trait TagLike {
 		}
 
 		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(self.text())))?;
-		writer.write_event(XmlEvent::End(BytesEnd::borrowed(
-			self.tag_name().as_bytes(),
-		)))?;
+		writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag_name_bytes)))?;
 
 		Ok(())
 	}
 
-	fn to_svg(&self) -> XmlResult<String> {
+	fn to_svg(&self) -> ClgnDecodingResult<String> {
 		let mut writer = Writer::new(Cursor::new(Vec::new()));
 		self.to_svg_through_writer(&mut writer)?;
 
@@ -119,7 +125,7 @@ impl TagLike for ChildTag {
 		}
 	}
 
-	fn attrs_raw<'a>(&'a self) -> Box<dyn Iterator<Item = (&str, Cow<'_, SimpleValue>)> + 'a> {
+	fn attrs_raw(&self) -> AttrKVIteratorResult {
 		match self {
 			Self::Other { attrs, .. } => attrs_to_iterable_pairs(attrs),
 
@@ -140,7 +146,7 @@ impl TagLike for ChildTag {
 						Cow::Owned(SimpleValue::Text(path.to_owned())),
 					)));
 
-				Box::new(attrs)
+				Ok(Box::new(attrs))
 			}
 		}
 	}
@@ -171,7 +177,7 @@ impl TagLike for RootTag {
 		&self.children
 	}
 
-	fn attrs_raw<'a>(&'a self) -> Box<dyn Iterator<Item = (&str, Cow<'_, SimpleValue>)> + 'a> {
+	fn attrs_raw(&self) -> AttrKVIteratorResult {
 		// If JSON didn't set "xmlns", we add it to the attr list with a value of
 		// "http://www.w3.org/2000/svg" to get `xmlns="http://www.w3.org/2000/svg"` in
 		// the output. I think you need this for SVGs to not be treated as XML by some
@@ -181,18 +187,18 @@ impl TagLike for RootTag {
 				"xmlns",
 				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
 			);
-			Box::new(
+			Ok(Box::new(
 				self.attrs
 					.iter()
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
 					.chain(Some(xmlns_attr)),
-			)
+			))
 		} else {
-			Box::new(
+			Ok(Box::new(
 				self.attrs
 					.iter()
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
-			)
+			))
 		}
 	}
 }

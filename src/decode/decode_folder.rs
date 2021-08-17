@@ -1,16 +1,17 @@
-use super::decoding_error::ClgnDecodingError;
+use super::decoding_error::ClgnDecodingResult;
+use crate::fibroblast::{RootTag, TagLike};
 use serde_json;
-use serde_json::Value as JsonValue;
-use std::{fs, io, path};
+use std::{fs, path};
 
-fn parse_folder_path_to_json(path: &path::Path) -> Result<JsonValue, ClgnDecodingError> {
+fn parse_folder_path_to_svg(path: &path::Path) -> ClgnDecodingResult<String> {
 	let manifest_path = path.join("collagen.json");
-	let file = fs::File::open(manifest_path)?;
-	let buf_reader = io::BufReader::new(file);
+	let reader = fs::File::open(manifest_path)?;
+	let f = serde_json::from_reader::<_, RootTag>(reader)?;
 
-	serde_json::from_reader(buf_reader).map_err(ClgnDecodingError::from)
+	f.to_svg()
+	// serde_json::from_reader(buf_reader).map_err(ClgnDecodingError::from)
 }
 
-pub fn parse_folder_to_json<P: AsRef<path::Path>>(path: P) -> Result<JsonValue, ClgnDecodingError> {
-	parse_folder_path_to_json(path.as_ref())
+pub fn parse_folder_to_svg<P: AsRef<path::Path>>(path: P) -> ClgnDecodingResult<String> {
+	parse_folder_path_to_svg(path.as_ref())
 }
