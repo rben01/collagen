@@ -2,7 +2,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 enum Value {
 	Dict(HashMap<String, Value>),
@@ -10,6 +10,7 @@ enum Value {
 	Simple(SimpleValue),
 }
 
+#[derive(Debug)]
 pub(crate) enum SimpleValue {
 	Number(ConcreteNumber),
 	Text(String),
@@ -30,7 +31,7 @@ impl Clone for SimpleValue {
 	}
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum ConcreteNumber {
 	Int(i64),
 	UInt(u64),

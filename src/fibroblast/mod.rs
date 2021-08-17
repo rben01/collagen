@@ -8,9 +8,10 @@ use quick_xml::{
 };
 
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::Cursor;
+use std::path::{Path, PathBuf};
+use std::{borrow::Cow, cell::RefCell};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::decode::decoding_error::ClgnDecodingResult;
 
@@ -46,6 +47,18 @@ pub(crate) trait TagLike {
 		})))
 	}
 
+	fn add_manifest_path_to_children(&self, path: &Rc<PathBuf>) {
+		for child in self.children() {
+			if let ChildTag::Image(child) = child {
+				*child.manifest_path.borrow_mut() = Some(Rc::clone(path));
+			}
+
+			for grandchild in child.children() {
+				grandchild.add_manifest_path_to_children(path);
+			}
+		}
+	}
+
 	fn to_svg_through_writer(
 		&self,
 		writer: &mut Writer<Cursor<Vec<u8>>>,
@@ -79,80 +92,122 @@ pub(crate) trait TagLike {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct ImageTag {
+	#[serde(skip)]
+	manifest_path: RefCell<Option<Rc<PathBuf>>>,
+
+	image_path: String,
+
+	#[serde(default)]
+	attrs: XmlAttrs,
+}
+
+impl<'a> TagLike for ImageTag {
+	fn tag_name(&self) -> &str {
+		"img"
+	}
+
+	fn text(&self) -> &str {
+		""
+	}
+
+	fn children(&self) -> &[ChildTag] {
+		&[]
+	}
+
+	fn attrs_raw(&self) -> AttrKVIteratorResult {
+		// TODO: Implement logic!
+		// Taken from https://github.com/mathiasbynens/small/blob/master/png-truncated.png -- the smallest PNG possible
+		let src_str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQAB";
+
+		let attrs = self
+			.attrs
+			.iter()
+			.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
+			.chain(Some((
+				"src",
+				Cow::Owned(SimpleValue::Text(src_str.to_owned())),
+			)))
+			.chain(Some((
+				"_path",
+				Cow::Owned(SimpleValue::Text(self.image_path.clone())),
+			)));
+
+		Ok(Box::new(attrs))
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct OtherTag {
+	tag: String,
+
+	#[serde(default)]
+	attrs: XmlAttrs,
+
+	#[serde(default)]
+	children: Vec<ChildTag>,
+
+	#[serde(default)]
+	text: String,
+}
+
+impl TagLike for OtherTag {
+	fn tag_name(&self) -> &str {
+		&self.tag
+	}
+
+	fn text(&self) -> &str {
+		&self.text
+	}
+
+	fn children(&self) -> &[ChildTag] {
+		&self.children
+	}
+
+	fn attrs_raw(&self) -> AttrKVIteratorResult {
+		attrs_to_iterable_pairs(&self.attrs)
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub(crate) enum ChildTag {
-	Image {
-		path: String,
-
-		#[serde(default)]
-		attrs: XmlAttrs,
-	},
-
-	Other {
-		tag: String,
-
-		#[serde(default)]
-		attrs: XmlAttrs,
-
-		#[serde(default)]
-		children: Vec<ChildTag>,
-
-		#[serde(default)]
-		text: String,
-	},
+	Image(ImageTag),
+	Other(OtherTag),
 }
 
 impl TagLike for ChildTag {
 	fn tag_name(&self) -> &str {
 		match self {
-			Self::Image { .. } => "img",
-			Self::Other { tag, .. } => tag,
+			Self::Image(t) => t.tag_name(),
+			Self::Other(t) => t.tag_name(),
 		}
 	}
 
 	fn text(&self) -> &str {
 		match self {
-			Self::Image { .. } => "",
-			Self::Other { text, .. } => text,
+			Self::Image(t) => t.text(),
+			Self::Other(t) => t.text(),
 		}
 	}
 
 	fn children(&self) -> &[ChildTag] {
 		match self {
-			Self::Other { children, .. } => children,
-			Self::Image { .. } => &[],
+			Self::Image(t) => t.children(),
+			Self::Other(t) => t.children(),
 		}
 	}
 
 	fn attrs_raw(&self) -> AttrKVIteratorResult {
 		match self {
-			Self::Other { attrs, .. } => attrs_to_iterable_pairs(attrs),
-
-			Self::Image { attrs, path } => {
-				// TODO: Implement logic!
-				// Taken from https://github.com/mathiasbynens/small/blob/master/png-truncated.png -- the smallest PNG possible
-				let src_str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQAB";
-
-				let attrs = attrs
-					.iter()
-					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
-					.chain(Some((
-						"src",
-						Cow::Owned(SimpleValue::Text(src_str.to_owned())),
-					)))
-					.chain(Some((
-						"_path",
-						Cow::Owned(SimpleValue::Text(path.to_owned())),
-					)));
-
-				Ok(Box::new(attrs))
-			}
+			Self::Image(t) => t.attrs_raw(),
+			Self::Other(t) => t.attrs_raw(),
 		}
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RootTag {
 	#[serde(default)]
 	attrs: XmlAttrs,
@@ -200,5 +255,43 @@ impl TagLike for RootTag {
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
 			))
 		}
+	}
+}
+
+#[derive(Debug)]
+pub struct Fibroblast {
+	root: RootTag,
+	manifest_path: Rc<PathBuf>,
+}
+
+impl Fibroblast {
+	pub fn new(root: RootTag, manifest_path: PathBuf) -> Self {
+		let manifest_path = Rc::new(manifest_path);
+		let manifest_path_for_children = Rc::clone(&manifest_path);
+
+		let fibroblast = Self {
+			root,
+			manifest_path,
+		};
+
+		fibroblast
+			.root()
+			.add_manifest_path_to_children(&manifest_path_for_children);
+
+		println!("{:?}", fibroblast.root());
+
+		fibroblast
+	}
+
+	pub fn root(&self) -> &RootTag {
+		&self.root
+	}
+
+	pub fn manifest_path(&self) -> &Path {
+		&self.manifest_path
+	}
+
+	pub fn to_svg(&self) -> ClgnDecodingResult<String> {
+		self.root.to_svg()
 	}
 }

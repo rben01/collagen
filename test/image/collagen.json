@@ -13,7 +13,7 @@
 			"text": "test text"
 		},
 		{
-			"path": "./image.png"
+			"image_path": "./assets/apple-touch-icon.png"
 		}
 	]
 }
