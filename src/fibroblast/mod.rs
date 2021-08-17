@@ -46,13 +46,18 @@ pub(crate) trait TagLike {
 		let bytes = tag_name.as_bytes();
 		let mut curr_elem = BytesStart::owned(bytes, bytes.len());
 
-		let attributes: Vec<_> = self.attrs().collect();
+		let attributes = self.attrs().collect::<Vec<_>>();
 		curr_elem.extend_attributes(attributes.iter().map(|(k, v)| (*k, v.as_ref())));
 		writer.write_event(XmlEvent::Start(curr_elem))?;
 
 		for child in self.children() {
 			child.to_svg_through_writer(writer)?;
 		}
+
+		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(self.text())))?;
+		writer.write_event(XmlEvent::End(BytesEnd::borrowed(
+			self.tag_name().as_bytes(),
+		)))?;
 
 		Ok(())
 	}
