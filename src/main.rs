@@ -2,6 +2,7 @@ mod decode;
 // mod decoding_error;
 mod fibroblast;
 use decode::decoding_error::ClgnDecodingError;
+use fibroblast::TagLike;
 
 use crate::fibroblast::RootTag;
 
@@ -15,7 +16,7 @@ fn main() -> Result<(), ClgnDecodingError> {
 
 	let reader = std::fs::File::open("./test/image/collagen.json")?;
 	let f: RootTag = serde_json::from_reader(reader)?;
-	match f.into_svg() {
+	match f.to_svg() {
 		Ok(s) => println!("{}", s),
 		Err(e) => println!("{:?}", e),
 	}
