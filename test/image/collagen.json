@@ -1,5 +1,11 @@
 {
-	"attrs": { "a": "string", "b": -1, "c": true, "d": false },
+	"attrs": {
+		"a": "string",
+		"b": -1,
+		"c": true,
+		"d": false,
+		"y": "z"
+	},
 	"children": [
 		{
 			"tag": "rect",
