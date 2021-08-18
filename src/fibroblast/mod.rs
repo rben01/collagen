@@ -8,14 +8,14 @@ use quick_xml::{
 };
 
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::io::Cursor;
-use std::path::PathBuf;
-use std::{borrow::Cow, cell::RefCell};
-use std::{collections::HashMap, rc::Rc};
+use std::path::{Path, PathBuf};
 
 use crate::decode::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 
-pub(crate) type XmlAttrs = HashMap<String, SimpleValue>;
+pub(crate) type XmlAttrs = BTreeMap<String, SimpleValue>;
 type AttrKVIteratorResult<'a> =
 	ClgnDecodingResult<Box<dyn Iterator<Item = (&'a str, Cow<'a, SimpleValue>)> + 'a>>;
 
@@ -29,12 +29,15 @@ pub(crate) trait TagLike {
 	fn tag_name(&self) -> &str;
 	fn text(&self) -> &str;
 	fn children(&self) -> &[ChildTag];
-	fn attrs_raw(&self) -> AttrKVIteratorResult;
+	fn attrs_as_values(&self, root_dir: &Path) -> AttrKVIteratorResult;
 
-	fn attrs<'a>(&'a self) -> ClgnDecodingResult<Box<dyn Iterator<Item = (&'a str, String)> + 'a>> {
+	fn attrs_as_strings<'a>(
+		&'a self,
+		root_dir: &Path,
+	) -> ClgnDecodingResult<Box<dyn Iterator<Item = (&'a str, String)> + 'a>> {
 		use SimpleValue::*;
 
-		let attrs_raw = self.attrs_raw()?;
+		let attrs_raw = self.attrs_as_values(root_dir)?;
 		Ok(Box::from(attrs_raw.into_iter().filter_map(|(k, v)| {
 			let v_maybe_string = match &*v {
 				Number(x) => Some(x.to_string()),
@@ -47,32 +50,21 @@ pub(crate) trait TagLike {
 		})))
 	}
 
-	fn add_manifest_path_to_children(&self, path: &Rc<PathBuf>) {
-		for child in self.children() {
-			if let ChildTag::Image(child) = child {
-				*child.manifest_path.borrow_mut() = Some(Rc::clone(path));
-			}
-
-			for grandchild in child.children() {
-				grandchild.add_manifest_path_to_children(path);
-			}
-		}
-	}
-
 	fn to_svg_through_writer(
 		&self,
+		root_dir: &Path,
 		writer: &mut Writer<Cursor<Vec<u8>>>,
 	) -> ClgnDecodingResult<()> {
 		let tag_name = self.tag_name();
 		let tag_name_bytes = tag_name.as_bytes();
 		let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
 
-		let attributes = self.attrs()?.collect::<Vec<_>>();
+		let attributes = self.attrs_as_strings(root_dir)?.collect::<Vec<_>>();
 		curr_elem.extend_attributes(attributes.iter().map(|(k, v)| (*k, v.as_ref())));
 		writer.write_event(XmlEvent::Start(curr_elem))?;
 
 		for child in self.children() {
-			child.to_svg_through_writer(writer)?;
+			child.to_svg_through_writer(root_dir, writer)?;
 		}
 
 		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(self.text())))?;
@@ -81,9 +73,9 @@ pub(crate) trait TagLike {
 		Ok(())
 	}
 
-	fn to_svg(&self) -> ClgnDecodingResult<String> {
+	fn to_svg(&self, root_dir: &Path) -> ClgnDecodingResult<String> {
 		let mut writer = Writer::new(Cursor::new(Vec::new()));
-		self.to_svg_through_writer(&mut writer)?;
+		self.to_svg_through_writer(root_dir, &mut writer)?;
 
 		let buf = writer.into_inner().into_inner();
 		let out_string = std::str::from_utf8(&buf)?.to_owned();
@@ -94,9 +86,6 @@ pub(crate) trait TagLike {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct ImageTag {
-	#[serde(skip)]
-	manifest_path: RefCell<Option<Rc<PathBuf>>>,
-
 	image_path: String,
 
 	#[serde(default)]
@@ -133,7 +122,7 @@ impl TagLike for ImageTag {
 		&[]
 	}
 
-	fn attrs_raw(&self) -> AttrKVIteratorResult {
+	fn attrs_as_values(&self, root_dir: &Path) -> AttrKVIteratorResult {
 		let kind = self.kind();
 		let kind = match kind {
 			Some(extn) => extn,
@@ -145,20 +134,13 @@ impl TagLike for ImageTag {
 			}
 		};
 
-		let manifest_path = self.manifest_path.borrow().as_ref().unwrap().to_owned();
-		let manifest_parent = match manifest_path.parent() {
-			Some(parent) => parent,
-			None => {
-				return Err(ClgnDecodingError::Image(format!(
-					r#"Error resolving the parent folder of manifest file {:?}"#,
-					manifest_path
-				)))
-			}
-		};
-		let abs_image_path = manifest_parent.join(&self.image_path);
+		let abs_image_path = root_dir.join(&self.image_path);
 
+		// Can this be streamed so that we don't need an intermediate buffer? Would it
+		// be worth it?
 		let image_bytes = std::fs::read(abs_image_path)?;
 		let b64contents = base64::encode(image_bytes);
+
 		let src_str = format!("data:image/{};base64,{}", kind, b64contents);
 
 		let attrs = self
@@ -202,7 +184,7 @@ impl TagLike for OtherTag {
 		&self.children
 	}
 
-	fn attrs_raw(&self) -> AttrKVIteratorResult {
+	fn attrs_as_values(&self, _: &Path) -> AttrKVIteratorResult {
 		attrs_to_iterable_pairs(&self.attrs)
 	}
 }
@@ -236,10 +218,10 @@ impl TagLike for ChildTag {
 		}
 	}
 
-	fn attrs_raw(&self) -> AttrKVIteratorResult {
+	fn attrs_as_values(&self, root_dir: &Path) -> AttrKVIteratorResult {
 		match self {
-			Self::Image(t) => t.attrs_raw(),
-			Self::Other(t) => t.attrs_raw(),
+			Self::Image(t) => t.attrs_as_values(root_dir),
+			Self::Other(t) => t.attrs_as_values(root_dir),
 		}
 	}
 }
@@ -269,7 +251,7 @@ impl TagLike for RootTag {
 		&self.children
 	}
 
-	fn attrs_raw(&self) -> AttrKVIteratorResult {
+	fn attrs_as_values(&self, _: &Path) -> AttrKVIteratorResult {
 		// If JSON didn't set "xmlns", we add it to the attr list with a value of
 		// "http://www.w3.org/2000/svg" to get `xmlns="http://www.w3.org/2000/svg"` in
 		// the output. I think you need this for SVGs to not be treated as XML by some
@@ -297,41 +279,5 @@ impl TagLike for RootTag {
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
 			))
 		}
-	}
-}
-
-#[derive(Debug)]
-pub struct Fibroblast {
-	root: RootTag,
-	// I really hate that this is Rc<PathBuf> instead of being PathBuf and child tags
-	// having a &Path that references it. I'd like to fix this eventually.
-	manifest_path: Rc<PathBuf>,
-}
-
-impl Fibroblast {
-	pub fn new(root: RootTag, manifest_path: PathBuf) -> Self {
-		let manifest_path = Rc::new(manifest_path);
-		let manifest_path_for_children = Rc::clone(&manifest_path);
-
-		let fibroblast = Self {
-			root,
-			manifest_path,
-		};
-
-		fibroblast
-			.root()
-			.add_manifest_path_to_children(&manifest_path_for_children);
-
-		println!("{:?}", fibroblast.root());
-
-		fibroblast
-	}
-
-	pub fn root(&self) -> &RootTag {
-		&self.root
-	}
-
-	pub fn to_svg(&self) -> ClgnDecodingResult<String> {
-		self.root.to_svg()
 	}
 }

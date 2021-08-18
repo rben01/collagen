@@ -5,12 +5,20 @@
 		},
 		{
 			"tag": "rect",
-			"attrs": { "x": 100, "y": 100, "width": 300, "height": 100, "fill": "red" }
+			"attrs": { "x": 100, "y": 100, "width": 300, "height": 100, "fill": "#92f" }
 		},
 		{
 			"tag": "text",
 			"text": "this is some text",
-			"attrs": { "x": 50, "y": 50, "font-size": 30, "fill": "green" }
+			"attrs": {
+				"x": 50,
+				"y": 50,
+				"font-family": "Impact",
+				"font-size": 30,
+				"fill": "#4f8",
+				"stroke": "black",
+				"weight": 700
+			}
 		}
 	]
 }

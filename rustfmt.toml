@@ -3,7 +3,8 @@
 # format_code_in_doc_comments = true
 # group_imports = "StdExternalCrate"
 hard_tabs = true
-# imports_granularity = "Module"
+imports_granularity = "Module"
+merge_imports = true
 # imports_layout = "HorizontalVertical"
 # normalize_doc_attributes = true
 # reorder_impl_items = true
