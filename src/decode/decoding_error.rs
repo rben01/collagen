@@ -13,7 +13,7 @@ pub enum ClgnDecodingError {
 	Zip(ZipError),
 	JsonDecode(json::Error),
 	Xml(XmlError),
-	Image(io::Error),
+	Image(String),
 }
 
 impl From<Utf8Error> for ClgnDecodingError {

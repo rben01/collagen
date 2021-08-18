@@ -9,11 +9,11 @@ use quick_xml::{
 
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{borrow::Cow, cell::RefCell};
 use std::{collections::HashMap, rc::Rc};
 
-use crate::decode::decoding_error::ClgnDecodingResult;
+use crate::decode::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 
 pub(crate) type XmlAttrs = HashMap<String, SimpleValue>;
 type AttrKVIteratorResult<'a> =
@@ -101,11 +101,28 @@ pub(crate) struct ImageTag {
 
 	#[serde(default)]
 	attrs: XmlAttrs,
+
+	#[serde(default)]
+	kind: Option<String>,
 }
 
-impl<'a> TagLike for ImageTag {
+impl ImageTag {
+	fn kind(&self) -> Option<Cow<'_, str>> {
+		match &self.kind {
+			Some(kind) => Some(Cow::Borrowed(kind)),
+			None => {
+				let path = PathBuf::from(&self.image_path);
+				let extn = path.extension()?;
+				let extn = extn.to_str()?.to_ascii_lowercase();
+				Some(Cow::Owned(extn))
+			} // extension(&self.image_path).map(|extn| Cow::Owned(extn.to_ascii_lowercase())),
+		}
+	}
+}
+
+impl TagLike for ImageTag {
 	fn tag_name(&self) -> &str {
-		"img"
+		"image"
 	}
 
 	fn text(&self) -> &str {
@@ -117,18 +134,38 @@ impl<'a> TagLike for ImageTag {
 	}
 
 	fn attrs_raw(&self) -> AttrKVIteratorResult {
-		// TODO: Implement logic!
-		// Taken from https://github.com/mathiasbynens/small/blob/master/png-truncated.png -- the smallest PNG possible
-		let src_str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQAB";
+		let kind = self.kind();
+		let kind = match kind {
+			Some(extn) => extn,
+			None => {
+				return Err(ClgnDecodingError::Image(format!(
+					r#"Could not deduce the extension from {:?}, and no "kind" was given""#,
+					self.image_path
+				)));
+			}
+		};
+
+		let manifest_path = self.manifest_path.borrow().as_ref().unwrap().to_owned();
+		let manifest_parent = match manifest_path.parent() {
+			Some(parent) => parent,
+			None => {
+				return Err(ClgnDecodingError::Image(format!(
+					r#"Error resolving the parent folder of manifest file {:?}"#,
+					manifest_path
+				)))
+			}
+		};
+		let abs_image_path = manifest_parent.join(&self.image_path);
+
+		let image_bytes = std::fs::read(abs_image_path)?;
+		let b64contents = base64::encode(image_bytes);
+		let src_str = format!("data:image/{};base64,{}", kind, b64contents);
 
 		let attrs = self
 			.attrs
 			.iter()
 			.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
-			.chain(Some((
-				"src",
-				Cow::Owned(SimpleValue::Text(src_str.to_owned())),
-			)))
+			.chain(Some(("xlink:href", Cow::Owned(SimpleValue::Text(src_str)))))
 			.chain(Some((
 				"_path",
 				Cow::Owned(SimpleValue::Text(self.image_path.clone())),
@@ -238,15 +275,20 @@ impl TagLike for RootTag {
 		// the output. I think you need this for SVGs to not be treated as XML by some
 		// browsers?
 		if !self.attrs.contains_key("xmlns") {
-			let xmlns_attr: (&str, Cow<SimpleValue>) = (
-				"xmlns",
-				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
-			);
 			Ok(Box::new(
 				self.attrs
 					.iter()
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
-					.chain(Some(xmlns_attr)),
+					.chain(Some((
+						"xmlns",
+						Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
+					)))
+					.chain(Some((
+						"xmlns:xlink",
+						Cow::Owned(SimpleValue::Text(
+							"http://www.w3.org/1999/xlink".to_string(),
+						)),
+					))),
 			))
 		} else {
 			Ok(Box::new(
@@ -261,6 +303,8 @@ impl TagLike for RootTag {
 #[derive(Debug)]
 pub struct Fibroblast {
 	root: RootTag,
+	// I really hate that this is Rc<PathBuf> instead of being PathBuf and child tags
+	// having a &Path that references it. I'd like to fix this eventually.
 	manifest_path: Rc<PathBuf>,
 }
 
@@ -285,10 +329,6 @@ impl Fibroblast {
 
 	pub fn root(&self) -> &RootTag {
 		&self.root
-	}
-
-	pub fn manifest_path(&self) -> &Path {
-		&self.manifest_path
 	}
 
 	pub fn to_svg(&self) -> ClgnDecodingResult<String> {
