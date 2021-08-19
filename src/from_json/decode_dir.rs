@@ -1,6 +1,5 @@
 use super::decoding_error::ClgnDecodingResult;
 use crate::fibroblast::RootTag;
-use crate::fibroblast::TagLike;
 use serde_json;
 use std::path::Path;
 use std::path::PathBuf;
@@ -17,9 +16,4 @@ impl RootTag {
 	pub fn from_dir<P: AsRef<Path>>(path: P) -> ClgnDecodingResult<Self> {
 		Self::from_dir_path(path.as_ref().to_path_buf())
 	}
-}
-
-pub fn parse_dir_to_svg<P: AsRef<Path>>(path: P) -> ClgnDecodingResult<String> {
-	let path = path.as_ref();
-	RootTag::from_dir(path)?.to_svg(path)
 }

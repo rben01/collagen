@@ -1,4 +1,5 @@
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
@@ -16,6 +17,19 @@ pub(crate) enum SimpleValue {
 	Text(String),
 	Present,
 	Absent,
+}
+
+impl SimpleValue {
+	pub fn to_maybe_string(&self) -> Option<Cow<'_, str>> {
+		use SimpleValue::*;
+
+		match self {
+			Number(n) => Some(Cow::Owned(n.to_string())),
+			Text(s) => Some(Cow::Borrowed(s.as_ref())),
+			Present => Some(Cow::Borrowed("")),
+			Absent => None,
+		}
+	}
 }
 
 impl Clone for SimpleValue {

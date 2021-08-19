@@ -70,6 +70,7 @@ name = "collagen"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "lazy_static",
  "quick-xml",
  "serde",
  "serde_json",
