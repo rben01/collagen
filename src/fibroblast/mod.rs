@@ -9,7 +9,7 @@ use quick_xml::{
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::BTreeMap; // https://users.rust-lang.org/t/hashmap-vs-btreemap/13804/3
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 

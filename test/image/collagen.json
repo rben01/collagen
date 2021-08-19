@@ -1,22 +1,43 @@
 {
 	"children": [
 		{
-			"image_path": "./assets/apple-touch-icon.png"
+			"image_path": "./assets/71690444.jpg"
 		},
 		{
 			"tag": "rect",
-			"attrs": { "x": 100, "y": 100, "width": 300, "height": 100, "fill": "#92f" }
+			"attrs": { "x": 500, "y": 100, "width": 400, "height": 150, "fill": "#92f" }
 		},
 		{
 			"tag": "text",
-			"text": "this is some text",
+			"text": "Top text",
 			"attrs": {
-				"x": 50,
-				"y": 50,
+				"x": 700,
+				"y": 200,
+				"text-anchor": "middle",
 				"font-family": "Impact",
-				"font-size": 30,
-				"fill": "#4f8",
+				"font-size": 70,
+				"fill": "white",
 				"stroke": "black",
+				"stroke-width": 2,
+				"weight": 700
+			}
+		},
+		{
+			"tag": "rect",
+			"attrs": { "x": 500, "y": 500, "width": 400, "height": 150, "fill": "#9f5" }
+		},
+		{
+			"tag": "text",
+			"text": "Bottom text",
+			"attrs": {
+				"x": 700,
+				"y": 600,
+				"text-anchor": "middle",
+				"font-family": "Impact",
+				"font-size": 70,
+				"fill": "white",
+				"stroke": "black",
+				"stroke-width": 2,
 				"weight": 700
 			}
 		}
