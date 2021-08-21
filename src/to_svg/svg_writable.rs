@@ -182,6 +182,10 @@ pub(crate) trait SvgWritable: TagLike {
 		// the collections here -- but then we'd be doing tons of copies *there*. Better
 		// to allocate a vector or two than arbitrarily many Strings, right?
 
+		let my_vars = self.vars();
+		if let Some(vars) = my_vars {
+			context.vars_stack.borrow_mut().push_front(vars);
+		}
 		let attr_values = self.derived_attrs(context)?;
 
 		let attr_strings = attr_values
@@ -191,11 +195,6 @@ pub(crate) trait SvgWritable: TagLike {
 
 		curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
 		writer.write_event(XmlEvent::Start(curr_elem))?;
-
-		let my_vars = self.vars();
-		if let Some(vars) = my_vars {
-			context.vars_stack.borrow_mut().push_front(vars);
-		}
 
 		for child in self.children() {
 			child.to_svg_through_writer(context, writer)?;
