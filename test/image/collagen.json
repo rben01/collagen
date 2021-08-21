@@ -1,15 +1,19 @@
 {
+	"$vars": { "x": 100, "text": "<><" },
 	"children": [
 		{
-			"image_path": "./assets/71690444.jpg"
-		},
-		{
 			"tag": "rect",
-			"attrs": { "x": 500, "y": 100, "width": 400, "height": 150, "fill": "#92f" }
+			"attrs": {
+				"x": "{x}",
+				"y": 100,
+				"width": 400,
+				"height": 150,
+				"fill": "#92f"
+			}
 		},
 		{
 			"tag": "text",
-			"text": "Top text",
+			"text": "Top {text}",
 			"attrs": {
 				"x": 700,
 				"y": 200,
@@ -24,7 +28,13 @@
 		},
 		{
 			"tag": "rect",
-			"attrs": { "x": 500, "y": 500, "width": 400, "height": 150, "fill": "#9f5" }
+			"attrs": {
+				"x": "{x}",
+				"y": 500,
+				"width": 400,
+				"height": 150,
+				"fill": "#9f5"
+			}
 		},
 		{
 			"tag": "text",

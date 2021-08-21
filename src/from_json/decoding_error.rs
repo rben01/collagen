@@ -1,19 +1,27 @@
+use crate::to_svg::svg_writable::VariableSubstitutionError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::io;
 use std::str::Utf8Error;
 use zip::result::ZipError;
 
-pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
+pub(crate) type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
-pub enum ClgnDecodingError {
+pub(crate) enum ClgnDecodingError {
+	Parse(VariableSubstitutionError),
 	Unicode(Utf8Error),
 	Io(io::Error),
 	Zip(ZipError),
 	JsonDecode(json::Error),
 	Xml(XmlError),
 	Image(String),
+}
+
+impl From<VariableSubstitutionError> for ClgnDecodingError {
+	fn from(err: VariableSubstitutionError) -> Self {
+		Self::Parse(err)
+	}
 }
 
 impl From<Utf8Error> for ClgnDecodingError {
