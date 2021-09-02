@@ -8,6 +8,9 @@ impl RootTag {
 		let path = path.as_ref();
 
 		let manifest_path = path.join("collagen.json");
+		// println!("{:?}", std::env::current_dir());
+		// println!("{:?}", path);
+		// println!("{:?}", manifest_path.exists());
 		let reader = std::fs::File::open(&manifest_path)?;
 		let root = serde_json::from_reader::<_, RootTag>(reader)?;
 

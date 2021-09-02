@@ -1,24 +1,34 @@
 /// Contains the data types used for the in-memory representation of a `Fibroblast`
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::marker::PhantomData;
+
+/// A type alias for storing XML attribute key-value pairs
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct XmlAttrs<'a>(pub(crate) BTreeMap<String, SimpleValue<'a>>);
+
+/// A vector of key, value pairs representing attributes
+pub(crate) type AttrKVValueVec<'a> = Vec<(&'a str, SimpleValue<'a>)>;
+
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct TagVariables(pub(crate) BTreeMap<String, VariableValue>);
 
 /// An enum whose variants each contain a (set of) JSON-representible values. It's
 /// distinct from `serde_json::Value`, though.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-enum Value {
-	Dict(HashMap<String, Value>),
-	List(Vec<Value>),
-	Simple(SimpleValue),
+enum Value<'a> {
+	Dict(BTreeMap<String, Value<'a>>),
+	List(Vec<Value<'a>>),
+	Simple(SimpleValue<'a>),
 }
 
 /// An enum whose variants represent "simple" (indivisible) values.
 #[derive(Debug)]
-pub(crate) enum SimpleValue {
+pub(crate) enum SimpleValue<'a> {
 	Number(ConcreteNumber),
-	Text(String),
+	Text(Cow<'a, str>),
 	/// The presence of an attribute — usually represented `attr=""`
 	Present,
 	/// The absence of an attribute. How is this different from just ommitting the
@@ -27,22 +37,22 @@ pub(crate) enum SimpleValue {
 	Absent,
 }
 
-impl SimpleValue {
+impl<'a> SimpleValue<'a> {
 	/// If anything other than `Absent`, return a stringified verion wrapped in a
 	/// `Some`. If `Absent` then `None`.
-	pub fn to_maybe_string(&self) -> Option<Cow<'_, str>> {
+	pub fn to_maybe_string(&'a self) -> Option<Cow<'a, str>> {
 		use SimpleValue::*;
 
 		match self {
 			Number(n) => Some(Cow::Owned(n.to_string())),
-			Text(s) => Some(Cow::Borrowed(s.as_ref())),
+			Text(s) => Some(s),
 			Present => Some(Cow::Borrowed("")),
 			Absent => None,
 		}
 	}
 }
 
-impl Clone for SimpleValue {
+impl Clone for SimpleValue<'_> {
 	/// Everything but `Text` is `Copy`; `Text` needs to be cloned
 	fn clone(&self) -> Self {
 		use SimpleValue::*;
@@ -88,7 +98,7 @@ impl std::fmt::Display for ConcreteNumber {
 	}
 }
 
-impl Serialize for SimpleValue {
+impl Serialize for SimpleValue<'_> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -107,15 +117,15 @@ impl Serialize for SimpleValue {
 	}
 }
 
-impl<'de> Deserialize<'de> for SimpleValue {
+impl<'de> Deserialize<'de> for SimpleValue<'_> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
-		struct SimpleValueVisitor(PhantomData<fn() -> SimpleValue>);
+		struct SimpleValueVisitor<'a>(PhantomData<&'a fn() -> SimpleValue<'a>>);
 
-		impl<'de> de::Visitor<'de> for SimpleValueVisitor {
-			type Value = SimpleValue;
+		impl<'de> de::Visitor<'de> for SimpleValueVisitor<'de> {
+			type Value = SimpleValue<'de>;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 				formatter.write_str("a string, a number, or a bool")

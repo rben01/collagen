@@ -1,4 +1,3 @@
-use crate::to_svg::svg_writable::VariableSubstitutionError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::io;
@@ -6,6 +5,8 @@ use std::str::Utf8Error;
 use zip::result::ZipError;
 
 pub(crate) type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
+
+use crate::fibroblast::parse_vars::VariableSubstitutionError;
 
 #[derive(Debug)]
 pub(crate) enum ClgnDecodingError {

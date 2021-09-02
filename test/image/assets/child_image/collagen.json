@@ -1,0 +1,12 @@
+{
+	"attrs": { "x": 40 },
+	"children": [
+		{
+			"image_path": "./Photobooth-icon.png"
+		},
+		{
+			"tag": "text",
+			"text": "nested!!"
+		}
+	]
+}

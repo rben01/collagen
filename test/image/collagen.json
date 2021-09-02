@@ -1,8 +1,8 @@
 {
-	"$vars": { "x": 100, "text": "<><" },
+	"vars": { "x": 100, "text": "<><" },
 	"children": [
 		{
-			"$vars": { "x": 200 },
+			"vars": { "x": 200 },
 			"tag": "rect",
 			"attrs": {
 				"x": "{x}",
@@ -51,6 +51,12 @@
 				"stroke-width": 2,
 				"weight": 700
 			}
+		},
+		{
+			"image_path": "./assets/apple-touch-icon.png"
+		},
+		{
+			"clgn_path": "./assets/child_image/"
 		}
 	]
 }
