@@ -269,17 +269,6 @@ impl<'a> ContainerTag<'a> {
 		self._child_clgn.borrow().unwrap()
 	}
 
-	// pub(crate) fn as_g_tag(
-	// 	&'a self,
-	// 	_: &DecodingContext<'a>,
-	// ) -> ClgnDecodingResult<AnyChildTag<'a>> {
-	// 	Ok(AnyChildTag::NestedRoot(NestedRootTag {
-	// 		root: &self._child_clgn.borrow().unwrap().root,
-	// 	}))
-	// }
-}
-
-impl<'a> ContainerTag<'a> {
 	fn tag_name(&self) -> &str {
 		"g"
 	}
@@ -289,7 +278,8 @@ impl<'a> ContainerTag<'a> {
 	}
 
 	fn attrs(&'a self) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		self.as_fibroblast().attrs()
+		let fb = self.as_fibroblast();
+		raw_attrs_map_to_subd_attrs_vec(fb.root.base_attrs(), &fb.context)
 	}
 
 	fn children(&'a self) -> &[AnyChildTag<'a>] {
@@ -488,10 +478,6 @@ pub(crate) struct Fibroblast<'a> {
 }
 
 impl<'a> Fibroblast<'a> {
-	pub(crate) fn attrs(&'a self) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		self.root.attrs(&self.context)
-	}
-
 	pub(crate) fn vars(&self) -> &TagVariables {
 		self.root.vars(&self.context)
 	}

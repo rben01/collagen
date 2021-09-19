@@ -1,12 +1,13 @@
 {
 	"attrs": { "x": 200 },
+	"vars": { "y": "this_is_y" },
 	"children": [
 		{
 			"image_path": "./Photobooth-icon.png"
 		},
 		{
 			"tag": "text",
-			"text": "nested!!{x}",
+			"text": "nested!! x={x} y={y}",
 			"attrs": {
 				"x": 100,
 				"y": 300,

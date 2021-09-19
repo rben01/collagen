@@ -21,8 +21,8 @@ impl<'a> DecodingContext<'a> {
 		self.vars_map.borrow()
 	}
 
-	pub(crate) fn replace_root<P: AsRef<Path>>(&self, root: P) {
-		self.root_path.replace(root.as_ref().to_owned());
+	pub(crate) fn replace_root<P: AsRef<Path>>(&self, root: P) -> PathBuf {
+		self.root_path.replace(root.as_ref().to_owned())
 	}
 
 	pub(crate) fn new_at_root<P: AsRef<Path>>(root_path: P) -> Self {
@@ -35,16 +35,16 @@ impl<'a> DecodingContext<'a> {
 		}
 	}
 
-	// pub(crate) fn with_new_root<T, P: AsRef<Path>, F: FnOnce() -> ClgnDecodingResult<T>>(
-	// 	&self,
-	// 	new_root: P,
-	// 	f: F,
-	// ) -> ClgnDecodingResult<T> {
-	// 	let orig_path = self.root_path.replace(new_root.as_ref().to_owned());
-	// 	let result = f()?;
-	// 	self.root_path.replace(orig_path);
-	// 	Ok(result)
-	// }
+	pub(crate) fn with_new_root<T, P: AsRef<Path>, F: FnOnce() -> ClgnDecodingResult<T>>(
+		&self,
+		new_root: P,
+		f: F,
+	) -> ClgnDecodingResult<T> {
+		let orig_path = self.replace_root(new_root);
+		let result = f();
+		self.replace_root(orig_path);
+		result
+	}
 
 	pub(crate) fn get_root(&self) -> Ref<PathBuf> {
 		self.root_path.borrow()
@@ -79,7 +79,7 @@ impl<'a> DecodingContext<'a> {
 		// Remove the borrow_mut while f executes
 		drop(my_vars);
 
-		let result = f()?;
+		let result = f();
 
 		// Re-borrow_mut to restore to original state
 		let mut my_vars = self.vars_map.borrow_mut();
@@ -91,7 +91,7 @@ impl<'a> DecodingContext<'a> {
 			.unwrap(); // Panic if we had a logic error and a key somehow wasn't present
 		}
 
-		Ok(result)
+		result
 	}
 
 	pub(crate) fn get_var(&self, var: &str) -> Option<&'a VariableValue> {

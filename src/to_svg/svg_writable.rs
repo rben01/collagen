@@ -130,9 +130,12 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 			match &self {
 				AnyChildTag::Container(container) => {
 					let fb = container.as_fibroblast();
-					for child in fb.children() {
-						child.to_svg_through_writer(&fb.context, writer)?;
-					}
+					context.with_new_root(fb.context.get_root().as_path(), || {
+						for child in self.children(context)? {
+							child.to_svg_through_writer(context, writer)?;
+						}
+						Ok(())
+					})?;
 				}
 				_ => {
 					for child in self.children(context)? {
