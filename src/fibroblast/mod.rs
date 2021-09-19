@@ -238,37 +238,6 @@ impl<'a> ImageTag<'a> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct TextTag<'a> {
-	#[serde(rename = "tag")]
-	tag_name: String,
-
-	#[serde(flatten)]
-	common_tag_fields: CommonTagFields<'a>,
-}
-
-impl<'a> TextTag<'a> {
-	fn tag_name(&self) -> &str {
-		self.tag_name.as_ref()
-	}
-
-	fn base_vars(&self) -> &TagVariables {
-		self.common_tag_fields.base_vars()
-	}
-
-	fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
-	}
-
-	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
-		self.common_tag_fields.base_children()
-	}
-
-	fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
-	}
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct ContainerTag<'a> {
 	clgn_path: String,
 
@@ -368,7 +337,6 @@ impl<'a> OtherTag<'a> {
 pub(crate) enum AnyChildTag<'a> {
 	Container(ContainerTag<'a>),
 	Image(ImageTag<'a>),
-	Text(TextTag<'a>),
 	Other(OtherTag<'a>),
 }
 
@@ -379,7 +347,6 @@ impl<'a> AnyChildTag<'a> {
 		match &self {
 			Container(t) => t.tag_name(),
 			Image(t) => t.tag_name(),
-			Text(t) => t.tag_name(),
 			Other(t) => t.tag_name(),
 		}
 	}
@@ -402,7 +369,6 @@ impl<'a> AnyChildTag<'a> {
 		Ok(match &self {
 			Container(t) => t.vars(),
 			Image(t) => t.base_vars(),
-			Text(t) => t.base_vars(),
 			Other(t) => t.base_vars(),
 		})
 	}
@@ -417,7 +383,6 @@ impl<'a> AnyChildTag<'a> {
 		let mut attrs = match &self {
 			Container(t) => raw_attrs_vec_to_subd_attrs_vec(t.attrs()?, context),
 			Image(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
-			Text(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
 			Other(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
 		}?;
 
@@ -439,7 +404,6 @@ impl<'a> AnyChildTag<'a> {
 		Ok(match &self {
 			Container(t) => t.children(),
 			Image(t) => t.base_children(),
-			Text(t) => t.base_children(),
 			Other(t) => t.base_children(),
 		})
 	}
@@ -454,7 +418,6 @@ impl<'a> AnyChildTag<'a> {
 		match &self {
 			Container(t) => t.text(),
 			Image(t) => Ok(Cow::Borrowed(t.base_text())),
-			Text(t) => Ok(Cow::Borrowed(t.base_text())),
 			Other(t) => Ok(Cow::Borrowed(t.base_text())),
 		}
 	}
