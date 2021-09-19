@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use super::DecodingContext;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -15,13 +13,12 @@ pub(crate) enum VariableSubstitutionError {
 	UnterminatedVariableName(String),
 }
 
-pub(super) fn do_variable_substitution<'a>(
-	s: &'a str,
-	context: &'a DecodingContext,
-) -> Result<Cow<'a, str>, VariableSubstitutionError> {
-	let vars_stack = context.vars_stacks_map();
-	if vars_stack.len() == 0 {
-		return Ok(Cow::Borrowed(s));
+pub(super) fn do_variable_substitution(
+	s: &str,
+	context: &DecodingContext,
+) -> Result<Option<String>, VariableSubstitutionError> {
+	if context.vars_map().len() == 0 {
+		return Ok(None);
 	}
 
 	enum ParseState {
@@ -36,6 +33,11 @@ pub(super) fn do_variable_substitution<'a>(
 	let mut parse_state = ParseState::Normal;
 	let mut prev_was_backslash = false;
 	let mut left = 0;
+
+	// let mut push_part_til_here = |i: usize, c: char| {
+	// 	string_result.push_str(&s[left..i]);
+	// 	left = i + c.len_utf8();
+	// };
 
 	for (i, c) in s.chars().into_iter().enumerate() {
 		match (prev_was_backslash, &parse_state, c) {
@@ -85,7 +87,7 @@ pub(super) fn do_variable_substitution<'a>(
 	match parse_state {
 		Normal => {
 			string_result.push_str(&s[left..]);
-			Ok(Cow::Owned(string_result))
+			Ok(Some(string_result))
 		}
 		InsideBracesValid | InsideBracesInvalid => Err(
 			VariableSubstitutionError::UnterminatedVariableName(s[left..].to_string()),

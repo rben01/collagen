@@ -1,90 +1,100 @@
-use super::EMPTY_VARS;
-use core::panic;
-use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map, VecDeque};
-use std::path::Path;
+use std::cell::{Ref, RefCell};
+use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map};
+use std::path::{Path, PathBuf};
+
+use crate::to_svg::svg_writable::ClgnDecodingResult;
 
 use super::data_types::{TagVariables, VariableValue};
 
-#[derive(Debug)]
-pub(crate) struct DecodingScope<'a> {
-	root_path: &'a Path,
-	vars: &'a TagVariables,
-}
-
-#[derive(Debug)]
+/// A context in which something can be decoded
+///
+/// Consists of the root path (for resolving relative paths) and a variable key-value
+/// map for performing variable subtition
+#[derive(Debug, Clone)]
 pub(crate) struct DecodingContext<'a> {
-	root_stack: Vec<&'a Path>,
-	vars_stacks_map: Map<&'a str, Vec<&'a VariableValue>>,
+	root_path: RefCell<PathBuf>, // can this be turned into a `Cow<'a, Path>`?
+	vars_map: RefCell<Map<&'a str, &'a VariableValue>>,
 }
 
 impl<'a> DecodingContext<'a> {
-	pub(crate) fn root_stack(&'a self) -> Vec<&'a Path> {
-		self.root_stack
+	pub(crate) fn vars_map(&self) -> Ref<Map<&'a str, &'a VariableValue>> {
+		self.vars_map.borrow()
 	}
 
-	pub(crate) fn vars_stacks_map(&'a self) -> Map<&'a str, Vec<&'a VariableValue>> {
-		self.vars_stacks_map
+	pub(crate) fn replace_root<P: AsRef<Path>>(&self, root: P) {
+		self.root_path.replace(root.as_ref().to_owned());
 	}
 
-	pub(crate) fn new_at_root<P: AsRef<Path> + 'a>(root_path: P) -> Self {
-		let root_stack = vec![root_path.as_ref()];
-		let vars_stacks_map = Map::new();
+	pub(crate) fn new_at_root<P: AsRef<Path>>(root_path: P) -> Self {
+		let root_path = RefCell::new(root_path.as_ref().to_owned());
+		let vars_map = RefCell::new(Map::new());
 
-		let context = DecodingContext {
-			root_stack,
-			vars_stacks_map,
-		};
-
-		context
-	}
-
-	pub(crate) fn push_root<P: AsRef<Path> + 'a>(&self, root_path: P) {
-		self.root_stack.push(root_path.as_ref());
-	}
-
-	pub(crate) fn pop_root(&self) {
-		self.root_stack.pop().unwrap();
-	}
-
-	pub(crate) fn get_root(&'a self) -> &'a Path {
-		self.root_stack.last().unwrap()
-	}
-
-	pub(crate) fn push_vars(&'a self, vars: &'a TagVariables) {
-		for (k, v) in vars.0.iter() {
-			self.vars_stacks_map
-				.entry(k.as_ref())
-				.or_insert(vec![])
-				.push(v);
+		DecodingContext {
+			root_path,
+			vars_map,
 		}
 	}
 
-	pub(crate) fn pop_vars(&'a self, vars: &'a TagVariables) {
-		for k in vars.0.keys() {
-			let entry = self.vars_stacks_map.entry(k);
-			match entry {
-				MapEntry::Occupied(entry) => {
-					let stack = entry.get_mut();
-					if stack.len() == 1 {
-						entry.remove();
-					} else {
-						stack.pop().unwrap();
+	// pub(crate) fn with_new_root<T, P: AsRef<Path>, F: FnOnce() -> ClgnDecodingResult<T>>(
+	// 	&self,
+	// 	new_root: P,
+	// 	f: F,
+	// ) -> ClgnDecodingResult<T> {
+	// 	let orig_path = self.root_path.replace(new_root.as_ref().to_owned());
+	// 	let result = f()?;
+	// 	self.root_path.replace(orig_path);
+	// 	Ok(result)
+	// }
+
+	pub(crate) fn get_root(&self) -> Ref<PathBuf> {
+		self.root_path.borrow()
+	}
+
+	pub(crate) fn with_new_vars<T, F: FnOnce() -> ClgnDecodingResult<T>>(
+		&self,
+		vars: &TagVariables,
+		f: F,
+	) -> ClgnDecodingResult<T> {
+		let mut orig_vars = Vec::<(&str, Option<&VariableValue>)>::new();
+
+		// Update `my_vars` with `vars`
+		let mut my_vars = self.vars_map.borrow_mut();
+		for (k, v) in vars.0.iter() {
+			let k = k.as_ref() as *const str;
+			let v = v as *const VariableValue;
+			unsafe {
+				let entry = my_vars.entry(&*k);
+				match entry {
+					MapEntry::Occupied(mut occ) => {
+						orig_vars.push((&*k, Some(occ.insert(&*v))));
 					}
-				}
-				MapEntry::Vacant(v) => {
-					panic!(
-						"Tried to pop key {:?}, which was not present in the vars stack {:?}",
-						k, self.vars_stacks_map
-					);
+					MapEntry::Vacant(vac) => {
+						orig_vars.push((&*k, None));
+						vac.insert(&*v);
+					}
 				}
 			}
 		}
+
+		// Remove the borrow_mut while f executes
+		drop(my_vars);
+
+		let result = f()?;
+
+		// Re-borrow_mut to restore to original state
+		let mut my_vars = self.vars_map.borrow_mut();
+		for (k, v) in orig_vars {
+			match v {
+				Some(v) => my_vars.insert(k, v),
+				None => my_vars.remove(k),
+			}
+			.unwrap(); // Panic if we had a logic error and a key somehow wasn't present
+		}
+
+		Ok(result)
 	}
 
-	pub(crate) fn get_var(&'a self, var: &'a str) -> Option<&'a VariableValue> {
-		self.vars_stacks_map
-			.get(var)
-			.map_or(None, |stack| stack.last())
-			.map(|vref| *vref)
+	pub(crate) fn get_var(&self, var: &str) -> Option<&'a VariableValue> {
+		self.vars_map.borrow().get(var).copied()
 	}
 }

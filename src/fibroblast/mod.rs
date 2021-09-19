@@ -38,12 +38,11 @@ use lazycell::LazyCell;
 use context::DecodingContext;
 use data_types::{AttrKVValueVec, SimpleValue, TagVariables, XmlAttrs};
 use serde::{Deserialize, Serialize};
-use std::borrow::{BorrowMut, Cow};
+use std::borrow::Cow;
 
-use std::collections::BTreeMap; // https://users.rust-lang.org/t/hashmap-vs-btreemap/13804/3
+use std::collections::BTreeMap as Map; // https://users.rust-lang.org/t/hashmap-vs-btreemap/13804/3
 use std::path::PathBuf;
 
-use crate::fibroblast::context::DecodingScope;
 use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
 use parse_vars::do_variable_substitution;
 
@@ -51,22 +50,61 @@ lazy_static! {
 	/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
 	/// `BTreeMap` doesn't allocate until it has at least one element, this really costs
 	/// almost nothing
-	pub(crate) static  ref EMPTY_ATTRS: XmlAttrs<'static> = XmlAttrs(BTreeMap::new());
-
-	pub(crate) static ref EMPTY_VARS: TagVariables = TagVariables(BTreeMap::new());
-
+	pub(crate) static ref EMPTY_ATTRS: XmlAttrs = XmlAttrs(Map::new());
+	pub(crate) static ref EMPTY_VARS: TagVariables = TagVariables(Map::new());
 }
 
-/// Traits common to all XML tags
-pub(crate) trait TagLike {
-	fn tag_name(&self) -> &str;
-	fn vars<'a>(&'a self, context: &'a DecodingContext) -> &Option<TagVariables>;
-	fn attrs<'a>(&'a self, context: &'a DecodingContext) -> ClgnDecodingResult<AttrKVValueVec<'a>>;
-	fn children<'a>(
-		&'a self,
-		context: &'a mut DecodingContext<'a>,
-	) -> ClgnDecodingResult<&[ChildTag]>;
-	fn text<'a>(&'a self, context: &'a DecodingContext) -> ClgnDecodingResult<Cow<'a, str>>;
+#[derive(Serialize, Deserialize, Debug)]
+struct CommonTagFields<'a> {
+	#[serde(default)]
+	vars: Option<TagVariables>,
+
+	#[serde(default)]
+	attrs: Option<XmlAttrs>,
+
+	#[serde(default)]
+	children: Option<Vec<AnyChildTag<'a>>>,
+
+	#[serde(default)]
+	text: Option<String>,
+}
+
+impl<'a> CommonTagFields<'a> {
+	fn base_vars(&self) -> &TagVariables {
+		match &self.vars {
+			None => &EMPTY_VARS,
+			Some(vars) => vars,
+		}
+	}
+
+	fn base_attrs(&self) -> &XmlAttrs {
+		match &self.attrs {
+			None => &EMPTY_ATTRS,
+			Some(attrs) => attrs,
+		}
+	}
+
+	fn base_children(&self) -> &[AnyChildTag<'a>] {
+		match &self.children {
+			None => &[],
+			Some(children) => children,
+		}
+	}
+
+	fn base_text(&self) -> &str {
+		match &self.text {
+			None => "",
+			Some(t) => t.as_ref(),
+		}
+	}
+}
+
+fn get_subd_text<'a>(text: &'a str, context: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
+	let subd_text = do_variable_substitution(text, context)?;
+	match subd_text {
+		None => Ok(Cow::Borrowed(text)),
+		Some(subd_text) => Ok(Cow::Owned(subd_text)),
+	}
 }
 
 /// By default, getting the attrs as a list of pairs is just iterating over the
@@ -78,15 +116,42 @@ fn raw_attrs_map_to_subd_attrs_vec<'a>(
 	let mut attrs = Vec::with_capacity(map.0.len());
 
 	for (k, v) in map.0.iter() {
-		let v = match v {
-			SimpleValue::Text(s) => {
-				let subd_text = do_variable_substitution(s, context)?;
+		let attr_val = if let SimpleValue::Text(s) = v {
+			let var_value = do_variable_substitution(s, context)?;
+			if let Some(subd_text) = var_value {
 				Cow::Owned(SimpleValue::Text(subd_text))
+			} else {
+				Cow::Borrowed(v)
 			}
-			_ => Cow::Borrowed(v),
+		} else {
+			Cow::Borrowed(v)
 		};
 
-		attrs.push((k.as_ref(), v));
+		attrs.push((k.as_ref(), attr_val));
+	}
+
+	Ok(attrs)
+}
+
+fn raw_attrs_vec_to_subd_attrs_vec<'a>(
+	vec: AttrKVValueVec<'a>,
+	context: &DecodingContext,
+) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	let mut attrs = Vec::with_capacity(vec.len());
+
+	for (k, v) in vec {
+		let attr_val = if let SimpleValue::Text(s) = v.as_ref() {
+			let var_value = do_variable_substitution(s, context)?;
+			if let Some(subd_text) = var_value {
+				Cow::Owned(SimpleValue::Text(subd_text)) as Cow<SimpleValue>
+			} else {
+				v
+			}
+		} else {
+			v
+		};
+
+		attrs.push((k, attr_val));
 	}
 
 	Ok(attrs)
@@ -95,23 +160,24 @@ fn raw_attrs_map_to_subd_attrs_vec<'a>(
 /// A tag for handling images. We handle images specially (that's the whole point), so
 /// we need a separate type for their tags.
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ImageTagExtras<'a> {
+pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
 	image_path: String,
 
-	/// The image "kind" (usually synonymous with file extension)
+	/// The image "kind" (usually synonymous with file extension). If `None`, will be
+	/// set to the file extension of `image_path`
 	#[serde(default)]
 	kind: Option<String>,
 
-	#[serde(default)]
-	children: Option<Vec<ChildTag<'a>>>,
+	#[serde(flatten)]
+	common_tag_fields: CommonTagFields<'a>,
 }
 
-impl<'a> ImageTagExtras<'a> {
+impl<'a> ImageTag<'a> {
 	/// The kind of the image (e.g., `"jpg"`, `"png"`). If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the file extension of `image_path`. A file
 	/// extension's case is ignored.
-	pub(crate) fn kind(&self) -> Option<Cow<'a, str>> {
+	pub(crate) fn kind(&'a self) -> Option<Cow<'a, str>> {
 		match &self.kind {
 			Some(kind) => Some(Cow::Borrowed(kind)),
 			None => {
@@ -143,201 +209,335 @@ impl<'a> ImageTagExtras<'a> {
 		// O(2*n). Ideally none of this would reside in memory, and we'd stream directly
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
-		let abs_image_path = context.root_path().join(&self.image_path);
+		let abs_image_path = context.get_root().join(&self.image_path);
 		let b64_string = base64::encode(std::fs::read(abs_image_path)?);
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 
 		Ok((key, Cow::Owned(SimpleValue::Text(src_str))))
 	}
 
-	fn children(&self) -> &[ChildTag] {
-		match &self.children {
-			Some(c) => c,
-			None => &[],
-		}
+	fn tag_name(&self) -> &str {
+		"image"
+	}
+
+	fn base_vars(&self) -> &TagVariables {
+		self.common_tag_fields.base_vars()
+	}
+
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.common_tag_fields.base_attrs()
+	}
+
+	fn base_children(&self) -> &[AnyChildTag<'a>] {
+		self.common_tag_fields.base_children()
+	}
+
+	fn base_text(&self) -> &str {
+		self.common_tag_fields.base_text()
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct ContainerTagExtras<'a> {
+pub(crate) struct TextTag<'a> {
+	#[serde(rename = "tag")]
+	tag_name: String,
+
+	#[serde(flatten)]
+	common_tag_fields: CommonTagFields<'a>,
+}
+
+impl<'a> TextTag<'a> {
+	fn tag_name(&self) -> &str {
+		self.tag_name.as_ref()
+	}
+
+	fn base_vars(&self) -> &TagVariables {
+		self.common_tag_fields.base_vars()
+	}
+
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.common_tag_fields.base_attrs()
+	}
+
+	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
+		self.common_tag_fields.base_children()
+	}
+
+	fn base_text(&self) -> &str {
+		self.common_tag_fields.base_text()
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub(crate) struct ContainerTag<'a> {
 	clgn_path: String,
 
 	#[serde(skip)]
 	#[serde(default)]
-	_child_clgn: LazyCell<RootTag<'a>>,
+	_child_clgn: LazyCell<Fibroblast<'a>>,
 }
 
-impl<'a> ContainerTagExtras<'a> {
-	pub(crate) fn children(
-		&'a self,
-		mut context: &'a mut DecodingContext<'a>,
-	) -> ClgnDecodingResult<&[ChildTag]> {
-		if !self._child_clgn.filled() {
-			let abs_clgn_path = context.root_path().join(&self.clgn_path);
-			let subroot = RootTag::from_dir(abs_clgn_path)?;
-			println!("{:?}", subroot);
+impl<'a> ContainerTag<'a> {
+	/// If not filled, fill in this `ContainerTag` with the `Fibroblast` given by
+	/// `self.clgn_path`. Always returns the contained `Fibroblast`
+	fn initialize(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&Fibroblast<'a>> {
+		match self._child_clgn.borrow() {
+			Some(fb) => Ok(fb),
+			None => {
+				let context = context.clone();
+				let abs_clgn_path = context.get_root().join(&self.clgn_path);
 
-			context.push_scope(DecodingScope {
-				root_path: abs_clgn_path.as_ref(),
-				vars: &EMPTY_VARS,
-			});
+				context.replace_root(&abs_clgn_path);
 
-			self._child_clgn.fill(subroot).ok();
+				let subroot = Fibroblast::from_dir_with_context(&abs_clgn_path, context)?;
+				self._child_clgn.fill(subroot).unwrap();
+				Ok(self._child_clgn.borrow().unwrap())
+			}
 		}
+	}
 
-		let children = self._child_clgn.borrow().unwrap().children(context);
-		return children;
+	pub(crate) fn as_fibroblast(&self) -> &Fibroblast<'a> {
+		self._child_clgn.borrow().unwrap()
+	}
+
+	// pub(crate) fn as_g_tag(
+	// 	&'a self,
+	// 	_: &DecodingContext<'a>,
+	// ) -> ClgnDecodingResult<AnyChildTag<'a>> {
+	// 	Ok(AnyChildTag::NestedRoot(NestedRootTag {
+	// 		root: &self._child_clgn.borrow().unwrap().root,
+	// 	}))
+	// }
+}
+
+impl<'a> ContainerTag<'a> {
+	fn tag_name(&self) -> &str {
+		"g"
+	}
+
+	fn vars(&'a self) -> &TagVariables {
+		self.as_fibroblast().vars()
+	}
+
+	fn attrs(&'a self) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+		self.as_fibroblast().attrs()
+	}
+
+	fn children(&'a self) -> &[AnyChildTag<'a>] {
+		self.as_fibroblast().children()
+	}
+
+	fn text(&'a self) -> ClgnDecodingResult<Cow<'a, str>> {
+		self.as_fibroblast().text()
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct OtherTagExtras<'a> {
+pub(crate) struct OtherTag<'a> {
 	#[serde(rename = "tag")]
 	tag_name: String,
 
-	#[serde(default)]
-	children: Option<Vec<ChildTag<'a>>>,
+	#[serde(flatten)]
+	common_tag_fields: CommonTagFields<'a>,
 }
 
-impl OtherTagExtras<'_> {
-	fn children(&self) -> &[ChildTag] {
-		match &self.children {
-			Some(c) => c,
-			None => &[],
-		}
+impl<'a> OtherTag<'a> {
+	fn tag_name(&self) -> &str {
+		self.tag_name.as_ref()
+	}
+
+	fn base_vars(&self) -> &TagVariables {
+		self.common_tag_fields.base_vars()
+	}
+
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.common_tag_fields.base_attrs()
+	}
+
+	fn base_children(&self) -> &[AnyChildTag<'a>] {
+		self.common_tag_fields.base_children()
+	}
+
+	fn base_text(&self) -> &str {
+		self.common_tag_fields.base_text()
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-enum ChildTagExtras<'a> {
-	Image(ImageTagExtras<'a>),
-	Container(ContainerTagExtras),
-	Other(OtherTagExtras<'a>),
+pub(crate) enum AnyChildTag<'a> {
+	Container(ContainerTag<'a>),
+	Image(ImageTag<'a>),
+	Text(TextTag<'a>),
+	Other(OtherTag<'a>),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct ChildTag<'a> {
-	#[serde(default)]
-	vars: Option<TagVariables>,
-
-	#[serde(default)]
-	attrs: Option<XmlAttrs<'a>>,
-
-	#[serde(default)]
-	text: Option<String>,
-
-	#[serde(flatten)]
-	tag_specific_extras: ChildTagExtras<'a>,
-}
-
-impl TagLike for ChildTag<'_> {
-	fn tag_name(&self) -> &str {
-		use ChildTagExtras::*;
-
-		match &self.tag_specific_extras {
-			Image(_) => "image",
-			Container(_) => "g",
-			Other(t) => &t.tag_name,
+impl<'a> AnyChildTag<'a> {
+	// This seems dumb. Any way to dedupe this?
+	pub(crate) fn tag_name(&self) -> &str {
+		use AnyChildTag::*;
+		match &self {
+			Container(t) => t.tag_name(),
+			Image(t) => t.tag_name(),
+			Text(t) => t.tag_name(),
+			Other(t) => t.tag_name(),
 		}
 	}
 
-	fn vars(&self, _: &DecodingContext) -> &Option<TagVariables> {
-		&self.vars
+	fn initialize(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
+		let ok = Ok(());
+		match &self {
+			AnyChildTag::Container(t) => t.initialize(context).and(ok),
+			_ => ok,
+		}
 	}
 
-	fn attrs<'a>(&'a self, context: &DecodingContext) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		use ChildTagExtras::*;
+	pub(crate) fn vars(
+		&'a self,
+		context: &'a DecodingContext<'a>,
+	) -> ClgnDecodingResult<&TagVariables> {
+		self.initialize(context)?;
 
-		let orig_attrs = match &self.attrs {
-			None => &EMPTY_ATTRS,
-			Some(attrs) => attrs,
-		};
+		use AnyChildTag::*;
+		Ok(match &self {
+			Container(t) => t.vars(),
+			Image(t) => t.base_vars(),
+			Text(t) => t.base_vars(),
+			Other(t) => t.base_vars(),
+		})
+	}
 
-		let mut attrs = raw_attrs_map_to_subd_attrs_vec(orig_attrs, context)?;
+	pub(crate) fn attrs(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+		self.initialize(context)?;
+
+		use AnyChildTag::*;
+		let mut attrs = match &self {
+			Container(t) => raw_attrs_vec_to_subd_attrs_vec(t.attrs()?, context),
+			Image(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
+			Text(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
+			Other(t) => raw_attrs_map_to_subd_attrs_vec(t.base_attrs(), context),
+		}?;
 
 		// If more cases arise, convert this to a match
-		if let Image(t) = &self.tag_specific_extras {
-			attrs.push(t.get_image_attr_pair(context)?)
+		if let AnyChildTag::Image(t) = self {
+			attrs.push(t.get_image_attr_pair(context)?);
 		}
 
 		Ok(attrs)
 	}
 
-	fn children<'a>(
+	pub(crate) fn children(
 		&'a self,
-		context: &'a mut DecodingContext<'a>,
-	) -> ClgnDecodingResult<&[ChildTag]> {
-		use ChildTagExtras::*;
+		context: &'a DecodingContext<'a>,
+	) -> ClgnDecodingResult<&'a [AnyChildTag]> {
+		self.initialize(context)?;
 
-		match &self.tag_specific_extras {
-			Container(t) => t.children(context),
-			Image(t) => Ok(t.children()),
-			Other(t) => Ok(t.children()),
-		}
+		use AnyChildTag::*;
+		Ok(match &self {
+			Container(t) => t.children(),
+			Image(t) => t.base_children(),
+			Text(t) => t.base_children(),
+			Other(t) => t.base_children(),
+		})
 	}
 
-	fn text<'a>(&'a self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
-		match &self.text {
-			None => Ok(Cow::Borrowed("")),
-			Some(s) => Ok(Cow::Owned(do_variable_substitution(s.as_ref(), context)?)),
+	pub(crate) fn text(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, str>> {
+		self.initialize(context)?;
+
+		use AnyChildTag::*;
+		match &self {
+			Container(t) => t.text(),
+			Image(t) => Ok(Cow::Borrowed(t.base_text())),
+			Text(t) => Ok(Cow::Borrowed(t.base_text())),
+			Other(t) => Ok(Cow::Borrowed(t.base_text())),
 		}
 	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct RootTag<'a> {
-	#[serde(default)]
-	vars: Option<TagVariables>,
-
-	#[serde(default)]
-	attrs: Option<XmlAttrs<'a>>,
-
-	#[serde(default)]
-	children: Option<Vec<ChildTag<'a>>>,
-
-	#[serde(default)]
-	text: Option<String>,
+	#[serde(flatten)]
+	common_tag_fields: CommonTagFields<'a>,
 }
 
-impl<'a> TagLike for RootTag<'a> {
-	fn tag_name(&self) -> &str {
+impl<'a> RootTag<'a> {
+	pub(crate) fn tag_name(&self) -> &str {
 		"svg"
 	}
 
-	fn vars(&self, _: &DecodingContext) -> &Option<TagVariables> {
-		&self.vars
+	fn base_vars(&self) -> &TagVariables {
+		self.common_tag_fields.base_vars()
 	}
 
-	fn attrs(&'a self, context: &DecodingContext) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		let orig_attrs = match &self.attrs {
-			None => &EMPTY_ATTRS,
-			Some(attrs) => attrs,
-		};
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.common_tag_fields.base_attrs()
+	}
 
-		let mut attrs = raw_attrs_map_to_subd_attrs_vec(orig_attrs, context)?;
+	fn base_children(&self) -> &[AnyChildTag<'a>] {
+		self.common_tag_fields.base_children()
+	}
 
-		if !orig_attrs.0.contains_key("xmlns") {
-			attrs.push((
+	fn base_text(&self) -> &str {
+		self.common_tag_fields.base_text()
+	}
+
+	pub(crate) fn vars(&self, _: &DecodingContext) -> &TagVariables {
+		self.base_vars()
+	}
+
+	pub(crate) fn attrs(
+		&'a self,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+		let base_attrs = self.base_attrs();
+
+		let mut new_attrs = raw_attrs_map_to_subd_attrs_vec(base_attrs, context)?;
+
+		if !base_attrs.0.contains_key("xmlns") {
+			new_attrs.push((
 				"xmlns",
 				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
 			));
 		}
 
-		Ok(attrs)
+		Ok(new_attrs)
 	}
 
-	fn text(&'a self, context: &'a DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
-		match &self.text {
-			None => Ok(Cow::Borrowed("")),
-			Some(s) => Ok(do_variable_substitution(s.as_ref(), context)?),
-		}
+	pub(crate) fn text(&'a self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
+		get_subd_text(self.base_text(), context)
 	}
 
-	fn children(&self, _: &mut DecodingContext) -> ClgnDecodingResult<&[ChildTag]> {
-		Ok(match &self.children {
-			Some(children) => children,
-			None => &[],
-		})
+	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
+		self.base_children()
+	}
+}
+
+#[derive(Debug)]
+pub(crate) struct Fibroblast<'a> {
+	pub(crate) root: RootTag<'a>,
+	pub(crate) context: DecodingContext<'a>,
+}
+
+impl<'a> Fibroblast<'a> {
+	pub(crate) fn attrs(&'a self) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+		self.root.attrs(&self.context)
+	}
+
+	pub(crate) fn vars(&self) -> &TagVariables {
+		self.root.vars(&self.context)
+	}
+
+	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
+		self.root.children()
+	}
+
+	pub(crate) fn text(&'a self) -> ClgnDecodingResult<Cow<'a, str>> {
+		self.root.text(&self.context)
 	}
 }
