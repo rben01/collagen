@@ -14,7 +14,7 @@
 		},
 		{
 			"tag": "text",
-			"text": "Top {text}",
+			"text": "Top {text} {x}",
 			"attrs": {
 				"x": 700,
 				"y": 200,

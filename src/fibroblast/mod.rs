@@ -417,8 +417,8 @@ impl<'a> AnyChildTag<'a> {
 		use AnyChildTag::*;
 		match &self {
 			Container(t) => t.text(),
-			Image(t) => Ok(Cow::Borrowed(t.base_text())),
-			Other(t) => Ok(Cow::Borrowed(t.base_text())),
+			Image(t) => get_subd_text(t.base_text(), context),
+			Other(t) => get_subd_text(t.base_text(), context),
 		}
 	}
 }

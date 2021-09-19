@@ -37,13 +37,14 @@ where
 	curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
 	writer.write_event(XmlEvent::Start(curr_elem))?;
 
-	// Write the tag's children
-	context.with_new_vars(tag.vars(context)?, || write_children(writer))?;
-
-	// Write the tag's text
-	writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
-		tag.text(context)?.as_ref(),
-	)))?;
+	// Write the tag's children and text
+	context.with_new_vars(tag.vars(context)?, || {
+		write_children(writer)?;
+		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
+			&tag.text(context)?,
+		)))?;
+		Ok(())
+	})?;
 
 	// Close the tag
 	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag.tag_name().as_bytes())))?;
