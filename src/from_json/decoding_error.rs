@@ -1,3 +1,4 @@
+use clap::Error as CliError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::io;
@@ -17,6 +18,7 @@ pub(crate) enum ClgnDecodingError {
 	JsonDecode(json::Error),
 	Xml(XmlError),
 	Image(String),
+	Cli(CliError),
 }
 
 impl From<VariableSubstitutionError> for ClgnDecodingError {
@@ -52,5 +54,11 @@ impl From<ZipError> for ClgnDecodingError {
 impl From<XmlError> for ClgnDecodingError {
 	fn from(err: XmlError) -> Self {
 		Self::Xml(err)
+	}
+}
+
+impl From<CliError> for ClgnDecodingError {
+	fn from(err: CliError) -> Self {
+		Self::Cli(err)
 	}
 }
