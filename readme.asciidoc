@@ -1,0 +1,164 @@
+= README
+:nofooter:
+:source-highlighter: coderay
+:icons: font
+:toc: left
+
+[WARNING]
+====
+This project is so, incredibly unfinished.
+What's currently in this repo is very much a MVP.
+====
+
+== Introduction
+
+=== One-Sentence Summary
+
+Collagen is a program that takes as input a folder containing zero or more image files
+(`.jpeg`, `.png`, etc.) and a JSON manifest file describing the layout of these images
+along with SVG components such as shapes and text, and produces as output a single SVG
+file with all assets embedded.
+
+=== Rationale
+
+There are several widely used image formats, perhaps the three best known of which are JPEG, PNG, and SVG.
+JPEG and PNG are link:https://en.wikipedia.org/wiki/Raster_graphics[raster formats], which means they correspond to a rectangular grid of pixels.
+On the other hand, SVG is a link:https://en.wikipedia.org/wiki/Vector_graphics[vector format].
+These three formats are each optimized for a different use case:
+
+- link:https://en.wikipedia.org/wiki/Jpeg[JPEG^] uses lossy compression that preserves visual quality on most "real-life" images -- images that contain smoothly-varying gradients -- but which produces link:https://en.wikipedia.org/wiki/Compression_artifact#Images[visible artifacts^] when used on other kinds of images, especially ones containing hard edges and/or text.
+- link:https://en.wikipedia.org/wiki/Portable_Network_Graphics[PNG^] uses lossless compression that handles images with few distinct colors well, but requires an inordinate amount of space for storing images with many colors.
+- link:https://en.wikipedia.org/wiki/Scalable_Vector_Graphics[SVG^] is a vector graphics format which can nevertheless contain embedded raster images; however, doing so requires base64 encoding the raster image.
+
+Because each of these image formats is optimized for only a single use case, they cannot be easily combined.
+For instance, overlaying text on a JPEG image will introduce compression artifacts that were not present in the original text, while overlaying a JPEG image on a PNG will cause the file size to balloon.
+
+_Collagen_ -- from "collage" and "generate"footnote:[
+	And because link:https://en.wikipedia.org/wiki/Collagen[collagen] is the protein that holds your body together.
+	`s/protein/tool/;s/body/images/`
+]
+-- aims to fix this problem by packing all types of images, as well as vector shapes and text, into a single SVG file, the actual rendering of which is left to an SVG viewer application (which includes most web browsers).
+This allows a user to combine several graphics into a single file that can be displayed as an image without compromising on visual quality or file size.footnote:[
+	Technically base64 encoding data does increase its size by about a third.
+	However, you don't need to pay this cost when transmitting the file; you can transmit the raw components and then use Collagen to encode them into an SVG on the receiving end.
+	In other words, Collagen is akin to compression such as gunzip; it allows smaller payloads to be transmitted as long as the receiving end can turn them back into something useful.
+]
+
+== Using Collagen
+
+The input to Collagen is a folder containing at the very least a `collagen.json` manifest file describing the layout of the resulting SVG.
+If the manifest specifies any image files (by their path relative to the folder), then those image files must also be present at the expected path in the folder.
+An input folder satisfying these criteria will be referred to as a _skeleton_.
+
+=== Example
+
+An example of a simple input-output pair is below.
+Suppose you have this simple skeleton:
+
+[source,text]
+----
+example-dir
+├── collagen.json
+└── images
+    └── smiley.jpg
+----
+
+Where link:/test/examples/example-01/images/smiley.jpg[`images/smiley.jpg`] is the following image (whose native size is 380×380 pixels):
+
+image::/test/examples/example-01/images/smiley.jpg[width=200px]
+
+And where link:/test/examples/example-01/collagen.json[`collagen.json`] contains the following:
+
+[source,json]
+--
+{
+  "vars": {
+    "bubble_text": "Collagen!!",
+    "nose_color": "#f00",
+    "text_color": "#000"
+  },
+  "attrs": { "viewBox": "0 0 500 400" },
+  "children": [
+    {
+      "image_path": "images/smiley.jpg",
+      "attrs": { "transform": "translate(0 100) scale(1.3)" }
+    },
+    {
+      "tag": "circle",
+      "attrs": {
+        "cx": 123,
+        "cy": 240,
+        "r": 15,
+        "fill": "{nose_color}",
+        "stroke": "#000",
+        "stroke-width": 3
+      }
+    },
+    {
+      "tag": "path",
+      "attrs": {
+        "d": "M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z",
+        "stroke": "#000",
+        "stroke-width": 3,
+        "fill": "none"
+      }
+    },
+    {
+      "tag": "text",
+      "text": "{bubble_text}",
+      "attrs": {
+        "x": 250,
+        "y": 100,
+        "text-anchor": "start",
+        "dominant-baseline": "top",
+        "font-family": "Impact",
+        "font-size": 30,
+        "fill": "{text_color}"
+      }
+    }
+  ]
+}
+--
+
+Then, running the following command:
+
+[source,bash]
+----
+cargo run -- -i example-dir -o out.svg <1>
+----
+<1> At some point `cargo run --` will be replaced with an actual standalone executable `clgn`.
+
+Will produce the following file, link:/test/example-01.svg[`out.svg`]:
+
+image::/test/example-01.svg[width=700]
+
+If you zoom in, you'll see the smiley face's pixels.
+But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth even when zoomed in.
+That's the whole point!
+
+== FAQ
+
+[qanda]
+Wait, so all this does is base64 encode images and put them in an SVG with other SVG elements?::
+It adds some additional features, such as nesting of skeletons and the use of tag-wide variables and interpolation of these variables in attributes.
+But yes, for the most part, all this project does is allow raster images to coexist with each other and with vector graphics.
+
+Couldn't I just do the base64 encoding and create the SVG myself?::
+Yes.
+All Collagen does it automate this.
+
+I want to put some text on a JPEG. What's so bad about just opening an image editor, adding the text, and pressing save?::
+The text will look bad because
+1. It will no be longer an infinitely zoomable vector entity, but instead will have been rasterized, i.e., rendered onto a fixed pixel grid that is only finitely zoomable.
+2. Jpeg in particular is not optimized for text, so artifacts will be visible (see link:https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&oldid=453916290[here]).
+
+I'm ok with text being rasterized. This means I can convert my JPEG to PNG and avoid #2 above, right?::
+Yes and no. While the text will look sort of ok (when not zoomed in), you now have the problem that your JPEG is being stored as a PNG.
+Chances are that this will cause the resulting file size to explode because PNG is simply not meant to store the kind of images that JPEG is meant to store.
+For instance, the JPEG below (link:https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&oldid=424889773[source]) is 57KB, whereas the PNG is 434KB.
++
+.A JPEG weighing in at 57KB
+image::/resources/Planta62.jpg[width=300]
++
+.The equivalent PNG weighs in at 434KB
+image::/resources/Planta62.png[width=300]
