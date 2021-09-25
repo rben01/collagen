@@ -35,7 +35,7 @@
 			"text": "{bubble_text}",
 			"attrs": {
 				"x": 250,
-				"y": 100,
+				"y": 97,
 				"text-anchor": "start",
 				"dominant-baseline": "top",
 				"font-family": "Impact",
