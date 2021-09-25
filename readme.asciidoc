@@ -121,13 +121,14 @@ And where link:/test/examples/example-01/collagen.json[`collagen.json`] contains
 }
 --
 
-Then, running the following command:
+Then, running the following command:footnote:[
+	At some point `cargo run --` will be replaced with an actual standalone executable `clgn`.
+]
 
 [source,bash]
 ----
-cargo run -- -i example-dir -o out.svg <1>
+cargo run -- -i example-dir -o out.svg
 ----
-<1> At some point `cargo run --` will be replaced with an actual standalone executable `clgn`.
 
 Will produce the following file, link:/test/example-01.svg[`out.svg`]:
 
@@ -136,6 +137,8 @@ image::/test/example-01.svg[width=700]
 If you zoom in, you'll see the smiley face's pixels.
 But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
 That's the whole point!
+Perfectly precise vector graphics can coexist alongside raster graphics.
+(This simple example shows just one image, but of course we could include arbitrarily many by simply adding more children of the form `{"image_path": <path>}`.)
 
 == FAQ
 
@@ -164,3 +167,12 @@ image::/resources/Planta62.jpg[width=300]
 +
 .The equivalent PNG weighs in at 434KB
 image::/resources/Planta62.png[width=300]
+
+But surely just placing black text on top of an all-white PNG is fine? Because it's stored losslessly?::
+Sure, _if_ you don't mind your text being rasterized, i.e., not perfectly precise and infinitely zoomable.
+The image below is black text on a white background.
++
+image::/resources/text_png.png[]
++
+You don't have to zoom in very far to see the text get fuzzy.
+In contrast, the text in the smiley-face image above (and, naturally, the text on this webpage) is perfectly precise and will retain all of its detail at arbitrary magnification.
