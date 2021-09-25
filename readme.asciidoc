@@ -101,7 +101,7 @@ And where link:/test/examples/example-01/collagen.json[`collagen.json`] contains
         "d": "M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z",
         "stroke": "#000",
         "stroke-width": 3,
-        "fill": "none"
+        "fill": "#fff"
       }
     },
     {
