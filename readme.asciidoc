@@ -72,8 +72,60 @@ And where link:/examples/example-02/example-01/collagen.json[`collagen.json`] co
 
 [source,json,indent=0,tabsize=2]
 ----
-include::./examples/example-02/example-01/collagen.json[]
+{
+  "vars": { <1>
+    "bubble_text": "Collagen!!",
+    "nose_color": "#f00",
+    "text_color": "#000"
+  },
+  "attrs": { "viewBox": "0 0 500 400" },
+  "children": [
+    {
+      "image_path": "images/smiley.jpg", <2>
+      "attrs": { "transform": "translate(0 100) scale(1.3)" }
+    },
+    {
+      "tag": "circle", <3>
+      "attrs": {
+        "cx": 123,
+        "cy": 240,
+        "r": 15,
+        "fill": "{nose_color}",
+        "stroke": "#000",
+        "stroke-width": 3
+      }
+    },
+    {
+      "tag": "path",
+      "attrs": {
+        "d": "M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z",
+        "stroke": "#000",
+        "stroke-width": 3,
+        "fill": "#fff"
+      }
+    },
+    {
+      "tag": "text",
+      "text": "{bubble_text}", <4>
+      "attrs": {
+        "x": 250,
+        "y": 97,
+        "text-anchor": "start",
+        "dominant-baseline": "top",
+        "font-family": "Impact",
+        "font-size": 30,
+        "fill": "{text_color}"
+      }
+    }
+  ]
+}
 ----
+<1> A dictionary of variables. In `text` and `attrs` values, variables enclosed in curly brackets will have their value substituted.
+For example, if `vars` contains values for `dx` and `dy`, then a translation could be applied with `transform: translate({dx} {dy})`.
+If a child's `vars` doesn't contain a variable that the child needs the value of, the variable's value will be looked up by walking up the list of ancestors until the root is reached (i.e., variable scopes are nested).
+<2> To include an image, just give its relative path.
+<3> Most other tags are specified with the `tag` field, which contains the name of the SVG tag to use.
+<4> If a tag has a `text` field, the given text will be the content of the tag, as in `<text>your text here</text>`.
 
 Then, running the following command:footnote:[
 	At some point `cargo run --` will be replaced with an actual standalone executable `clgn`.
@@ -99,28 +151,59 @@ Perfectly precise vector graphics can coexist alongside raster graphics.
 As we've seen, we can include raster images in skeletons; it would be silly if we couldn't also include other skeletons!
 Nested skeletons can be included by adding a child of the form `{"clgn_path": <path>}`.
 (Whereas a standalone skeleton gets turned into a `<svg>` tag, a nested skeleton will reside in a `<g>` tag.)
-Let's include the above skeleton in another:
+Let's include the above skeleton in another (and just for fun, let's add a photo of a kitten (link:https://commons.wikimedia.org/w/index.php?title=File:Cute_grey_kitten.jpg&oldid=479136954[source]) too, because why not):
 
 [source,text]
 ----
 example-02
 ├── collagen.json
-└── example-01
-    ├── collagen.json
-    └── images
-        └── smiley.jpg
+├── example-01
+│   ├── collagen.json
+│   └── images
+│       └── smiley.jpg
+└── kitty.jpg
 ----
 
 Where link:/examples/example-02/collagen.json[`example-02/collagen.json`] is below:
 
 [source,json,indent=0,tabsize=2]
 ----
-include::./examples/example-02/collagen.json[]
+{
+  "attrs": { "viewBox": "0 0 300 250" },
+  "children": [
+    {
+      "tag": "rect",
+      "attrs": {
+        "x": "10",
+        "y": "10",
+        "width": "275",
+        "height": "225",
+        "fill": "#ddd",
+        "stroke": "#00f",
+        "stroke-width": "10",
+        "stroke-dasharray": "10 10"
+      }
+    },
+    {
+      "tag": "g",
+      "attrs": { "transform": "translate(50 25) scale(.5)" },
+      "children": [
+        {
+          "clgn_path": "./example-01"
+        }
+      ]
+    },
+    {
+      "image_path": "./kitty.jpg",
+      "attrs": { "transform": "translate(180 150) scale(.15)" }
+    }
+  ]
+}
 ----
 
 Here's the result (link:/examples/svgs/example-02.svg[link]) when you run `cargo run \-- -i example-02 -o example-02.svg`:
 
-image::/examples/svgs/example-02.svg[width=300]
+image::/examples/svgs/example-02.svg[width=600]
 
 So, as far as Collagen is concerned, skeletons act more or less the same as raster images, in the sense that the path is sufficient to include them.
 The only difference is that the path to a skeleton child is given by the key `clgn_path` instead of `image_path`.

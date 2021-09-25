@@ -8,8 +8,8 @@
 				"y": "10",
 				"width": "275",
 				"height": "225",
-				"fill": "#00f",
-				"stroke": "#000",
+				"fill": "#ddd",
+				"stroke": "#00f",
 				"stroke-width": "10",
 				"stroke-dasharray": "10 10"
 			}
@@ -22,6 +22,10 @@
 					"clgn_path": "./example-01"
 				}
 			]
+		},
+		{
+			"image_path": "./kitty.jpg",
+			"attrs": { "transform": "translate(180 150) scale(.15)" }
 		}
 	]
 }
