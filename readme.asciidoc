@@ -8,6 +8,7 @@
 ====
 This project is so, incredibly unfinished.
 What's currently in this repo is very much a MVP.
+There are no tests and barely any documentation (yet!).
 ====
 
 == Introduction
@@ -23,7 +24,7 @@ file with all assets embedded.
 
 There are several widely used image formats, perhaps the three best known of which are JPEG, PNG, and SVG.
 JPEG and PNG are link:https://en.wikipedia.org/wiki/Raster_graphics[raster formats], which means they correspond to a rectangular grid of pixels.
-On the other hand, SVG is a link:https://en.wikipedia.org/wiki/Vector_graphics[vector format].
+On the other hand, SVG is a link:https://en.wikipedia.org/wiki/Vector_graphics[vector format], which means it describes perfectly precise curves that can be displayed with arbitrarily high precision.
 These three formats are each optimized for a different use case:
 
 - link:https://en.wikipedia.org/wiki/Jpeg[JPEG^] uses lossy compression that preserves visual quality on most "real-life" images -- images that contain smoothly-varying gradients -- but which produces link:https://en.wikipedia.org/wiki/Compression_artifact#Images[visible artifacts^] when used on other kinds of images, especially ones containing hard edges and/or text.
@@ -41,7 +42,7 @@ _Collagen_ -- from "collage" and "generate"footnote:[
 This allows a user to combine several graphics into a single file that can be displayed as an image without compromising on visual quality or file size.footnote:[
 	Technically base64 encoding data does increase its size by about a third.
 	However, you don't need to pay this cost when transmitting the file; you can transmit the raw components and then use Collagen to encode them into an SVG on the receiving end.
-	In other words, Collagen is akin to compression such as gunzip; it allows smaller payloads to be transmitted as long as the receiving end can turn them back into something useful.
+	In other words, Collagen is akin to compression such as gunzip: it allows a smaller payload to be transmitted as long as the receiving end can turn it back into something useful.
 ]
 
 == Using Collagen
@@ -133,7 +134,7 @@ Will produce the following file, link:/test/example-01.svg[`out.svg`]:
 image::/test/example-01.svg[width=700]
 
 If you zoom in, you'll see the smiley face's pixels.
-But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth even when zoomed in.
+But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
 That's the whole point!
 
 == FAQ
@@ -149,8 +150,9 @@ All Collagen does it automate this.
 
 I want to put some text on a JPEG. What's so bad about just opening an image editor, adding the text, and pressing save?::
 The text will look bad because
-1. It will no be longer an infinitely zoomable vector entity, but instead will have been rasterized, i.e., rendered onto a fixed pixel grid that is only finitely zoomable.
-2. Jpeg in particular is not optimized for text, so artifacts will be visible (see link:https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&oldid=453916290[here]).
++
+. It will no be longer an infinitely zoomable vector entity, but instead will have been rasterized, i.e., rendered onto a fixed pixel grid that is only finitely zoomable.
+. JPEG in particular is not optimized for text, so artifacts will be visible (see link:https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&oldid=453916290[here]).
 
 I'm ok with text being rasterized. This means I can convert my JPEG to PNG and avoid #2 above, right?::
 Yes and no. While the text will look sort of ok (when not zoomed in), you now have the problem that your JPEG is being stored as a PNG.
