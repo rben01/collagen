@@ -1,3 +1,5 @@
+//! The command line interface for this app
+
 use clap::{App, Arg, ArgMatches};
 
 use crate::{fibroblast::Fibroblast, to_svg::svg_writable::ClgnDecodingResult};

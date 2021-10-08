@@ -1,3 +1,7 @@
+//! Implements the decoding methods for [`Fibroblast`], which let you produce a
+//! `Fibroblast` from some serialized data (e.g. a directory with the necessary manifest
+//! and files)
+
 use super::decoding_error::ClgnDecodingResult;
 use crate::fibroblast::{context::DecodingContext, Fibroblast, RootTag};
 use serde_json;

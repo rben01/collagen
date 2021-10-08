@@ -1,3 +1,15 @@
+//! This file contains `struct DecodingContext`, a type whose instances hold everything
+//! needed to decode an object. This is needed because (AFAICT) `serde` lacks the
+//! ability to inject external state into the deserialization process. As a result,
+//! objects are deserialied into a state which does not contain all information needed
+//! for decoding; supplying the context in which they are being decoded allows one to
+//! complete the decoding.
+//!
+//! Example: paths are specified relative to some "root path" which is determined at
+//! runtime and is not (de)serialized. So in order for the full path to be obtained from
+//! a deserialized `path`, the root path must also be supplied; only then can decoding
+//! proceed.
+
 use std::cell::{Ref, RefCell};
 use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map};
 use std::path::{Path, PathBuf};
@@ -50,16 +62,33 @@ impl<'a> DecodingContext<'a> {
 		self.root_path.borrow()
 	}
 
+	/// Append the given variables to self (i.e., introduce them as a nested scope),
+	/// call `f()` in this scope. `self` is not mutated.
+	///
+	/// Actually `self` *is* mutated via `RefCell`, but only temporarily -- it is
+	/// modified to create the correct state for `f` to be called in and then it's
+	/// restored to its original state so that it is as if it had never changed at all.
+	/// (It might be regarded as "net non-mutating".) For this reason, this function is
+	/// almost certainly not thread safe.
 	pub(crate) fn with_new_vars<T, F: FnOnce() -> ClgnDecodingResult<T>>(
 		&self,
 		vars: &TagVariables,
 		f: F,
 	) -> ClgnDecodingResult<T> {
+		// This function requires a little trickery. Since we're adding `&str` keys to
+		// `self`'s map, the Rust compiler thinks those keys need to outlive `self`.
+		// But, actually, they *don't* need to because `self` is restored to its
+		// original state before this function returns; those keys definitely won't be
+		// dropped before being removed from the map. But the Rust compiler can't figure
+		// this out. Hence the use of `unsafe`.
+
 		let mut orig_vars = Vec::<(&str, Option<&VariableValue>)>::new();
 
 		// Update `my_vars` with `vars`
 		let mut my_vars = self.vars_map.borrow_mut();
 		for (k, v) in vars.0.iter() {
+			// See comment above for why this is safe. tl;dr the short-lived entries are
+			// removed from the map before they have a chance to be dropped
 			let k = k.as_ref() as *const str;
 			let v = v as *const VariableValue;
 			unsafe {
@@ -95,6 +124,9 @@ impl<'a> DecodingContext<'a> {
 	}
 
 	pub(crate) fn get_var(&self, var: &str) -> Option<&'a VariableValue> {
+		// Nothing is really copied here; self.vars_map.borrow().get(var) returns a
+		// double reference `&&T`, which we just want to turn into a `&T` (so, sure, a
+		// pointer is copied. NBD)
 		self.vars_map.borrow().get(var).copied()
 	}
 }

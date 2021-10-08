@@ -1,4 +1,5 @@
-/// Contains the data types used for the in-memory representation of a `Fibroblast`
+//! Contains the data types used for the in-memory representation of a `Fibroblast`
+
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::collections::BTreeMap as Map;
@@ -25,7 +26,7 @@ enum Value {
 	Simple(SimpleValue),
 }
 
-/// An enum whose variants represent "simple" (indivisible) values.
+/// An enum whose variants represent "simple" (indivisible) values
 #[derive(Debug)]
 pub(crate) enum SimpleValue {
 	Number(ConcreteNumber),
@@ -177,6 +178,7 @@ impl<'de> Deserialize<'de> for SimpleValue {
 	}
 }
 
+/// The value of a variable; either a number or a string
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub(crate) enum VariableValue {

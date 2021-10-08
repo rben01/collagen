@@ -4,29 +4,38 @@
 //! The module that defines the structs that form the in-memory representation of a
 //! Collagen file
 //!
-//! This file defines one trait and three main types that all implement the trait:
-//! 1. [`TagLike`], the trait for all tag-like objects
-//! 1. [`RootTag`], the SVG document root
-//! 1. [`ChildTag`], an enum wrapping any of the various child tag types
-//! 1. Concrete child tags, which include tags that need special handling, such as
-//!    [`ImageTag`], as well as the general [`OtherTag`], which covers all other SVG
-//!    tags. These are wrapped in a variant of [`ChildTag`]
+//! This file contains the following types:
+//! 1. `struct` [`RootTag`], which represents the SVG root (`<svg>...</svg>`)
+//! 1. `enum` [`AnyChildTag`], whose variants are the distinct kinds of child tags. Most
+//!    tags are representible by the catchall variant `Other(OtherTag)`, but if a tag is
+//!    best expressed as a more specific type, then you can just create that type and
+//!    add a variant to `AnyChildTag` that wraps it. The current variants of
+//!    `AnyChildTag` are:
+//!     1. [`Container(ContainerTag)`](self::ContainerTag), which is used for nested
+//!        Collagen files
+//!     1. [`Image(ImageTag)`](self::ImageTag), which is used for embedded images
+//!     1. [`Other(OtherTag)`](self::OtherTag), which is used for everything else
+//! 1. The types wrapped by variants of [`AnyChildTag`]
+//! 1. `struct` [`CommonTagFields`], which is a simple type holding the members common
+//!    to all tags (tag name, attributes, children, etc.)
 //!
-//! In this file, serialization and deserialization are implemented for all `TagLike`
-//! types. For most `TagLike` types, `#[derive(Serialize, Deserialize)]` is sufficient
-//! to adopt the correct behavior.
+//! Serialization and deserialization are implemented for all tag-like types. For most
+//! tag-like types, `#[derive(Serialize, Deserialize)]` is sufficient to adopt the
+//! correct behavior.
 //!
-//! CAUTION: For simplicity, [`ChildTag`] uses `serde`'s `untagged` deserialization
+//! CAUTION: For simplicity, [`AnyChildTag`] uses `serde`'s `untagged` deserialization
 //! option. This means that the choice of variant into which a map will be decoded is
-//! determined entirely by the map's keys. Therefore, when defining a new kind of child
-//! tag, you must ensure that the set of fields required to deserialize it neither
-//! contains nor is contained by the set of required fields of any other child tag;
-//! otherwise deserialization will be ambiguous.[^ambiguity] Note that a Struct's set of
-//! *required* fields may be quite small, so be mindful when choosing names for keys.
+//! determined entirely by the map's keys. For instance, the presence of the
+//! `"image_path"` key will cause the tag to be decoded into an [`ImageTag`]. Therefore,
+//! when defining a new kind of child tag, you must ensure that the set of fields
+//! required to deserialize it neither contains nor is contained by the set of required
+//! fields of any other child tag; otherwise deserialization will be
+//! ambiguous.[^ambiguity] Note that a struct's set of *required* fields may be quite
+//! small, so be mindful when choosing names for keys.
 //!
 //! [^ambiguity] Technically, it's not ambiguous; `serde` picks the first variant for
 //! which deserialization succeeds, so it depends on the order of the variants of
-//! [`ChildTag`].
+//! [`AnyChildTag`].
 
 pub(crate) mod context;
 pub(super) mod data_types;
@@ -133,6 +142,8 @@ fn raw_attrs_map_to_subd_attrs_vec<'a>(
 	Ok(attrs)
 }
 
+/// Like [`raw_attrs_map_to_subd_attrs_vec()`], but takes a `Vec` as input instead of
+/// some kind of `Map`
 fn raw_attrs_vec_to_subd_attrs_vec<'a>(
 	vec: AttrKVValueVec<'a>,
 	context: &DecodingContext,
@@ -143,7 +154,7 @@ fn raw_attrs_vec_to_subd_attrs_vec<'a>(
 		let attr_val = if let SimpleValue::Text(s) = v.as_ref() {
 			let var_value = do_variable_substitution(s, context)?;
 			if let Some(subd_text) = var_value {
-				Cow::Owned(SimpleValue::Text(subd_text)) as Cow<SimpleValue>
+				Cow::Owned(SimpleValue::Text(subd_text))
 			} else {
 				v
 			}
@@ -188,6 +199,8 @@ impl<'a> ImageTag<'a> {
 		}
 	}
 
+	/// Get the key-value pair (as a tuple) that makes the image actually work! (E.g.,
+	/// the tuple `("href", "data:image/jpeg;base64,...")`)
 	pub(crate) fn get_image_attr_pair(
 		&'a self,
 		context: &DecodingContext,
@@ -237,6 +250,8 @@ impl<'a> ImageTag<'a> {
 	}
 }
 
+/// `ContainerTag` allows the nesting of Collagen files. By specifying the relative path
+/// to another skeleton, that skeleton will be included as-is in the current skeleton.
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct ContainerTag<'a> {
 	clgn_path: String,
@@ -291,6 +306,9 @@ impl<'a> ContainerTag<'a> {
 	}
 }
 
+/// A generic tag that doesn't need to be handled specially. (e.g., `<rect>` needs no
+/// special handling and so would be suitable for `OtherTag`, whereas `<image>` needs
+/// some extra work and thus requires the specific `Imagetag`)
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct OtherTag<'a> {
 	#[serde(rename = "tag")]
@@ -322,6 +340,7 @@ impl<'a> OtherTag<'a> {
 	}
 }
 
+/// A wrapper for any child tag
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub(crate) enum AnyChildTag<'a> {
@@ -471,6 +490,7 @@ impl<'a> RootTag<'a> {
 	}
 }
 
+/// The whole shebang: both the (context-less) root tag
 #[derive(Debug)]
 pub(crate) struct Fibroblast<'a> {
 	pub(crate) root: RootTag<'a>,
