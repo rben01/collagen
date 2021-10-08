@@ -1,3 +1,13 @@
+//! Lots can go wrong while decoding. Let's codify that! This file provides the `enum`
+//! [`ClgnDecodingError`], which wraps all the various errors that an arise during the
+//! decoding process. This file also provides [`ClgnDecodingResult<T>`] which is a
+//! [`Result`] whose `Err` variant wraps a `ClgnDecodingError`.
+//!
+//! For ergonomics, `ClgnDecodingError` gets a `From` implementation for each type one
+//! of its variants wraps. This lets the `?` operator "just work" in any function
+//! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
+//! everywhere.)
+
 use clap::Error as CliError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
