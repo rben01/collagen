@@ -14,6 +14,9 @@ use std::cell::{Ref, RefCell};
 use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map};
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
+use std::str::FromStr;
+
 use crate::to_svg::svg_writable::ClgnDecodingResult;
 
 use super::data_types::{TagVariables, VariableValue};
@@ -37,14 +40,27 @@ impl<'a> DecodingContext<'a> {
 		self.root_path.replace(root.as_ref().to_owned())
 	}
 
-	pub(crate) fn new_at_root<P: AsRef<Path>>(root_path: P) -> Self {
-		let root_path = RefCell::new(root_path.as_ref().to_owned());
-		let vars_map = RefCell::new(Map::new());
+	pub(crate) fn new<I: IntoIterator<Item = (&'a str, &'a VariableValue)>>(
+		root_path: PathBuf,
+		vars_intoiter: I,
+	) -> Self {
+		let vars_ref_map = vars_intoiter.into_iter().collect();
 
-		DecodingContext {
-			root_path,
-			vars_map,
+		Self {
+			root_path: RefCell::new(root_path),
+			vars_map: RefCell::new(vars_ref_map),
 		}
+	}
+
+	#[cfg(test)]
+	pub(crate) fn new_with_varsintoiter<I: IntoIterator<Item = (&'a str, &'a VariableValue)>>(
+		vars_vec: I,
+	) -> Self {
+		Self::new(PathBuf::from_str("").unwrap(), vars_vec)
+	}
+
+	pub(crate) fn new_at_root<P: AsRef<Path>>(root_path: P) -> Self {
+		Self::new(root_path.as_ref().to_owned(), Map::new())
 	}
 
 	pub(crate) fn with_new_root<T, P: AsRef<Path>, F: FnOnce() -> ClgnDecodingResult<T>>(
@@ -128,5 +144,69 @@ impl<'a> DecodingContext<'a> {
 		// double reference `&&T`, which we just want to turn into a `&T` (so, sure, a
 		// pointer is copied. NBD)
 		self.vars_map.borrow().get(var).copied()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+
+	use super::*;
+
+	#[test]
+	fn test_empty_vars() {
+		let context = DecodingContext::new_with_varsintoiter(vec![]);
+
+		assert_eq!(context.vars_map().len(), 0);
+
+		let v1 = context.get_var("");
+		assert!(v1.is_none());
+
+		let v2 = context.get_var("x");
+		assert!(v2.is_none());
+	}
+
+	#[test]
+	fn test_nonempty_vars() {
+		use super::super::data_types::ConcreteNumber as CN;
+		use VariableValue::*;
+
+		let xyz_ref = "xyz";
+		let xyz_string = String(xyz_ref.to_string());
+		let context = DecodingContext::new_with_varsintoiter(vec![
+			("a", &Number(CN::Int(1))),
+			("b", &Number(CN::UInt(2))),
+			("c", &Number(CN::Float(3.0))),
+			("d", &xyz_string),
+		]);
+
+		assert_eq!(context.vars_map().len(), 4);
+
+		match context.get_var("a") {
+			Some(Number(CN::Int(1))) => {}
+			_ => {
+				panic!("Expected key \"a\" to have value 1 (i64)")
+			}
+		};
+
+		match context.get_var("b") {
+			Some(Number(CN::UInt(2))) => {}
+			_ => {
+				panic!("Expected key \"b\" to have value 2 (u64)")
+			}
+		};
+
+		match context.get_var("c") {
+			Some(Number(CN::Float(v))) if v.eq(&3.0) => {}
+			_ => {
+				panic!("Expected key \"c\" to have value 3.0 (f64)")
+			}
+		};
+
+		match context.get_var("d") {
+			Some(String(s)) if s == xyz_ref => {}
+			_ => {
+				panic!("Expected key \"d\" to have value \"xyz\" (String)")
+			}
+		};
 	}
 }

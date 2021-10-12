@@ -35,11 +35,6 @@ pub(super) fn do_variable_substitution(
 	let mut prev_was_backslash = false;
 	let mut left = 0;
 
-	// let mut push_part_til_here = |i: usize, c: char| {
-	// 	string_result.push_str(&s[left..i]);
-	// 	left = i + c.len_utf8();
-	// };
-
 	for (i, c) in s.chars().into_iter().enumerate() {
 		match (prev_was_backslash, &parse_state, c) {
 			(false, _, '\\') => {
@@ -95,3 +90,12 @@ pub(super) fn do_variable_substitution(
 		),
 	}
 }
+
+// #[cfg(test)]
+// mod tests {
+// 	use super::*;
+// 	fn test_empty_vars() {
+// 		let s = "";
+// 		let context = DecodingContext::new_with_varsintoiter(vec![]);
+// 	}
+// }

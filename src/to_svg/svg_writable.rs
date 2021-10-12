@@ -12,6 +12,13 @@ use quick_xml::Writer as XmlWriter;
 use std::fmt::Debug;
 use std::io::Cursor;
 
+/// Writes `tag` to SVG (aka XML) through an `XmlWriter`, with a `DecodingContext`.
+/// Calls `write_children` when it's time to write the children
+///
+/// Note that this is *not* just a copy-paste of [`roottag_to_svg_through_writer_with`],
+/// which takes a [`RootTag`] instead of an [`AnyChildTag`] and therefore some of the
+/// variables are of different type (i.e., where this function uses `f()?`,
+/// [`roottag_to_svg_through_writer_with`] might use `f()`.)
 fn anychildtag_to_svg_through_writer_with<'a, W, F>(
 	tag: &'a AnyChildTag<'a>,
 	context: &'a DecodingContext<'a>,
@@ -47,7 +54,7 @@ where
 	})?;
 
 	// Close the tag
-	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag.tag_name().as_bytes())))?;
+	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag_name_bytes)))?;
 
 	Ok(())
 }
@@ -87,7 +94,7 @@ where
 	})?;
 
 	// Close the tag
-	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag.tag_name().as_bytes())))?;
+	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag_name_bytes)))?;
 
 	Ok(())
 }
