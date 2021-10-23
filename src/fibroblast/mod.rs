@@ -110,10 +110,7 @@ impl<'a> CommonTagFields<'a> {
 
 fn get_subd_text<'a>(text: &'a str, context: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
 	let subd_text = do_variable_substitution(text, context)?;
-	match subd_text {
-		None => Ok(Cow::Borrowed(text)),
-		Some(subd_text) => Ok(Cow::Owned(subd_text)),
-	}
+	Ok(subd_text)
 }
 
 /// By default, getting the attrs as a list of pairs is just iterating over the
@@ -127,10 +124,9 @@ fn raw_attrs_map_to_subd_attrs_vec<'a>(
 	for (k, v) in map.0.iter() {
 		let attr_val = if let SimpleValue::Text(s) = v {
 			let var_value = do_variable_substitution(s, context)?;
-			if let Some(subd_text) = var_value {
-				Cow::Owned(SimpleValue::Text(subd_text))
-			} else {
-				Cow::Borrowed(v)
+			match var_value {
+				Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
+				Cow::Borrowed(_) => Cow::Borrowed(v),
 			}
 		} else {
 			Cow::Borrowed(v)
@@ -153,10 +149,9 @@ fn raw_attrs_vec_to_subd_attrs_vec<'a>(
 	for (k, v) in vec {
 		let attr_val = if let SimpleValue::Text(s) = v.as_ref() {
 			let var_value = do_variable_substitution(s, context)?;
-			if let Some(subd_text) = var_value {
-				Cow::Owned(SimpleValue::Text(subd_text))
-			} else {
-				v
+			match var_value {
+				Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
+				Cow::Borrowed(_) => v,
 			}
 		} else {
 			v

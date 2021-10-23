@@ -88,6 +88,19 @@ pub(crate) enum ConcreteNumber {
 	Float(f64),
 }
 
+#[cfg(test)]
+impl std::cmp::PartialEq for ConcreteNumber {
+	fn eq(&self, other: &Self) -> bool {
+		use ConcreteNumber::*;
+		match (self, other) {
+			(Int(x1), Int(x2)) => x1 == x2,
+			(UInt(x1), UInt(x2)) => x1 == x2,
+			(Float(x1), Float(x2)) => x1 == x2,
+			_ => false,
+		}
+	}
+}
+
 impl std::fmt::Display for ConcreteNumber {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use self::ConcreteNumber::*;
@@ -180,6 +193,7 @@ impl<'de> Deserialize<'de> for SimpleValue {
 
 /// The value of a variable; either a number or a string
 #[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(test, derive(Clone, PartialEq))]
 #[serde(untagged)]
 pub(crate) enum VariableValue {
 	Number(ConcreteNumber),
@@ -192,5 +206,17 @@ impl std::fmt::Display for VariableValue {
 			Self::Number(n) => write!(f, "{}", n),
 			Self::String(s) => write!(f, "{}", s),
 		}
+	}
+}
+
+impl From<ConcreteNumber> for VariableValue {
+	fn from(x: ConcreteNumber) -> Self {
+		Self::Number(x)
+	}
+}
+
+impl From<String> for VariableValue {
+	fn from(s: String) -> Self {
+		Self::String(s)
 	}
 }
