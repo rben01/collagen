@@ -14,9 +14,28 @@ lazy_static! {
 /// too. Yech.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum VariableSubstitutionError {
-	IllegalVariableName(String),
-	VariableNotFound(Vec<String>),
+	VariableNameError {
+		illegal_names: Vec<String>,
+		missing_from_context: Vec<String>,
+	},
 	UnterminatedVariableName(String),
+}
+
+#[cfg(test)]
+impl VariableSubstitutionError {
+	fn new_with_missing_vars(var_names: Vec<String>) -> Self {
+		VariableSubstitutionError::VariableNameError {
+			illegal_names: vec![],
+			missing_from_context: var_names,
+		}
+	}
+
+	fn new_with_illegal_names(var_names: Vec<String>) -> Self {
+		VariableSubstitutionError::VariableNameError {
+			illegal_names: var_names,
+			missing_from_context: vec![],
+		}
+	}
 }
 
 pub(super) fn do_variable_substitution<'a>(
@@ -38,6 +57,7 @@ pub(super) fn do_variable_substitution<'a>(
 	let mut left = 0;
 
 	let mut missing_var_names = vec![];
+	let mut illegal_var_names = vec![];
 
 	// Don't really know what I'm doing when it comes to parsing, but this works, so
 	// ¯\_(ツ)_/¯
@@ -51,27 +71,27 @@ pub(super) fn do_variable_substitution<'a>(
 				left = i + c.len_utf8();
 				parse_state = InsideBracesValid;
 			}
-			(false, InsideBracesValid, '}') => {
+			(false, InsideBracesValid, '}') if i > left => {
 				did_make_subn = true;
 
 				let var_name = &s[left..i];
 				let var_value = context.get_var(var_name);
 				match var_value {
-					Some(var_value) => string_result.push_str(&var_value.to_string()),
+					Some(var_value) => string_result.push_str(&var_value.as_str()),
 					None => missing_var_names.push(var_name.to_owned()),
 				}
 
 				left = i + c.len_utf8();
 				parse_state = Normal;
 			}
+			(false, _, '}') => {
+				illegal_var_names.push(s[left..i].to_string());
+				parse_state = Normal;
+			}
 			(false, InsideBracesValid, c) if !VAR_NAME_CHAR_RE.is_match(&c.to_string()) => {
 				parse_state = InsideBracesInvalid;
 			}
-			(false, InsideBracesInvalid, '}') => {
-				return Err(VariableSubstitutionError::IllegalVariableName(
-					s[left..i].to_string(),
-				));
-			}
+
 			(true, Normal, '{' | '\\') => {
 				let i = i - '\\'.len_utf8();
 				string_result.push_str(&s[left..i]);
@@ -84,10 +104,11 @@ pub(super) fn do_variable_substitution<'a>(
 
 	match parse_state {
 		Normal => {
-			if !missing_var_names.is_empty() {
-				Err(VariableSubstitutionError::VariableNotFound(
-					missing_var_names,
-				))
+			if !missing_var_names.is_empty() || !illegal_var_names.is_empty() {
+				Err(VariableSubstitutionError::VariableNameError {
+					illegal_names: illegal_var_names,
+					missing_from_context: missing_var_names,
+				})
 			} else {
 				string_result.push_str(&s[left..]);
 				Ok(if did_make_subn {
@@ -110,40 +131,58 @@ mod tests {
 	use super::super::data_types::{ConcreteNumber as CN, VariableValue as VV};
 
 	#[test]
-	fn empty_context() {
-		let context = DecodingContext::new_empty();
+	fn ok() {
+		let empty_context = DecodingContext::new_empty();
+		assert_eq!(do_variable_substitution("", &empty_context).unwrap(), "");
+		assert_eq!(
+			do_variable_substitution("xyz", &empty_context).unwrap(),
+			"xyz"
+		);
 
-		let s1 = "";
-		assert_eq!(do_variable_substitution(s1, &context).unwrap(), s1);
+		let xyz_ref = "xyz";
+		let xyz_string = VV::String(xyz_ref.to_string());
+		let nonempty_context = DecodingContext::new_with_vars(vec![
+			("a", &VV::Number(CN::Int(1))),
+			("b", &VV::Number(CN::UInt(2))),
+			("c", &VV::Number(CN::Float(3.0))),
+			("d", &VV::Number(CN::Float(4.5))),
+			("e", &xyz_string),
+		]);
+		assert_eq!(do_variable_substitution("", &nonempty_context).unwrap(), "");
+		assert_eq!(
+			do_variable_substitution("xyz", &nonempty_context).unwrap(),
+			"xyz"
+		);
 
-		let s2 = "s2";
-		assert_eq!(do_variable_substitution(s2, &context).unwrap(), s2);
+		assert_eq!(
+			do_variable_substitution(" {a} ", &nonempty_context).unwrap(),
+			" 1 "
+		);
+
+		// Something to note is that floats with 0 fractional part are written as if
+		// they were ints, e.g., 10.0 becomes "10", not "10.0"
+		assert_eq!(
+			do_variable_substitution("{a}; {b}; {c}; {d}; {e}", &nonempty_context).unwrap(),
+			"1; 2; 3; 4.5; xyz"
+		);
 	}
 
 	#[test]
 	fn missing_vars() {
 		let empty_context = DecodingContext::new_empty();
 
-		assert_eq!(
-			do_variable_substitution("{missing_var}", &empty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["missing_var".to_string()])
-		);
+		let test = |input: &str, missing_vars: Vec<&str>, context: &DecodingContext| {
+			assert_eq!(
+				do_variable_substitution(input, context).err().unwrap(),
+				VariableSubstitutionError::new_with_missing_vars(
+					missing_vars.iter().map(|&s| s.to_owned()).collect()
+				)
+			)
+		};
 
-		assert_eq!(
-			do_variable_substitution("{mv1} {mv2}", &empty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["mv1".to_owned(), "mv2".to_owned()])
-		);
-
-		assert_eq!(
-			do_variable_substitution("a {mv1} b {mv2} c", &empty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["mv1".to_owned(), "mv2".to_owned()])
-		);
+		test("{missing_var}", vec!["missing_var"], &empty_context);
+		test("{mv1} {mv2}", vec!["mv1", "mv2"], &empty_context);
+		test("a {mv1} b {mv2} c", vec!["mv1", "mv2"], &empty_context);
 
 		let xyz_ref = "xyz";
 		let xyz_string = VV::String(xyz_ref.to_string());
@@ -152,27 +191,52 @@ mod tests {
 			("b", &xyz_string),
 		]);
 
-		assert_eq!(
-			do_variable_substitution("{mv1} {mv2}", &nonempty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["mv1".to_owned(), "mv2".to_owned()])
+		test("{mv1} {mv2}", vec!["mv1", "mv2"], &nonempty_context);
+		test("{a} {mv2}", vec!["mv2"], &nonempty_context);
+		test(
+			"{a} {mv2} {mv2} {mv2}",
+			vec!["mv2", "mv2", "mv2"],
+			&nonempty_context,
+		);
+		test("{a} {b} {mv1} {mv2}", vec!["mv1", "mv2"], &nonempty_context);
+		test(
+			"{a} {mv1} {mv1} {mv2} {mv1} {mv2} {mv2} {b} ",
+			vec!["mv1", "mv1", "mv2", "mv1", "mv2", "mv2"],
+			&nonempty_context,
 		);
 
-		assert_eq!(
-			do_variable_substitution("{a} {mv2}", &nonempty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["a".to_owned()])
-		);
-
-		assert_eq!(
-			do_variable_substitution("{a} {b} {mv1} {mv2}", &nonempty_context)
-				.err()
-				.unwrap(),
-			VariableSubstitutionError::VariableNotFound(vec!["mv1".to_owned(), "mv2".to_owned()])
-		);
-
+		// Not actually missing any
 		assert!(do_variable_substitution("{a} {b}", &nonempty_context).is_ok());
+	}
+
+	#[test]
+	fn illegal_var_names() {
+		let empty_context = DecodingContext::new_empty();
+
+		let test = |input: &str, illegal_varnames: Vec<&str>, context: &DecodingContext| {
+			assert_eq!(
+				do_variable_substitution(input, context).err().unwrap(),
+				VariableSubstitutionError::new_with_illegal_names(
+					illegal_varnames.iter().map(|&s| s.to_owned()).collect()
+				)
+			)
+		};
+
+		test("{}", vec![""], &empty_context);
+		test("{ }", vec![" "], &empty_context);
+		test("{\n}", vec!["\n"], &empty_context);
+		test("{ a }", vec![" a "], &empty_context);
+		test("{a.}", vec!["a."], &empty_context);
+		test("{ .}", vec![" ."], &empty_context);
+
+		test("{} {}", vec!["", ""], &empty_context);
+		test("{ } {}", vec![" ", ""], &empty_context);
+		test("{} { }", vec!["", " "], &empty_context);
+		test("{ } { }", vec![" ", " "], &empty_context);
+		test(
+			"{} { } {  } { a } { a } { b } {}",
+			vec!["", " ", "  ", " a ", " a ", " b ", ""],
+			&empty_context,
+		);
 	}
 }

@@ -200,11 +200,12 @@ pub(crate) enum VariableValue {
 	String(String),
 }
 
-impl std::fmt::Display for VariableValue {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl VariableValue {
+	pub fn as_str(&self) -> Cow<'_, str> {
+		use VariableValue::*;
 		match self {
-			Self::Number(n) => write!(f, "{}", n),
-			Self::String(s) => write!(f, "{}", s),
+			Number(n) => Cow::Owned(n.to_string()),
+			String(s) => Cow::Borrowed(s.as_ref()),
 		}
 	}
 }
