@@ -127,8 +127,10 @@ pub(super) fn do_variable_substitution<'a>(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as VV};
 
-	use super::super::data_types::{ConcreteNumber as CN, VariableValue as VV};
+	struct Illegal<'a>(Vec<&'a str>);
+	struct Missing<'a>(Vec<&'a str>);
 
 	#[test]
 	fn ok() {
@@ -169,22 +171,31 @@ mod tests {
 
 	#[test]
 	fn missing_vars() {
-		macro_rules! test {
-			($input:expr, $missing_vars:expr, $context:expr $(,)?) => {
-				assert_eq!(
-					do_variable_substitution($input, $context).err().unwrap(),
-					VariableSubstitutionError::new_with_missing_vars(
-						($missing_vars).iter().map(|&s| s.to_owned()).collect()
-					)
+		#[track_caller]
+		fn test<S: AsRef<str>>(input: S, missing: Missing, context: &DecodingContext) {
+			assert_eq!(
+				do_variable_substitution(input.as_ref(), context)
+					.err()
+					.unwrap(),
+				VariableSubstitutionError::new_with_missing_vars(
+					missing.0.iter().map(|&s| s.to_owned()).collect()
 				)
-			};
+			)
 		}
 
 		let empty_context = DecodingContext::new_empty();
 
-		test!("{missing_var}", vec!["missing_var"], &empty_context);
-		test!("{mv1} {mv2}", vec!["mv1", "mv2"], &empty_context);
-		test!("a {mv1} b {mv2} c", vec!["mv1", "mv2"], &empty_context);
+		test(
+			"{missing_var}",
+			Missing(vec!["missing_var"]),
+			&empty_context,
+		);
+		test("{mv1} {mv2}", Missing(vec!["mv1", "mv2"]), &empty_context);
+		test(
+			"a {mv1} b {mv2} c",
+			Missing(vec!["mv1", "mv2"]),
+			&empty_context,
+		);
 
 		let xyz_ref = "xyz";
 		let xyz_string = VV::String(xyz_ref.to_string());
@@ -193,21 +204,25 @@ mod tests {
 			("b", &xyz_string),
 		]);
 
-		test!("{mv1} {mv2}", vec!["mv1", "mv2"], &nonempty_context);
-		test!("{a} {mv2}", vec!["mv2"], &nonempty_context);
-		test!(
+		test(
+			"{mv1} {mv2}",
+			Missing(vec!["mv1", "mv2"]),
+			&nonempty_context,
+		);
+		test("{a} {mv2}", Missing(vec!["mv2"]), &nonempty_context);
+		test(
 			"{a} {mv2} {mv2} {mv2}",
-			vec!["mv2", "mv2", "mv2"],
+			Missing(vec!["mv2", "mv2", "mv2"]),
 			&nonempty_context,
 		);
-		test!(
+		test(
 			"{a} {b} {mv1} {mv2}",
-			vec!["mv1", "mv2",],
+			Missing(vec!["mv1", "mv2"]),
 			&nonempty_context,
 		);
-		test!(
+		test(
 			"{a} {mv1} {mv1} {mv2} {mv1} {mv2} {mv2} {b} ",
-			vec!["mv1", "mv1", "mv2", "mv1", "mv2", "mv2"],
+			Missing(vec!["mv1", "mv1", "mv2", "mv1", "mv2", "mv2"]),
 			&nonempty_context,
 		);
 
@@ -217,91 +232,99 @@ mod tests {
 
 	#[test]
 	fn illegal_var_names() {
-		macro_rules! test {
-			($input:expr, $illegal_varnames:expr, $context:expr $(,)?) => {
-				assert_eq!(
-					do_variable_substitution($input, $context).err().unwrap(),
-					VariableSubstitutionError::new_with_illegal_names(
-						($illegal_varnames).iter().map(|&s| s.to_owned()).collect()
-					)
+		#[track_caller]
+		fn test<S: AsRef<str>>(input: S, illegal: Illegal, context: &DecodingContext) {
+			assert_eq!(
+				do_variable_substitution(input.as_ref(), context)
+					.err()
+					.unwrap(),
+				VariableSubstitutionError::new_with_illegal_names(
+					illegal.0.iter().map(|&s| s.to_owned()).collect()
 				)
-			};
+			)
 		}
 
 		let empty_context = DecodingContext::new_empty();
 
-		test!("{}", vec![""], &empty_context);
-		test!("{ }", vec![" "], &empty_context);
-		test!("{\n}", vec!["\n"], &empty_context);
-		test!("{ a }", vec![" a "], &empty_context);
-		test!("{a.}", vec!["a."], &empty_context);
-		test!("{ .}", vec![" ."], &empty_context);
+		test("{}", Illegal(vec![""]), &empty_context);
+		test("{ }", Illegal(vec![" "]), &empty_context);
+		test("{\n}", Illegal(vec!["\n"]), &empty_context);
+		test("{ a }", Illegal(vec![" a "]), &empty_context);
+		test("{a.}", Illegal(vec!["a."]), &empty_context);
+		test("{ .}", Illegal(vec![" ."]), &empty_context);
 
-		test!("{} {}", vec!["", ""], &empty_context);
-		test!("{ } {}", vec![" ", ""], &empty_context);
-		test!("{} { }", vec!["", " "], &empty_context);
-		test!("{ } { }", vec![" ", " "], &empty_context);
-		test!(
+		test("{} {}", Illegal(vec!["", ""]), &empty_context);
+		test("{ } {}", Illegal(vec![" ", ""]), &empty_context);
+		test("{} { }", Illegal(vec!["", " "]), &empty_context);
+		test("{ } { }", Illegal(vec![" ", " "]), &empty_context);
+		test(
 			"{} { } {  } { a } { a } { b } {}",
-			vec!["", " ", "  ", " a ", " a ", " b ", ""],
+			Illegal(vec!["", " ", "  ", " a ", " a ", " b ", ""]),
 			&empty_context,
 		);
 	}
 
 	#[test]
 	fn illegal_and_missing_var_names() {
-		macro_rules! test {
-			($input:expr, illegal: $illegal:expr, missing: $missing:expr, $context:expr $(,)?) => {
-				assert_eq!(
-					do_variable_substitution($input, $context).err().unwrap(),
-					VariableSubstitutionError::VariableNameError {
-						illegal_names: ($illegal as Vec<&str>)
-							.iter()
-							.map(|&s| s.to_owned())
-							.collect(),
-						missing_from_context: ($missing as Vec<&str>)
-							.iter()
-							.map(|&s| s.to_owned())
-							.collect()
-					}
-				)
-			};
+		#[track_caller]
+		fn test<S: AsRef<str>>(
+			input: S,
+			illegal: Illegal,
+			missing: Missing,
+			context: &DecodingContext,
+		) {
+			assert_eq!(
+				do_variable_substitution(input.as_ref(), context)
+					.err()
+					.unwrap(),
+				VariableSubstitutionError::VariableNameError {
+					illegal_names: (illegal.0).iter().map(|&s| s.to_owned()).collect(),
+					missing_from_context: (missing.0).iter().map(|&s| s.to_owned()).collect()
+				}
+			)
 		}
 
 		let empty_context = DecodingContext::new_empty();
 
-		test!(
+		test(
 			"{} {a}",
-			illegal: vec![""],
-			missing: vec!["a"],
+			Illegal(vec![""]),
+			Missing(vec!["a"]),
 			&empty_context,
 		);
 
-		test!(
+		test(
+			"{} {a}",
+			Illegal(vec![""]),
+			Missing(vec!["a"]),
+			&empty_context,
+		);
+
+		test(
 			"{} {a} {} {a}",
-			illegal: vec!["", ""],
-			missing: vec!["a", "a"],
+			Illegal(vec!["", ""]),
+			Missing(vec!["a", "a"]),
 			&empty_context,
 		);
 
-		test!(
+		test(
 			"{} {a} { } {b}",
-			illegal: vec!["", " "],
-			missing: vec!["a", "b"],
+			Illegal(vec!["", " "]),
+			Missing(vec!["a", "b"]),
 			&empty_context,
 		);
 
-		test!(
+		test(
 			"{} { a } { } { b }",
-			illegal: vec!["", " a ", " ", " b "],
-			missing: vec![],
+			Illegal(vec!["", " a ", " ", " b "]),
+			Missing(vec![]),
 			&empty_context,
 		);
 
-		test!(
+		test(
 			"{a} {b} {c} {d}",
-			illegal: vec![],
-			missing: vec!["a", "b", "c", "d"],
+			Illegal(vec![]),
+			Missing(vec!["a", "b", "c", "d"]),
 			&empty_context,
 		);
 
@@ -314,31 +337,31 @@ mod tests {
 			("d", &xyz_string),
 		]);
 
-		test!(
+		test(
 			"{} {a} {} {a}",
-			illegal: vec!["", ""],
-			missing: vec![],
+			Illegal(vec!["", ""]),
+			Missing(vec![]),
 			&nonempty_context,
 		);
 
-		test!(
+		test(
 			"{} {a} { } {e}",
-			illegal: vec!["", " "],
-			missing: vec!["e"],
+			Illegal(vec!["", " "]),
+			Missing(vec!["e"]),
 			&nonempty_context,
 		);
 
-		test!(
+		test(
 			"{} { a } { } { b }",
-			illegal: vec!["", " a ", " ", " b "],
-			missing: vec![],
+			Illegal(vec!["", " a ", " ", " b "]),
+			Missing(vec![]),
 			&nonempty_context,
 		);
 
-		test!(
+		test(
 			"{a} {b} { c } { d } {e}",
-			illegal: vec![" c ", " d "],
-			missing: vec!["e"],
+			Illegal(vec![" c ", " d "]),
+			Missing(vec!["e"]),
 			&nonempty_context,
 		);
 

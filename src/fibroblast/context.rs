@@ -159,10 +159,9 @@ mod tests {
 
 	use std::iter::FromIterator;
 
-	use super::super::data_types::ConcreteNumber as CN;
+	use crate::fibroblast::data_types::ConcreteNumber as CN;
 	use VariableValue as VV;
 
-	#[cfg(test)]
 	mod vars {
 		use super::*;
 
@@ -298,7 +297,6 @@ mod tests {
 		}
 	}
 
-	#[cfg(test)]
 	mod root {
 		use super::*;
 
