@@ -92,22 +92,12 @@ impl std::fmt::Display for ConcreteNumber {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
 	use super::*;
 	use serde_test::{assert_tokens, Token};
 
 	#[test]
-	fn all() {
-		/// Macro helper to call `assert{_,_ser_,_de_}tokens` on `ConcreteNumber`.
-		macro_rules! test_constructor {
-			($cn_variant:ident ($cn_val:expr), $tok_variant:ident ($tok_val:expr), $token_asserter:expr $(,)?) => {
-				($token_asserter)(
-					&ConcreteNumber::$cn_variant($cn_val),
-					&[Token::$tok_variant($tok_val)],
-				);
-			};
-		}
-
+	fn test() {
 		/// Tests (de)serializaton between `ConcreteNumber` and `Token`.
 		///
 		/// Has two forms:
@@ -131,7 +121,10 @@ mod test {
 				test_ser_de!($cn_variant($val), $tok_variant($val))
 			};
 			($cn_variant:ident ($cn_val:expr), $tok_variant:ident ($tok_val:expr) $(,)?) => {
-				test_constructor!($cn_variant($cn_val), $tok_variant($tok_val), assert_tokens)
+				(assert_tokens)(
+					&ConcreteNumber::$cn_variant($cn_val),
+					&[Token::$tok_variant($tok_val)],
+				);
 			};
 		}
 
