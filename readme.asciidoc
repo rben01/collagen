@@ -1,6 +1,7 @@
 = README
 :nofooter:
 :source-highlighter: coderay
+:examples-dir: /tests/examples
 :icons: font
 :toc: left
 
@@ -64,11 +65,11 @@ example-01
     └── smiley.jpg
 ----
 
-Where link:/examples/example-02/example-01/images/smiley.jpg[`images/smiley.jpg`] is the following image (whose native size is 380×380 pixels):
+Where link:{examples-dir}/example-02/example-01/images/smiley.jpg[`images/smiley.jpg`] is the following image (whose native size is 380×380 pixels):
 
-image::/examples/example-02/example-01/images/smiley.jpg[width=200px]
+image::{examples-dir}/example-02/example-01/images/smiley.jpg[width=200px]
 
-And where link:/examples/example-02/example-01/collagen.json[`collagen.json`] contains the following:
+And where link:{examples-dir}/example-02/example-01/collagen.json[`collagen.json`] contains the following:
 
 [source,json,indent=0,tabsize=2]
 ----
@@ -138,7 +139,7 @@ cargo run -- -i example-01 -o example-01.svg
 
 Will produce the following file, link:/examples/svgs/example-01.svg[`examples-01.svg`]:
 
-image::/examples/svgs/example-01.svg[width=500]
+image::{examples-dir}/svgs/example-01.svg[width=500]
 
 If you zoom in, you'll see the smiley face's pixels.
 But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
@@ -203,7 +204,7 @@ Where link:/examples/example-02/collagen.json[`example-02/collagen.json`] is bel
 
 Here's the result (link:/examples/svgs/example-02.svg[link]) when you run `cargo run \-- -i example-02 -o example-02.svg`:
 
-image::/examples/svgs/example-02.svg[width=600]
+image::{examples-dir}/svgs/example-02.svg[width=600]
 
 So, as far as Collagen is concerned, skeletons act more or less the same as raster images, in the sense that the path is sufficient to include them.
 The only difference is that the path to a skeleton child is given by the key `clgn_path` instead of `image_path`.
@@ -233,19 +234,19 @@ For instance, the JPEG below (link:https://commons.wikimedia.org/w/index.php?tit
 --
 This JPEG weighs in at 57KB:::
 +
-image::/examples/pics/Planta62.jpg[width=300]
+image::{examples-dir}/pics/Planta62.jpg[width=300]
 
 
 The equivalent PNG weighs in at 434KB:::
 +
-image::/examples/pics/Planta62.png[width=300]
+image::{examples-dir}/pics/Planta62.png[width=300]
 --
 
 But surely just placing black text on top of an all-white PNG is fine? Because it's stored losslessly?::
 Sure, _if_ you don't mind your text being rasterized, i.e., not perfectly precise and infinitely zoomable.
 The image below is black text on a white background.
 +
-image::/examples/pics/text_png.png[]
+image::{examples-dir}/pics/text_png.png[]
 +
 You don't have to zoom in very far to see the text get fuzzy.
 In contrast, the text in the smiley-face image above (and, naturally, the text on this webpage) is perfectly precise and will retain all of its detail at arbitrary magnification.
