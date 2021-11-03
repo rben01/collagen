@@ -102,7 +102,7 @@ where
 	Ok(())
 }
 
-pub(crate) trait SvgWritableTag<'a> {
+pub trait SvgWritableTag<'a> {
 	/// Convert the in-memory representation of a Fibroblast to SVG. `writer` determines
 	/// where the output goes -- a `String`, to a file, etc.
 	fn to_svg_through_writer<W: std::io::Write>(
@@ -179,7 +179,7 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 }
 
 impl<'a> Fibroblast<'a> {
-	pub(crate) fn to_svg_through_writer<W: std::io::Write>(
+	pub fn to_svg_through_writer<W: std::io::Write>(
 		&'a self,
 		writer: &mut XmlWriter<W>,
 	) -> ClgnDecodingResult<()> {
