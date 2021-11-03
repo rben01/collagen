@@ -38,19 +38,17 @@
 //! [`AnyChildTag`].
 
 pub(super) mod data_types;
-
 pub(crate) mod tags;
-use tags::{any_child_tag::AnyChildTag, root_tag::RootTag};
 
-use crate::to_svg::svg_writable::ClgnDecodingResult;
-
-use crate::fibroblast::data_types::DecodingContext;
+pub use super::from_json::decoding_error::ClgnDecodingResult;
+pub use crate::fibroblast::data_types::DecodingContext;
 use data_types::TagVariables;
 use std::borrow::Cow;
+use tags::{any_child_tag::AnyChildTag, root_tag::RootTag};
 
 /// The whole shebang: both the (context-less) root tag
 #[derive(Debug)]
-pub(crate) struct Fibroblast<'a> {
+pub struct Fibroblast<'a> {
 	pub(crate) root: RootTag<'a>,
 	pub(crate) context: DecodingContext<'a>,
 }

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 pub(crate) use std::collections::BTreeMap as Map;
 
 pub(crate) mod context;
-pub(crate) use context::DecodingContext;
+pub use context::DecodingContext;
 
 mod concrete_number;
 #[cfg(test)]

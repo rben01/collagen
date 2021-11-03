@@ -2,7 +2,7 @@
 
 use clap::{App, Arg, ArgMatches};
 
-use crate::{fibroblast::Fibroblast, to_svg::svg_writable::ClgnDecodingResult};
+use crate::{ClgnDecodingResult, Fibroblast};
 use quick_xml::Writer as XmlWriter;
 
 pub fn get_cli_parser() -> App<'static, 'static> {
@@ -24,7 +24,7 @@ pub fn get_cli_parser() -> App<'static, 'static> {
 		)
 }
 
-pub(crate) fn handle_cli_matches(matches: ArgMatches) -> ClgnDecodingResult<()> {
+pub fn handle_cli_matches(matches: ArgMatches) -> ClgnDecodingResult<()> {
 	let in_file = matches.value_of("in-file").unwrap(); // safe so long as in-file is required (.takes_value(true))
 	let out_file = matches.value_of("out-file").unwrap();
 	// let out_file = match out_file {

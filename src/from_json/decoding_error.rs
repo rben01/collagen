@@ -17,10 +17,10 @@ use zip::result::ZipError;
 
 use crate::fibroblast::data_types::context::VariableSubstitutionError;
 
-pub(crate) type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
+pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
-pub(crate) enum ClgnDecodingError {
+pub enum ClgnDecodingError {
 	Parse(VariableSubstitutionError),
 	Unicode(Utf8Error),
 	Io(io::Error),

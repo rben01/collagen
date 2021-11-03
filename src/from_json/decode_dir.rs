@@ -10,9 +10,7 @@ use std::path::Path;
 impl<'a> Fibroblast<'a> {
 	pub fn from_dir<P: AsRef<Path>>(path: P) -> ClgnDecodingResult<Self> {
 		let path = path.as_ref();
-
 		let context = DecodingContext::new_at_root(path);
-
 		Fibroblast::from_dir_with_context(path, context)
 	}
 

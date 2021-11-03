@@ -32,7 +32,7 @@ lazy_static! {
 /// that, then [`ClgnDecodingError`] — and hence [`ClgnDecodingResult`] — need lifetimes
 /// too. Yech.
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum VariableSubstitutionError {
+pub enum VariableSubstitutionError {
 	VariableNameError {
 		illegal_names: Vec<String>,
 		missing_from_context: Vec<String>,
@@ -62,7 +62,7 @@ impl VariableSubstitutionError {
 /// Consists of the root path (for resolving relative paths) and a variable key-value
 /// map for performing variable subtition
 #[derive(Debug, Clone)]
-pub(crate) struct DecodingContext<'a> {
+pub struct DecodingContext<'a> {
 	root_path: RefCell<PathBuf>, // can this be turned into a `Cow<'a, Path>`?
 	vars_map: RefCell<Map<&'a str, &'a VariableValue>>,
 }
