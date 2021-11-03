@@ -2,7 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::BTreeMap as Map;
+pub(crate) use std::collections::BTreeMap as Map;
+
+pub(crate) mod context;
+pub(crate) use context::DecodingContext;
 
 mod concrete_number;
 #[cfg(test)]

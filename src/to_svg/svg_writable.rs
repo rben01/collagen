@@ -2,8 +2,11 @@
 //! implement https://serde.rs/transcode.html, using `serde` to stream straight from
 //! JSON to SVG (XML). I don't think it should be *that* hard.
 
-use crate::fibroblast::Fibroblast;
-use crate::fibroblast::{context::DecodingContext, AnyChildTag, RootTag};
+use crate::fibroblast::{
+	data_types::DecodingContext,
+	tags::{AnyChildTag, RootTag},
+	Fibroblast,
+};
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event as XmlEvent};

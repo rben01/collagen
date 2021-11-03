@@ -15,9 +15,9 @@ use std::io;
 use std::str::Utf8Error;
 use zip::result::ZipError;
 
-pub(crate) type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
+use crate::fibroblast::data_types::context::VariableSubstitutionError;
 
-use crate::fibroblast::parse_vars::VariableSubstitutionError;
+pub(crate) type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
 pub(crate) enum ClgnDecodingError {

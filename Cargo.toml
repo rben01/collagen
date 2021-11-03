@@ -5,7 +5,7 @@
 	keywords = ["image", "graphics", "multimedia", "svg"]
 	name = "collagen"
 	repository = "https://github.com/rben01/collagen"
-	rust-version = "1.56.0"
+	rust-version = "1.56.1"
 	version = "0.1.0"
 
 [dependencies]

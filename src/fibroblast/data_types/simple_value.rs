@@ -3,7 +3,9 @@ use std::borrow::Cow;
 
 use super::concrete_number::{ConcreteNumber, ConcreteNumberVisitor};
 
-/// An enum whose variants represent "simple" (indivisible) values
+/// An enum whose variants represent "simple" (indivisible) values. This owns all of its
+/// values (*maybe* could be replaced with `SimpleValue<'a> { Text(Cow<'a, str>) }` but
+/// almost certainly not worth the cost of the refactor)
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum SimpleValue {
@@ -128,8 +130,8 @@ mod tests {
 	use serde_test::{assert_tokens, Token};
 
 	#[test]
-	fn test() {
-		macro_rules! test_concrete_number {
+	fn concrete_number() {
+		macro_rules! test {
 			($value:expr, $cn_variant:ident, $tok_variant:ident $(,)?) => {
 				assert_tokens(
 					&SimpleValue::Number(ConcreteNumber::$cn_variant($value)),
@@ -139,17 +141,20 @@ mod tests {
 		}
 
 		// ConcreteNumber
-		test_concrete_number!(-2.5, Float, F64);
-		test_concrete_number!(0.0, Float, F64);
-		test_concrete_number!(2.5, Float, F64);
+		test!(-2.5, Float, F64);
+		test!(0.0, Float, F64);
+		test!(2.5, Float, F64);
 
-		test_concrete_number!(0, UInt, U64);
-		test_concrete_number!(1, UInt, U64);
+		test!(0, UInt, U64);
+		test!(1, UInt, U64);
 
-		test_concrete_number!(-1, Int, I64);
-		test_concrete_number!(0, Int, I64);
-		test_concrete_number!(1, Int, I64);
+		test!(-1, Int, I64);
+		test!(0, Int, I64);
+		test!(1, Int, I64);
+	}
 
+	#[test]
+	fn text() {
 		// Text
 		//
 		// Some strings taken from
@@ -178,7 +183,10 @@ mod tests {
 		Z̮̞̠͙͔ͅḀ̗̞͈̻̗Ḷ͙͎̯̹̞͓G̻O̭̗̮
 		"#,
 		);
+	}
 
+	#[test]
+	fn bool() {
 		// Present/absent
 		assert_tokens(&SimpleValue::Present, &[Token::Bool(true)]);
 		assert_tokens(&SimpleValue::Absent, &[Token::Bool(false)]);
