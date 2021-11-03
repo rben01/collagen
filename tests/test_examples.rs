@@ -48,3 +48,11 @@ fn example_clgn_3() {
 		"./tests/examples/svgs/example-03.svg",
 	)
 }
+
+#[test]
+fn example_clgn_4() {
+	test_clgn_against_existing_output(
+		"./tests/examples/example-04",
+		"./tests/examples/svgs/example-04.svg",
+	)
+}

@@ -28,29 +28,72 @@ lazy_static! {
 	static ref VAR_NAME_CHAR_RE: Regex = Regex::new(r"\w").unwrap();
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+	EndedWithBackslash,
+	UnexpectedClosingBrace {
+		position: usize,
+	},
+	UnterminatedVariable {
+		content: String,
+	},
+	BackslashInVariableName {
+		position: usize,
+	},
+	InvalidEscapeSequence {
+		position: (usize, usize),
+		char: char,
+	},
+}
+
+impl std::fmt::Display for ParseError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		use ParseError::*;
+		match self {
+			EndedWithBackslash => f.write_str("Strings may not end with a single backslash"),
+			UnexpectedClosingBrace { position } => f.write_fmt(format_args!(
+				"Unexpected character at position {}: '}}' without a matching '{{'",
+				position,
+			)),
+			UnterminatedVariable { content } => f.write_fmt(format_args!(
+				"Unterminated variable; saw {:?} before the string ended",
+				content
+			)),
+			BackslashInVariableName { position } => f.write_fmt(format_args!(
+				"Unexpected character at position {}; a backslash may not occur in a variable name",
+				position
+			)),
+			InvalidEscapeSequence { position, char } => f.write_fmt(format_args!(
+				r#"Invalid escape sequence "\{}" at position {:?}"#,
+				char, position
+			)),
+		}
+	}
+}
+
 /// It's really tempting to want to change these `String`s to `&'a str`s, but if you do
 /// that, then [`ClgnDecodingError`] — and hence [`ClgnDecodingResult`] — need lifetimes
 /// too. Yech.
 #[derive(Debug, PartialEq, Eq)]
 pub enum VariableSubstitutionError {
-	VariableNameError {
+	VariableName {
 		illegal_names: Vec<String>,
 		missing_from_context: Vec<String>,
 	},
-	UnterminatedVariableName(String),
+	Parse(ParseError),
 }
 
 #[cfg(test)]
 impl VariableSubstitutionError {
 	fn new_with_missing_vars(var_names: Vec<String>) -> Self {
-		VariableSubstitutionError::VariableNameError {
+		VariableSubstitutionError::VariableName {
 			illegal_names: vec![],
 			missing_from_context: var_names,
 		}
 	}
 
 	fn new_with_illegal_names(var_names: Vec<String>) -> Self {
-		VariableSubstitutionError::VariableNameError {
+		VariableSubstitutionError::VariableName {
 			illegal_names: var_names,
 			missing_from_context: vec![],
 		}
@@ -193,6 +236,7 @@ impl<'a> DecodingContext<'a> {
 		&self,
 		s: &'b str,
 	) -> Result<Cow<'b, str>, VariableSubstitutionError> {
+		#[derive(Debug)]
 		enum ParseState {
 			Normal,
 			InsideBracesValid,
@@ -200,7 +244,9 @@ impl<'a> DecodingContext<'a> {
 		}
 		use ParseState::*;
 
-		let mut did_make_subn = false;
+		use ParseError::*;
+
+		let mut modified_from_original = false;
 		let mut string_result = String::new();
 
 		let mut parse_state = ParseState::Normal;
@@ -213,7 +259,13 @@ impl<'a> DecodingContext<'a> {
 		// Don't really know what I'm doing when it comes to parsing, but this works, so
 		// ¯\_(ツ)_/¯
 		for (i, c) in s.chars().into_iter().enumerate() {
-			match (prev_was_backslash, &parse_state, c) {
+			let pat = (prev_was_backslash, &parse_state, c);
+			match pat {
+				(_, InsideBracesValid | InsideBracesInvalid, '\\') => {
+					return Err(VariableSubstitutionError::Parse(BackslashInVariableName {
+						position: i,
+					}));
+				}
 				(false, _, '\\') => {
 					prev_was_backslash = true;
 				}
@@ -223,7 +275,7 @@ impl<'a> DecodingContext<'a> {
 					parse_state = InsideBracesValid;
 				}
 				(false, InsideBracesValid, '}') if i > left => {
-					did_make_subn = true;
+					modified_from_original = true;
 
 					let var_name = &s[left..i];
 					let var_value = self.get_var(var_name);
@@ -235,6 +287,11 @@ impl<'a> DecodingContext<'a> {
 					left = i + c.len_utf8();
 					parse_state = Normal;
 				}
+				(false, Normal, '}') => {
+					return Err(VariableSubstitutionError::Parse(UnexpectedClosingBrace {
+						position: i,
+					}));
+				}
 				(false, _, '}') => {
 					illegal_var_names.push(s[left..i].to_string());
 					parse_state = Normal;
@@ -242,36 +299,49 @@ impl<'a> DecodingContext<'a> {
 				(false, InsideBracesValid, c) if !VAR_NAME_CHAR_RE.is_match(&c.to_string()) => {
 					parse_state = InsideBracesInvalid;
 				}
+				(true, Normal, '{' | '}' | '\\') => {
+					string_result.push_str(&s[left..i - '\\'.len_utf8()]);
+					string_result.push(c);
 
-				(true, Normal, '{' | '\\') => {
-					let i = i - '\\'.len_utf8();
-					string_result.push_str(&s[left..i]);
 					left = i + c.len_utf8();
 					prev_was_backslash = false;
+					modified_from_original = true;
 				}
-				_ => {}
+				(true, Normal, _) => {
+					return Err(VariableSubstitutionError::Parse(InvalidEscapeSequence {
+						position: (i - 1, i),
+						char: c,
+					}))
+				}
+
+				_ => {
+					// Do nothing; i will advance
+				}
 			}
 		}
 
-		match parse_state {
-			Normal => {
+		match (prev_was_backslash, parse_state) {
+			(true, _) => Err(VariableSubstitutionError::Parse(EndedWithBackslash)),
+			(_, Normal) => {
 				if !missing_var_names.is_empty() || !illegal_var_names.is_empty() {
-					Err(VariableSubstitutionError::VariableNameError {
+					Err(VariableSubstitutionError::VariableName {
 						illegal_names: illegal_var_names,
 						missing_from_context: missing_var_names,
 					})
 				} else {
 					string_result.push_str(&s[left..]);
-					Ok(if did_make_subn {
+					Ok(if modified_from_original {
 						Cow::Owned(string_result)
 					} else {
 						Cow::Borrowed(s)
 					})
 				}
 			}
-			InsideBracesValid | InsideBracesInvalid => Err(
-				VariableSubstitutionError::UnterminatedVariableName(s[left..].to_string()),
-			),
+			(_, InsideBracesValid | InsideBracesInvalid) => {
+				Err(VariableSubstitutionError::Parse(UnterminatedVariable {
+					content: s[left..].to_string(),
+				}))
+			}
 		}
 	}
 
@@ -290,40 +360,22 @@ impl<'a> DecodingContext<'a> {
 		let mut subd_attrs = Vec::with_capacity(n_attrs);
 
 		for (k, orig_val) in attrs_iter {
-			// Looks brutal, but can be summed up as follows: try to reuse the existing
-			// Cow using it as-is or borrowing what it contains; only create a new
-			// Cow::Owned if absolutely necessary. When is it necessary? When the
-			// original Cow contains Text and that Text has substitutions performed on
-			// it (so that we can't reuse the original)
-			//
-			// In other words, this is a very complicated-looking operation that really
-			// just ensures ownership "checks out" after substituting.
-
-			let subd_val = match &orig_val {
-				Cow::Owned(owned_val) => match owned_val {
-					SimpleValue::Text(text) => {
-						let subd_text = self.sub_vars_into_str(text)?;
-						match subd_text {
-							Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-							_orig_text => orig_val,
-						}
+			let wrapped_val = match &orig_val {
+				Cow::Owned(owned_val) => owned_val,
+				Cow::Borrowed(borrowed_val) => *borrowed_val,
+			};
+			let new_val = match wrapped_val {
+				SimpleValue::Text(text) => {
+					let subd_text = self.sub_vars_into_str(text)?;
+					match subd_text {
+						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
+						_orig_text => orig_val,
 					}
-					// SimpleValue::Number(n) => Cow::Owned(SimpleValue::Number(*n)),
-					_wasnt_text => orig_val,
-				},
-				Cow::Borrowed(borrowed_val) => match borrowed_val {
-					SimpleValue::Text(text) => {
-						let subd_text = self.sub_vars_into_str(text)?;
-						match subd_text {
-							Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-							_orig_text => Cow::Borrowed(*borrowed_val),
-						}
-					}
-					_wasnt_text => Cow::Borrowed(*borrowed_val),
-				},
+				}
+				_wasnt_text => orig_val,
 			};
 
-			subd_attrs.push((k, subd_val));
+			subd_attrs.push((k, new_val));
 		}
 
 		Ok(subd_attrs)
@@ -544,6 +596,135 @@ mod tests {
 					.unwrap(),
 				"1; 2; 3; 4.5; xyz"
 			);
+
+			// Backslashes
+			assert_eq!(empty_context.sub_vars_into_str(r"\\").unwrap(), r"\");
+			assert_eq!(empty_context.sub_vars_into_str(r"\{").unwrap(), r"{");
+			assert_eq!(empty_context.sub_vars_into_str(r"\}").unwrap(), r"}");
+			assert_eq!(empty_context.sub_vars_into_str(r"\\\{").unwrap(), r"\{");
+			assert_eq!(empty_context.sub_vars_into_str(r"\\\}").unwrap(), r"\}");
+			assert_eq!(empty_context.sub_vars_into_str(r"\{\}").unwrap(), r"{}");
+			assert_eq!(empty_context.sub_vars_into_str(r"\\\\").unwrap(), r"\\");
+			assert_eq!(
+				empty_context.sub_vars_into_str(r"\\\\\{\\\\\\").unwrap(),
+				r"\\{\\\"
+			);
+		}
+
+		#[test]
+		fn parse_errors() {
+			use super::ParseError;
+			use super::VariableSubstitutionError;
+			use super::VariableValue as VV;
+
+			#[track_caller]
+			fn test(context: &DecodingContext, s: &str, err: ParseError) {
+				assert_eq!(
+					context.sub_vars_into_str(s).unwrap_err(),
+					VariableSubstitutionError::Parse(err)
+				);
+			}
+
+			let empty_context = DecodingContext::new_empty();
+
+			let val_d = VV::String(r"\".to_owned());
+			let val_e = VV::String(r"\{}".to_owned());
+			let nonempty_context = DecodingContext::new_with_vars(vec![
+				("a", &VV::Number(CN::Int(1))),
+				("b", &VV::Number(CN::UInt(2))),
+				("c", &VV::Number(CN::Float(3.0))),
+				("d", &val_d),
+				("e", &val_e),
+			]);
+
+			test(&empty_context, r"\", ParseError::EndedWithBackslash);
+			test(&empty_context, r"x\", ParseError::EndedWithBackslash);
+			test(
+				&empty_context,
+				r"xytas\{\}\",
+				ParseError::EndedWithBackslash,
+			);
+			test(
+				&nonempty_context,
+				r"xytas{d}\",
+				ParseError::EndedWithBackslash,
+			);
+			test(
+				&nonempty_context,
+				r"\\xytas{a}\\{e}\",
+				ParseError::EndedWithBackslash,
+			);
+
+			test(
+				&empty_context,
+				"}",
+				ParseError::UnexpectedClosingBrace { position: 0 },
+			);
+			test(
+				&empty_context,
+				"xyz}",
+				ParseError::UnexpectedClosingBrace { position: 3 },
+			);
+			test(
+				&nonempty_context,
+				"{a}{b}}",
+				ParseError::UnexpectedClosingBrace { position: 6 },
+			);
+			test(
+				&empty_context,
+				"{xyz}6789}ajshd", // Yep, the missing variable is ignored when we can't parse
+				ParseError::UnexpectedClosingBrace { position: 9 },
+			);
+
+			test(
+				&empty_context,
+				r"{",
+				ParseError::UnterminatedVariable {
+					content: "".to_owned(),
+				},
+			);
+			test(
+				&empty_context,
+				r"{xyz",
+				ParseError::UnterminatedVariable {
+					content: "xyz".to_owned(),
+				},
+			);
+			test(
+				&empty_context,
+				r"ak{jh}sd{js", // Again, missing variable ignored when we can't parse
+				ParseError::UnterminatedVariable {
+					content: "js".to_owned(),
+				},
+			);
+
+			test(
+				&empty_context,
+				r"ak{\jh}sd{js", // Again, missing variable ignored when we can't parse
+				ParseError::BackslashInVariableName { position: 3 },
+			);
+			test(
+				&empty_context,
+				r"ak{xyjh}sd{\js", // Again, missing variable ignored when we can't parse
+				ParseError::BackslashInVariableName { position: 11 },
+			);
+
+			test(
+				&empty_context,
+				r"\{\x",
+				ParseError::InvalidEscapeSequence {
+					position: (2, 3),
+					char: 'x',
+				},
+			);
+			test(
+				&empty_context,
+				r"\\x\|",
+				ParseError::InvalidEscapeSequence {
+					position: (3, 4),
+					char: '|',
+				},
+			);
 		}
 
 		#[test]
@@ -648,7 +829,7 @@ mod tests {
 			) {
 				assert_eq!(
 					context.sub_vars_into_str(input.as_ref()).err().unwrap(),
-					VariableSubstitutionError::VariableNameError {
+					VariableSubstitutionError::VariableName {
 						illegal_names: (illegal.0).iter().map(|&s| s.to_owned()).collect(),
 						missing_from_context: (missing.0).iter().map(|&s| s.to_owned()).collect()
 					}

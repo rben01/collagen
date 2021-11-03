@@ -38,17 +38,17 @@ where
 
 	let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
 
-	let attr_values = tag.attrs(context)?;
-	let attr_strings = attr_values
-		.iter()
-		.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
-		.collect::<Vec<_>>();
-
-	curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
-	writer.write_event(XmlEvent::Start(curr_elem))?;
-
 	// Write the tag's children and text
 	context.with_new_vars(tag.vars(context)?, || {
+		let attr_values = tag.attrs(context)?;
+		let attr_strings = attr_values
+			.iter()
+			.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
+			.collect::<Vec<_>>();
+
+		curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
+		writer.write_event(XmlEvent::Start(curr_elem))?;
+
 		write_children(writer)?;
 		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
 			&tag.text(context)?,
@@ -78,17 +78,17 @@ where
 
 	let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
 
-	let attr_values = tag.attrs(context)?;
-	let attr_strings = attr_values
-		.iter()
-		.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
-		.collect::<Vec<_>>();
-
-	curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
-	writer.write_event(XmlEvent::Start(curr_elem))?;
-
 	// Write the tag's children and text
 	context.with_new_vars(tag.vars(context), || {
+		let attr_values = tag.attrs(context)?;
+		let attr_strings = attr_values
+			.iter()
+			.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
+			.collect::<Vec<_>>();
+
+		curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
+		writer.write_event(XmlEvent::Start(curr_elem))?;
+
 		write_children(writer)?;
 		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
 			&tag.text(context)?,
@@ -148,9 +148,12 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 					})?;
 				}
 				_ => {
-					for child in self.children(context)? {
-						child.to_svg_through_writer(context, writer)?;
-					}
+					context.with_new_vars(self.vars(context)?, || {
+						for child in self.children(context)? {
+							child.to_svg_through_writer(context, writer)?;
+						}
+						Ok(())
+					})?;
 				}
 			};
 
