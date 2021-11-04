@@ -1,6 +1,6 @@
 use super::{
 	common_tag_fields::CommonTagFields, AnyChildTag, AttrKVValueVec, ClgnDecodingResult,
-	DecodingContext, TagVariables, XmlAttrs,
+	DecodingContext, TagLike, TagVariables, XmlAttrs,
 };
 use crate::fibroblast::data_types::SimpleValue;
 use serde::{Deserialize, Serialize};
@@ -13,10 +13,6 @@ pub(crate) struct RootTag<'a> {
 }
 
 impl<'a> RootTag<'a> {
-	pub(crate) fn tag_name(&self) -> &str {
-		"svg"
-	}
-
 	pub(super) fn base_vars(&self) -> &TagVariables {
 		self.common_tag_fields.base_vars()
 	}
@@ -33,14 +29,21 @@ impl<'a> RootTag<'a> {
 		self.common_tag_fields.base_text()
 	}
 
-	pub(crate) fn vars(&self, _: &DecodingContext) -> &TagVariables {
-		self.base_vars()
+	pub(crate) fn children(&'a self) -> &[AnyChildTag<'a>] {
+		self.base_children()
+	}
+}
+
+impl<'a> TagLike<'a> for RootTag<'a> {
+	fn tag_name(&self) -> &str {
+		"svg"
 	}
 
-	pub(crate) fn attrs(
-		&'a self,
-		context: &DecodingContext,
-	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	fn vars(&self, _: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
+		Ok(self.base_vars())
+	}
+
+	fn attrs(&'a self, context: &DecodingContext) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		let base_attrs = self.base_attrs();
 		let mut new_attrs = context.sub_vars_into_attrs(
 			base_attrs
@@ -59,11 +62,11 @@ impl<'a> RootTag<'a> {
 		Ok(new_attrs)
 	}
 
-	pub(crate) fn text(&'a self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
-		Ok(context.sub_vars_into_str(self.base_text())?)
+	fn text(&'a self, _: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
+		Ok(Cow::Borrowed(self.base_text()))
 	}
 
-	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
-		self.base_children()
+	fn should_encode_text(&self) -> bool {
+		self.common_tag_fields.should_encode_text()
 	}
 }

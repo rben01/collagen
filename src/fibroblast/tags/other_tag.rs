@@ -33,4 +33,8 @@ impl<'a> OtherTag<'a> {
 	pub(super) fn base_text(&self) -> &str {
 		self.common_tag_fields.base_text()
 	}
+
+	pub(super) fn should_encode_text(&self) -> bool {
+		self.common_tag_fields.should_encode_text()
+	}
 }

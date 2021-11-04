@@ -47,7 +47,7 @@ impl<'a> ContainerTag<'a> {
 		"g"
 	}
 
-	pub(super) fn vars(&'a self) -> &TagVariables {
+	pub(super) fn vars(&'a self) -> ClgnDecodingResult<&TagVariables> {
 		self.as_fibroblast().vars()
 	}
 
@@ -68,5 +68,9 @@ impl<'a> ContainerTag<'a> {
 
 	pub(super) fn text(&'a self) -> ClgnDecodingResult<Cow<'a, str>> {
 		self.as_fibroblast().text()
+	}
+
+	pub(super) fn should_encode_text(&self) -> bool {
+		false
 	}
 }

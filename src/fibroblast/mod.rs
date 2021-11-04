@@ -44,6 +44,7 @@ pub use super::from_json::decoding_error::ClgnDecodingResult;
 pub use crate::fibroblast::data_types::DecodingContext;
 use data_types::TagVariables;
 use std::borrow::Cow;
+pub(crate) use tags::TagLike;
 use tags::{any_child_tag::AnyChildTag, root_tag::RootTag};
 
 /// The whole shebang: both the (context-less) root tag
@@ -54,11 +55,11 @@ pub struct Fibroblast<'a> {
 }
 
 impl<'a> Fibroblast<'a> {
-	pub(crate) fn vars(&self) -> &TagVariables {
+	pub(crate) fn vars(&'a self) -> ClgnDecodingResult<&TagVariables> {
 		self.root.vars(&self.context)
 	}
 
-	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
+	pub(crate) fn children(&'a self) -> &[AnyChildTag<'a>] {
 		self.root.children()
 	}
 

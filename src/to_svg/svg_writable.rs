@@ -5,7 +5,7 @@
 use crate::fibroblast::{
 	data_types::DecodingContext,
 	tags::{AnyChildTag, RootTag},
-	Fibroblast,
+	Fibroblast, TagLike,
 };
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 
@@ -22,13 +22,14 @@ use std::io::Cursor;
 /// which takes a [`RootTag`] instead of an [`AnyChildTag`] and therefore some of the
 /// variables are of different type (i.e., where this function uses `f()?`,
 /// [`roottag_to_svg_through_writer_with`] might use `f()`.)
-fn anychildtag_to_svg_through_writer_with<'a, W, F>(
-	tag: &'a AnyChildTag<'a>,
+fn tag_to_svg_through_writer_with<'a, T, W, F>(
+	tag: &'a T,
 	context: &'a DecodingContext<'a>,
 	writer: &mut XmlWriter<W>,
 	write_children: F,
 ) -> ClgnDecodingResult<()>
 where
+	T: TagLike<'a>,
 	W: std::io::Write,
 	F: FnOnce(&mut XmlWriter<W>) -> ClgnDecodingResult<()>,
 {
@@ -48,51 +49,14 @@ where
 
 		curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
 		writer.write_event(XmlEvent::Start(curr_elem))?;
+		let text = tag.text(context)?;
 
 		write_children(writer)?;
-		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
-			&tag.text(context)?,
-		)))?;
-		Ok(())
-	})?;
-
-	// Close the tag
-	writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag_name_bytes)))?;
-
-	Ok(())
-}
-
-fn roottag_to_svg_through_writer_with<'a, W, F>(
-	tag: &'a RootTag<'a>,
-	context: &'a DecodingContext<'a>,
-	writer: &mut XmlWriter<W>,
-	write_children: F,
-) -> ClgnDecodingResult<()>
-where
-	W: std::io::Write,
-	F: FnOnce(&mut XmlWriter<W>) -> ClgnDecodingResult<()>,
-{
-	let tag_name_bytes = tag.tag_name().as_bytes();
-
-	// Open the tag (write e.g., `<rect attr1="val1">`)
-
-	let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
-
-	// Write the tag's children and text
-	context.with_new_vars(tag.vars(context), || {
-		let attr_values = tag.attrs(context)?;
-		let attr_strings = attr_values
-			.iter()
-			.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
-			.collect::<Vec<_>>();
-
-		curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
-		writer.write_event(XmlEvent::Start(curr_elem))?;
-
-		write_children(writer)?;
-		writer.write_event(XmlEvent::Text(BytesText::from_plain_str(
-			&tag.text(context)?,
-		)))?;
+		writer.write_event(XmlEvent::Text(if tag.should_encode_text() {
+			BytesText::from_plain_str(&*text)
+		} else {
+			BytesText::from_escaped((&*text).as_bytes())
+		}))?;
 		Ok(())
 	})?;
 
@@ -136,7 +100,7 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 	where
 		Self: Debug,
 	{
-		anychildtag_to_svg_through_writer_with(self, context, writer, |writer| {
+		tag_to_svg_through_writer_with(self, context, writer, |writer| {
 			match &self {
 				AnyChildTag::Container(container) => {
 					let fb = container.as_fibroblast();
@@ -171,7 +135,7 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 	where
 		Self: Debug,
 	{
-		roottag_to_svg_through_writer_with(self, context, writer, |writer| {
+		tag_to_svg_through_writer_with(self, context, writer, |writer| {
 			for child in self.children() {
 				child.to_svg_through_writer(context, writer)?;
 			}

@@ -41,7 +41,7 @@ impl<'a> ImageTag<'a> {
 	pub(super) fn get_image_attr_pair(
 		&'a self,
 		context: &DecodingContext,
-	) -> ClgnDecodingResult<(&'a str, Cow<'a, SimpleValue>)> {
+	) -> ClgnDecodingResult<(&'a str, SimpleValue)> {
 		let key = "href";
 
 		let kind = match self.kind() {
@@ -63,7 +63,7 @@ impl<'a> ImageTag<'a> {
 		let b64_string = base64::encode(std::fs::read(abs_image_path)?);
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 
-		Ok((key, Cow::Owned(SimpleValue::Text(src_str))))
+		Ok((key, SimpleValue::Text(src_str)))
 	}
 
 	pub(super) fn tag_name(&self) -> &str {
@@ -84,5 +84,9 @@ impl<'a> ImageTag<'a> {
 
 	pub(super) fn base_text(&self) -> &str {
 		self.common_tag_fields.base_text()
+	}
+
+	pub(super) fn should_encode_text(&self) -> bool {
+		self.common_tag_fields.should_encode_text()
 	}
 }

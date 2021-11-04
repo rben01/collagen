@@ -1,5 +1,7 @@
-use super::{container_tag::ContainerTag, image_tag::ImageTag, other_tag::OtherTag};
-use super::{AttrKVValueVec, ClgnDecodingResult, TagVariables};
+use super::{
+	container_tag::ContainerTag, font_tag::FontTag, image_tag::ImageTag, other_tag::OtherTag,
+};
+use super::{AttrKVValueVec, ClgnDecodingResult, TagLike, TagVariables};
 use crate::fibroblast::data_types::DecodingContext;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -11,18 +13,11 @@ pub(crate) enum AnyChildTag<'a> {
 	Container(ContainerTag<'a>),
 	Image(ImageTag<'a>),
 	Other(OtherTag<'a>),
+	Font(FontTag),
 }
 
 impl<'a> AnyChildTag<'a> {
 	// This seems dumb. Any way to dedupe this?
-	pub(crate) fn tag_name(&self) -> &str {
-		use AnyChildTag::*;
-		match &self {
-			Container(t) => t.tag_name(),
-			Image(t) => t.tag_name(),
-			Other(t) => t.tag_name(),
-		}
-	}
 
 	fn initialize(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
 		let ok = Ok(());
@@ -32,24 +27,46 @@ impl<'a> AnyChildTag<'a> {
 		}
 	}
 
-	pub(crate) fn vars(
+	pub(crate) fn children(
 		&'a self,
 		context: &'a DecodingContext<'a>,
-	) -> ClgnDecodingResult<&TagVariables> {
+	) -> ClgnDecodingResult<&'a [AnyChildTag]> {
 		self.initialize(context)?;
 
 		use AnyChildTag::*;
 		Ok(match &self {
-			Container(t) => t.vars(),
+			Container(t) => t.children(),
+			Image(t) => t.base_children(),
+			Other(t) => t.base_children(),
+			Font(t) => t.base_children(),
+		})
+	}
+}
+
+impl<'a> TagLike<'a> for AnyChildTag<'a> {
+	fn tag_name(&self) -> &str {
+		use AnyChildTag::*;
+		match &self {
+			Container(t) => t.tag_name(),
+			Image(t) => t.tag_name(),
+			Other(t) => t.tag_name(),
+			Font(t) => t.tag_name(),
+		}
+	}
+
+	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
+		self.initialize(context)?;
+
+		use AnyChildTag::*;
+		Ok(match &self {
+			Container(t) => t.vars()?,
 			Image(t) => t.base_vars(),
 			Other(t) => t.base_vars(),
+			Font(t) => t.base_vars(),
 		})
 	}
 
-	pub(crate) fn attrs(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		self.initialize(context)?;
 
 		use AnyChildTag::*;
@@ -67,34 +84,24 @@ impl<'a> AnyChildTag<'a> {
 					.iter()
 					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
 			),
+			Font(t) => context.sub_vars_into_attrs(
+				t.base_attrs()
+					.0
+					.iter()
+					.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
+			),
 		}?;
 
 		// If more cases arise, convert this to a match
 		if let AnyChildTag::Image(t) = self {
-			attrs.push(t.get_image_attr_pair(context)?);
+			let (k, v) = t.get_image_attr_pair(context)?;
+			attrs.push((k, Cow::Owned(v)));
 		}
 
 		Ok(attrs)
 	}
 
-	pub(crate) fn children(
-		&'a self,
-		context: &'a DecodingContext<'a>,
-	) -> ClgnDecodingResult<&'a [AnyChildTag]> {
-		self.initialize(context)?;
-
-		use AnyChildTag::*;
-		Ok(match &self {
-			Container(t) => t.children(),
-			Image(t) => t.base_children(),
-			Other(t) => t.base_children(),
-		})
-	}
-
-	pub(crate) fn text(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
 		self.initialize(context)?;
 
 		use AnyChildTag::*;
@@ -102,6 +109,17 @@ impl<'a> AnyChildTag<'a> {
 			Container(t) => t.text(),
 			Image(t) => Ok(context.sub_vars_into_str(t.base_text())?),
 			Other(t) => Ok(context.sub_vars_into_str(t.base_text())?),
+			Font(t) => Ok(Cow::Owned(t.font_embed_text(context)?)),
+		}
+	}
+
+	fn should_encode_text(&self) -> bool {
+		use AnyChildTag::*;
+		match &self {
+			Container(t) => t.should_encode_text(),
+			Image(t) => t.should_encode_text(),
+			Other(t) => t.should_encode_text(),
+			Font(t) => t.should_encode_text(),
 		}
 	}
 }

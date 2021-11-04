@@ -8,7 +8,6 @@ pub(crate) mod context;
 pub use context::DecodingContext;
 
 mod concrete_number;
-#[cfg(test)]
 pub(crate) use concrete_number::ConcreteNumber;
 
 mod simple_value;

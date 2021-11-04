@@ -15,6 +15,9 @@ pub(super) struct CommonTagFields<'a> {
 
 	#[serde(default)]
 	text: Option<String>,
+
+	#[serde(default)]
+	encode_entities: Option<bool>,
 }
 
 impl<'a> CommonTagFields<'a> {
@@ -44,5 +47,9 @@ impl<'a> CommonTagFields<'a> {
 			None => "",
 			Some(t) => t.as_ref(),
 		}
+	}
+
+	pub(crate) fn should_encode_text(&self) -> bool {
+		self.encode_entities.unwrap_or(true)
 	}
 }
