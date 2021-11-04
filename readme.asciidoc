@@ -5,11 +5,10 @@
 :icons: font
 :toc: left
 
-[WARNING]
+[NOTE]
 ====
-This project is so, incredibly unfinished.
-What's currently in this repo is very much a MVP.
-There are no tests and barely any documentation (yet!).
+This project is a work in progress, but it’s coming along well!
+Testing and documentation definitely need to be beefed up, but the functionality is nearly all there.
 ====
 
 == Introduction
