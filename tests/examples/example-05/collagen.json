@@ -2,14 +2,6 @@
 	"attrs": { "viewBox": "0 0 800 650" },
 	"children": [
 		{
-			"fonts": [
-				{
-					"name": "Impact",
-					"path": "./impact.woff2"
-				}
-			]
-		},
-		{
 			"image_path": "./drake-small.jpg",
 			"attrs": {
 				"width": 800

@@ -65,7 +65,7 @@ impl FontTag {
 		let abs_font_path = context.get_root().join(path);
 		let b64_string = base64::encode(std::fs::read(abs_font_path)?);
 		let src_str = format!(
-			"data:application/font-woff2;charset=utf-8;base64,{}",
+			"url('data:application/font-woff2;charset=utf-8;base64,{}') format('woff2')",
 			b64_string
 		);
 

@@ -24,8 +24,8 @@ file with all assets embedded.
 === Rationale
 
 There are several widely used image formats, perhaps the three best known of which are JPEG, PNG, and SVG.
-JPEG and PNG are link:https://en.wikipedia.org/wiki/Raster_graphics[raster formats], which means they correspond to a rectangular grid of pixels.
-On the other hand, SVG is a link:https://en.wikipedia.org/wiki/Vector_graphics[vector format], which means it describes perfectly precise curves that can be displayed with arbitrarily high precision.
+JPEG and PNG are link:https://en.wikipedia.org/wiki/Raster_graphics[raster formats^], which means they correspond to a rectangular grid of pixels.
+On the other hand, SVG is a link:https://en.wikipedia.org/wiki/Vector_graphics[vector format^], which means it describes perfectly precise curves that can be displayed with arbitrarily high precision.
 These three formats are each optimized for a different use case:
 
 - link:https://en.wikipedia.org/wiki/Jpeg[JPEG^] uses lossy compression that preserves visual quality on most "real-life" images -- images that contain smoothly-varying gradients -- but which produces link:https://en.wikipedia.org/wiki/Compression_artifact#Images[visible artifacts^] when used on other kinds of images, especially ones containing hard edges and/or text.
@@ -65,11 +65,11 @@ example-01
     └── smiley.jpg
 ----
 
-Where link:{examples-dir}/example-02/example-01/images/smiley.jpg[`images/smiley.jpg`] is the following image (whose native size is 380×380 pixels):
+Where link:{examples-dir}/example-02/example-01/images/smiley.jpg[`images/smiley.jpg`^] is the following image (whose native size is 380×380 pixels):
 
 image::{examples-dir}/example-02/example-01/images/smiley.jpg[width=200px]
 
-And where link:{examples-dir}/example-02/example-01/collagen.json[`collagen.json`] contains the following:
+And where link:{examples-dir}/example-02/example-01/collagen.json[`collagen.json`^] contains the following:
 
 [source,json,indent=0,tabsize=2]
 ----
@@ -137,7 +137,7 @@ Then, running the following command:footnote:[
 cargo run -- -i example-01 -o example-01.svg
 ----
 
-Will produce the following file, link:/examples/svgs/example-01.svg[`examples-01.svg`]:
+Will produce the following file, link:/examples/svgs/example-01.svg[`examples-01.svg`^]:
 
 image::{examples-dir}/svgs/example-01.svg[width=500]
 
@@ -152,7 +152,7 @@ Perfectly precise vector graphics can coexist alongside raster graphics.
 As we've seen, we can include raster images in skeletons; it would be silly if we couldn't also include other skeletons!
 Nested skeletons can be included by adding a child of the form `{"clgn_path": <path>}`.
 (Whereas a standalone skeleton gets turned into a `<svg>` tag, a nested skeleton will reside in a `<g>` tag.)
-Let's include the above skeleton in another (and just for fun, let's add a photo of a kitten (link:https://commons.wikimedia.org/w/index.php?title=File:Cute_grey_kitten.jpg&oldid=479136954[source]) too, because why not):
+Let's include the above skeleton in another (and just for fun, let's add a photo of a kitten (link:https://commons.wikimedia.org/w/index.php?title=File:Cute_grey_kitten.jpg&oldid=479136954[source^]) too, because why not):
 
 [source,text]
 ----
@@ -165,7 +165,7 @@ example-02
 └── kitty.jpg
 ----
 
-Where link:/examples/example-02/collagen.json[`example-02/collagen.json`] is below:
+Where link:{examples-dir}/example-02/collagen.json[`example-02/collagen.json`^] is below:
 
 [source,json,indent=0,tabsize=2]
 ----
@@ -202,19 +202,191 @@ Where link:/examples/example-02/collagen.json[`example-02/collagen.json`] is bel
 }
 ----
 
-Here's the result (link:/examples/svgs/example-02.svg[link]) when you run `cargo run \-- -i example-02 -o example-02.svg`:
+Here's (link:/examples/svgs/example-02.svg[the result^]) when you run `cargo run \-- -i example-02 -o example-02.svg`:
 
 image::{examples-dir}/svgs/example-02.svg[width=600]
 
 So, as far as Collagen is concerned, skeletons act more or less the same as raster images, in the sense that the path is sufficient to include them.
 The only difference is that the path to a skeleton child is given by the key `clgn_path` instead of `image_path`.
 
+=== Memes
+
+A format that makes it easy to place text on images?
+Sounds like it would be perfect for memes.
+(No, there was no `example-03`; we stripped straight from #2 to #4.)
+
+.link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^]
+[source,json,indent=0,tabsize=2]
+----
+{
+	"attrs": { "viewBox": "0 0 800 650" },
+	"children": [
+		{
+			"fonts": [
+				{
+					"name": "Impact",
+					"path": "./impact.woff2" <1>
+				}
+			]
+		},
+		{
+			"image_path": "./drake-small.jpg",
+			"attrs": {
+				"width": 800
+			}
+		},
+		{
+			"vars": {
+				"x": 550,
+				"dy": 50
+			},
+			"tag": "text",
+			"attrs": {
+				"font-family": "Impact", <2>
+				"font-size": 50,
+				"color": "black",
+				"text-anchor": "middle",
+				"vertical-align": "top",
+				"x": "{x}",
+				"y": 420
+			},
+			"children": [
+				{
+					"tag": "tspan",
+					"text": "Using SVG-based text,",
+					"attrs": {
+						"x": "{x}",
+						"dy": 0
+					}
+				},
+
+				{
+					"tag": "tspan",
+					"text": "which is infinitely",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "zoomable and has",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "no artifacts",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				}
+			]
+		}
+	]
+}
+----
+<1> Hmm, why might we need the path to a `woff2` file?
+<2> It's not a meme unless it uses the Impact font.
+But what if our device doesn't have Impact on it?
+(iPhones don’t, for instance.)
+
+link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^] produces the following meme:
+
+image::{examples-dir}/svgs/example-04.svg[width=600]
+
+If you're on a device that doesn’t include the Impact font (which includes iPhones, for one), you might wonder what magic occurred that made the bottom pane's font show up correctly — as Impact and not, say, Times New Roman.
+After all, if the specified `font-face` is not available — and Impact is not available on iPhones — the browser will fall back to another font.
+So, for maximum portability, Collagen allows _embedding_ fonts in SVGs — that's how we got Impact to show up on devices that don't have the font natively.
+Of course, if you stick to web-safe fonts or you _know_ that the recipient has all the fonts you want to use, then you can just refer to the fonts by name and they'll show up correctly.
+But if you want to use fonts that aren't on the receiving device, then you can still get a portable file by embedding the font in the SVG.
+
+For reference, here's the file above but without the font embedded.
+
+.link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^]
+[source,json,indent=0,tabsize=2]
+----
+{
+	"attrs": { "viewBox": "0 0 800 650" },
+	"children": [ <1>
+		{
+			"image_path": "./drake-small.jpg",
+			"attrs": {
+				"width": 800
+			}
+		},
+		{
+			"vars": {
+				"x": 550,
+				"dy": 50
+			},
+			"tag": "text",
+			"attrs": {
+				"font-family": "Impact",
+				"font-size": 50,
+				"color": "black",
+				"text-anchor": "middle",
+				"vertical-align": "top",
+				"x": "{x}",
+				"y": 420
+			},
+			"children": [
+				{
+					"tag": "tspan",
+					"text": "Using SVG-based text,",
+					"attrs": {
+						"x": "{x}",
+						"dy": 0
+					}
+				},
+
+				{
+					"tag": "tspan",
+					"text": "which is infinitely",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "zoomable and has",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "no artifacts",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				}
+			]
+		}
+	]
+}
+----
+<1> This time, we didn't embed Impact.
+
+Now, if you view the result in a desktop browser, it should look the same as above, but on a mobile device the font in the bottom pane may be use Times New Roman (or some other fallback font) instead of Impact.
+
+image::{examples-dir}/svgs/example-05.svg[width=600]
+
+So it's nice to be able to embed fonts (although it's not great for the resulting file size…).
+
 == FAQ
 
 [qanda]
-Wait, so all this does is base64 encode images and put them in an SVG with other SVG elements?::
+Wait, so all this does is base64 encode assets and put them in an SVG with other SVG elements?::
 It adds some additional features, such as nesting of skeletons and the use of tag-wide variables and interpolation of these variables in attributes.
 But yes, for the most part, all this project does is allow raster images to coexist with each other and with vector graphics.
+If you need to embed fonts in an SVG, Collagen lets you do that, too.
 
 Couldn't I just do the base64 encoding and create the SVG myself?::
 Yes.
@@ -224,12 +396,12 @@ I want to put some text on a JPEG. What's so bad about just opening an image edi
 The text will look bad because
 +
 . It will no be longer an infinitely zoomable vector entity, but instead will have been rasterized, i.e., rendered onto a fixed pixel grid that is only finitely zoomable.
-. JPEG in particular is not optimized for text, so artifacts will be visible (see link:https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&oldid=453916290[here]).
+. JPEG in particular is not optimized for text, so artifacts will be visible (see link:https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&oldid=453916290[here^] or the Drake meme above).
 
 I'm ok with text being rasterized. This means I can convert my JPEG to PNG and avoid #2 above, right?::
 Yes and no. While the text will look sort of ok (when not zoomed in), you now have the problem that your JPEG is being stored as a PNG.
 Chances are that this will cause the resulting file size to explode because PNG is simply not meant to store the kind of images that JPEG is meant to store.
-For instance, the JPEG below (link:https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&oldid=424889773[source]) is 57KB, whereas the PNG is 434KB.
+For instance, the JPEG below (link:https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&oldid=424889773[source^]) is 57KB, whereas the PNG is 434KB.
 +
 --
 This JPEG weighs in at 57KB:::
@@ -249,4 +421,5 @@ The image below is black text on a white background.
 image::{examples-dir}/pics/text_png.png[]
 +
 You don't have to zoom in very far to see the text get fuzzy.
+And if this image undergoes additional rounds of editing and compression, this problem will only get worse.
 In contrast, the text in the smiley-face image above (and, naturally, the text on this webpage) is perfectly precise and will retain all of its detail at arbitrary magnification.
