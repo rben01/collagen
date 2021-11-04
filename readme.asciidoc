@@ -305,7 +305,7 @@ But if you want to use fonts that aren't on the receiving device, then you can s
 
 For reference, here's the file above but without the font embedded.
 
-.link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^]
+.link:{examples-dir}/example-05/collagen.json[`example-05/collagen.json`^]
 [source,json,indent=0,tabsize=2]
 ----
 {
