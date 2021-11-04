@@ -212,7 +212,7 @@ The only difference is that the path to a skeleton child is given by the key `cl
 
 A format that makes it easy to place text on images?
 Sounds like it would be perfect for memes.
-(No, there was no `example-03`; we stripped straight from #2 to #4.)
+(No, there was no `example-03`; we skipped straight from #2 to #4.)
 
 .link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^]
 [source,json,indent=0,tabsize=2]
