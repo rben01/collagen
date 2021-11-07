@@ -360,11 +360,7 @@ impl<'a> DecodingContext<'a> {
 		let mut subd_attrs = Vec::with_capacity(n_attrs);
 
 		for (k, orig_val) in attrs_iter {
-			let wrapped_val = match &orig_val {
-				Cow::Owned(owned_val) => owned_val,
-				Cow::Borrowed(borrowed_val) => *borrowed_val,
-			};
-			let new_val = match wrapped_val {
+			let new_val = match orig_val.as_ref() {
 				SimpleValue::Text(text) => {
 					let subd_text = self.sub_vars_into_str(text)?;
 					match subd_text {
@@ -789,7 +785,7 @@ mod tests {
 		#[test]
 		fn illegal_var_names() {
 			#[track_caller]
-			fn test<S: AsRef<str>>(input: S, illegal: Illegal, context: &DecodingContext) {
+			fn test<S: AsRef<str>>(context: &DecodingContext, input: S, illegal: Illegal) {
 				assert_eq!(
 					context.sub_vars_into_str(input.as_ref()).err().unwrap(),
 					VariableSubstitutionError::new_with_illegal_names(
@@ -800,21 +796,21 @@ mod tests {
 
 			let empty_context = DecodingContext::new_empty();
 
-			test("{}", Illegal(vec![""]), &empty_context);
-			test("{ }", Illegal(vec![" "]), &empty_context);
-			test("{\n}", Illegal(vec!["\n"]), &empty_context);
-			test("{ a }", Illegal(vec![" a "]), &empty_context);
-			test("{a.}", Illegal(vec!["a."]), &empty_context);
-			test("{ .}", Illegal(vec![" ."]), &empty_context);
+			test(&empty_context, "{}", Illegal(vec![""]));
+			test(&empty_context, "{ }", Illegal(vec![" "]));
+			test(&empty_context, "{\n}", Illegal(vec!["\n"]));
+			test(&empty_context, "{ a }", Illegal(vec![" a "]));
+			test(&empty_context, "{a.}", Illegal(vec!["a."]));
+			test(&empty_context, "{ .}", Illegal(vec![" ."]));
 
-			test("{} {}", Illegal(vec!["", ""]), &empty_context);
-			test("{ } {}", Illegal(vec![" ", ""]), &empty_context);
-			test("{} { }", Illegal(vec!["", " "]), &empty_context);
-			test("{ } { }", Illegal(vec![" ", " "]), &empty_context);
+			test(&empty_context, "{} {}", Illegal(vec!["", ""]));
+			test(&empty_context, "{ } {}", Illegal(vec![" ", ""]));
+			test(&empty_context, "{} { }", Illegal(vec!["", " "]));
+			test(&empty_context, "{ } { }", Illegal(vec![" ", " "]));
 			test(
+				&empty_context,
 				"{} { } {  } { a } { a } { b } {}",
 				Illegal(vec!["", " ", "  ", " a ", " a ", " b ", ""]),
-				&empty_context,
 			);
 		}
 
@@ -822,10 +818,10 @@ mod tests {
 		fn illegal_and_missing_var_names() {
 			#[track_caller]
 			fn test<S: AsRef<str>>(
+				context: &DecodingContext,
 				input: S,
 				illegal: Illegal,
 				missing: Missing,
-				context: &DecodingContext,
 			) {
 				assert_eq!(
 					context.sub_vars_into_str(input.as_ref()).err().unwrap(),
@@ -839,45 +835,45 @@ mod tests {
 			let empty_context = DecodingContext::new_empty();
 
 			test(
+				&empty_context,
 				"{} {a}",
 				Illegal(vec![""]),
 				Missing(vec!["a"]),
-				&empty_context,
 			);
 
 			test(
+				&empty_context,
 				"{} {a}",
 				Illegal(vec![""]),
 				Missing(vec!["a"]),
-				&empty_context,
 			);
 
 			test(
+				&empty_context,
 				"{} {a} {} {a}",
 				Illegal(vec!["", ""]),
 				Missing(vec!["a", "a"]),
-				&empty_context,
 			);
 
 			test(
+				&empty_context,
 				"{} {a} { } {b}",
 				Illegal(vec!["", " "]),
 				Missing(vec!["a", "b"]),
-				&empty_context,
 			);
 
 			test(
+				&empty_context,
 				"{} { a } { } { b }",
 				Illegal(vec!["", " a ", " ", " b "]),
 				Missing(vec![]),
-				&empty_context,
 			);
 
 			test(
+				&empty_context,
 				"{a} {b} {c} {d}",
 				Illegal(vec![]),
 				Missing(vec!["a", "b", "c", "d"]),
-				&empty_context,
 			);
 
 			let xyz_ref = "xyz";
@@ -890,31 +886,31 @@ mod tests {
 			]);
 
 			test(
+				&nonempty_context,
 				"{} {a} {} {a}",
 				Illegal(vec!["", ""]),
 				Missing(vec![]),
-				&nonempty_context,
 			);
 
 			test(
+				&nonempty_context,
 				"{} {a} { } {e}",
 				Illegal(vec!["", " "]),
 				Missing(vec!["e"]),
-				&nonempty_context,
 			);
 
 			test(
+				&nonempty_context,
 				"{} { a } { } { b }",
 				Illegal(vec!["", " a ", " ", " b "]),
 				Missing(vec![]),
-				&nonempty_context,
 			);
 
 			test(
+				&nonempty_context,
 				"{a} {b} { c } { d } {e}",
 				Illegal(vec![" c ", " d "]),
 				Missing(vec!["e"]),
-				&nonempty_context,
 			);
 
 			assert!(nonempty_context

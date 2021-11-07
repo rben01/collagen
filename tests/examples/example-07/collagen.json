@@ -1,0 +1,70 @@
+{
+	"attrs": { "viewBox": "0 0 800 650" },
+	"children": [
+		{
+			"fonts": [
+				{
+					"bundled": true,
+					"name": "Impact"
+				}
+			]
+		},
+		{
+			"image_path": "./drake-small.jpg",
+			"attrs": {
+				"width": 800
+			}
+		},
+		{
+			"vars": {
+				"x": 550,
+				"dy": 50
+			},
+			"tag": "text",
+			"attrs": {
+				"font-family": "Impact",
+				"font-size": 50,
+				"color": "black",
+				"text-anchor": "middle",
+				"vertical-align": "top",
+				"x": "{x}",
+				"y": 420
+			},
+			"children": [
+				{
+					"tag": "tspan",
+					"text": "Using SVG-based text,",
+					"attrs": {
+						"x": "{x}",
+						"dy": 0
+					}
+				},
+
+				{
+					"tag": "tspan",
+					"text": "which is infinitely",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "zoomable and has",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				},
+				{
+					"tag": "tspan",
+					"text": "no artifacts",
+					"attrs": {
+						"x": "{x}",
+						"dy": "{dy}"
+					}
+				}
+			]
+		}
+	]
+}

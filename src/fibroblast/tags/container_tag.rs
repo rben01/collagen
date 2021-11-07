@@ -70,7 +70,7 @@ impl<'a> ContainerTag<'a> {
 		self.as_fibroblast().text()
 	}
 
-	pub(super) fn should_encode_text(&self) -> bool {
+	pub(super) fn should_escape_text(&self) -> bool {
 		false
 	}
 }

@@ -66,7 +66,7 @@ impl<'a> TagLike<'a> for RootTag<'a> {
 		Ok(Cow::Borrowed(self.base_text()))
 	}
 
-	fn should_encode_text(&self) -> bool {
-		self.common_tag_fields.should_encode_text()
+	fn should_escape_text(&self) -> bool {
+		self.common_tag_fields.should_escape_text()
 	}
 }

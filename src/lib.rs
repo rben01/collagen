@@ -5,4 +5,5 @@ pub mod to_svg;
 
 pub use fibroblast::Fibroblast;
 pub use from_json::ClgnDecodingResult;
-pub use to_svg::svg_writable::SvgWritableTag;
+
+pub mod assets;

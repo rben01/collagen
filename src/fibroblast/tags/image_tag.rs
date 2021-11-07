@@ -86,7 +86,7 @@ impl<'a> ImageTag<'a> {
 		self.common_tag_fields.base_text()
 	}
 
-	pub(super) fn should_encode_text(&self) -> bool {
-		self.common_tag_fields.should_encode_text()
+	pub(super) fn should_escape_text(&self) -> bool {
+		self.common_tag_fields.should_escape_text()
 	}
 }

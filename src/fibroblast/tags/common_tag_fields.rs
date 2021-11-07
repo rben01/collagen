@@ -17,7 +17,7 @@ pub(super) struct CommonTagFields<'a> {
 	text: Option<String>,
 
 	#[serde(default)]
-	encode_entities: Option<bool>,
+	should_escape_text: Option<bool>,
 }
 
 impl<'a> CommonTagFields<'a> {
@@ -49,7 +49,7 @@ impl<'a> CommonTagFields<'a> {
 		}
 	}
 
-	pub(crate) fn should_encode_text(&self) -> bool {
-		self.encode_entities.unwrap_or(true)
+	pub(crate) fn should_escape_text(&self) -> bool {
+		self.should_escape_text.unwrap_or(true)
 	}
 }

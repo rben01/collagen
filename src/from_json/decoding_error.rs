@@ -29,6 +29,8 @@ pub enum ClgnDecodingError {
 	Xml(XmlError),
 	Image(String),
 	Cli(CliError),
+	BuiltWithoutBundledFonts,
+	BundledFontNotFound(String),
 }
 
 impl From<VariableSubstitutionError> for ClgnDecodingError {

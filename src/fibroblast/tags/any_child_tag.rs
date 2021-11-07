@@ -113,13 +113,13 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		}
 	}
 
-	fn should_encode_text(&self) -> bool {
+	fn should_escape_text(&self) -> bool {
 		use AnyChildTag::*;
 		match &self {
-			Container(t) => t.should_encode_text(),
-			Image(t) => t.should_encode_text(),
-			Other(t) => t.should_encode_text(),
-			Font(t) => t.should_encode_text(),
+			Container(t) => t.should_escape_text(),
+			Image(t) => t.should_escape_text(),
+			Other(t) => t.should_escape_text(),
+			Font(t) => t.should_escape_text(),
 		}
 	}
 }

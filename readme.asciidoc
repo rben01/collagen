@@ -289,7 +289,7 @@ Sounds like it would be perfect for memes.
 }
 ----
 <1> Hmm, why might we need the path to a `woff2` file?
-<2> It's not a meme unless it uses the Impact font.
+<2> It's not a meme unless it uses the link:https://en.wikipedia.org/wiki/Impact_(typeface)[Impact font^].
 But what if our device doesn't have Impact on it?
 (iPhones don’t, for instance.)
 
@@ -297,7 +297,7 @@ link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^] produc
 
 image::{examples-dir}/svgs/example-04.svg[width=600]
 
-If you're on a device that doesn’t include the Impact font (which includes iPhones, for one), you might wonder what magic occurred that made the bottom pane's font show up correctly — as Impact and not, say, Times New Roman.
+If you're on a device that doesn’t include the link:https://en.wikipedia.org/wiki/Impact_(typeface)[Impact font^] (which includes iPhones, for one), you might wonder what magic occurred that made the bottom pane's font show up correctly — as Impact and not, say, Times New Roman.
 After all, if the specified `font-face` is not available — and Impact is not available on iPhones — the browser will fall back to another font.
 So, for maximum portability, Collagen allows _embedding_ fonts in SVGs — that's how we got Impact to show up on devices that don't have the font natively.
 Of course, if you stick to web-safe fonts or you _know_ that the recipient has all the fonts you want to use, then you can just refer to the fonts by name and they'll show up correctly.

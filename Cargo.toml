@@ -20,3 +20,7 @@
 	serde_test = "1.0.130"
 	tempfile = "3.2.0"
 	zip = "0.5.13"
+
+[features]
+	bundled_fonts = ["font_impact"]
+	font_impact = []
