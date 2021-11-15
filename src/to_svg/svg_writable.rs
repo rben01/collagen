@@ -1,5 +1,5 @@
 //! For writing the in-memory representation to SVG. At some point I would like to
-//! implement https://serde.rs/transcode.html, using `serde` to stream straight from
+//! implement <https://serde.rs/transcode.html>, using `serde` to stream straight from
 //! JSON to SVG (XML). I don't think it should be *that* hard.
 
 use crate::fibroblast::{

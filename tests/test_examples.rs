@@ -22,37 +22,173 @@ fn test_clgn_against_existing_output<P1: AsRef<Path>, P2: AsRef<Path>>(
 	if fibroblast_bytes != out_bytes {
 		panic!("Collagen generated from input did not match expected output. Input path: {:?}. Output path: {:?}.", clgn_path, out_path);
 	}
-	// assert_eq!(fibroblast_bytes, out_bytes)
 }
 
-#[test]
-fn example_clgn_1() {
-	test_clgn_against_existing_output(
-		"./tests/examples/example-02/example-01",
-		"./tests/examples/svgs/example-01.svg",
-	)
+#[cfg(any(test, bench))]
+mod example_1 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-02/example-01",
+			"./tests/examples/svgs/example-01.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
 }
 
-#[test]
-fn example_clgn_2() {
-	test_clgn_against_existing_output(
-		"./tests/examples/example-02",
-		"./tests/examples/svgs/example-02.svg",
-	)
+#[cfg(any(test, bench))]
+mod example_2 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-02",
+			"./tests/examples/svgs/example-02.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
 }
 
-#[test]
-fn example_clgn_3() {
-	test_clgn_against_existing_output(
-		"./tests/examples/example-03",
-		"./tests/examples/svgs/example-03.svg",
-	)
+#[cfg(any(test, bench))]
+mod example_3 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-03",
+			"./tests/examples/svgs/example-03.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
 }
 
-#[test]
-fn example_clgn_4() {
-	test_clgn_against_existing_output(
-		"./tests/examples/example-04",
-		"./tests/examples/svgs/example-04.svg",
-	)
+#[cfg(any(test, bench))]
+mod example_4 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-04",
+			"./tests/examples/svgs/example-04.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
+}
+
+#[cfg(any(test, bench))]
+mod example_5 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-05",
+			"./tests/examples/svgs/example-05.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
+}
+
+#[cfg(any(test, bench))]
+mod example_6 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-06",
+			"./tests/examples/svgs/example-06.svg",
+		)
+	}
+
+	#[test]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
+}
+
+#[cfg(any(test, bench))]
+mod example_7 {
+	use super::*;
+
+	#[track_caller]
+	fn example() {
+		test_clgn_against_existing_output(
+			"./tests/examples/example-07",
+			"./tests/examples/svgs/example-07.svg",
+		)
+	}
+
+	#[cfg(feature = "font_impact")]
+	#[test]
+	fn test() {
+		example()
+	}
+
+	#[cfg(not(feature = "font_impact"))]
+	#[test]
+	#[should_panic]
+	fn test() {
+		example()
+	}
+
+	// #[bench]
+	// fn bench(b: &mut Bencher) {
+	// 	b.iter(example);
+	// }
 }

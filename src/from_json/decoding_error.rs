@@ -13,6 +13,7 @@ use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::io;
 use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 use zip::result::ZipError;
 
 use crate::fibroblast::data_types::context::VariableSubstitutionError;
@@ -22,7 +23,8 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 #[derive(Debug)]
 pub enum ClgnDecodingError {
 	Parse(VariableSubstitutionError),
-	Unicode(Utf8Error),
+	Utf8(Utf8Error),
+	FromUtf8(FromUtf8Error),
 	Io(io::Error),
 	Zip(ZipError),
 	JsonDecode(json::Error),
@@ -41,7 +43,13 @@ impl From<VariableSubstitutionError> for ClgnDecodingError {
 
 impl From<Utf8Error> for ClgnDecodingError {
 	fn from(err: Utf8Error) -> Self {
-		Self::Unicode(err)
+		Self::Utf8(err)
+	}
+}
+
+impl From<FromUtf8Error> for ClgnDecodingError {
+	fn from(err: FromUtf8Error) -> Self {
+		Self::FromUtf8(err)
 	}
 }
 

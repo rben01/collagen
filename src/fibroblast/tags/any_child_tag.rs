@@ -20,11 +20,10 @@ impl<'a> AnyChildTag<'a> {
 	// This seems dumb. Any way to dedupe this?
 
 	fn initialize(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
-		let ok = Ok(());
-		match &self {
-			AnyChildTag::Container(t) => t.initialize(context).and(ok),
-			_ => ok,
+		if let AnyChildTag::Container(t) = self {
+			t.initialize(context)?;
 		}
+		Ok(())
 	}
 
 	pub(crate) fn children(

@@ -47,7 +47,8 @@ use std::borrow::Cow;
 pub(crate) use tags::TagLike;
 use tags::{any_child_tag::AnyChildTag, root_tag::RootTag};
 
-/// The whole shebang: both the (context-less) root tag
+/// The whole shebang: both the (context-less) root tag and the context in which to
+/// decode it
 #[derive(Debug)]
 pub struct Fibroblast<'a> {
 	pub(crate) root: RootTag<'a>,

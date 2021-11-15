@@ -7,7 +7,7 @@ use crate::{
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};
 use std::borrow::Cow;
 
-#[cfg(feature = "bundled_fonts")]
+#[cfg(feature = "_any_bundled_font")]
 use crate::assets::fonts;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -43,7 +43,7 @@ pub(crate) struct BundledFontFace {
 #[derive(Debug)]
 pub(crate) enum FontFace {
 	UserProvided(UserProvidedFontFace),
-	#[cfg_attr(not(feature = "bundled_fonts"), allow(dead_code))]
+	#[cfg_attr(not(feature = "_any_bundled_font"), allow(dead_code))]
 	Bundled(BundledFontFace),
 }
 
@@ -141,9 +141,6 @@ impl<'de> Deserialize<'de> for FontFace {
 				let attrs = attrs.unwrap_or_else(Map::new);
 
 				let ff = match bundled {
-					// #[cfg(not(feature = "bundled_fonts"))]
-					// true => return Err(de::Error::custom("Collagen must be built with the `bundled_fonts` feature in order to use bundled fonts")),
-					// #[cfg(feature = "bundled_fonts")]
 					true => FontFace::Bundled(BundledFontFace { name, attrs }),
 					false => {
 						let path = path.ok_or_else(|| de::Error::missing_field("path"))?;
@@ -213,9 +210,12 @@ impl FontTag {
 		let mut text = String::from("<style>");
 		for font in &self.fonts {
 			let (mut all_attrs, self_attrs) = match font {
-				#[cfg_attr(not(feature = "bundled_fonts"), allow(unused_variables))]
+				#[cfg_attr(not(feature = "_any_bundled_font"), allow(unused_variables))]
 				FontFace::Bundled(font) => {
-					#[cfg(feature = "bundled_fonts")]
+					#[cfg(not(feature = "_any_bundled_font"))]
+					return Err(ClgnDecodingError::BuiltWithoutBundledFonts);
+
+					#[cfg(feature = "_any_bundled_font")]
 					{
 						let BundledFontFace {
 							name: font_family,
@@ -241,9 +241,6 @@ impl FontTag {
 
 						(all_attrs, self_attrs)
 					}
-
-					#[cfg(not(feature = "bundled_fonts"))]
-					return Err(ClgnDecodingError::BuiltWithoutBundledFonts);
 				}
 				FontFace::UserProvided(font) => {
 					let UserProvidedFontFace {

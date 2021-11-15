@@ -22,5 +22,6 @@
 	zip = "0.5.13"
 
 [features]
-	bundled_fonts = ["font_impact"]
-	font_impact = []
+	_any_bundled_font = []
+	bundled_fonts = ["font_impact", "_any_bundled_font"]
+	font_impact = ["_any_bundled_font"]

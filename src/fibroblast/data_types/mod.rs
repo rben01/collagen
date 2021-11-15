@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+pub(crate) use std::collections::btree_map::Entry as MapEntry;
 pub(crate) use std::collections::BTreeMap as Map;
 
 pub(crate) mod context;

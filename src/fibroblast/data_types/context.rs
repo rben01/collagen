@@ -10,19 +10,17 @@
 //! a deserialized `path`, the root path must also be supplied; only then can decoding
 //! proceed.
 
+use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
+use crate::fibroblast::data_types::{Map, MapEntry};
+use crate::to_svg::svg_writable::ClgnDecodingResult;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::borrow::Cow;
 use std::cell::{Ref, RefCell};
-use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map};
 use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 use std::str::FromStr;
-
-use crate::to_svg::svg_writable::ClgnDecodingResult;
-
-use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
 
 lazy_static! {
 	static ref VAR_NAME_CHAR_RE: Regex = Regex::new(r"\w").unwrap();
@@ -103,7 +101,7 @@ impl VariableSubstitutionError {
 /// A context in which something can be decoded
 ///
 /// Consists of the root path (for resolving relative paths) and a variable key-value
-/// map for performing variable subtition
+/// map for performing variable substitution
 #[derive(Debug, Clone)]
 pub struct DecodingContext<'a> {
 	root_path: RefCell<PathBuf>, // can this be turned into a `Cow<'a, Path>`?
