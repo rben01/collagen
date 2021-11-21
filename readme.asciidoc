@@ -136,7 +136,7 @@ Then, running the following command:footnote:[
 cargo run -- -i example-01 -o example-01.svg
 ----
 
-Will produce the following file, link:/examples/svgs/example-01.svg[`examples-01.svg`^]:
+Will produce the following file, link:{examples-dir}/svgs/example-01.svg[`examples-01.svg`^]:
 
 image::{examples-dir}/svgs/example-01.svg[width=500]
 
@@ -201,7 +201,7 @@ Where link:{examples-dir}/example-02/collagen.json[`example-02/collagen.json`^] 
 }
 ----
 
-Here's (link:/examples/svgs/example-02.svg[the result^]) when you run `cargo run \-- -i example-02 -o example-02.svg`:
+Here's link:{examples-dir}/svgs/example-02.svg[the result^] when you run `cargo run \-- -i example-02 -o example-02.svg`:
 
 image::{examples-dir}/svgs/example-02.svg[width=600]
 

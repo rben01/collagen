@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// special handling and so would be suitable for `OtherTag`, whereas `<image>` needs
 /// some extra work and thus requires the specific `Imagetag`)
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct OtherTag<'a> {
+pub struct OtherTag<'a> {
 	#[serde(rename = "tag")]
 	tag_name: String,
 

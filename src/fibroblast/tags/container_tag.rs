@@ -9,7 +9,7 @@ use std::borrow::Cow;
 /// `ContainerTag` allows the nesting of Collagen files. By specifying the relative path
 /// to another skeleton, that skeleton will be included as-is in the current skeleton.
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct ContainerTag<'a> {
+pub struct ContainerTag<'a> {
 	clgn_path: String,
 
 	#[serde(skip)]

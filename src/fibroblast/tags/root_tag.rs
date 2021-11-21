@@ -6,8 +6,9 @@ use crate::fibroblast::data_types::SimpleValue;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
+/// A root tag
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct RootTag<'a> {
+pub struct RootTag<'a> {
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,
 }

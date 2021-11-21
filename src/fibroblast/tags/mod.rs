@@ -1,3 +1,12 @@
+//! This file exposes the different kinds of tags — types implementing trait `TagLike`
+//! The different kinds of tags are listed below:
+//! - [`RootTag`]: the SVG root (`<svg>...</svg>`)
+//! - [`AnyChildTag`]: an enum wrapping one of the following child tags
+//!   - [`ImageTag`]: a tag representing an image file on disk
+//!   - [`FontTag`]: a tag used to include a woff2 font file on disk
+//!   - [`ContainerTag`]: a tag wrapping another Collagen folder on disk
+//!   - [`OtherTag`]: the most general option; represents any other kind of SVG tag
+
 use std::borrow::Cow;
 
 pub(self) use super::data_types::{AttrKVValueVec, Map, TagVariables, XmlAttrs};
@@ -13,8 +22,12 @@ pub(super) mod image_tag;
 pub(super) mod other_tag;
 pub(super) mod root_tag;
 
-pub(crate) use any_child_tag::AnyChildTag;
-pub(crate) use root_tag::RootTag;
+pub use any_child_tag::AnyChildTag;
+pub use container_tag::ContainerTag;
+pub use font_tag::FontTag;
+pub use image_tag::ImageTag;
+pub use other_tag::OtherTag;
+pub use root_tag::RootTag;
 
 lazy_static! {
 	/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since

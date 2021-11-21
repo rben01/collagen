@@ -157,7 +157,7 @@ impl<'de> Deserialize<'de> for FontFace {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub(crate) struct FontTag {
+pub struct FontTag {
 	fonts: Vec<FontFace>,
 
 	#[serde(default)]

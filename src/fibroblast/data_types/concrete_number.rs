@@ -36,7 +36,7 @@ impl<'de> de::Visitor<'de> for ConcreteNumberVisitor {
 
 /// Used for maximal flexibility when deserializing. It's hard to guarantee how numbers
 /// are read in because reading from JSON doesn't imply `f64`. From
-/// https://serde.rs/impl-deserialize.html:
+/// <https://serde.rs/impl-deserialize.html>:
 /// > The JSON Deserializer will call `visit_i64` for any signed integer and `visit_u64`
 /// > for any unsigned integer, even if hinted a different type.
 ///

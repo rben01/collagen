@@ -22,9 +22,9 @@ pub struct ImageTag<'a> {
 }
 
 impl<'a> ImageTag<'a> {
-	/// The kind of the image (e.g., `"jpg"`, `"png"`). If `self.kind.is_none()`, the
-	/// `kind` will be inferred from the file extension of `image_path`. A file
-	/// extension's case is ignored.
+	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `<TYPE>`
+	/// in the data URI `data:image/<TYPE>;base64,...`. If `self.kind.is_none()`, the
+	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
 	pub(crate) fn kind(&'a self) -> Option<Cow<'a, str>> {
 		match &self.kind {
 			Some(kind) => Some(Cow::Borrowed(kind)),

@@ -2,9 +2,14 @@
 //! # Fibroblast
 //!
 //! The module that defines the structs that form the in-memory representation of a
-//! Collagen file
+//! Collagen file, [`Fibroblast`]. An instance of [`Fibroblast`] contains a
+//! [`tags::RootTag`], which contains the raw data, as well as a
+//! [`data_types::DecodingContext`], which contains the context in which to decode this
+//! data (necessary to e.g., resolve paths referenced by tags).
 //!
-//! This file contains the following types:
+//!
+//!
+//! This file re-exports the following types:
 //! 1. `struct` [`RootTag`], which represents the SVG root (`<svg>...</svg>`)
 //! 1. `enum` [`AnyChildTag`], whose variants are the distinct kinds of child tags. Most
 //!    tags are representible by the catchall variant `Other(OtherTag)`, but if a tag is
@@ -26,26 +31,27 @@
 //! CAUTION: For simplicity, [`AnyChildTag`] uses `serde`'s `untagged` deserialization
 //! option. This means that the choice of variant into which a map will be decoded is
 //! determined entirely by the map's keys. For instance, the presence of the
-//! `"image_path"` key will cause the tag to be decoded into an [`ImageTag`]. Therefore,
-//! when defining a new kind of child tag, you must ensure that the set of fields
-//! required to deserialize it neither contains nor is contained by the set of required
-//! fields of any other child tag; otherwise deserialization will be
-//! ambiguous.[^ambiguity] Note that a struct's set of *required* fields may be quite
-//! small, so be mindful when choosing names for keys.
+//! `"image_path"` key will cause the tag to be decoded into an
+//! [`ImageTag`](crate::fibroblast::tags::ImageTag). Therefore, when defining a new kind
+//! of child tag, you must ensure that the set of fields required to deserialize it
+//! neither contains nor is contained by the set of required fields of any other child
+//! tag; otherwise deserialization will be ambiguous.[^ambiguity] Note that a struct's
+//! set of *required* fields may be quite small, so be mindful when choosing names for
+//! keys.
 //!
 //! [^ambiguity] Technically, it's not ambiguous; `serde` picks the first variant for
 //! which deserialization succeeds, so it depends on the order of the variants of
 //! [`AnyChildTag`].
 
 pub(super) mod data_types;
-pub(crate) mod tags;
+pub mod tags;
 
 pub use super::from_json::decoding_error::ClgnDecodingResult;
 pub use crate::fibroblast::data_types::DecodingContext;
 use data_types::TagVariables;
 use std::borrow::Cow;
 pub(crate) use tags::TagLike;
-use tags::{any_child_tag::AnyChildTag, root_tag::RootTag};
+use tags::{AnyChildTag, RootTag};
 
 /// The whole shebang: both the (context-less) root tag and the context in which to
 /// decode it

@@ -9,7 +9,7 @@ use std::borrow::Cow;
 /// A wrapper for any child tag
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
-pub(crate) enum AnyChildTag<'a> {
+pub enum AnyChildTag<'a> {
 	Container(ContainerTag<'a>),
 	Image(ImageTag<'a>),
 	Other(OtherTag<'a>),
