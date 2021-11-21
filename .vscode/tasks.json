@@ -1,0 +1,131 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--release"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo build (release) without fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--release",
+				"--feature",
+				"bundled_fonts"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo build (release) with fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"build"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo build (debug) without fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--features",
+				"bundled_fonts"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo build (debug) with fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"test"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo test without fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--features",
+				"bundled_fonts"
+			],
+			"problemMatcher": "$rustc",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo test with fonts"
+		},
+		{
+			"type": "process",
+			"command": "cargo",
+			"args": [
+				"doc",
+				"--no-deps",
+			],
+			"problemMatcher": {
+				"base": "$rustc",
+				"severity": "warning",
+				"applyTo": "allDocuments",
+				"pattern": [
+					{
+						"regexp": "^\\s*(warning|error):\\s*(.*)$",
+						"severity": 1,
+						"message": 2
+					},
+					{
+						"regexp": "^\\s*-->\\s*(.*):(\\d+):(\\d+)",
+						"file": 1,
+						"line": 2,
+						"column": 3
+					}
+				],
+			},
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"group": "build",
+			"label": "rust: cargo doc"
+		}
+	]
+}
