@@ -3,7 +3,9 @@
 	description = "The collage generator"
 	edition = "2018"
 	keywords = ["image", "graphics", "multimedia", "svg"]
+	license-file = "LICENSE"
 	name = "collagen"
+	readme = "readme.html"
 	repository = "https://github.com/rben01/collagen"
 	rust-version = "1.56.1"
 	version = "0.1.0"

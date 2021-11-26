@@ -204,7 +204,8 @@ impl<'de> Deserialize<'de> for FontFace {
 ///   - Type: string
 ///   - Required: Yes.
 ///   - Description: The name of the font, which is used in `font-family: ...` in the
-///     `<style>` tag.
+///     `<style>` tag. If `bundled` is `true` then this name must match the name of one
+///     of the fonts embedded in `clgn`.
 /// - `bundled`
 ///   - Type: boolean
 ///   - Required: No. Missing is equivalent to `false`.
@@ -215,7 +216,7 @@ impl<'de> Deserialize<'de> for FontFace {
 ///   - Type: string
 ///   - Required: Yes if `bundled` is `false`. Must be absent if `bundled` is `true`.
 ///   - Description: The path to the font to be embedded, relative to the skeleton root.
-///     May not be specified in conjunction with `bundled = true`, as these contradict
+///     May not be specified in conjunction with `"bundled": true`, as these contradict
 ///     each other. It is an error if no file exists at the specified path.
 /// - `attrs`
 ///   - Type: object whose values are string
