@@ -19,7 +19,7 @@
 			"attrs": { "transform": "translate(50 25) scale(.5)" },
 			"children": [
 				{
-					"clgn_path": "./example-01"
+					"clgn_path": "./smiley/skeleton"
 				}
 			]
 		},

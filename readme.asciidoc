@@ -1,9 +1,13 @@
 = README
 :nofooter:
 :source-highlighter: coderay
-:examples-dir: /tests/examples
 :icons: font
 :toc: left
+:examples-dir: /tests/examples
+:example-01-dir: {examples-dir}/kitty-nesting-smiley/skeleton/smiley
+:example-02-dir: {examples-dir}/kitty-nesting-smiley
+:example-drake-01-dir: {examples-dir}/drake-user-specified-font
+:example-drake-02-dir: {examples-dir}/drake-no-font
 
 [NOTE]
 ====
@@ -64,11 +68,11 @@ example-01
     └── smiley.jpg
 ----
 
-Where link:{examples-dir}/example-02/example-01/images/smiley.jpg[`images/smiley.jpg`^] is the following image (whose native size is 380×380 pixels):
+Where link:{example-01-dir}/skeleton/images/smiley.jpg[`images/smiley.jpg`^] is the following image (whose native size is 380×380 pixels):
 
-image::{examples-dir}/example-02/example-01/images/smiley.jpg[width=200px]
+image::{example-01-dir}/skeleton/images/smiley.jpg[width=200px]
 
-And where link:{examples-dir}/example-02/example-01/collagen.json[`collagen.json`^] contains the following:
+And where link:{example-01-dir}/skeleton/collagen.json[`collagen.json`^] contains the following:
 
 [source,json,indent=0,tabsize=2]
 ----
@@ -136,9 +140,9 @@ Then, running the following command:footnote:[
 cargo run -- -i example-01 -o example-01.svg
 ----
 
-Will produce the following file, link:{examples-dir}/svgs/example-01.svg[`examples-01.svg`^]:
+Will produce the following file, link:{example-01-dir}/out.svg[`examples-01.svg`^]:
 
-image::{examples-dir}/svgs/example-01.svg[width=500]
+image::{example-01-dir}/out.svg[width=500]
 
 If you zoom in, you'll see the smiley face's pixels.
 But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
@@ -164,7 +168,7 @@ example-02
 └── kitty.jpg
 ----
 
-Where link:{examples-dir}/example-02/collagen.json[`example-02/collagen.json`^] is below:
+Where link:{example-02-dir}/skeleton/collagen.json[`example-02/collagen.json`^] is below:
 
 [source,json,indent=0,tabsize=2]
 ----
@@ -201,9 +205,9 @@ Where link:{examples-dir}/example-02/collagen.json[`example-02/collagen.json`^] 
 }
 ----
 
-Here's link:{examples-dir}/svgs/example-02.svg[the result^] when you run `cargo run \-- -i example-02 -o example-02.svg`:
+Here's link:{example-02-dir}/out.svg[the result^] when you run `cargo run \-- -i example-02 -o example-02.svg`:
 
-image::{examples-dir}/svgs/example-02.svg[width=600]
+image::{example-02-dir}/out.svg[width=600]
 
 So, as far as Collagen is concerned, skeletons act more or less the same as raster images, in the sense that the path is sufficient to include them.
 The only difference is that the path to a skeleton child is given by the key `clgn_path` instead of `image_path`.
@@ -212,9 +216,8 @@ The only difference is that the path to a skeleton child is given by the key `cl
 
 A format that makes it easy to place text on images?
 Sounds like it would be perfect for memes.
-(No, there was no `example-03`; we skipped straight from #2 to #4.)
 
-.link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^]
+.link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.json`^]
 [source,json,indent=0,tabsize=2]
 ----
 {
@@ -293,9 +296,9 @@ Sounds like it would be perfect for memes.
 But what if our device doesn't have Impact on it?
 (iPhones don’t, for instance.)
 
-link:{examples-dir}/example-04/collagen.json[`example-04/collagen.json`^] produces the following meme:
+link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.json`^] produces the following meme:
 
-image::{examples-dir}/svgs/example-04.svg[width=600]
+image::{example-drake-01-dir}/out.svg[width=600]
 
 If you're on a device that doesn’t include the link:https://en.wikipedia.org/wiki/Impact_(typeface)[Impact font^] (which includes iPhones, for one), you might wonder what magic occurred that made the bottom pane's font show up correctly — as Impact and not, say, Times New Roman.
 After all, if the specified `font-face` is not available — and Impact is not available on iPhones — the browser will fall back to another font.
@@ -305,7 +308,7 @@ But if you want to use fonts that aren't on the receiving device, then you can s
 
 For reference, here's the file above but without the font embedded.
 
-.link:{examples-dir}/example-05/collagen.json[`example-05/collagen.json`^]
+.link:{example-drake-02-dir}/skeleton/collagen.json[`example-04/collagen.json`^]
 [source,json,indent=0,tabsize=2]
 ----
 {
@@ -373,9 +376,9 @@ For reference, here's the file above but without the font embedded.
 ----
 <1> This time, we didn't embed Impact.
 
-Now, if you view the result in a desktop browser, it should look the same as above, but on a mobile device the font in the bottom pane may be use Times New Roman (or some other fallback font) instead of Impact.
+Now, if you view the result in a desktop browser, it should look the same as above, but on a mobile device the font in the bottom pane might be Times New Roman (or some other fallback font) instead of Impact.
 
-image::{examples-dir}/svgs/example-05.svg[width=600]
+image::{example-drake-02-dir}/out.svg[width=600]
 
 So it's nice to be able to embed fonts (although it's not great for the resulting file size…).
 

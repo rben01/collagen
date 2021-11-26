@@ -88,7 +88,7 @@ use std::borrow::Cow;
 ///
 /// (The `xmnls="..."` is added automatically if not present in the `collagen.json` file.)
 ///
-/// This specific example is in `tests/examples/example-10`.
+/// This specific example is in `tests/examples/simple-nesting`.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ContainerTag<'a> {
 	// TODO: Should this be renamed "{import,include}{,_path,ing,s}"? Leaning towards simply "include"

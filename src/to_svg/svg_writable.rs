@@ -31,7 +31,6 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 		let tag_name_bytes = self.tag_name().as_bytes();
 
 		// Open the tag (write e.g., `<rect attr1="val1">`)
-
 		let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
 
 		// Write the tag's children and text
@@ -49,9 +48,9 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 			let text = self.text(context)?;
 			writer.write_event(XmlEvent::Text(if self.should_escape_text() {
-				BytesText::from_plain_str(&*text)
+				BytesText::from_plain_str(&text)
 			} else {
-				BytesText::from_escaped((&*text).as_bytes())
+				BytesText::from_escaped(text.as_bytes())
 			}))?;
 			Ok(())
 		})?;
