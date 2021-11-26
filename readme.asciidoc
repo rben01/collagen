@@ -3,11 +3,14 @@
 :source-highlighter: coderay
 :icons: font
 :toc: left
+:assets-dir: /assets
+:image-dir: {assets-dir}/pics
 :examples-dir: /tests/examples
 :example-01-dir: {examples-dir}/kitty-nesting-smiley/skeleton/smiley
 :example-02-dir: {examples-dir}/kitty-nesting-smiley
 :example-drake-01-dir: {examples-dir}/drake-user-specified-font
 :example-drake-02-dir: {examples-dir}/drake-no-font
+
 
 [NOTE]
 ====
@@ -408,19 +411,19 @@ For instance, the JPEG below (link:https://commons.wikimedia.org/w/index.php?tit
 --
 This JPEG weighs in at 57KB:::
 +
-image::{examples-dir}/pics/Planta62.jpg[width=300]
+image::{image-dir}/Planta62.jpg[width=300]
 
 
 The equivalent PNG weighs in at 434KB:::
 +
-image::{examples-dir}/pics/Planta62.png[width=300]
+image::{image-dir}/Planta62.png[width=300]
 --
 
 But surely just placing black text on top of an all-white PNG is fine? Because it's stored losslessly?::
 Sure, _if_ you don't mind your text being rasterized, i.e., not perfectly precise and infinitely zoomable.
 The image below is black text on a white background.
 +
-image::{examples-dir}/pics/text_png.png[]
+image::{image-dir}/text_png.png[]
 +
 You don't have to zoom in very far to see the text get fuzzy.
 And if this image undergoes additional rounds of editing and compression, this problem will only get worse.
