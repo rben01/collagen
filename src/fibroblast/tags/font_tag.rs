@@ -51,8 +51,8 @@ impl FontFace {
 	const fn n_entries(&self) -> usize {
 		use FontFace::*;
 		match self {
-			UserProvided(_) => 3,
-			Bundled(_) => 2,
+			UserProvided(_) => 4,
+			Bundled(_) => 3,
 		}
 	}
 }
@@ -78,8 +78,8 @@ impl Serialize for FontFace {
 				let BundledFontFace { name, attrs } = font;
 
 				map.serialize_entry("bundled", &true)?;
-				map.serialize_entry("name", &name)?;
-				map.serialize_entry("attrs", &attrs)?;
+				map.serialize_entry("name", name)?;
+				map.serialize_entry("attrs", attrs)?;
 			}
 		}
 		map.end()
@@ -156,6 +156,55 @@ impl<'de> Deserialize<'de> for FontFace {
 	}
 }
 
+/// A tag for embedding woff2 font files within SVGs. (This is not widely supported by
+/// SVG viewers, but Collagen supports it nonetheless.) Fonts are specified either as a
+/// path to the woff2 file on disk, or are specified as one of the handful of fonts that
+/// come bundled with the `clgn` executable (assuming the executable was built with said
+/// font bundled).
+///
+/// Fonts are included in a `<style>` tag with a `@font-face {}` section. Multiple fonts
+/// in the same `FontTag` will reside in the same `<style>` tag (which should not affect
+/// anything).
+///
+/// # Properties
+///
+/// - `fonts`
+///   - Type: list of `FontFace` (documented below)
+///   - Required: Yes.
+///   - Description: The list of `FontFace`s to embed in the SVG. An example is `[{
+///     name: "MyFont", path: "path/to/my_font.woff2" }]`
+/// - Other: `FontTag` accepts just the `vars` and `attrs` fields as documented in
+///   [`CommonTagFields`](super::CommonTagFields). No other fields in
+///   [`CommonTagFields`](super::CommonTagFields) are accepted.
+///
+/// # `FontFace`
+///
+/// As stated above there are two kinds of `FontFace`, which are 1. the kind that exists on
+/// disk and 2. the kind that is embedded in the `clgn` executable. Both kinds require a
+/// `"name"`, which is used as the `font-family` in CSS, and optionally support `attrs`,
+/// which will be used as other attributes inside the `@font-face` declaration. For
+/// example, an `attrs` of `{ "font-style": "italic", "font-weight": "bold" }` will
+/// insert `font-style:italic;font-weight:bold;` in the `@font-face` declaration.
+///
+/// Kind #1, the one that exists on disk, also has a `path` field to specify where the
+/// `woff2` exists (so that it may be embedded). The presence of the `path` field alone
+/// determines which kind of `FontFace` we're dealing with: if present, we're going to
+/// embed a font that lives on disk; if absent, we're going to use a font bundled with
+/// `clgn` (and it had better actually be bundled!).
+///
+/// # Example
+///
+/// Putting it all together, here is a valid `FontTag`:
+///
+/// ```json
+/// {
+///   "fonts": [
+///     { "name": "Impact" },
+///     { "name": "MyThinFont", "path": "path/to/font.woff2", "attrs": { "font-weight": 100 } }
+///   ],
+///   "vars": { "foo": "bar" }
+/// }
+/// ```
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FontTag {
 	fonts: Vec<FontFace>,

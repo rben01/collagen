@@ -6,7 +6,12 @@ use crate::fibroblast::data_types::SimpleValue;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-/// A root tag
+/// The document root (`<svg>...<svg>`). A `collagen.json` file is expected to contain a
+/// single object; that object is always implicitly of type `RootTag`. The set of keys
+/// does not matter — even `{}` is perfectly valid (it will be turned into simply `<svg
+/// xmlns="http://www.w3.org/2000/svg"></svg>`).
+///
+/// `RootTag` accepts only the properties in [`CommonTagFields`](crate::fibroblast::tags::CommonTagFields).
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RootTag<'a> {
 	#[serde(flatten)]

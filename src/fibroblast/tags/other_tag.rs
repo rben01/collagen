@@ -1,9 +1,21 @@
 use super::{common_tag_fields::CommonTagFields, AnyChildTag, TagVariables, XmlAttrs};
 use serde::{Deserialize, Serialize};
 
-/// A generic tag that doesn't need to be handled specially. (e.g., `<rect>` needs no
-/// special handling and so would be suitable for `OtherTag`, whereas `<image>` needs
-/// some extra work and thus requires the specific `Imagetag`)
+/// `OtherTag` is a generic tag that doesn't need to be handled specially, such as
+/// `<rect>`, which needs no special. This is different from, say, `<image>`, which
+/// needs some extra work and thus requires the specialized `Imagetag`.
+///
+/// `OtherTag`'s tag name — the thing between the angle brackets (`rect` in `<rect>`) —
+/// is determined by the `tag_name` field. `OtherTag` supports all fields in [`CommonTagFields`].
+///
+/// # Properties
+///
+/// - `tag_name`
+///   - Type: string
+///   - Required: Yes.
+///   - Description: The tag's name. For instance, to make a `<rect>` tag, use
+///     `"tag_name": "rect"`.
+/// - Other: `OtherTag` accepts all properties in [`CommonTagFields`].
 #[derive(Serialize, Deserialize, Debug)]
 pub struct OtherTag<'a> {
 	#[serde(rename = "tag")]

@@ -1,0 +1,14 @@
+{
+	"attrs": { "viewBox": "0 0 30 30" },
+	"children": [
+		{
+			"tag": "g",
+			"attrs": { "transform": "rotate(-45)" },
+			"children": [
+				{
+					"clgn_path": "B"
+				}
+			]
+		}
+	]
+}

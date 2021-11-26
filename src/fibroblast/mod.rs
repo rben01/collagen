@@ -3,26 +3,9 @@
 //!
 //! The module that defines the structs that form the in-memory representation of a
 //! Collagen file, [`Fibroblast`]. An instance of [`Fibroblast`] contains a
-//! [`tags::RootTag`], which contains the raw data, as well as a
-//! [`data_types::DecodingContext`], which contains the context in which to decode this
+//! [`RootTag`](tags::RootTag), which contains the raw data, as well as a
+//! [`DecodingContext`](data_types::DecodingContext), which contains the context in which to decode this
 //! data (necessary to e.g., resolve paths referenced by tags).
-//!
-//!
-//!
-//! This file re-exports the following types:
-//! 1. `struct` [`RootTag`], which represents the SVG root (`<svg>...</svg>`)
-//! 1. `enum` [`AnyChildTag`], whose variants are the distinct kinds of child tags. Most
-//!    tags are representible by the catchall variant `Other(OtherTag)`, but if a tag is
-//!    best expressed as a more specific type, then you can just create that type and
-//!    add a variant to `AnyChildTag` that wraps it. The current variants of
-//!    `AnyChildTag` are:
-//!     1. [`Container(ContainerTag)`](self::ContainerTag), which is used for nested
-//!        Collagen files
-//!     1. [`Image(ImageTag)`](self::ImageTag), which is used for embedded images
-//!     1. [`Other(OtherTag)`](self::OtherTag), which is used for everything else
-//! 1. The types wrapped by variants of [`AnyChildTag`]
-//! 1. `struct` [`CommonTagFields`], which is a simple type holding the members common
-//!    to all tags (tag name, attributes, children, etc.)
 //!
 //! Serialization and deserialization are implemented for all tag-like types. For most
 //! tag-like types, `#[derive(Serialize, Deserialize)]` is sufficient to adopt the

@@ -18,9 +18,13 @@ fn test_clgn_against_existing_output<P1: AsRef<Path>, P2: AsRef<Path>>(
 
 	let out_bytes = std::fs::read(out_path).unwrap();
 
-	if fibroblast_bytes != out_bytes {
-		panic!("Collagen generated from input did not match expected output. Input path: {:?}. Output path: {:?}.", clgn_path, out_path);
-	}
+	assert_eq!(
+		fibroblast_bytes,
+		out_bytes,
+		"Collagen generated from input did not match expected output. Input path: {:?}. Output path: {:?}.",
+		clgn_path,
+		out_path
+	);
 }
 
 macro_rules! test_input_output {

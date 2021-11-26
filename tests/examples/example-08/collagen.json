@@ -1,0 +1,49 @@
+{
+	"attrs": { "viewBox": "0 0 100 100" },
+	"children": [
+		{
+			"tag": "circle",
+			"attrs": {
+				"cx": "50%",
+				"cy": "50%",
+				"r": "40%",
+				"fill": "#ff0",
+				"stroke": "#000",
+				"stroke-width": 3
+			}
+		},
+		{
+			"tag": "circle",
+			"attrs": {
+				"cx": 35,
+				"cy": 40,
+				"r": 5,
+				"fill": "#fff",
+				"stroke": "#000",
+				"stroke-width": 1
+			}
+		},
+		{
+			"tag": "circle",
+			"attrs": {
+				"cx": 65,
+				"cy": 40,
+				"r": 5,
+				"fill": "#fff",
+				"stroke": "#000",
+				"stroke-width": 1
+			}
+		},
+		{
+			"tag": "line",
+			"attrs": {
+				"x1": 25,
+				"y1": 60,
+				"x2": 75,
+				"y2": 60,
+				"stroke": "#f21",
+				"stroke-width": 3
+			}
+		}
+	]
+}

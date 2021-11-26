@@ -1,4 +1,3 @@
-//! # Collagen
 //! Collagen is a program that takes as input a folder containing zero or more image
 //! files (.jpeg, .png, etc.) and a JSON manifest file describing the layout of these
 //! images along with SVG components such as shapes and text, and produces as output a
@@ -18,71 +17,24 @@
 //! SVG in a way that is simple for humans to read and write. It is up to Collagen to
 //! turn this manifest into an SVG.
 //!
+//! # Definitions
+//!
+//! - *Collagen*: The name of this project.
+//! - *`clgn`*: The executable that does the conversion to SVG.
+//! - *Skeleton*: A folder that is the input to `clgn`. It must contain a
+//!   `collagen.json` file and any assets specified by `collagen.json`. For instance, if
+//!   skeleton `my_collagen`'s `collagen.json` contains `{ "image_path": "path/to/image"
+//!   }`, then `my_collage/path/to/image` must exist.
+//!
 //! # Using Collagen
 //!
 //! The input to Collagen is a folder containing, at the bare minimum, a manifest file
-//! named `collagen.json`. Such a folder will be refered to as a _skeleton_. A manifest
+//! named `collagen.json`. Such a folder will be refered to as a *skeleton*. A manifest
 //! file is more or less a JSON-ified version of an SVG (which is itself XML), with some
 //! facilities to make common operations, such as including an image by path, more
-//! ergonomic. An example of a valid `collagen.json` file is below:
-//!
-//! <details><summary>Click to show <code>collagen.json</code></summary>
-//!
-//! ```javascript
-//! {
-//!   "vars": {
-//!     "bubble_text": "Collagen!!",
-//!     "nose_color": "#f00",
-//!     "text_color": "#000"
-//!   },
-//!   "attrs": { "viewBox": "0 0 500 400" },
-//!   "children": [
-//!     {
-//!       "image_path": "images/smiley.jpg",
-//!       "attrs": { "transform": "translate(0 100) scale(1.3)" }
-//!     },
-//!     {
-//!       "tag": "circle",
-//!       "attrs": {
-//!         "cx": 123,
-//!         "cy": 240,
-//!         "r": 15,
-//!         "fill": "{nose_color}",
-//!         "stroke": "#000",
-//!         "stroke-width": 3
-//!       }
-//!     },
-//!     {
-//!       "tag": "path",
-//!       "attrs": {
-//!         "d": "M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z",
-//!         "stroke": "#000",
-//!         "stroke-width": 3,
-//!         "fill": "#fff"
-//!       }
-//!     },
-//!     {
-//!       "tag": "text",
-//!       "text": "{bubble_text}",
-//!       "attrs": {
-//!         "x": 250,
-//!         "y": 97,
-//!         "text-anchor": "start",
-//!         "dominant-baseline": "top",
-//!         "font-family": "Impact",
-//!         "font-size": 30,
-//!         "fill": "{text_color}"
-//!       }
-//!     }
-//!   ]
-//! }
-//! ```
-//!
-//! </details>
-//!
-//! For instance, without Collagen, in order to embed an image of yours in an SVG, you
-//! would have to base64-encode it and construct that image tag manually, which would
-//! look something like this:
+//! ergonomic. For instance, without Collagen, in order to embed an image of yours in an
+//! SVG, you would have to base64-encode it and construct that image tag manually, which
+//! would look something like this:
 //!
 //! ```xml
 //! <image href="data:image/png;base64,iVBORw0KGgoAAAA...(many, many bytes omitted)..."></image>
@@ -96,20 +48,26 @@
 //! ```
 //!
 //! Collagen handles base64-encoding the image and constructing the `<image>` tag with
-//! the correct attributes
+//! the correct attributes.
 //!
-//! An SVG is a tree of nodes, each with a nonnegative number of attributes and child
-//! nodes. In general, Collagen deserializes JSON to an in-memory representation, a
-//! *fibroblast*, of the image to be constructed  It then serializes this representation
-//! into an SVG.
+//! Examples of Collagen folders can be found in `tests/examples`.
 //!
 //! # Basic Schema
 //!
+//! In order to produce an SVG from JSON, Collagen must know how to convert an object
+//! representing a tag into an actual SVG tag, including performing any additional work
+//! (such as base64-encoding an image). Collagen identifies the type of an object it
+//! deserializes simply by the keys it contains. For instance, the presence of the
+//! `"image_path"` property alone tells Collagen that this tag is an `<image>` tag with
+//! an associated image file to embed. To avoid ambiguities, it is an error for an
+//! object to contain unexpected keys.
 //!
+//! All recognized tags are listed in [`crate::fibroblast::tags`]. Each tag there documents
+//! its schema.
 //!
 //! # Organization / Where to Find Things
 //!
-//! During decoding
+//! TODO
 
 pub mod cli;
 pub mod fibroblast;

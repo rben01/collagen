@@ -5,8 +5,50 @@ use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::PathBuf};
 
-/// A tag for handling images. We handle images specially (that's the whole point), so
-/// we need a separate type for their tags.
+/// A tag for handling images on disk. Collagen handles images specially, so we need a
+/// separate type for their tags. `ImageTag`s look more or less like the following:
+///
+/// ```json
+/// { "image_path": "path/to/image" }
+/// ```
+///
+/// The image at `image_path` will be base64 encoded and embedded in the resulting
+/// `<image>` tag, resulting in an XML tag like the following:
+///
+/// ```xml
+/// <image href="data:image/png;base64,iVBORw0KGgoAAAA...(many, many bytes omitted)..."></image>
+/// ```
+///
+/// The same thing could be achieved with a generic "Other" tag:
+///
+/// ```json
+/// {
+///   "tag": "image",
+///   "attrs": {
+///     "href": "data:image/png;base64,iVBORw0KGgoAAAA...(many, many bytes omitted)..."
+///   }
+/// }
+/// ```
+///
+/// But this is tedious and error prone. That's why `ImageTag` exists.
+///
+/// # Properties:
+///
+/// - `image_path`
+///   - Type: string
+///   - Required: Yes.
+///   - Description: Path to the image that will be embedded in this tag, relative to
+///     the skeleton. For instance, if folder `my_skeleton`'s `collagen.json` has a `{
+///     "image_path": "path/to/image" }`, then the file `my_skeleton/path/to/image` must
+///     exist.
+/// - `kind`
+///   - Type: string
+///   - Required: No.
+///   - Description: The "kind" of the image, e.g., "jpeg", "png", etc; usually
+///     synonymous with file extension. If omitted, will be inferred from the file
+///     extension of `image_path`. (An error will be raised if this inference is not
+///     possible, for instance if the image file lacks )
+/// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
@@ -60,13 +102,6 @@ impl<'a> ImageTag<'a> {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 		let abs_image_path = context.get_root().join(&self.image_path);
-		// let b64_string = {
-		// 	let mut b64_encoder = base64::write::EncoderWriter::new(vec![], base64::STANDARD);
-		// 	let mut img_reader = std::fs::File::open(abs_image_path)?;
-		// 	std::io::copy(&mut img_reader, &mut b64_encoder)?;
-		// 	let buf = b64_encoder.finish()?;
-		// 	String::from_utf8(buf)?
-		// };
 		let b64_string = base64::encode(std::fs::read(abs_image_path)?);
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 

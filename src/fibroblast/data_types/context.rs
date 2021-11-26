@@ -372,7 +372,7 @@ impl<'a> DecodingContext<'a> {
 			subd_attrs.push((k, new_val));
 		}
 
-		Ok(subd_attrs)
+		Ok(AttrKVValueVec(subd_attrs))
 	}
 }
 

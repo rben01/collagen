@@ -6,8 +6,22 @@ use crate::fibroblast::data_types::DecodingContext;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-/// A wrapper for any child tag
+/// A wrapper around child tags. During deserialization, the type of child tag to
+/// deserialize an object into is determined solely from the object's set of keys.
+///
+/// Child tags must be one of the kinds below (corresponding to the variants of
+/// `AnyChildTag`). Read an individual tag's documentation for the keys it expects.
+///
+/// - [`ImageTag`]: a tag representing an image file on disk
+/// - [`FontTag`]: a tag used to include either a woff2 font file on disk or a font that
+///   came bundled with the Collagen executable
+/// - [`ContainerTag`]: a tag wrapping another Collagen folder on disk, which will be
+///   ingested more or less as-is into the current SVG
+/// - [`OtherTag`]: the most general option; represents any kind of SVG tag that does
+///   not need any special handling as the above tags do
+
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum AnyChildTag<'a> {
 	Container(ContainerTag<'a>),
@@ -17,8 +31,6 @@ pub enum AnyChildTag<'a> {
 }
 
 impl<'a> AnyChildTag<'a> {
-	// This seems dumb. Any way to dedupe this?
-
 	fn initialize(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
 		if let AnyChildTag::Container(t) = self {
 			t.initialize(context)?;

@@ -1,9 +1,10 @@
-//! Contains the data types used for the in-memory representation of a `Fibroblast`
+//! Contains the data types used for the in-memory representation of a `Fibroblast`.
 
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 pub(crate) use std::collections::btree_map::Entry as MapEntry;
 pub(crate) use std::collections::BTreeMap as Map;
+use std::ops::{Deref, DerefMut};
 
 pub(crate) mod context;
 pub use context::DecodingContext;
@@ -21,8 +22,41 @@ pub(crate) use variable_value::VariableValue;
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct XmlAttrs(pub(crate) Map<String, SimpleValue>);
 
+impl Deref for XmlAttrs {
+	type Target = Map<String, SimpleValue>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+type AttrKVPair<'a> = (&'a str, Cow<'a, SimpleValue>);
+
 /// A vector of key, value pairs representing attributes
-pub(crate) type AttrKVValueVec<'a> = Vec<(&'a str, Cow<'a, SimpleValue>)>;
+pub(crate) struct AttrKVValueVec<'a>(Vec<AttrKVPair<'a>>);
+
+impl<'a> Deref for AttrKVValueVec<'a> {
+	type Target = Vec<AttrKVPair<'a>>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<'a> DerefMut for AttrKVValueVec<'a> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+impl<'a> IntoIterator for AttrKVValueVec<'a> {
+	type IntoIter = <Vec<AttrKVPair<'a>> as IntoIterator>::IntoIter;
+	type Item = AttrKVPair<'a>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.into_iter()
+	}
+}
 
 /// Map of `String` -> `VariableValue`
 #[derive(Serialize, Deserialize, Debug)]
