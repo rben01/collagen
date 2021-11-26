@@ -25,10 +25,11 @@
 //!   `collagen.json` file and any assets specified by `collagen.json`. For instance, if
 //!   skeleton `my_collagen`'s `collagen.json` contains `{ "image_path": "path/to/image"
 //!   }`, then `my_collage/path/to/image` must exist.
+//! - *Manifest*: The `collagen.json` file residing at the top level inside a skeleton.
 //!
 //! # Using Collagen
 //!
-//! The input to Collagen is a folder containing, at the bare minimum, a manifest file
+//! The input to Collagen is a folder containing, at the bare minimum, a *manifest* file
 //! named `collagen.json`. Such a folder will be refered to as a *skeleton*. A manifest
 //! file is more or less a JSON-ified version of an SVG (which is itself XML), with some
 //! facilities to make common operations, such as including an image by path, more
@@ -50,7 +51,8 @@
 //! Collagen handles base64-encoding the image and constructing the `<image>` tag with
 //! the correct attributes.
 //!
-//! Examples of Collagen folders can be found in `tests/examples`.
+//! Examples of skeletons can be found in `tests/examples`. This is a great starting
+//! point to grok the basic syntax.
 //!
 //! # Basic Schema
 //!
@@ -62,8 +64,8 @@
 //! an associated image file to embed. To avoid ambiguities, it is an error for an
 //! object to contain unexpected keys.
 //!
-//! All recognized tags are listed in [`crate::fibroblast::tags`]. Each tag there documents
-//! its schema.
+//! All recognized tags are listed in [`crate::fibroblast::tags`]. Each tag there
+//! documents its schema.
 //!
 //! # Organization / Where to Find Things
 //!

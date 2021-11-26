@@ -141,7 +141,12 @@ impl<'de> Deserialize<'de> for FontFace {
 				let attrs = attrs.unwrap_or_else(Map::new);
 
 				let ff = match bundled {
-					true => FontFace::Bundled(BundledFontFace { name, attrs }),
+					true => {
+						if path.is_some() {
+							return Err(de::Error::custom("You specified both `bundled = true` and a `path` for your font. These are mutually exclusive options."));
+						}
+						FontFace::Bundled(BundledFontFace { name, attrs })
+					}
 					false => {
 						let path = path.ok_or_else(|| de::Error::missing_field("path"))?;
 						FontFace::UserProvided(UserProvidedFontFace { name, path, attrs })
@@ -162,9 +167,9 @@ impl<'de> Deserialize<'de> for FontFace {
 /// come bundled with the `clgn` executable (assuming the executable was built with said
 /// font bundled).
 ///
-/// Fonts are included in a `<style>` tag with a `@font-face {}` section. Multiple fonts
-/// in the same `FontTag` will reside in the same `<style>` tag (which should not affect
-/// anything).
+/// In the resuling SVG, fonts are included in a `<style>` tag with a `@font-face {}`
+/// section. Multiple fonts in the same `FontTag` will reside in the same `<style>` tag
+/// (which should not affect anything).
 ///
 /// # Properties
 ///
@@ -179,18 +184,44 @@ impl<'de> Deserialize<'de> for FontFace {
 ///
 /// # `FontFace`
 ///
-/// As stated above there are two kinds of `FontFace`, which are 1. the kind that exists on
-/// disk and 2. the kind that is embedded in the `clgn` executable. Both kinds require a
-/// `"name"`, which is used as the `font-family` in CSS, and optionally support `attrs`,
-/// which will be used as other attributes inside the `@font-face` declaration. For
-/// example, an `attrs` of `{ "font-style": "italic", "font-weight": "bold" }` will
-/// insert `font-style:italic;font-weight:bold;` in the `@font-face` declaration.
+/// As stated above there are two kinds of `FontFace`, which are 1. the kind that exists
+/// on disk and 2. the kind that is embedded in the `clgn` executable. Both kinds
+/// require a `"name"`, which is used as the `font-family` in CSS, and optionally
+/// support `attrs`, which will be used as other attributes inside the `@font-face`
+/// declaration. For example, an `attrs` of `{ "font-style": "italic", "font-weight":
+/// "bold" }` will insert `font-style:italic;font-weight:bold;` in the `@font-face`
+/// declaration.
 ///
-/// Kind #1, the one that exists on disk, also has a `path` field to specify where the
-/// `woff2` exists (so that it may be embedded). The presence of the `path` field alone
-/// determines which kind of `FontFace` we're dealing with: if present, we're going to
-/// embed a font that lives on disk; if absent, we're going to use a font bundled with
-/// `clgn` (and it had better actually be bundled!).
+/// In addition, both kinds support the option boolean `bundled` property, which is a
+/// boolean that tells `clgn` whether the font is bundled in the executable or not. If
+/// missing, it is treated as if it were `false`. The first kind of `FontFace`, the kind
+/// that exists on disk, also has a `path` field of type string to specify where the
+/// `woff2` exists (so that it may be embedded). So, in summary,
+///
+/// ## Properties
+///
+/// - `name`
+///   - Type: string
+///   - Required: Yes.
+///   - Description: The name of the font, which is used in `font-family: ...` in the
+///     `<style>` tag.
+/// - `bundled`
+///   - Type: boolean
+///   - Required: No. Missing is equivalent to `false`.
+///   - Description: Informs `clgn` whether this font is bundled with the executable or
+///     will be provided via path to the woff2 file on disk. `true` means the font's
+///     `name` must be the name that `clgn` calls its bundled font.
+/// - `path`
+///   - Type: string
+///   - Required: Yes if `bundled` is `false`. Must be absent if `bundled` is `true`.
+///   - Description: The path to the font to be embedded, relative to the skeleton root.
+///     May not be specified in conjunction with `bundled = true`, as these contradict
+///     each other. It is an error if no file exists at the specified path.
+/// - `attrs`
+///   - Type: object whose values are string
+///   - Required: No. Missing is equivalent to `{}`.
+///   - Description: Key-value pairs that will be inserted into the `@font-face`
+///     declaration, e.g., `{ "font-weight": 100 }` becomes `font-weight: 100;`
 ///
 /// # Example
 ///
@@ -199,7 +230,7 @@ impl<'de> Deserialize<'de> for FontFace {
 /// ```json
 /// {
 ///   "fonts": [
-///     { "name": "Impact" },
+///     { "name": "Impact", "bundled": true },
 ///     { "name": "MyThinFont", "path": "path/to/font.woff2", "attrs": { "font-weight": 100 } }
 ///   ],
 ///   "vars": { "foo": "bar" }
