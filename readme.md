@@ -1,5 +1,3 @@
-# Readme
-
 *Collagen* -- from “collage” and “generate” (and because
    [collagen](https://en.wikipedia.org/wiki/Collagen) is the protein that holds your
 body together; `s/protein/tool/;s/body/images/`) -- is a program that takes as input
@@ -125,14 +123,14 @@ Yes and no. While the text will look sort of ok (when not zoomed in), you now ha
 Chances are that this will cause the resulting file size to explode because PNG is simply not meant to store the kind of images that JPEG is meant to store.
 For instance, the JPEG below ([source](https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&oldid=424889773)) is 57KB, whereas the PNG is 434KB.\
 This JPEG weighs in at 57KB
-![JPEG of flowers with text on top](assets/pics/Planta62.jpg)\
+![JPEG of flowers with text on top](https://rben01.github.io/collagen/assets/pics/Planta62.jpg)\
 The equivalent PNG weighs in at 434KB
-![PNG of flowers with text on top](assets/pics/Planta62.png)
+![PNG of flowers with text on top](https://rben01.github.io/collagen/assets/pics/Planta62.jpg)
 
 1. *But surely just placing black text on top of an all-white PNG is fine? Because it's stored losslessly?*\
 Sure, _if_ you don't mind your text being rasterized, i.e., not perfectly precise and infinitely zoomable.
 The image below is black text on a white background.\
-![A screenshot of some text](assets/pics/text_png.png)\
+![A screenshot of some text](https://rben01.github.io/collagen/assets/pics/text_png.png)\
 You don't have to zoom in very far to see the text get fuzzy.
 And if this image undergoes additional rounds of editing and compression, this problem will only get worse.
 In contrast, the text in the smiley-face image above (and, naturally, the text on this webpage) is perfectly precise and will retain all of its detail at arbitrary magnification.

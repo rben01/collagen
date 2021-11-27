@@ -1,6 +1,7 @@
 [package]
 	categories = ["encoding", "graphics", "multimedia"]
 	description = "The collage generator"
+	documentation = "https://docs.rs/collagen"
 	edition = "2018"
 	keywords = ["image", "graphics", "multimedia", "svg"]
 	license-file = "LICENSE"
@@ -8,7 +9,7 @@
 	readme = "readme.md"
 	repository = "https://github.com/rben01/collagen"
 	rust-version = "1.56.1"
-	version = "0.1.3"
+	version = "0.1.4"
 
 [dependencies]
 	base64 = "0.13.0"
