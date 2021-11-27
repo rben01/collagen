@@ -111,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "collagen"
-version = "0.1.3"
+version = "0.1.5"
 dependencies = [
  "base64",
  "clap",
