@@ -8,10 +8,10 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
-use clap::Error as CliError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::io;
+use std::path::PathBuf;
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 use zip::result::ZipError;
@@ -25,14 +25,51 @@ pub enum ClgnDecodingError {
 	Parse(VariableSubstitutionError),
 	Utf8(Utf8Error),
 	FromUtf8(FromUtf8Error),
-	Io(io::Error),
+	Io(io::Error, PathBuf),
 	Zip(ZipError),
-	JsonDecode(json::Error),
+	JsonDecode(json::Error, PathBuf),
 	Xml(XmlError),
 	Image(String),
-	Cli(CliError),
-	BuiltWithoutBundledFonts,
 	BundledFontNotFound(String),
+}
+
+impl ClgnDecodingError {
+	pub fn exit_code(&self) -> i32 {
+		use ClgnDecodingError::*;
+		match self {
+			Parse(..) => 3,
+			JsonDecode(..) => 4,
+			Xml(..) => 5,
+			Io(..) => 7,
+			Image(..) => 8,
+			Utf8(..) => 11,
+			FromUtf8(..) => 12,
+			BundledFontNotFound(..) => 22,
+			Zip(..) => 33,
+		}
+	}
+}
+
+impl std::fmt::Display for ClgnDecodingError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		use ClgnDecodingError::*;
+		let s = match self {
+			Parse(e) => format!("{:?}", e),
+			Utf8(e) => format!("{:?}", e),
+			FromUtf8(e) => format!("{:?}", e),
+			Io(e, path) => format!("{}: {:?}", e, path),
+			Zip(e) => format!("{:?}", e),
+			JsonDecode(e, path) => format!("{}: {:?}", e, path),
+			Xml(e) => format!("{:?}", e),
+			Image(e) => e.to_owned(),
+			BundledFontNotFound(s) => format!(
+				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",
+				s
+			),
+		};
+
+		f.write_str(s.as_str())
+	}
 }
 
 impl From<VariableSubstitutionError> for ClgnDecodingError {
@@ -53,18 +90,6 @@ impl From<FromUtf8Error> for ClgnDecodingError {
 	}
 }
 
-impl From<io::Error> for ClgnDecodingError {
-	fn from(err: io::Error) -> Self {
-		Self::Io(err)
-	}
-}
-
-impl From<json::Error> for ClgnDecodingError {
-	fn from(err: json::Error) -> Self {
-		Self::JsonDecode(err)
-	}
-}
-
 impl From<ZipError> for ClgnDecodingError {
 	fn from(err: ZipError) -> Self {
 		Self::Zip(err)
@@ -74,11 +99,5 @@ impl From<ZipError> for ClgnDecodingError {
 impl From<XmlError> for ClgnDecodingError {
 	fn from(err: XmlError) -> Self {
 		Self::Xml(err)
-	}
-}
-
-impl From<CliError> for ClgnDecodingError {
-	fn from(err: CliError) -> Self {
-		Self::Cli(err)
 	}
 }

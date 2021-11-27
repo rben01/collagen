@@ -278,7 +278,10 @@ impl FontTag {
 	) -> ClgnDecodingResult<String> {
 		let path = path.as_ref();
 		let abs_font_path = context.get_root().join(path);
-		let b64_string = base64::encode(std::fs::read(abs_font_path)?);
+		let b64_string = base64::encode(
+			std::fs::read(abs_font_path.as_path())
+				.map_err(|e| ClgnDecodingError::Io(e, abs_font_path))?,
+		);
 		let src_str = format!(
 			"url('data:font/woff2;charset=utf-8;base64,{}') format('woff2')",
 			b64_string
@@ -291,37 +294,32 @@ impl FontTag {
 		let mut text = String::from("<style>");
 		for font in &self.fonts {
 			let (mut all_attrs, self_attrs) = match font {
-				#[cfg_attr(not(feature = "_any_bundled_font"), allow(unused_variables))]
+				#[cfg_attr(
+					not(feature = "_any_bundled_font"),
+					allow(unused_variables, unreachable_code, unused_mut)
+				)]
 				FontFace::Bundled(font) => {
-					#[cfg(not(feature = "_any_bundled_font"))]
-					return Err(ClgnDecodingError::BuiltWithoutBundledFonts);
+					let BundledFontFace {
+						name: font_family,
+						attrs: self_attrs,
+					} = font;
 
-					#[cfg(feature = "_any_bundled_font")]
-					{
-						let BundledFontFace {
-							name: font_family,
-							attrs: self_attrs,
-						} = font;
+					let mut all_attrs =
+						vec![("font-family", CowishFontAttr::BorrowedStr(font_family))];
 
-						let mut all_attrs =
-							vec![("font-family", CowishFontAttr::BorrowedStr(font_family))];
+					match font_family.to_ascii_uppercase().as_str() {
+						#[cfg(feature = "font_impact")]
+						"IMPACT" => all_attrs
+							.push(("src", CowishFontAttr::BorrowedStr(fonts::IMPACT_WOFF2_B64))),
 
-						match font_family.to_ascii_uppercase().as_str() {
-							#[cfg(feature = "font_impact")]
-							"IMPACT" => all_attrs.push((
-								"src",
-								CowishFontAttr::BorrowedStr(fonts::IMPACT_WOFF2_B64),
-							)),
-
-							_ => {
-								return Err(ClgnDecodingError::BundledFontNotFound(
-									font_family.to_owned(),
-								))
-							}
+						_ => {
+							return Err(ClgnDecodingError::BundledFontNotFound(
+								font_family.to_owned(),
+							))
 						}
-
-						(all_attrs, self_attrs)
 					}
+
+					(all_attrs, self_attrs)
 				}
 				FontFace::UserProvided(font) => {
 					let UserProvidedFontFace {

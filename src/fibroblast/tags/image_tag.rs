@@ -101,8 +101,27 @@ impl<'a> ImageTag<'a> {
 		// O(2*n). Ideally none of this would reside in memory, and we'd stream directly
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
-		let abs_image_path = context.get_root().join(&self.image_path);
-		let b64_string = base64::encode(std::fs::read(abs_image_path)?);
+
+		// TODO: test that this actually works on Windows
+		let abs_image_path = {
+			let mut path = PathBuf::new();
+			for path_comp in context.get_root().components().chain(
+				self.image_path
+					.as_str()
+					.parse::<PathBuf>()
+					.unwrap() // TODO: replace with `into_ok` when stabilized
+					.components(),
+			) {
+				path.push(path_comp)
+			}
+
+			path
+		};
+
+		let b64_string = base64::encode(
+			std::fs::read(abs_image_path.as_path())
+				.map_err(|e| ClgnDecodingError::Io(e, abs_image_path))?,
+		);
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 
 		Ok((key, SimpleValue::Text(src_str)))
