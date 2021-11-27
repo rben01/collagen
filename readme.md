@@ -13,6 +13,11 @@ Roughly speaking, a manifest file merely describes the components of the resulti
 in a way that is simple for humans to read and write. It is up to Collagen to turn this
 manifest into an SVG.
 
+## Quick Start
+
+[This doc](https://rben01.github.io/collagen) has several examples that can serve as a
+good starting point. More examples are available as test cases in `tests/examples`.
+
 ## Rationale
 
 There are several widely used image formats, perhaps the three best known of which are
@@ -81,9 +86,8 @@ would look something like this:
 Collagen handles base64-encoding the image and constructing the `<image>` tag with the
 correct attributes.
 
-For help getting started and several examples, refer to [this
-doc](https://rben01.github.io/collagen). More examples (without explanatory docs) are
-available as test cases in `tests/examples`.
+As mentioned in the Quick Start section, examples are available in [this
+doc](https://rben01.github.io/collagen) and in `tests/examples`.
 
 ## Basic Schema
 

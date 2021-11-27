@@ -1,6 +1,7 @@
 = Up and Running With Collagen
 :stylesheet: ./docs/styles/collagen.css
 :linkcss:
+:toc-title: Contents
 :source-highlighter: pygments
 :pygments-style: default
 :pygments-linenums-mode: table

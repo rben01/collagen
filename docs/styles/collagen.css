@@ -1360,6 +1360,10 @@ p a > code:hover {
 	font-size: 20px;
 }
 
+#toc.toc2 {
+	margin-top: 50px;
+}
+
 /* Width at which the toc folds */
 @media only screen and (min-width: 1280px) {
 	body.toc2 {
@@ -1378,6 +1382,7 @@ p a > code:hover {
 		z-index: 1000;
 		padding: 1em;
 		padding-right: 18px;
+		margin-top: 0;
 		/* margin-bottom: 100px; */
 		height: calc(100vh - 2em);
 		overflow: auto;
