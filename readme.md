@@ -122,9 +122,9 @@ The text will look bad because:
 Yes and no. While the text will look sort of ok (when not zoomed in), you now have the problem that your JPEG is being stored as a PNG.
 Chances are that this will cause the resulting file size to explode because PNG is simply not meant to store the kind of images that JPEG is meant to store.
 For instance, the JPEG below ([source](https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&oldid=424889773)) is 57KB, whereas the PNG is 434KB.\
-This JPEG weighs in at 57KB
+This JPEG weighs in at 57KB\
 ![JPEG of flowers with text on top](https://rben01.github.io/collagen/assets/pics/Planta62.jpg)\
-The equivalent PNG weighs in at 434KB
+The equivalent PNG weighs in at 434KB\
 ![PNG of flowers with text on top](https://rben01.github.io/collagen/assets/pics/Planta62.jpg)
 
 1. *But surely just placing black text on top of an all-white PNG is fine? Because it's stored losslessly?*\
