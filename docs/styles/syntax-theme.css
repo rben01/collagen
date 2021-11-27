@@ -1,0 +1,410 @@
+/* spellchecker:disable */
+:root {
+	--syntax-bg-color: #f8f8f8;
+	--syntax-linenum-border-color: #c7c7c7;
+	--syntax-error-fg-color: #ff0000;
+	--syntax-comment-fg-color: #4c8181;
+	--syntax-line-highlight-bg-color: #ffffc0;
+	--syntax-line-highlight-fg-color: #000;
+	--syntax-keyword-fg-color: #cc32d1;
+	--syntax-operator-fg-color: #24292e;
+	--syntax-hashbang-fg-color: #59656e;
+	--syntax-preprocessor-fg-color: #bc7a00;
+	--syntax-generic_deleted-fg-color: #a00000;
+	--syntax-generic_heading-fg-color: #000080;
+	--syntax-generic_inserted-fg-color: #00a000;
+	--syntax-generic_output-fg-color: #888888;
+	--syntax-generic_subheading-fg-color: #800080;
+	--syntax-generic_traceback-fg-color: #0044dd;
+	--syntax-keyword_type-fg-color: #b00040;
+	--syntax-literal_number-fg-color: #d81d55;
+	--syntax-literal_string-fg-color: #07852d;
+	--syntax-name_attribute-fg-color: #7d9029;
+	--syntax-name_builtin-fg-color: #008000;
+	--syntax-name_class-fg-color: #0000ff;
+	--syntax-name_constant-fg-color: #880000;
+	--syntax-name_decorator-fg-color: #aa22ff;
+	--syntax-name_entity-fg-color: #999999;
+	--syntax-name_exception-fg-color: #d2413a;
+	--syntax-name_label-fg-color: #a0a000;
+	--syntax-name_variable-fg-color: #19177c;
+	--syntax-operator_word-fg-color: #aa22ff;
+	--syntax-text_whitespace-fg-color: #bbbbbb;
+	--syntax-string_literal_escape-fg-color: #bb6622;
+	--syntax-string_literal_special-fg-color: #00418b;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--syntax-bg-color: #292929;
+		--syntax-linenum-border-color: #505050;
+		--syntax-error-fg-color: #ff3838;
+		--syntax-comment-fg-color: #7e9191;
+		--syntax-line-highlight-bg-color: #5a5a44;
+		--syntax-line-highlight-fg-color: #fff;
+		--syntax-keyword-fg-color: #d85fc8;
+		--syntax-operator-fg-color: #c9d1d9;
+		--syntax-hashbang-fg-color: #a7c1d4;
+		--syntax-preprocessor-fg-color: #e9b148;
+		--syntax-generic_deleted-fg-color: #db3d3d;
+		--syntax-generic_heading-fg-color: #6464e2;
+		--syntax-generic_inserted-fg-color: #0fc50f;
+		--syntax-generic_output-fg-color: #bbbbbb;
+		--syntax-generic_subheading-fg-color: #ec61ec;
+		--syntax-generic_traceback-fg-color: #5e91dd;
+		--syntax-keyword_type-fg-color: #e93e7d;
+		--syntax-literal_number-fg-color: #f13252;
+		--syntax-literal_string-fg-color: #4fe27b;
+		--syntax-name_attribute-fg-color: #abc440;
+		--syntax-name_builtin-fg-color: #20ca97;
+		--syntax-name_class-fg-color: #7688eb;
+		--syntax-name_constant-fg-color: #c54545;
+		--syntax-name_decorator-fg-color: #c362ff;
+		--syntax-name_entity-fg-color: #bdbdbd;
+		--syntax-name_exception-fg-color: #da645e;
+		--syntax-name_label-fg-color: #c2c227;
+		--syntax-name_variable-fg-color: #8785d4;
+		--syntax-operator_word-fg-color: #d795ff;
+		--syntax-text_whitespace-fg-color: #bbbbbb;
+		--syntax-string_literal_escape-fg-color: #d18140;
+		--syntax-string_literal_special-fg-color: #a9d1ff;
+	}
+}
+
+:root {
+	--syntax-error-border-color: var(--syntax-error-fg-color);
+	--syntax-generic_prompt-fg-color: var(--syntax-generic_heading-fg-color);
+	--syntax-name_function-fg-color: var(--syntax-name_class-fg-color);
+	--syntax-name_namespace-fg-color: var(--syntax-name_class-fg-color);
+	--syntax-name_tag-fg-color: var(--syntax-name_builtin-fg-color);
+	--syntax-string_literal_other-fg-color: var(--syntax-name_builtin-fg-color);
+}
+
+pre {
+	line-height: 125%;
+}
+td.linenos .normal {
+	color: inherit;
+	background-color: transparent;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+span.linenos {
+	color: inherit;
+	background-color: transparent;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+td.linenos .special {
+	color: var(--syntax-line-highlight-fg-color);
+	background-color: var(--syntax-line-highlight-bg-color);
+	padding-left: 5px;
+	padding-right: 5px;
+}
+span.linenos.special {
+	color: var(--syntax-line-highlight-fg-color);
+	background-color: var(--syntax-line-highlight-bg-color);
+	padding-left: 5px;
+	padding-right: 5px;
+}
+pre.pygments .hll {
+	background-color: var(--syntax-line-highlight-bg-color);
+}
+pre.pygments {
+	background: var(--pygments-bg-color);
+}
+/* Comment */
+pre.pygments .tok-c {
+	color: var(--pygments-comment-color);
+	font-style: italic;
+}
+/* Error */
+pre.pygments .tok-err {
+	border: 1px solid var(--syntax-error-border-color);
+}
+/* Keyword */
+pre.pygments .tok-k {
+	color: var(--syntax-keyword-fg-color);
+	font-weight: bold;
+}
+/* Operator */
+pre.pygments .tok-o {
+	color: var(--syntax-operator-fg-color);
+}
+/* Comment.Hashbang */
+pre.pygments .tok-ch {
+	color: var(--syntax-hashbang-fg-color);
+	font-style: italic;
+}
+/* Comment.Multiline */
+pre.pygments .tok-cm {
+	color: var(--syntax-comment-fg-color);
+	font-style: italic;
+}
+/* Comment.Preproc */
+pre.pygments .tok-cp {
+	color: var(--syntax-preprocessor-fg-color);
+}
+/* Comment.PreprocFile */
+pre.pygments .tok-cpf {
+	color: var(--syntax-comment-fg-color);
+	font-style: italic;
+}
+/* Comment.Single */
+pre.pygments .tok-c1 {
+	color: var(--syntax-comment-fg-color);
+	font-style: italic;
+}
+/* Comment.Special */
+pre.pygments .tok-cs {
+	color: var(--syntax-comment-fg-color);
+	font-style: italic;
+}
+/* Generic.Deleted */
+pre.pygments .tok-gd {
+	color: var(--syntax-generic_deleted-fg-color);
+}
+/* Generic.Emph */
+pre.pygments .tok-ge {
+	font-style: italic;
+}
+/* Generic.Error */
+pre.pygments .tok-gr {
+	color: var(--syntax-error-fg-color);
+}
+/* Generic.Heading */
+pre.pygments .tok-gh {
+	color: var(--syntax-generic_heading-fg-color);
+	font-weight: bold;
+}
+/* Generic.Inserted */
+pre.pygments .tok-gi {
+	color: var(--syntax-generic_inserted-fg-color);
+}
+/* Generic.Output */
+pre.pygments .tok-go {
+	color: var(--syntax-generic_output-fg-color);
+}
+/* Generic.Prompt */
+pre.pygments .tok-gp {
+	color: var(--syntax-generic_prompt-fg-color);
+	font-weight: bold;
+}
+/* Generic.Strong */
+pre.pygments .tok-gs {
+	font-weight: bold;
+}
+/* Generic.Subheading */
+pre.pygments .tok-gu {
+	color: var(--syntax-generic_subheading-fg-color);
+	font-weight: bold;
+}
+/* Generic.Traceback */
+pre.pygments .tok-gt {
+	color: var(--syntax-generic_traceback-fg-color);
+}
+/* Keyword.Constant */
+pre.pygments .tok-kc {
+	color: var(--syntax-keyword-fg-color);
+	font-weight: bold;
+}
+/* Keyword.Declaration */
+pre.pygments .tok-kd {
+	color: var(--syntax-keyword-fg-color);
+	font-weight: bold;
+}
+/* Keyword.Namespace */
+pre.pygments .tok-kn {
+	color: var(--syntax-keyword-fg-color);
+	font-weight: bold;
+}
+/* Keyword.Pseudo */
+pre.pygments .tok-kp {
+	color: var(--syntax-keyword-fg-color);
+}
+/* Keyword.Reserved */
+pre.pygments .tok-kr {
+	color: var(--syntax-keyword-fg-color);
+	font-weight: bold;
+}
+/* Keyword.Type */
+pre.pygments .tok-kt {
+	color: var(--syntax-keyword_type-fg-color);
+}
+/* Literal.Number */
+pre.pygments .tok-m {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.String */
+pre.pygments .tok-s {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Name.Attribute */
+pre.pygments .tok-na {
+	color: var(--syntax-name_attribute-fg-color);
+}
+/* Name.Builtin */
+pre.pygments .tok-nb {
+	color: var(--syntax-name_builtin-fg-color);
+}
+/* Name.Class */
+pre.pygments .tok-nc {
+	color: var(--syntax-name_class-fg-color);
+	font-weight: bold;
+}
+/* Name.Constant */
+pre.pygments .tok-no {
+	color: var(--syntax-name_constant-fg-color);
+}
+/* Name.Decorator */
+pre.pygments .tok-nd {
+	color: var(--syntax-name_decorator-fg-color);
+}
+/* Name.Entity */
+pre.pygments .tok-ni {
+	color: var(--syntax-name_entity-fg-color);
+	font-weight: bold;
+}
+/* Name.Exception */
+pre.pygments .tok-ne {
+	color: var(--syntax-name_exception-fg-color);
+	font-weight: bold;
+}
+/* Name.Function */
+pre.pygments .tok-nf {
+	color: var(--syntax-name_function-fg-color);
+}
+/* Name.Label */
+pre.pygments .tok-nl {
+	color: var(--syntax-name_label-fg-color);
+}
+/* Name.Namespace */
+pre.pygments .tok-nn {
+	color: var(--syntax-name_namespace-fg-color);
+	font-weight: bold;
+}
+/* Name.Tag */
+pre.pygments .tok-nt {
+	color: var(--syntax-name_tag-fg-color);
+	font-weight: bold;
+}
+/* Name.Variable */
+pre.pygments .tok-nv {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Operator.Word */
+pre.pygments .tok-ow {
+	color: var(--syntax-operator_word-fg-color);
+	font-weight: bold;
+}
+/* Text.Whitespace */
+pre.pygments .tok-w {
+	color: var(--syntax-text_whitespace-fg-color);
+}
+/* Literal.Number.Bin */
+pre.pygments .tok-mb {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.Number.Float */
+pre.pygments .tok-mf {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.Number.Hex */
+pre.pygments .tok-mh {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.Number.Integer */
+pre.pygments .tok-mi {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.Number.Oct */
+pre.pygments .tok-mo {
+	color: var(--syntax-literal_number-fg-color);
+}
+/* Literal.String.Affix */
+pre.pygments .tok-sa {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Backtick */
+pre.pygments .tok-sb {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Char */
+pre.pygments .tok-sc {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Delimiter */
+pre.pygments .tok-dl {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Doc */
+pre.pygments .tok-sd {
+	color: var(--syntax-literal_string-fg-color);
+	font-style: italic;
+}
+/* Literal.String.Double */
+pre.pygments .tok-s2 {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Escape */
+pre.pygments .tok-se {
+	color: var(--syntax-string_literal_escape-fg-color);
+	font-weight: bold;
+}
+/* Literal.String.Heredoc */
+pre.pygments .tok-sh {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Interpol */
+pre.pygments .tok-si {
+	color: var(--syntax-string_literal_special-fg-color);
+	font-weight: bold;
+}
+/* Literal.String.Other */
+pre.pygments .tok-sx {
+	color: var(--syntax-string_literal_other-fg-color);
+}
+/* Literal.String.Regex */
+pre.pygments .tok-sr {
+	color: var(--syntax-string_literal_special-fg-color);
+}
+/* Literal.String.Single */
+pre.pygments .tok-s1 {
+	color: var(--syntax-literal_string-fg-color);
+}
+/* Literal.String.Symbol */
+pre.pygments .tok-ss {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Name.Builtin.Pseudo */
+pre.pygments .tok-bp {
+	color: var(--syntax-name_builtin-fg-color);
+}
+/* Name.Function.Magic */
+pre.pygments .tok-fm {
+	color: var(--syntax-name_constant-fg-color);
+}
+/* Name.Variable.Class */
+pre.pygments .tok-vc {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Name.Variable.Global */
+pre.pygments .tok-vg {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Name.Variable.Instance */
+pre.pygments .tok-vi {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Name.Variable.Magic */
+pre.pygments .tok-vm {
+	color: var(--syntax-name_variable-fg-color);
+}
+/* Literal.Number.Integer.Long */
+pre.pygments .tok-il {
+	color: var(--syntax-literal_number-fg-color);
+}
+
+.linenotable td.linenos {
+	border-right: 1px solid var(--syntax-linenum-border-color);
+}

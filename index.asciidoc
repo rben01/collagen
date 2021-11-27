@@ -1,6 +1,10 @@
-= README
+= Up and Running With Collagen
+:stylesheet: ./docs/styles/collagen.css
+:linkcss:
+:source-highlighter: pygments
+:pygments-style: default
+:pygments-linenums-mode: table
 :nofooter:
-:source-highlighter: coderay
 :icons: font
 :toc: left
 :assets-dir: assets
@@ -10,13 +14,6 @@
 :example-02-dir: {examples-dir}/kitty-nesting-smiley
 :example-drake-01-dir: {examples-dir}/drake-user-specified-font
 :example-drake-02-dir: {examples-dir}/drake-no-font
-
-
-[NOTE]
-====
-This project is a work in progress, but it’s coming along well!
-Testing and documentation definitely need to be beefed up, but the functionality is nearly all there.
-====
 
 == Introduction
 
@@ -41,7 +38,7 @@ These three formats are each optimized for a different use case:
 Because each of these image formats is optimized for only a single use case, they cannot be easily combined.
 For instance, overlaying text on a JPEG image will introduce compression artifacts that were not present in the original text, while overlaying a JPEG image on a PNG will cause the file size to balloon.
 
-_Collagen_ -- from "collage" and "generate"footnote:[
+_Collagen_ -- from “collage” and “generate”footnote:[
 	And because link:https://en.wikipedia.org/wiki/Collagen[collagen] is the protein that holds your body together.
 	`s/protein/tool/;s/body/images/`
 ]

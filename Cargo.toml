@@ -5,10 +5,10 @@
 	keywords = ["image", "graphics", "multimedia", "svg"]
 	license-file = "LICENSE"
 	name = "collagen"
-	readme = "readme.html"
+	readme = "readme.md"
 	repository = "https://github.com/rben01/collagen"
 	rust-version = "1.56.1"
-	version = "0.1.2"
+	version = "0.1.3"
 
 [dependencies]
 	base64 = "0.13.0"
