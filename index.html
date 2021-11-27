@@ -16,12 +16,7 @@
 <div id="toc" class="toc2">
 <div id="toctitle">Table of Contents</div>
 <ul class="sectlevel1">
-<li><a href="#_introduction">Introduction</a>
-<ul class="sectlevel2">
-<li><a href="#_one_sentence_summary">One-Sentence Summary</a></li>
-<li><a href="#_rationale">Rationale</a></li>
-</ul>
-</li>
+<li><a href="#_introduction">Introduction</a></li>
 <li><a href="#_using_collagen">Using Collagen</a>
 <ul class="sectlevel2">
 <li><a href="#_a_basic_example">A Basic Example</a></li>
@@ -29,7 +24,6 @@
 <li><a href="#_memes">Memes</a></li>
 </ul>
 </li>
-<li><a href="#_faq">FAQ</a></li>
 </ul>
 </div>
 </div>
@@ -37,44 +31,14 @@
 <div class="sect1">
 <h2 id="_introduction">Introduction</h2>
 <div class="sectionbody">
-<div class="sect2">
-<h3 id="_one_sentence_summary">One-Sentence Summary</h3>
 <div class="paragraph">
 <p>Collagen is a program that takes as input a folder containing zero or more image files
 (<code>.jpeg</code>, <code>.png</code>, etc.) and a JSON manifest file describing the layout of these images
 along with SVG components such as shapes and text, and produces as output a single SVG
 file with all assets embedded.</p>
 </div>
-</div>
-<div class="sect2">
-<h3 id="_rationale">Rationale</h3>
 <div class="paragraph">
-<p>There are several widely used image formats, perhaps the three best known of which are JPEG, PNG, and SVG.
-JPEG and PNG are <a href="https://en.wikipedia.org/wiki/Raster_graphics" target="_blank" rel="noopener">raster formats</a>, which means they correspond to a rectangular grid of pixels.
-On the other hand, SVG is a <a href="https://en.wikipedia.org/wiki/Vector_graphics" target="_blank" rel="noopener">vector format</a>, which means it describes perfectly precise curves that can be displayed with arbitrarily high precision.
-These three formats are each optimized for a different use case:</p>
-</div>
-<div class="ulist">
-<ul>
-<li>
-<p><a href="https://en.wikipedia.org/wiki/Jpeg" target="_blank" rel="noopener">JPEG</a> uses lossy compression that preserves visual quality on most "real-life" images&#8201;&#8212;&#8201;images that contain smoothly-varying gradients&#8201;&#8212;&#8201;but which produces <a href="https://en.wikipedia.org/wiki/Compression_artifact#Images" target="_blank" rel="noopener">visible artifacts</a> when used on other kinds of images, especially ones containing hard edges and/or text.</p>
-</li>
-<li>
-<p><a href="https://en.wikipedia.org/wiki/Portable_Network_Graphics" target="_blank" rel="noopener">PNG</a> uses lossless compression that handles images with few distinct colors well, but requires an inordinate amount of space for storing images with many colors.</p>
-</li>
-<li>
-<p><a href="https://en.wikipedia.org/wiki/Scalable_Vector_Graphics" target="_blank" rel="noopener">SVG</a> is a vector graphics format which can nevertheless contain embedded raster images; however, doing so requires base64 encoding the raster image.</p>
-</li>
-</ul>
-</div>
-<div class="paragraph">
-<p>Because each of these image formats is optimized for only a single use case, they cannot be easily combined.
-For instance, overlaying text on a JPEG image will introduce compression artifacts that were not present in the original text, while overlaying a JPEG image on a PNG will cause the file size to balloon.</p>
-</div>
-<div class="paragraph">
-<p><em>Collagen</em>&#8201;&#8212;&#8201;from “collage” and “generate”<sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>&#8201;&#8212;&#8201;aims to fix this problem by packing all types of images, as well as vector shapes and text, into a single SVG file, the actual rendering of which is left to an SVG viewer application (which includes most web browsers).
-This allows a user to combine several graphics into a single file that can be displayed as an image without compromising on visual quality or file size.<sup class="footnote">[<a id="_footnoteref_2" class="footnote" href="#_footnotedef_2" title="View footnote.">2</a>]</sup></p>
-</div>
+<p>This allows a user to combine several graphics into a single file that can be displayed as an image without compromising on visual quality or file size.<sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup></p>
 </div>
 </div>
 </div>
@@ -185,7 +149,7 @@ If a child&#8217;s <code>vars</code> doesn&#8217;t contain a variable that the c
 </table>
 </div>
 <div class="paragraph">
-<p>Then, running the following command:<sup class="footnote">[<a id="_footnoteref_3" class="footnote" href="#_footnotedef_3" title="View footnote.">3</a>]</sup></p>
+<p>Then, running the following command:<sup class="footnote">[<a id="_footnoteref_2" class="footnote" href="#_footnotedef_2" title="View footnote.">2</a>]</sup></p>
 </div>
 <div class="listingblock">
 <div class="content">
@@ -480,96 +444,14 @@ But if you want to use fonts that aren&#8217;t on the receiving device, then you
 </div>
 </div>
 </div>
-<div class="sect1">
-<h2 id="_faq">FAQ</h2>
-<div class="sectionbody">
-<div class="qlist qanda">
-<ol>
-<li>
-<p><em>Wait, so all this does is base64 encode assets and put them in an SVG with other SVG elements?</em></p>
-<p>It adds some additional features, such as nesting of skeletons and the use of tag-wide variables and interpolation of these variables in attributes.
-But yes, for the most part, all this project does is allow raster images to coexist with each other and with vector graphics.
-If you need to embed fonts in an SVG, Collagen lets you do that, too.</p>
-</li>
-<li>
-<p><em>Couldn&#8217;t I just do the base64 encoding and create the SVG myself?</em></p>
-<p>Yes.
-All Collagen does it automate this.</p>
-</li>
-<li>
-<p><em>I want to put some text on a JPEG. What&#8217;s so bad about just opening an image editor, adding the text, and pressing save?</em></p>
-<p>The text will look bad because</p>
-<div class="olist arabic">
-<ol class="arabic">
-<li>
-<p>It will no be longer an infinitely zoomable vector entity, but instead will have been rasterized, i.e., rendered onto a fixed pixel grid that is only finitely zoomable.</p>
-</li>
-<li>
-<p>JPEG in particular is not optimized for text, so artifacts will be visible (see <a href="https://commons.wikimedia.org/w/index.php?title=File:Jpeg-text-artifacts.gif&amp;oldid=453916290" target="_blank" rel="noopener">here</a> or the Drake meme above).</p>
-</li>
-</ol>
-</div>
-</li>
-<li>
-<p><em>I&#8217;m ok with text being rasterized. This means I can convert my JPEG to PNG and avoid #2 above, right?</em></p>
-<p>Yes and no. While the text will look sort of ok (when not zoomed in), you now have the problem that your JPEG is being stored as a PNG.
-Chances are that this will cause the resulting file size to explode because PNG is simply not meant to store the kind of images that JPEG is meant to store.
-For instance, the JPEG below (<a href="https://commons.wikimedia.org/w/index.php?title=File:Planta62.jpg&amp;oldid=424889773" target="_blank" rel="noopener">source</a>) is 57KB, whereas the PNG is 434KB.</p>
-<div class="openblock">
-<div class="content">
-<div class="dlist">
-<dl>
-<dt class="hdlist1">This JPEG weighs in at 57KB</dt>
-<dd>
-<div class="imageblock">
-<div class="content">
-<img src="assets/pics/Planta62.jpg" alt="Planta62" width="300">
-</div>
-</div>
-</dd>
-<dt class="hdlist1">The equivalent PNG weighs in at 434KB</dt>
-<dd>
-<div class="imageblock">
-<div class="content">
-<img src="assets/pics/Planta62.png" alt="Planta62" width="300">
-</div>
-</div>
-</dd>
-</dl>
-</div>
-</div>
-</div>
-</li>
-<li>
-<p><em>But surely just placing black text on top of an all-white PNG is fine? Because it&#8217;s stored losslessly?</em></p>
-<p>Sure, <em>if</em> you don&#8217;t mind your text being rasterized, i.e., not perfectly precise and infinitely zoomable.
-The image below is black text on a white background.</p>
-<div class="imageblock">
-<div class="content">
-<img src="assets/pics/text_png.png" alt="text png">
-</div>
-</div>
-<div class="paragraph">
-<p>You don&#8217;t have to zoom in very far to see the text get fuzzy.
-And if this image undergoes additional rounds of editing and compression, this problem will only get worse.
-In contrast, the text in the smiley-face image above (and, naturally, the text on this webpage) is perfectly precise and will retain all of its detail at arbitrary magnification.</p>
-</div>
-</li>
-</ol>
-</div>
-</div>
-</div>
 </div>
 <div id="footnotes">
 <hr>
 <div class="footnote" id="_footnotedef_1">
-<a href="#_footnoteref_1">1</a>. And because <a href="https://en.wikipedia.org/wiki/Collagen">collagen</a> is the protein that holds your body together. 	<code>s/protein/tool/;s/body/images/</code>
+<a href="#_footnoteref_1">1</a>. Technically base64 encoding data does increase its size by about a third. 	However, you don&#8217;t need to pay this cost when transmitting the file; you can transmit the raw components and then use Collagen to encode them into an SVG on the receiving end. 	In other words, Collagen is akin to compression such as gunzip: it allows a smaller payload to be transmitted as long as the receiving end can turn it back into something useful.
 </div>
 <div class="footnote" id="_footnotedef_2">
-<a href="#_footnoteref_2">2</a>. Technically base64 encoding data does increase its size by about a third. 	However, you don&#8217;t need to pay this cost when transmitting the file; you can transmit the raw components and then use Collagen to encode them into an SVG on the receiving end. 	In other words, Collagen is akin to compression such as gunzip: it allows a smaller payload to be transmitted as long as the receiving end can turn it back into something useful.
-</div>
-<div class="footnote" id="_footnotedef_3">
-<a href="#_footnoteref_3">3</a>. At some point <code>cargo run --</code> will be replaced with an actual standalone executable <code>clgn</code>.
+<a href="#_footnoteref_2">2</a>. At some point <code>cargo run --</code> will be replaced with an actual standalone executable <code>clgn</code>.
 </div>
 </div>
 </body>
