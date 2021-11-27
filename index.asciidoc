@@ -3,9 +3,9 @@
 :source-highlighter: coderay
 :icons: font
 :toc: left
-:assets-dir: /assets
+:assets-dir: assets
 :image-dir: {assets-dir}/pics
-:examples-dir: /tests/examples
+:examples-dir: tests/examples
 :example-01-dir: {examples-dir}/kitty-nesting-smiley/skeleton/smiley
 :example-02-dir: {examples-dir}/kitty-nesting-smiley
 :example-drake-01-dir: {examples-dir}/drake-user-specified-font
