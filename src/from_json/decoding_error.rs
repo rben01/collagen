@@ -10,10 +10,10 @@
 
 use quick_xml::Error as XmlError;
 use serde_json as json;
+use std::fmt::Display;
 use std::io;
 use std::path::PathBuf;
 use std::str::Utf8Error;
-use std::string::FromUtf8Error;
 use zip::result::ZipError;
 
 use crate::fibroblast::data_types::context::VariableSubstitutionError;
@@ -23,14 +23,14 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 #[derive(Debug)]
 pub enum ClgnDecodingError {
 	Parse(VariableSubstitutionError),
-	Utf8(Utf8Error),
-	FromUtf8(FromUtf8Error),
 	Io(io::Error, PathBuf),
+	InvalidPath(PathBuf),
 	Zip(ZipError),
 	JsonDecode(json::Error, PathBuf),
 	Xml(XmlError),
-	Image(String),
-	BundledFontNotFound(String),
+	ToSvgString(Utf8Error),
+	Image { msg: String },
+	BundledFontNotFound { font_name: String },
 }
 
 impl ClgnDecodingError {
@@ -40,35 +40,38 @@ impl ClgnDecodingError {
 			Parse(..) => 3,
 			JsonDecode(..) => 4,
 			Xml(..) => 5,
+			InvalidPath(..) => 6,
 			Io(..) => 7,
-			Image(..) => 8,
-			Utf8(..) => 11,
-			FromUtf8(..) => 12,
-			BundledFontNotFound(..) => 22,
+			Image { .. } => 8,
+			ToSvgString(..) => 19,
+			BundledFontNotFound { .. } => 22,
 			Zip(..) => 33,
 		}
 	}
 }
 
-impl std::fmt::Display for ClgnDecodingError {
+impl Display for ClgnDecodingError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use ClgnDecodingError::*;
-		let s = match self {
-			Parse(e) => format!("{:?}", e),
-			Utf8(e) => format!("{:?}", e),
-			FromUtf8(e) => format!("{:?}", e),
-			Io(e, path) => format!("{}: {:?}", e, path),
-			Zip(e) => format!("{:?}", e),
-			JsonDecode(e, path) => format!("{}: {:?}", e, path),
-			Xml(e) => format!("{:?}", e),
-			Image(e) => e.to_owned(),
-			BundledFontNotFound(s) => format!(
-				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",
-				s
+		match self {
+			Parse(e) => write!(f, "{:?}", e),
+			Io(e, path) => write!(f, "{:?}: {}", path, e),
+			InvalidPath(p) => write!(f, "Invalid path: {:?}", p),
+			Zip(e) => write!(f, "{:?}", e),
+			JsonDecode(e, path) => write!(f, "{:?}: {}", path, e),
+			Xml(e) => write!(f, "{:?}", e),
+			ToSvgString(e) => write!(
+				f,
+				"{:?}; invalid UTF-8 sequence when converting to string",
+				e
 			),
-		};
-
-		f.write_str(s.as_str())
+			Image { msg } => write!(f, "{}", msg),
+			BundledFontNotFound { font_name } => write!(
+				f,
+				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",
+				font_name
+			),
+		}
 	}
 }
 
@@ -80,13 +83,7 @@ impl From<VariableSubstitutionError> for ClgnDecodingError {
 
 impl From<Utf8Error> for ClgnDecodingError {
 	fn from(err: Utf8Error) -> Self {
-		Self::Utf8(err)
-	}
-}
-
-impl From<FromUtf8Error> for ClgnDecodingError {
-	fn from(err: FromUtf8Error) -> Self {
-		Self::FromUtf8(err)
+		Self::ToSvgString(err)
 	}
 }
 

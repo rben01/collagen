@@ -48,7 +48,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 			let text = self.text(context)?;
 			writer.write_event(XmlEvent::Text(if self.should_escape_text() {
-				BytesText::from_plain_str(&text)
+				BytesText::from_plain_str(text.as_ref())
 			} else {
 				BytesText::from_escaped(text.as_bytes())
 			}))?;

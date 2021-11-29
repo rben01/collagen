@@ -1,5 +1,7 @@
 use collagen::cli;
 
+// TODO: When Termination API is stabilized, use it
+
 fn main() {
 	let app = cli::get_cli_parser();
 

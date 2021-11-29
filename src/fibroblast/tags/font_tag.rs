@@ -277,7 +277,8 @@ impl FontTag {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<String> {
 		let path = path.as_ref();
-		let abs_font_path = context.get_root().join(path);
+		let abs_font_path = crate::utils::paths::pathsep_aware_join(&*context.get_root(), path)?;
+
 		let b64_string = base64::encode(
 			std::fs::read(abs_font_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_font_path))?,
@@ -313,9 +314,9 @@ impl FontTag {
 							.push(("src", CowishFontAttr::BorrowedStr(fonts::IMPACT_WOFF2_B64))),
 
 						_ => {
-							return Err(ClgnDecodingError::BundledFontNotFound(
-								font_family.to_owned(),
-							))
+							return Err(ClgnDecodingError::BundledFontNotFound {
+								font_name: font_family.to_owned(),
+							})
 						}
 					}
 

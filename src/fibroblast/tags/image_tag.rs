@@ -64,8 +64,8 @@ pub struct ImageTag<'a> {
 }
 
 impl<'a> ImageTag<'a> {
-	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `<TYPE>`
-	/// in the data URI `data:image/<TYPE>;base64,...`. If `self.kind.is_none()`, the
+	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `{TYPE}`
+	/// in the data URI `data:image/{TYPE};base64,...`. If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
 	pub(crate) fn kind(&'a self) -> Option<Cow<'a, str>> {
 		match &self.kind {
@@ -89,10 +89,12 @@ impl<'a> ImageTag<'a> {
 		let kind = match self.kind() {
 			Some(kind) => kind,
 			None => {
-				return Err(ClgnDecodingError::Image(format!(
-					r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
-					self.image_path
-				)));
+				return Err(ClgnDecodingError::Image {
+					msg: format!(
+						r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
+						self.image_path
+					),
+				});
 			}
 		};
 
@@ -102,21 +104,8 @@ impl<'a> ImageTag<'a> {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 
-		// TODO: test that this actually works on Windows
-		let abs_image_path = {
-			let mut path = PathBuf::new();
-			for path_comp in context.get_root().components().chain(
-				self.image_path
-					.as_str()
-					.parse::<PathBuf>()
-					.unwrap() // TODO: replace with `into_ok` when stabilized
-					.components(),
-			) {
-				path.push(path_comp)
-			}
-
-			path
-		};
+		let abs_image_path =
+			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.image_path)?;
 
 		let b64_string = base64::encode(
 			std::fs::read(abs_image_path.as_path())

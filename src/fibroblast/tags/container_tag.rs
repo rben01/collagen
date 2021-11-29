@@ -110,7 +110,8 @@ impl<'a> ContainerTag<'a> {
 			Some(fb) => Ok(fb),
 			None => {
 				let context = context.clone();
-				let abs_clgn_path = context.get_root().join(&self.clgn_path);
+				let abs_clgn_path =
+					crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
 
 				context.replace_root(&abs_clgn_path);
 
