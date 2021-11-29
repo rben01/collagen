@@ -58,8 +58,8 @@ SVG was chosen as the resulting file type for the following reasons:
 - *`clgn`*: The executable that does the conversion to SVG.
 - *Skeleton*: A folder that is the input to `clgn`. It must contain a `collagen.json`
   file and any assets specified by `collagen.json`. For instance, if skeleton
-  `my_collagen`'s `collagen.json` contains `{ "image_path": "path/to/image" }`, then
-  `my_collage/path/to/image` must exist.
+  `my_skeleton`'s `collagen.json` contains `{ "image_path": "path/to/image" }`, then
+  `my_skeleton/path/to/image` must exist.
 - *Manifest*: The `collagen.json` file residing at the top level inside a skeleton.
 
 ## Using Collagen

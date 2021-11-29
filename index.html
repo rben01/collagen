@@ -131,7 +131,7 @@ Suppose you have the following simple skeleton at directory <code>example-01</co
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
 <td>A dictionary of variables. In <code>text</code> and <code>attrs</code> values, variables enclosed in curly brackets will have their value substituted.
-For example, if <code>vars</code> contains values for <code>dx</code> and <code>dy</code>, then a translation could be applied with <code>transform: translate({dx} {dy})</code>.
+For example, if <code>vars</code> contains values for <code>dx</code> and <code>dy</code>, then a translation could be applied with <code>"transform": "translate({dx} {dy})"</code>.
 If a child&#8217;s <code>vars</code> doesn&#8217;t contain a variable that the child needs the value of, the variable&#8217;s value will be looked up by walking up the list of ancestors until the root is reached (i.e., variable scopes are nested).</td>
 </tr>
 <tr>

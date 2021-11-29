@@ -105,7 +105,7 @@ And where link:{example-01-dir}/skeleton/collagen.json[`collagen.json`^] contain
 }
 ----
 <1> A dictionary of variables. In `text` and `attrs` values, variables enclosed in curly brackets will have their value substituted.
-For example, if `vars` contains values for `dx` and `dy`, then a translation could be applied with `transform: translate({dx} {dy})`.
+For example, if `vars` contains values for `dx` and `dy`, then a translation could be applied with `"transform": "translate({dx} {dy})"`.
 If a child's `vars` doesn't contain a variable that the child needs the value of, the variable's value will be looked up by walking up the list of ancestors until the root is reached (i.e., variable scopes are nested).
 <2> To include an image, just give its relative path.
 <3> Most other tags are specified with the `tag` field, which contains the name of the SVG tag to use.
