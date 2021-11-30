@@ -52,6 +52,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 			} else {
 				BytesText::from_escaped(text.as_bytes())
 			}))?;
+
 			Ok(())
 		})?;
 
@@ -63,18 +64,13 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 	/// Convert the in-memory representation of a Fibroblast to SVG. `writer` determines
 	/// where the output goes -- a `String`, to a file, etc.
-	fn to_svg_through_writer<W: std::io::Write>(
+	fn to_svg_through_writer(
 		&'a self,
 		context: &'a DecodingContext<'a>,
-		writer: &mut XmlWriter<W>,
-	) -> ClgnDecodingResult<()>
-	where
-		Self: Debug;
+		writer: &mut XmlWriter<impl std::io::Write>,
+	) -> ClgnDecodingResult<()>;
 
-	fn to_svg_string(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<String>
-	where
-		Self: Debug,
-	{
+	fn to_svg_string(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<String> {
 		let mut writer = XmlWriter::new(Cursor::new(Vec::new()));
 		self.to_svg_through_writer(context, &mut writer)?;
 
@@ -86,10 +82,10 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 }
 
 impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
-	fn to_svg_through_writer<W: std::io::Write>(
+	fn to_svg_through_writer(
 		&'a self,
 		context: &'a DecodingContext<'a>,
-		writer: &mut XmlWriter<W>,
+		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>
 	where
 		Self: Debug,
@@ -115,10 +111,10 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 }
 
 impl<'a> SvgWritableTag<'a> for RootTag<'a> {
-	fn to_svg_through_writer<W: std::io::Write>(
+	fn to_svg_through_writer(
 		&'a self,
 		context: &'a DecodingContext<'a>,
-		writer: &mut XmlWriter<W>,
+		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>
 	where
 		Self: Debug,
@@ -134,9 +130,9 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 }
 
 impl<'a> Fibroblast<'a> {
-	pub fn to_svg_through_writer<W: std::io::Write>(
+	pub fn to_svg_through_writer(
 		&'a self,
-		writer: &mut XmlWriter<W>,
+		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
 		self.root.to_svg_through_writer(&self.context, writer)
 	}

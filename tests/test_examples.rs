@@ -3,10 +3,7 @@ use quick_xml::Writer as XmlWriter;
 use std::path::{Path, PathBuf};
 
 #[track_caller]
-fn test_clgn_against_existing_output<P1: AsRef<Path>, P2: AsRef<Path>>(
-	clgn_path: P1,
-	out_path: P2,
-) {
+fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl AsRef<Path>) {
 	let clgn_path = clgn_path.as_ref();
 	let out_path = out_path.as_ref();
 

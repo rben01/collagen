@@ -109,9 +109,9 @@ pub struct DecodingContext<'a> {
 }
 
 impl<'a> DecodingContext<'a> {
-	pub(crate) fn new<I: IntoIterator<Item = (&'a str, &'a VariableValue)>>(
+	pub(crate) fn new(
 		root_path: PathBuf,
-		vars_intoiter: I,
+		vars_intoiter: impl IntoIterator<Item = (&'a str, &'a VariableValue)>,
 	) -> Self {
 		let vars_ref_map = vars_intoiter.into_iter().collect();
 
@@ -133,18 +133,18 @@ impl<'a> DecodingContext<'a> {
 		Self::new(PathBuf::from_str("").unwrap(), vars_intoiter)
 	}
 
-	pub(crate) fn new_at_root<P: AsRef<Path>>(root_path: P) -> Self {
+	pub(crate) fn new_at_root(root_path: impl AsRef<Path>) -> Self {
 		Self::new(root_path.as_ref().to_owned(), Map::new())
 	}
 
-	pub(crate) fn replace_root<P: AsRef<Path>>(&self, root: P) -> PathBuf {
+	pub(crate) fn replace_root(&self, root: impl AsRef<Path>) -> PathBuf {
 		self.root_path.replace(root.as_ref().to_owned())
 	}
 
-	pub(crate) fn with_new_root<T, P: AsRef<Path>, F: FnOnce() -> ClgnDecodingResult<T>>(
+	pub(crate) fn with_new_root<T>(
 		&self,
-		new_root: P,
-		f: F,
+		new_root: impl AsRef<Path>,
+		f: impl FnOnce() -> ClgnDecodingResult<T>,
 	) -> ClgnDecodingResult<T> {
 		let orig_path = self.replace_root(new_root);
 		let result = f();
@@ -724,7 +724,7 @@ mod tests {
 		#[test]
 		fn missing_vars() {
 			#[track_caller]
-			fn test<S: AsRef<str>>(context: &DecodingContext, input: S, missing: Missing) {
+			fn test(context: &DecodingContext, input: impl AsRef<str>, missing: Missing) {
 				assert_eq!(
 					context.sub_vars_into_str(input.as_ref()).err().unwrap(),
 					VariableSubstitutionError::new_with_missing_vars(
@@ -783,7 +783,7 @@ mod tests {
 		#[test]
 		fn illegal_var_names() {
 			#[track_caller]
-			fn test<S: AsRef<str>>(context: &DecodingContext, input: S, illegal: Illegal) {
+			fn test(context: &DecodingContext, input: impl AsRef<str>, illegal: Illegal) {
 				assert_eq!(
 					context.sub_vars_into_str(input.as_ref()).err().unwrap(),
 					VariableSubstitutionError::new_with_illegal_names(
@@ -815,9 +815,9 @@ mod tests {
 		#[test]
 		fn illegal_and_missing_var_names() {
 			#[track_caller]
-			fn test<S: AsRef<str>>(
+			fn test(
 				context: &DecodingContext,
-				input: S,
+				input: impl AsRef<str>,
 				illegal: Illegal,
 				missing: Missing,
 			) {

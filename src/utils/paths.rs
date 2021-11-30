@@ -21,9 +21,9 @@ use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
 /// meaning; they're just treated as ordinary file names.
 ///
 ///  TODO: test that this actually works on Windows
-pub(crate) fn pathsep_aware_join<P: AsRef<Path>, S: AsRef<str>>(
-	p: P,
-	s: S,
+pub(crate) fn pathsep_aware_join(
+	p: impl AsRef<Path>,
+	s: impl AsRef<str>,
 ) -> ClgnDecodingResult<PathBuf> {
 	let s = s.as_ref();
 	if s.starts_with('/') {
@@ -57,7 +57,7 @@ mod tests {
 		/// `|` in `s` are replaced with the platform-specific separator (and so they must
 		/// not be a character in any path component's name).
 		#[track_caller]
-		fn test_join<P: AsRef<Path>, S1: AsRef<str>>(p: P, s: S1, expected: PlatformPaths) {
+		fn test_join(p: impl AsRef<Path>, s: impl AsRef<str>, expected: PlatformPaths) {
 			let p = p.as_ref();
 			let s = s.as_ref();
 
@@ -104,9 +104,9 @@ mod tests {
 		///
 		/// `p` must not end with any path separator
 		#[track_caller]
-		fn test_join_with_all_pathsep_suffixes<P: AsRef<Path>, S: AsRef<str>>(
-			p: P,
-			s: S,
+		fn test_join_with_all_pathsep_suffixes(
+			p: impl AsRef<Path>,
+			s: impl AsRef<str>,
 			expected: (&str, &str),
 		) {
 			use PlatformPaths::*;
@@ -137,7 +137,7 @@ mod tests {
 		#[test]
 		fn empty_path() {
 			#[track_caller]
-			fn test_it<S1: AsRef<str>, S2: AsRef<str>>(s: S1, expected: S2) {
+			fn test_it(s: impl AsRef<str>, expected: impl AsRef<str>) {
 				test_join("", s, PlatformPaths::Same(expected.as_ref()));
 			}
 
@@ -169,7 +169,7 @@ mod tests {
 		#[test]
 		fn nonempty_path() {
 			#[track_caller]
-			fn test_it<S1: AsRef<str>, S2: AsRef<str>>(s: S1, expected: S2) {
+			fn test_it(s: impl AsRef<str>, expected: impl AsRef<str>) {
 				test_join_with_all_pathsep_suffixes("r/s", s, ("r/s", expected.as_ref()));
 			}
 
@@ -261,7 +261,7 @@ mod tests {
 		#[test]
 		fn joining_leading_pathsep() {
 			#[track_caller]
-			fn assert_err<P: AsRef<Path>, S: AsRef<str>>(p: P, s: S) {
+			fn assert_err(p: impl AsRef<Path>, s: impl AsRef<str>) {
 				let p = p.as_ref();
 				let s = s.as_ref();
 				let result = pathsep_aware_join(p, s);
@@ -274,6 +274,7 @@ mod tests {
 				);
 			}
 
+			// The logic is pretty simple; `p` is ignored until `s` is verified
 			assert_err("", "/");
 			assert_err("", "/a");
 		}

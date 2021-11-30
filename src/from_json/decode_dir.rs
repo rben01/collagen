@@ -8,14 +8,14 @@ use serde_json;
 use std::path::Path;
 
 impl<'a> Fibroblast<'a> {
-	pub fn from_dir<P: AsRef<Path>>(path: P) -> ClgnDecodingResult<Self> {
+	pub fn from_dir(path: impl AsRef<Path>) -> ClgnDecodingResult<Self> {
 		let path = path.as_ref();
 		let context = DecodingContext::new_at_root(path);
 		Fibroblast::from_dir_with_context(path, context)
 	}
 
-	pub fn from_dir_with_context<P: AsRef<Path>>(
-		path: P,
+	pub fn from_dir_with_context(
+		path: impl AsRef<Path>,
 		context: DecodingContext<'a>,
 	) -> ClgnDecodingResult<Self> {
 		let path = path.as_ref();

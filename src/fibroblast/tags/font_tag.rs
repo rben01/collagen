@@ -271,9 +271,9 @@ impl FontTag {
 		&[]
 	}
 
-	pub(super) fn get_font_path_attr_pair<S: AsRef<str>>(
+	pub(super) fn get_font_path_attr_pair(
 		&self,
-		path: S,
+		path: impl AsRef<str>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<String> {
 		let path = path.as_ref();
