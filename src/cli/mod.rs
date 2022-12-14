@@ -47,7 +47,7 @@ pub fn handle_cli_matches(matches: ArgMatches) -> ClgnDecodingResult<()> {
 		.map_err(|e| ClgnDecodingError::Io(e, in_file.parse::<PathBuf>().unwrap()))?;
 	let mut xml_writer = XmlWriter::new(file_writer);
 
-	Fibroblast::from_dir(in_file)?.to_svg_through_writer(&mut xml_writer)?;
+	Fibroblast::from_dir(in_file)?.to_svg(&mut xml_writer)?;
 
 	Ok(())
 }

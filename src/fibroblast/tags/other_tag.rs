@@ -26,6 +26,13 @@ pub struct OtherTag<'a> {
 }
 
 impl<'a> OtherTag<'a> {
+	pub(crate) fn new(tag_name: String, common_tag_fields: CommonTagFields<'a>) -> Self {
+		Self {
+			tag_name,
+			common_tag_fields,
+		}
+	}
+
 	pub(super) fn tag_name(&self) -> &str {
 		self.tag_name.as_ref()
 	}

@@ -11,7 +11,7 @@ fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl
 	let mut xml_writer = XmlWriter::new(&mut fibroblast_bytes);
 
 	let fibroblast = Fibroblast::from_dir(clgn_path).unwrap();
-	fibroblast.to_svg_through_writer(&mut xml_writer).unwrap();
+	fibroblast.to_svg(&mut xml_writer).unwrap();
 
 	let out_bytes = std::fs::read(out_path).unwrap();
 
@@ -99,33 +99,38 @@ macro_rules! test_input_output {
 	};
 }
 
-test_input_output!(empty, "./tests/examples/empty");
-test_input_output!(basic_smiley, "./tests/examples/basic-smiley-pure-svg");
-test_input_output!(
-	smiley_with_speech_bubble,
-	"./tests/examples/kitty-nesting-smiley/skeleton/smiley"
-);
-test_input_output!(
-	kitty_with_nested_smiley,
-	"./tests/examples/kitty-nesting-smiley"
-);
-test_input_output!(hodgepodge, "./tests/examples/random-gibberish");
-test_input_output!(
-	simple_nesting, "./tests/examples/simple-nesting", "A" => "out.svg"
-);
+#[cfg(test)]
+mod examples {
+	use super::*;
 
-test_input_output!(
-	drake_user_specified_font,
-	"./tests/examples/drake-user-specified-font"
-);
-test_input_output!(
-	drake_bundled_font,
-	"./tests/examples/drake-bundled-font",
-	pass_if: cfg(feature ="font_impact"),
-	fail_if: cfg(not(feature = "font_impact"))
-);
-test_input_output!(
-	drake_manually_specified_font,
-	"./tests/examples/drake-manually-specified-font"
-);
-test_input_output!(drake_no_font, "./tests/examples/drake-no-font");
+	test_input_output!(empty, "./tests/examples/empty");
+	test_input_output!(basic_smiley, "./tests/examples/basic-smiley-pure-svg");
+	test_input_output!(
+		smiley_with_speech_bubble,
+		"./tests/examples/kitty-nesting-smiley/skeleton/smiley"
+	);
+	test_input_output!(
+		kitty_with_nested_smiley,
+		"./tests/examples/kitty-nesting-smiley"
+	);
+	test_input_output!(hodgepodge, "./tests/examples/random-gibberish");
+	test_input_output!(
+		simple_nesting, "./tests/examples/simple-nesting", "A" => "out.svg"
+	);
+
+	test_input_output!(
+		drake_user_specified_font,
+		"./tests/examples/drake-user-specified-font"
+	);
+	test_input_output!(
+		drake_bundled_font,
+		"./tests/examples/drake-bundled-font",
+		pass_if: cfg(feature ="font_impact"),
+		fail_if: cfg(not(feature = "font_impact"))
+	);
+	test_input_output!(
+		drake_manually_specified_font,
+		"./tests/examples/drake-manually-specified-font"
+	);
+	test_input_output!(drake_no_font, "./tests/examples/drake-no-font");
+}

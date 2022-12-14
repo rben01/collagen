@@ -18,7 +18,7 @@ use std::io::Cursor;
 pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	/// Writes `tag` to SVG (aka XML) through an `XmlWriter`, with a `DecodingContext`.
 	/// Calls `write_children` when it's time to write the children
-	fn to_svg_through_writer_with<W, F>(
+	fn to_svg_with_child_writer<W, F>(
 		&'a self,
 		context: &'a DecodingContext<'a>,
 		writer: &mut XmlWriter<W>,
@@ -64,7 +64,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 	/// Convert the in-memory representation of a Fibroblast to SVG. `writer` determines
 	/// where the output goes -- a `String`, to a file, etc.
-	fn to_svg_through_writer(
+	fn to_svg(
 		&'a self,
 		context: &'a DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
@@ -72,7 +72,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 	fn to_svg_string(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<String> {
 		let mut writer = XmlWriter::new(Cursor::new(Vec::new()));
-		self.to_svg_through_writer(context, &mut writer)?;
+		self.to_svg(context, &mut writer)?;
 
 		let buf = writer.into_inner().into_inner();
 		let out_string = std::str::from_utf8(&buf)?.to_owned();
@@ -82,7 +82,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 }
 
 impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
-	fn to_svg_through_writer(
+	fn to_svg(
 		&'a self,
 		context: &'a DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
@@ -90,19 +90,19 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 	where
 		Self: Debug,
 	{
-		self.to_svg_through_writer_with(context, writer, |writer| match &self {
+		self.to_svg_with_child_writer(context, writer, |writer| match &self {
 			AnyChildTag::Container(container) => {
 				let fb = container.as_fibroblast();
 				context.with_new_root(fb.context.get_root().as_path(), || {
 					for child in self.children(context)? {
-						child.to_svg_through_writer(context, writer)?;
+						child.to_svg(context, writer)?;
 					}
 					Ok(())
 				})
 			}
 			_ => context.with_new_vars(self.vars(context)?, || {
 				for child in self.children(context)? {
-					child.to_svg_through_writer(context, writer)?;
+					child.to_svg(context, writer)?;
 				}
 				Ok(())
 			}),
@@ -111,7 +111,7 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 }
 
 impl<'a> SvgWritableTag<'a> for RootTag<'a> {
-	fn to_svg_through_writer(
+	fn to_svg(
 		&'a self,
 		context: &'a DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
@@ -119,9 +119,9 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 	where
 		Self: Debug,
 	{
-		self.to_svg_through_writer_with(context, writer, |writer| {
+		self.to_svg_with_child_writer(context, writer, |writer| {
 			for child in self.children() {
-				child.to_svg_through_writer(context, writer)?;
+				child.to_svg(context, writer)?;
 			}
 
 			Ok(())
@@ -130,10 +130,7 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 }
 
 impl<'a> Fibroblast<'a> {
-	pub fn to_svg_through_writer(
-		&'a self,
-		writer: &mut XmlWriter<impl std::io::Write>,
-	) -> ClgnDecodingResult<()> {
-		self.root.to_svg_through_writer(&self.context, writer)
+	pub fn to_svg(&'a self, writer: &mut XmlWriter<impl std::io::Write>) -> ClgnDecodingResult<()> {
+		self.root.to_svg(&self.context, writer)
 	}
 }

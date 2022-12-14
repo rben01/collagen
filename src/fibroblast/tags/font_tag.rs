@@ -138,7 +138,7 @@ impl<'de> Deserialize<'de> for FontFace {
 
 				let bundled = bundled.unwrap_or(false);
 				let name = name.ok_or_else(|| de::Error::missing_field("name"))?;
-				let attrs = attrs.unwrap_or_else(Map::new);
+				let attrs = attrs.unwrap_or_default();
 
 				let ff = match bundled {
 					true => {

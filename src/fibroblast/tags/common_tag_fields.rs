@@ -52,7 +52,7 @@ use serde::{Deserialize, Serialize};
 ///     encoding characters that are have special meaning in XML, such as `<` and `>`,
 ///     in a safe representation, such as `&lt;` and `&gt;`, respectively. Text should
 ///     go through exactly one round of XML-encoding before inclusion in XML.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct CommonTagFields<'a> {
 	/// (Optional) A dictionary mapping variable names to their values. None is
@@ -83,6 +83,13 @@ pub struct CommonTagFields<'a> {
 }
 
 impl<'a> CommonTagFields<'a> {
+	pub(crate) fn new_with_text(text: String) -> Self {
+		Self {
+			text: Some(text),
+			..Default::default()
+		}
+	}
+
 	pub(crate) fn base_vars(&self) -> &TagVariables {
 		match &self.vars {
 			None => &EMPTY_VARS,

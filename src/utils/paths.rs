@@ -88,7 +88,7 @@ mod tests {
 				}
 			}
 
-			let expected = PathBuf::from(expected_str.replace("|", path_sep));
+			let expected = PathBuf::from(expected_str.replace('|', path_sep));
 			let actual = pathsep_aware_join(p, s).unwrap();
 
 			assert_eq!(

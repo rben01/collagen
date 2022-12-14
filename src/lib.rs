@@ -1,4 +1,19 @@
-#![doc = include_str!("../readme.md")]
+// See https://github.com/rust-lang/rust/issues/75075
+#![doc = include_str!(concat!("..", PATH_SEP!(), "readme.md"))]
+
+#[cfg(windows)]
+macro_rules! PATH_SEP {
+	() => {
+		'\\'
+	};
+}
+
+#[cfg(not(windows))]
+macro_rules! PATH_SEP {
+	() => {
+		'/'
+	};
+}
 
 pub mod cli;
 pub mod fibroblast;
