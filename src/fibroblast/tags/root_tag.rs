@@ -42,7 +42,6 @@ impl<'a> RootTag<'a> {
 
 impl<'a> TagLike<'a> for RootTag<'a> {
 	fn tag_name(&self) -> &str {
-		println!("{:?}", self);
 		"svg"
 	}
 
