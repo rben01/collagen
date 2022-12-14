@@ -2,8 +2,18 @@ use super::any_child_tag::AnyChildTag;
 use super::common_tag_fields::CommonTagFields;
 use crate::fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs};
 use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
+use lazy_static::lazy_static;
 use lazycell::LazyCell;
+use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
+
+lazy_static! {
+	static ref XML_HEADER_RE: Regex = RegexBuilder::new(r"^\s*<\?xml.*?\?>")
+		.case_insensitive(true)
+		.dot_matches_new_line(true)
+		.build()
+		.unwrap();
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NestedSvgTag<'a> {
@@ -29,6 +39,7 @@ impl<'a> NestedSvgTag<'a> {
 
 				let text = std::fs::read_to_string(&abs_svg_path)
 					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
+				let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
 
 				self._text.fill(text).unwrap();
 
