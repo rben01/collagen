@@ -1,6 +1,5 @@
 use super::any_child_tag::AnyChildTag;
 use super::common_tag_fields::CommonTagFields;
-use super::OtherTag;
 use crate::fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs};
 use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
 use lazycell::LazyCell;
@@ -17,16 +16,12 @@ pub struct NestedSvgTag<'a> {
 	#[serde(skip)]
 	#[serde(default)]
 	_text: LazyCell<String>,
-
-	#[serde(skip)]
-	#[serde(default)]
-	_child: LazyCell<Box<AnyChildTag<'a>>>,
 }
 
 impl<'a> NestedSvgTag<'a> {
 	pub(super) fn initialize(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
-		match self._child.borrow() {
-			Some(_child) => Ok(()),
+		match self._text.borrow() {
+			Some(_text) => Ok(()),
 			None => {
 				let context = context.clone();
 				let abs_svg_path =
@@ -35,14 +30,8 @@ impl<'a> NestedSvgTag<'a> {
 				let text = std::fs::read_to_string(&abs_svg_path)
 					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
 
-				self._text.fill(text.clone()).unwrap();
+				self._text.fill(text).unwrap();
 
-				let svg_container = AnyChildTag::Other(OtherTag::new(
-					"g".into(),
-					CommonTagFields::new_with_text(text),
-				));
-
-				self._child.fill(Box::new(svg_container)).unwrap();
 				Ok(())
 			}
 		}
@@ -61,11 +50,7 @@ impl<'a> NestedSvgTag<'a> {
 	}
 
 	pub(super) fn children(&self) -> &[AnyChildTag<'a>] {
-		let child = self
-			._child
-			.borrow()
-			.expect("called `NestedSvgTag::children` before initializing");
-		std::slice::from_ref(child)
+		&[]
 	}
 
 	pub(super) fn base_text(&self) -> &str {

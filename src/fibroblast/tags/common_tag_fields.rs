@@ -83,13 +83,6 @@ pub struct CommonTagFields<'a> {
 }
 
 impl<'a> CommonTagFields<'a> {
-	pub(crate) fn new_with_text(text: String) -> Self {
-		Self {
-			text: Some(text),
-			..Default::default()
-		}
-	}
-
 	pub(crate) fn base_vars(&self) -> &TagVariables {
 		match &self.vars {
 			None => &EMPTY_VARS,
