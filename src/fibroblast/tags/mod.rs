@@ -61,8 +61,8 @@ lazy_static! {
 
 pub(crate) trait TagLike<'a> {
 	fn tag_name(&self) -> &str;
-	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables>;
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>>;
-	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>>;
+	fn vars(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables>;
+	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>>;
+	fn text(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>>;
 	fn should_escape_text(&self) -> bool;
 }

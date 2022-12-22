@@ -350,14 +350,14 @@ impl FontTag {
 			for (k, v) in all_attrs {
 				let new_val = match &v {
 					CowishFontAttr::OwnedAttr(a) => match a {
-						FontAttr::String(text) => context.sub_vars_into_str(text.as_ref())?,
+						FontAttr::String(text) => context.eval_exprs_in_str(text.as_ref())?,
 						FontAttr::Number(n) => Cow::Owned(n.to_string()),
 					},
 					CowishFontAttr::BorrowedAttr(a) => match *a {
-						FontAttr::String(text) => context.sub_vars_into_str(text.as_ref())?,
+						FontAttr::String(text) => context.eval_exprs_in_str(text.as_ref())?,
 						FontAttr::Number(n) => Cow::Owned(n.to_string()),
 					},
-					CowishFontAttr::BorrowedStr(text) => context.sub_vars_into_str(text)?,
+					CowishFontAttr::BorrowedStr(text) => context.eval_exprs_in_str(text)?,
 				};
 
 				text.push_str(k);

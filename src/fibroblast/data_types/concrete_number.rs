@@ -57,25 +57,22 @@ pub(crate) enum ConcreteNumber {
 	Float(f64),
 }
 
+impl From<ConcreteNumber> for f64 {
+	fn from(cn: ConcreteNumber) -> Self {
+		match cn {
+			ConcreteNumber::Int(x) => x as f64,
+			ConcreteNumber::UInt(x) => x as f64,
+			ConcreteNumber::Float(x) => x,
+		}
+	}
+}
+
 impl<'de> Deserialize<'de> for ConcreteNumber {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: Deserializer<'de>,
 	{
 		deserializer.deserialize_any(ConcreteNumberVisitor)
-	}
-}
-
-#[cfg(test)]
-impl std::cmp::PartialEq for ConcreteNumber {
-	fn eq(&self, other: &Self) -> bool {
-		use ConcreteNumber::*;
-		match (self, other) {
-			(Int(x), Int(y)) => x == y,
-			(UInt(x), UInt(y)) => x == y,
-			(Float(x), Float(y)) => x == y,
-			_ => false,
-		}
 	}
 }
 
@@ -95,6 +92,18 @@ impl std::fmt::Display for ConcreteNumber {
 mod tests {
 	use super::*;
 	use serde_test::{assert_tokens, Token};
+
+	impl std::cmp::PartialEq for ConcreteNumber {
+		fn eq(&self, other: &Self) -> bool {
+			use ConcreteNumber::*;
+			match (self, other) {
+				(Int(x), Int(y)) => x == y,
+				(UInt(x), UInt(y)) => x == y,
+				(Float(x), Float(y)) => x == y,
+				_ => false,
+			}
+		}
+	}
 
 	#[test]
 	fn test() {

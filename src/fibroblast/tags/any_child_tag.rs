@@ -75,7 +75,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		}
 	}
 
-	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
+	fn vars(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
 		self.initialize(context)?;
 
 		use AnyChildTag::*;
@@ -88,7 +88,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		})
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		fn attrs_iter(
 			xml_attrs: &XmlAttrs,
 		) -> impl IntoIterator<Item = (&str, Cow<'_, SimpleValue>)> {
@@ -128,8 +128,8 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		let text = match &self {
 			Container(t) => t.text()?,
 			NestedSvg(t) => t.base_text().into(),
-			Image(t) => context.sub_vars_into_str(t.base_text())?,
-			Other(t) => context.sub_vars_into_str(t.base_text())?,
+			Image(t) => context.eval_exprs_in_str(t.base_text())?,
+			Other(t) => context.eval_exprs_in_str(t.base_text())?,
 			Font(t) => Cow::Owned(t.font_embed_text(context)?),
 		};
 

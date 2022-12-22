@@ -22,7 +22,7 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
 pub enum ClgnDecodingError {
-	Parse(VariableSubstitutionError),
+	Parse(Vec<VariableSubstitutionError>),
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
 	Zip(ZipError),
@@ -75,8 +75,8 @@ impl Display for ClgnDecodingError {
 	}
 }
 
-impl From<VariableSubstitutionError> for ClgnDecodingError {
-	fn from(err: VariableSubstitutionError) -> Self {
+impl From<Vec<VariableSubstitutionError>> for ClgnDecodingError {
+	fn from(err: Vec<VariableSubstitutionError>) -> Self {
 		Self::Parse(err)
 	}
 }

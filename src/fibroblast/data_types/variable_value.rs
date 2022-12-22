@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 /// The value of a variable; either a number or a string
-#[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(test, derive(Clone, PartialEq))]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(untagged)]
 pub(crate) enum VariableValue {
 	Number(ConcreteNumber),
