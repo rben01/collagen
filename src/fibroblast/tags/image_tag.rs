@@ -1,7 +1,8 @@
-use super::any_child_tag::AnyChildTag;
-use super::common_tag_fields::CommonTagFields;
-use crate::fibroblast::data_types::{DecodingContext, SimpleValue, TagVariables, XmlAttrs};
-use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
+use super::{any_child_tag::AnyChildTag, common_tag_fields::CommonTagFields};
+use crate::{
+	fibroblast::data_types::{DecodingContext, SimpleValue, TagVariables, XmlAttrs},
+	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::PathBuf};
 

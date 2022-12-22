@@ -1,7 +1,8 @@
-use super::any_child_tag::AnyChildTag;
-use super::common_tag_fields::CommonTagFields;
-use crate::fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs};
-use crate::to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult};
+use super::{any_child_tag::AnyChildTag, common_tag_fields::CommonTagFields};
+use crate::{
+	fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs},
+	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+};
 use lazy_static::lazy_static;
 use lazycell::LazyCell;
 use regex::{Regex, RegexBuilder};

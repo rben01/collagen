@@ -31,8 +31,9 @@
 //!   tags. See its docs for more info.
 
 pub(self) use super::data_types::{AttrKVValueVec, Map, TagVariables, XmlAttrs};
-pub(self) use crate::fibroblast::data_types::DecodingContext;
-pub(self) use crate::to_svg::svg_writable::ClgnDecodingResult;
+pub(self) use crate::{
+	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
+};
 use lazy_static::lazy_static;
 use std::borrow::Cow;
 pub(super) mod any_child_tag;

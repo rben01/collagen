@@ -8,12 +8,11 @@ use crate::fibroblast::{
 	Fibroblast, TagLike,
 };
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
-
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event as XmlEvent};
-use quick_xml::Writer as XmlWriter;
-
-use std::fmt::Debug;
-use std::io::Cursor;
+use quick_xml::{
+	events::{BytesEnd, BytesStart, BytesText, Event as XmlEvent},
+	Writer as XmlWriter,
+};
+use std::{fmt::Debug, io::Cursor};
 
 pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	/// Writes `tag` to SVG (aka XML) through an `XmlWriter`, with a `DecodingContext`.

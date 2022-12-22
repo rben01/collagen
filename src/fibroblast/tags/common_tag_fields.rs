@@ -1,5 +1,4 @@
-use super::AnyChildTag;
-use super::{TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS};
+use super::{AnyChildTag, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS};
 use serde::{Deserialize, Serialize};
 
 /// The properties common to most tags. Unless documented otherwise, all tag types are

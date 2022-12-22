@@ -1,10 +1,12 @@
 use super::{
 	container_tag::ContainerTag, font_tag::FontTag, image_tag::ImageTag,
-	nested_svg_tag::NestedSvgTag, other_tag::OtherTag,
+	nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec, ClgnDecodingResult, TagLike,
+	TagVariables,
 };
-use super::{AttrKVValueVec, ClgnDecodingResult, TagLike, TagVariables};
-use crate::fibroblast::data_types::{DecodingContext, SimpleValue};
-use crate::fibroblast::tags::XmlAttrs;
+use crate::fibroblast::{
+	data_types::{DecodingContext, SimpleValue},
+	tags::XmlAttrs,
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 

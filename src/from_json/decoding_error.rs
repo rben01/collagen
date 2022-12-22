@@ -8,15 +8,11 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
+use crate::fibroblast::data_types::context::VariableSubstitutionError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
-use std::fmt::Display;
-use std::io;
-use std::path::PathBuf;
-use std::str::Utf8Error;
+use std::{fmt::Display, io, path::PathBuf, str::Utf8Error};
 use zip::result::ZipError;
-
-use crate::fibroblast::data_types::context::VariableSubstitutionError;
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 

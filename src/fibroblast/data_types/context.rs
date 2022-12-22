@@ -11,14 +11,18 @@
 //! proceed.
 
 use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
-use crate::fibroblast::data_types::{ConcreteNumber, Map, MapEntry};
-use crate::to_svg::svg_writable::ClgnDecodingResult;
+use crate::{
+	fibroblast::data_types::{ConcreteNumber, Map, MapEntry},
+	to_svg::svg_writable::ClgnDecodingResult,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::borrow::Cow;
-use std::cell::{Ref, RefCell};
-use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::{
+	borrow::Cow,
+	cell::{Ref, RefCell},
+	collections::BTreeSet,
+	path::{Path, PathBuf},
+};
 use strum_macros::EnumString;
 
 lazy_static! {
@@ -135,6 +139,35 @@ enum VariadicFunction {
 	Min,
 }
 
+impl VariadicFunction {
+	fn call(&self, args: impl IntoIterator<Item = Result<f64, ()>>) -> Result<f64, ()> {
+		use VariadicFunction::*;
+
+		// I assume the optimizer will rewrite this to only have a single `match self` in
+		// practice, rather than `1 + args.into_iter().count()`
+		let init = match self {
+			Add => 0.0,
+			Mul => 1.0,
+			Max => f64::MIN,
+			Min => f64::MAX,
+		};
+
+		args.into_iter()
+			.fold(Ok(init), |a: Result<f64, ()>, b: Result<f64, ()>| {
+				let a = a?;
+				let b = b?;
+
+				let res = match self {
+					Add => a + b,
+					Mul => a * b,
+					Max => a.max(b),
+					Min => a.min(b),
+				};
+				Ok(res)
+			})
+	}
+}
+
 #[derive(Debug, EnumString)]
 #[strum(serialize_all = "lowercase")]
 enum BinaryFunction {
@@ -144,6 +177,23 @@ enum BinaryFunction {
 	Div,
 	Pow,
 	Atan2,
+}
+
+impl BinaryFunction {
+	fn call(&self, arg1: Result<f64, ()>, arg2: Result<f64, ()>) -> Result<f64, ()> {
+		use BinaryFunction::*;
+		arg1.and_then(|x1| {
+			arg2.map(|x2| match self {
+				Sub => x1 - x2,
+				Div => x1 / x2,
+				Pow => x1.powf(x2),
+				// a tad confusing; the first argument is the "y" of atan2, the second is
+				// the "x"; a.atan2(b) is atan2(b, a), and so these arguments are in the
+				// correct order
+				Atan2 => x1.atan2(x2),
+			})
+		})
+	}
 }
 
 #[derive(Debug, EnumString)]
@@ -160,11 +210,37 @@ enum UnaryFunction {
 	Atan,
 }
 
+impl UnaryFunction {
+	fn call(&self, arg: Result<f64, ()>) -> Result<f64, ()> {
+		use UnaryFunction::*;
+		arg.map(|x| match self {
+			Exp => x.exp(),
+			Log => x.ln(),
+			Log2 => x.log2(),
+			Sin => x.sin(),
+			Cos => x.cos(),
+			Tan => x.tan(),
+			Asin => x.asin(),
+			Acos => x.acos(),
+			Atan => x.atan(),
+		})
+	}
+}
+
 #[derive(Debug, EnumString)]
 #[strum(serialize_all = "lowercase", ascii_case_insensitive)]
 enum NullaryFunction {
 	E,
 	Pi,
+}
+
+impl NullaryFunction {
+	fn call(&self) -> f64 {
+		match self {
+			NullaryFunction::E => std::f64::consts::E,
+			NullaryFunction::Pi => std::f64::consts::PI,
+		}
+	}
 }
 
 /// A context in which something can be decoded
@@ -370,6 +446,28 @@ impl<'a> DecodingContext<'a> {
 			}
 		}
 
+		fn check_next_arg(
+			context: &DecodingContext,
+			arg: Option<&Token>,
+			errors: &mut Vec<VariableSubstitutionError>,
+			variables_referenced: &BTreeSet<String>,
+			if_missing_err_ctor: impl Fn() -> VariableSubstitutionError,
+		) -> Result<f64, ()> {
+			match arg {
+				Some(tok) => match tok.kind {
+					TokenKind::Arg(arg) => {
+						eval_arg(context, arg, errors, variables_referenced.clone())
+					}
+					TokenKind::Error => Ok(1.0),
+					_ => panic!("unexpected token {tok:?}"),
+				},
+				None => {
+					errors.push(if_missing_err_ctor());
+					Err(())
+				}
+			}
+		}
+
 		let mut errors = Vec::new();
 
 		let s = s.trim();
@@ -452,120 +550,54 @@ impl<'a> DecodingContext<'a> {
 						let res = match first_tok.kind {
 							TokenKind::Function(func_name) => {
 								if let Ok(func) = func_name.parse::<VariadicFunction>() {
-									let init = match func {
-										VariadicFunction::Add => 0.0,
-										VariadicFunction::Mul => 1.0,
-										VariadicFunction::Max => f64::MIN,
-										VariadicFunction::Min => f64::MAX,
-									};
-
-									expr_tok_iter
-										.map(|tok| match tok.kind {
-											TokenKind::Arg(arg) => eval_arg(
-												self,
-												arg,
-												&mut errors,
-												variables_referenced.clone(),
-											),
-											TokenKind::Error => Ok(1.0),
-											_ => panic!("unexpected token {tok:?}"),
-										})
-										.fold(Ok(init), |a: Result<f64, ()>, b: Result<f64, ()>| {
-											let a = a?;
-											let b = b?;
-
-											let res = match func {
-												VariadicFunction::Add => a + b,
-												VariadicFunction::Mul => a * b,
-												VariadicFunction::Max => a.max(b),
-												VariadicFunction::Min => a.min(b),
-											};
-											Ok(res)
-										})
+									func.call(expr_tok_iter.map(|tok| match tok.kind {
+										TokenKind::Arg(arg) => eval_arg(
+											self,
+											arg,
+											&mut errors,
+											variables_referenced.clone(),
+										),
+										TokenKind::Error => Ok(1.0),
+										_ => panic!("unexpected token {tok:?}"),
+									}))
 								} else if let Ok(func) = func_name.parse::<BinaryFunction>() {
-									let first = match expr_tok_iter.next() {
-										Some(tok) => match tok.kind {
-											TokenKind::Arg(arg) => eval_arg(
-												self,
-												arg,
-												&mut errors,
-												variables_referenced.clone(),
-											),
-											TokenKind::Error => Ok(1.0),
-											_ => panic!("unexpected token {tok:?}"),
+									let expected_n_args = 2;
+									let [arg1, arg2] = [0, 1].map(|n_args| check_next_arg(
+										self,
+										expr_tok_iter.next(),
+										&mut errors,
+										&variables_referenced,
+										|| {
+											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: n_args }
 										},
-										None => {
-											errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 2, actual: 0 });
-											Err(())
-										}
-									};
-									let second = match expr_tok_iter.next() {
-										Some(tok) => match tok.kind {
-											TokenKind::Arg(arg) => eval_arg(
-												self,
-												arg,
-												&mut errors,
-												variables_referenced.clone(),
-											),
-											TokenKind::Error => Ok(1.0),
-											_ => panic!("unexpected token {tok:?}"),
-										},
-										None => {
-											errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 2, actual: 1 });
-											Err(())
-										}
-									};
+									));
 
 									let remaining_tokens = expr_tok_iter.count();
 									if remaining_tokens != 0 {
-										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 2, actual: 2+remaining_tokens });
+										errors.push(
+											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
 										Err(())
 									} else {
-										first.and_then(|x| {
-											second.map(|y| match func {
-												BinaryFunction::Sub => x - y,
-												BinaryFunction::Div => x / y,
-												BinaryFunction::Pow => x.powf(y),
-												// a tad confusing; the first argument is the "y" of
-												// atan2, the second is the "x" (these arguments are
-												// in the correct order)
-												BinaryFunction::Atan2 => x.atan2(y),
-											})
-										})
+										func.call(arg1, arg2)
 									}
 								} else if let Ok(func) = func_name.parse::<UnaryFunction>() {
-									let first = match expr_tok_iter.next() {
-										Some(tok) => match tok.kind {
-											TokenKind::Arg(arg) => eval_arg(
-												self,
-												arg,
-												&mut errors,
-												variables_referenced.clone(),
-											),
-											TokenKind::Error => Ok(1.0),
-											_ => panic!("unexpected token {tok:?}"),
+									let expected_n_args = 1;
+									let arg = check_next_arg(
+										self,
+										expr_tok_iter.next(),
+										&mut errors,
+										&variables_referenced,
+										|| {
+											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: 0 }
 										},
-										None => {
-											errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 1, actual: 0 });
-											Err(())
-										}
-									};
+									);
+
 									let remaining_tokens = expr_tok_iter.count();
 									if remaining_tokens != 0 {
-										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 1, actual: 1+remaining_tokens });
+										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
 										Err(())
 									} else {
-										first.map(|x| match func {
-											UnaryFunction::Exp => x.exp(),
-											UnaryFunction::Log => x.ln(),
-											UnaryFunction::Log2 => x.log2(),
-											UnaryFunction::Sin => x.sin(),
-											UnaryFunction::Cos => x.cos(),
-											UnaryFunction::Tan => x.tan(),
-											UnaryFunction::Asin => x.asin(),
-											UnaryFunction::Acos => x.acos(),
-											UnaryFunction::Atan => x.atan(),
-										})
+										func.call(arg)
 									}
 								} else if let Ok(func) = func_name.parse::<NullaryFunction>() {
 									let remaining_tokens = expr_tok_iter.count();
@@ -573,10 +605,7 @@ impl<'a> DecodingContext<'a> {
 										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 0, actual: remaining_tokens });
 										Err(())
 									} else {
-										Ok(match func {
-											NullaryFunction::E => std::f64::consts::E,
-											NullaryFunction::Pi => std::f64::consts::PI,
-										})
+										Ok(func.call())
 									}
 								} else {
 									errors.push(
@@ -1131,9 +1160,7 @@ mod tests {
 
 		#[test]
 		fn parse_errors() {
-			use super::ParseError;
-			use super::VariableSubstitutionError;
-			use super::VariableValue as VV;
+			use super::{ParseError, VariableSubstitutionError, VariableValue as VV};
 
 			#[track_caller]
 			fn test(context: &DecodingContext, s: &str, err: ParseError) {
