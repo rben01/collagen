@@ -1,6 +1,7 @@
-use super::{any_child_tag::AnyChildTag, common_tag_fields::CommonTagFields};
+use super::common_tag_fields::{CommonTagFields, HasCommonTagFields};
 use crate::{
-	fibroblast::data_types::{DecodingContext, SimpleValue, TagVariables, XmlAttrs},
+	dispatch_to_common_tag_fields,
+	fibroblast::data_types::{DecodingContext, SimpleValue},
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
 use serde::{Deserialize, Serialize};
@@ -50,7 +51,7 @@ use std::{borrow::Cow, path::PathBuf};
 ///     extension of `image_path`. (An error will be raised if this inference is not
 ///     possible, for instance if the image file lacks )
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
 	image_path: String,
@@ -63,6 +64,9 @@ pub struct ImageTag<'a> {
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,
 }
+
+dispatch_to_common_tag_fields!(impl HasVars for ImageTag<'_>);
+dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for ImageTag<'a>);
 
 impl<'a> ImageTag<'a> {
 	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `{TYPE}`
@@ -119,25 +123,5 @@ impl<'a> ImageTag<'a> {
 
 	pub(super) fn tag_name(&self) -> &str {
 		"image"
-	}
-
-	pub(super) fn base_vars(&self) -> &TagVariables {
-		self.common_tag_fields.base_vars()
-	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
-	}
-
-	pub(super) fn base_children(&self) -> &[AnyChildTag<'a>] {
-		self.common_tag_fields.base_children()
-	}
-
-	pub(super) fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		self.common_tag_fields.should_escape_text()
 	}
 }

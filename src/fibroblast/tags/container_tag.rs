@@ -1,5 +1,6 @@
 use super::{
-	any_child_tag::AnyChildTag, AttrKVValueVec, ClgnDecodingResult, DecodingContext, TagVariables,
+	any_child_tag::AnyChildTag, common_tag_fields::HasCommonTagFields, AttrKVValueVec,
+	ClgnDecodingResult, DecodingContext, TagVariables,
 };
 use crate::fibroblast::Fibroblast;
 use lazycell::LazyCell;
@@ -89,7 +90,7 @@ use std::borrow::Cow;
 /// (The `xmnls="..."` is added automatically if not present in the `collagen.json` file.)
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ContainerTag<'a> {
 	// TODO: Should this be renamed "{import,include}{,_path,ing,s}"? Leaning towards simply "include"
 	clgn_path: String,

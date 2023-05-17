@@ -26,6 +26,7 @@ pub enum ClgnDecodingError {
 	Xml(XmlError),
 	ToSvgString(Utf8Error),
 	Image { msg: String },
+	Foreach { msg: String },
 	BundledFontNotFound { font_name: String },
 }
 
@@ -42,6 +43,7 @@ impl ClgnDecodingError {
 			ToSvgString(..) => 19,
 			BundledFontNotFound { .. } => 22,
 			Zip(..) => 33,
+			Foreach { .. } => 77,
 		}
 	}
 }
@@ -62,6 +64,7 @@ impl Display for ClgnDecodingError {
 				e
 			),
 			Image { msg } => write!(f, "{}", msg),
+			Foreach { msg } => write!(f, "{}", msg),
 			BundledFontNotFound { font_name } => write!(
 				f,
 				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",

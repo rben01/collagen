@@ -1,5 +1,9 @@
-use super::{any_child_tag::AnyChildTag, common_tag_fields::CommonTagFields};
+use super::{
+	any_child_tag::AnyChildTag,
+	common_tag_fields::{CommonTagFields, HasCommonTagFields, HasVars},
+};
 use crate::{
+	dispatch_to_common_tag_fields,
 	fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs},
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
@@ -16,7 +20,7 @@ lazy_static! {
 		.unwrap();
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NestedSvgTag<'a> {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
@@ -29,8 +33,30 @@ pub struct NestedSvgTag<'a> {
 	_text: LazyCell<String>,
 }
 
+dispatch_to_common_tag_fields!(impl HasVars for NestedSvgTag<'_>);
+
+impl<'a> HasCommonTagFields<'a> for NestedSvgTag<'a> {
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.common_tag_fields.base_attrs()
+	}
+
+	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
+		&[]
+	}
+
+	fn base_text(&self) -> &str {
+		self._text
+			.borrow()
+			.expect("called `NestedSvgTag::base_text` before initializing")
+	}
+
+	fn should_escape_text(&self) -> bool {
+		false
+	}
+}
+
 impl<'a> NestedSvgTag<'a> {
-	pub(super) fn initialize(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
+	pub(super) fn initialize(&self, context: &DecodingContext<'_>) -> ClgnDecodingResult<()> {
 		match self._text.borrow() {
 			Some(_text) => Ok(()),
 			None => {
@@ -53,25 +79,7 @@ impl<'a> NestedSvgTag<'a> {
 		"g"
 	}
 
-	pub(super) fn base_vars(&self) -> &TagVariables {
-		self.common_tag_fields.base_vars()
-	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
-	}
-
-	pub(super) fn children(&self) -> &[AnyChildTag<'a>] {
-		&[]
-	}
-
-	pub(super) fn base_text(&self) -> &str {
-		self._text
-			.borrow()
-			.expect("called `NestedSvgTag::base_text` before initializing")
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		false
+	pub(super) fn children(&'a self) -> &'a [AnyChildTag<'a>] {
+		self.base_children()
 	}
 }

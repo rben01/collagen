@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 ///     encoding characters that are have special meaning in XML, such as `<` and `>`,
 ///     in a safe representation, such as `&lt;` and `&gt;`, respectively. Text should
 ///     go through exactly one round of XML-encoding before inclusion in XML.
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct CommonTagFields<'a> {
 	/// (Optional) A dictionary mapping variable names to their values. None is
@@ -59,7 +59,7 @@ pub struct CommonTagFields<'a> {
 	#[serde(default)]
 	vars: Option<TagVariables>,
 
-	/// (Optional) A dictionary of name="value" XML attributes. NuNonell is equivalent to no
+	/// (Optional) A dictionary of name="value" XML attributes. None is equivalent to no
 	/// attributes.
 	#[serde(default)]
 	attrs: Option<XmlAttrs>,
@@ -81,36 +81,94 @@ pub struct CommonTagFields<'a> {
 	should_escape_text: Option<bool>,
 }
 
-impl<'a> CommonTagFields<'a> {
-	pub(crate) fn base_vars(&self) -> &TagVariables {
-		match &self.vars {
-			None => &EMPTY_VARS,
-			Some(vars) => vars,
-		}
+pub(crate) trait HasVars {
+	fn base_vars(&self) -> &TagVariables;
+	fn base_vars_mut(&mut self) -> &mut Option<TagVariables>;
+}
+
+// NOTE: Don't try to be clever here and introduce `fn common_tag_fields(&self) ->
+// &CommonTagFields` so that you can use it to add default implementations of these
+// methods. IT WON'T WORK. IT WILL NEVER WORK. YOU WILL SPEND HOURS MESSING AROUND WITH
+// LIFETIMES AND IT WILL NEVER WORK. EVER. DON'T TRY. JUST DEAL WITH THE DUPLICATED CODE
+// AND MOVE ON.
+//
+// For some reason, `self.field.by_ref_method()` acts differently with respect to
+// lifetimes than `self.field_ref().by_ref_method()`, as `self.field_ref()` will require
+// `self` to have a lifetime that `self.field` doesn't require.
+//
+// Ultimately I think the root case is that `CommonTagFields` has a recursive lifetime
+// (since it includes `AnyChildTag<'a>` which includes `CommonTagFields<'a>` which
+// includes...) and I think recursive lifetimes break the borrow checker, even if in
+// theory they should work (or at least give a better error message.)
+pub(crate) trait HasCommonTagFields<'a>: HasVars {
+	fn base_attrs(&self) -> &XmlAttrs;
+	fn base_children(&'a self) -> &'a [AnyChildTag<'a>];
+	fn base_text(&self) -> &str;
+	fn should_escape_text(&self) -> bool;
+}
+
+impl HasVars for CommonTagFields<'_> {
+	fn base_vars(&self) -> &TagVariables {
+		self.vars.as_ref().unwrap_or(&EMPTY_VARS)
 	}
 
-	pub(crate) fn base_attrs(&self) -> &XmlAttrs {
-		match &self.attrs {
-			None => &EMPTY_ATTRS,
-			Some(attrs) => attrs,
-		}
+	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
+		&mut self.vars
+	}
+}
+
+impl<'a> HasCommonTagFields<'a> for CommonTagFields<'a> {
+	fn base_attrs(&self) -> &XmlAttrs {
+		self.attrs.as_ref().unwrap_or(&EMPTY_ATTRS)
 	}
 
-	pub(crate) fn base_children(&self) -> &[AnyChildTag<'a>] {
+	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
 		match &self.children {
 			None => &[],
-			Some(children) => children,
+			Some(children) => children.as_ref(),
 		}
 	}
 
-	pub(crate) fn base_text(&self) -> &str {
-		match &self.text {
-			None => "",
-			Some(t) => t.as_ref(),
-		}
+	fn base_text(&self) -> &str {
+		self.text.as_deref().unwrap_or("")
 	}
 
-	pub(crate) fn should_escape_text(&self) -> bool {
+	fn should_escape_text(&self) -> bool {
 		self.should_escape_text.unwrap_or(true)
 	}
+}
+
+#[macro_export]
+macro_rules! dispatch_to_common_tag_fields {
+	(impl HasVars for $ty:ty) => {
+		impl $crate::fibroblast::tags::common_tag_fields::HasVars for $ty {
+			fn base_vars(&self) -> &$crate::fibroblast::data_types::TagVariables {
+				self.common_tag_fields.base_vars()
+			}
+			fn base_vars_mut(
+				&mut self,
+			) -> &mut Option<$crate::fibroblast::data_types::TagVariables> {
+				self.common_tag_fields.base_vars_mut()
+			}
+		}
+	};
+	(impl<'a> HasCommonTagFields<'a> for $ty:ty) => {
+		impl<'a> HasCommonTagFields<'a> for $ty {
+			fn base_attrs(&self) -> &$crate::fibroblast::data_types::XmlAttrs {
+				self.common_tag_fields.base_attrs()
+			}
+
+			fn base_children(&'a self) -> &'a [$crate::fibroblast::tags::AnyChildTag<'a>] {
+				self.common_tag_fields.base_children()
+			}
+
+			fn base_text(&self) -> &str {
+				self.common_tag_fields.base_text()
+			}
+
+			fn should_escape_text(&self) -> bool {
+				self.common_tag_fields.should_escape_text()
+			}
+		}
+	};
 }

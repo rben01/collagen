@@ -5,7 +5,10 @@ use super::{
 };
 use crate::fibroblast::{
 	data_types::{DecodingContext, SimpleValue},
-	tags::XmlAttrs,
+	tags::{
+		common_tag_fields::{HasCommonTagFields, HasVars},
+		XmlAttrs,
+	},
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -24,7 +27,7 @@ use std::borrow::Cow;
 /// - [`OtherTag`]: the most general option; represents any kind of SVG tag that does
 ///   not need any special handling as the above tags do
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub enum AnyChildTag<'a> {
@@ -138,7 +141,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		Ok(text)
 	}
 
-	fn should_escape_text(&self) -> bool {
+	fn should_escape_text(&'a self) -> bool {
 		use AnyChildTag::*;
 		match &self {
 			Container(t) => t.should_escape_text(),

@@ -41,7 +41,7 @@ use tags::{AnyChildTag, RootTag};
 /// [^ambiguity] Technically, it's not ambiguous; `serde` picks the first variant for
 /// which deserialization succeeds, so it depends on the order of the variants of
 /// [`AnyChildTag`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Fibroblast<'a> {
 	pub(crate) root: RootTag<'a>,
 	pub(crate) context: DecodingContext<'a>,

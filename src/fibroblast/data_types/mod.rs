@@ -20,7 +20,7 @@ mod variable_value;
 pub(crate) use variable_value::VariableValue;
 
 /// A type alias for storing XML attribute key-value pairs
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct XmlAttrs(pub(crate) Map<String, SimpleValue>);
 
 impl Deref for XmlAttrs {
@@ -60,5 +60,19 @@ impl<'a> IntoIterator for AttrKVValueVec<'a> {
 }
 
 /// Map of `String` -> `VariableValue`
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct TagVariables(pub(crate) Map<String, VariableValue>);
+
+pub(crate) fn insert_var(
+	into: &mut Option<TagVariables>,
+	key: String,
+	value: VariableValue,
+) -> Option<VariableValue> {
+	match into {
+		Some(vars) => vars.0.insert(key, value),
+		None => {
+			*into = Some(TagVariables(Map::from_iter([(key, value)])));
+			None
+		}
+	}
+}

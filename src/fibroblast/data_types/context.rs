@@ -736,7 +736,7 @@ impl<'a> DecodingContext<'a> {
 
 		// Don't really know what I'm doing when it comes to parsing, but this works, so
 		// ¯\_(ツ)_/¯
-		for (i, c) in s.chars().into_iter().enumerate() {
+		for (i, c) in s.chars().enumerate() {
 			match (prev_was_backslash, &parse_state, c) {
 				// (_, InsideBracesValid | InsideBracesInvalid, '\\') => {
 				// 	return Err(VariableSubstitutionError::Parse(BackslashInVariableName {

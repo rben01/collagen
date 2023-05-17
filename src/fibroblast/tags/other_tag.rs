@@ -1,4 +1,6 @@
-use super::{common_tag_fields::CommonTagFields, AnyChildTag, TagVariables, XmlAttrs};
+use crate::dispatch_to_common_tag_fields;
+
+use super::common_tag_fields::{CommonTagFields, HasCommonTagFields};
 use serde::{Deserialize, Serialize};
 
 /// `OtherTag` is a generic tag that doesn't need to be handled specially, such as
@@ -16,7 +18,7 @@ use serde::{Deserialize, Serialize};
 ///   - Description: The tag's name. For instance, to make a `<rect>` tag, use
 ///     `"tag_name": "rect"`.
 /// - Other: `OtherTag` accepts all properties in [`CommonTagFields`].
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OtherTag<'a> {
 	#[serde(rename = "tag")]
 	tag_name: String,
@@ -29,24 +31,7 @@ impl<'a> OtherTag<'a> {
 	pub(super) fn tag_name(&self) -> &str {
 		self.tag_name.as_ref()
 	}
-
-	pub(super) fn base_vars(&self) -> &TagVariables {
-		self.common_tag_fields.base_vars()
-	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
-	}
-
-	pub(super) fn base_children(&self) -> &[AnyChildTag<'a>] {
-		self.common_tag_fields.base_children()
-	}
-
-	pub(super) fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		self.common_tag_fields.should_escape_text()
-	}
 }
+
+dispatch_to_common_tag_fields!(impl HasVars for OtherTag<'_>);
+dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for OtherTag<'a>);

@@ -1,4 +1,7 @@
-use super::{AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS};
+use super::{
+	common_tag_fields::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS,
+	EMPTY_VARS,
+};
 use crate::{
 	fibroblast::data_types::{ConcreteNumber, Map},
 	to_svg::svg_writable::ClgnDecodingError,
@@ -23,7 +26,7 @@ enum CowishFontAttr<'a> {
 	BorrowedStr(&'a str),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct UserProvidedFontFace {
 	name: String,
 	path: String,
@@ -40,7 +43,7 @@ pub(crate) struct BundledFontFace {
 	attrs: Map<String, FontAttr>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum FontFace {
 	UserProvided(UserProvidedFontFace),
 	#[cfg_attr(not(feature = "_any_bundled_font"), allow(dead_code))]
@@ -237,7 +240,7 @@ impl<'de> Deserialize<'de> for FontFace {
 ///   "vars": { "foo": "bar" }
 /// }
 /// ```
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FontTag {
 	fonts: Vec<FontFace>,
 
@@ -248,23 +251,23 @@ pub struct FontTag {
 	attrs: Option<XmlAttrs>,
 }
 
+impl HasVars for FontTag {
+	fn base_vars(&self) -> &TagVariables {
+		self.vars.as_ref().unwrap_or(&EMPTY_VARS)
+	}
+
+	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
+		&mut self.vars
+	}
+}
+
 impl FontTag {
 	pub(super) fn tag_name(&self) -> &str {
 		"defs"
 	}
 
-	pub(super) fn base_vars(&self) -> &TagVariables {
-		match &self.vars {
-			None => &EMPTY_VARS,
-			Some(vars) => vars,
-		}
-	}
-
 	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		match &self.attrs {
-			None => &EMPTY_ATTRS,
-			Some(attrs) => attrs,
-		}
+		self.attrs.as_ref().unwrap_or(&EMPTY_ATTRS)
 	}
 
 	pub(super) fn base_children<'a>(&self) -> &[AnyChildTag<'a>] {

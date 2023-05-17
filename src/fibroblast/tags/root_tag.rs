@@ -1,8 +1,9 @@
 use super::{
-	common_tag_fields::CommonTagFields, AnyChildTag, AttrKVValueVec, ClgnDecodingResult,
-	DecodingContext, TagLike, TagVariables, XmlAttrs,
+	common_tag_fields::{CommonTagFields, HasCommonTagFields, HasVars},
+	AnyChildTag, AttrKVValueVec, ClgnDecodingResult, DecodingContext, TagLike, TagVariables,
+	XmlAttrs,
 };
-use crate::fibroblast::data_types::SimpleValue;
+use crate::{dispatch_to_common_tag_fields, fibroblast::data_types::SimpleValue};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -12,29 +13,16 @@ use std::borrow::Cow;
 /// xmlns="http://www.w3.org/2000/svg"></svg>`).
 ///
 /// `RootTag` accepts only the properties in [`CommonTagFields`](crate::fibroblast::tags::CommonTagFields).
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RootTag<'a> {
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,
 }
 
+dispatch_to_common_tag_fields!(impl HasVars for RootTag<'_>);
+dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for RootTag<'a>);
+
 impl<'a> RootTag<'a> {
-	pub(super) fn base_vars(&self) -> &TagVariables {
-		self.common_tag_fields.base_vars()
-	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
-	}
-
-	pub(super) fn base_children(&self) -> &[AnyChildTag<'a>] {
-		self.common_tag_fields.base_children()
-	}
-
-	pub(super) fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
-	}
-
 	pub(crate) fn children(&'a self) -> &[AnyChildTag<'a>] {
 		self.base_children()
 	}
