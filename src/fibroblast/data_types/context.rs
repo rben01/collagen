@@ -515,21 +515,20 @@ impl<'a> DecodingContext<'a> {
 						});
 					} else if c == ')' {
 						let matching_start_pos =
-							tok_stack.iter().enumerate().rev().find_map(|(j, tok)| {
+							match tok_stack.iter().enumerate().rev().find_map(|(j, tok)| {
 								matches!(tok.kind, TokenKind::Start).then_some(j)
-							});
-						let matching_start_pos = match matching_start_pos {
-							Some(pos) => pos,
-							None => {
-								errors.push(VariableSubstitutionError::Parse(
-									ParseError::UnexpectedClosingParen {
-										position: original_index + i,
-									},
-								));
-								// This is unrecoverable
-								return Err(errors);
-							}
-						};
+							}) {
+								Some(pos) => pos,
+								None => {
+									errors.push(VariableSubstitutionError::Parse(
+										ParseError::UnexpectedClosingParen {
+											position: original_index + i,
+										},
+									));
+									// This is unrecoverable
+									return Err(errors);
+								}
+							};
 						let mut expr_tok_iter = tok_stack[matching_start_pos + 1..].iter();
 
 						let first_tok = match expr_tok_iter.next() {
