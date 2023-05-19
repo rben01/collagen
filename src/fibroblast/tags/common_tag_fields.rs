@@ -66,7 +66,7 @@ pub struct CommonTagFields<'a> {
 
 	/// (Optional) A list of children of this tag. None is equivalent to the empty list.
 	#[serde(default)]
-	children: Option<Vec<AnyChildTag<'a>>>,
+	pub(crate) children: Option<Vec<AnyChildTag<'a>>>,
 
 	/// (Optional) The text contained inside this tag, i.e., the "some text" in
 	/// `<tag>some text</tag>`. None is equivalent to the empty string.
@@ -123,10 +123,7 @@ impl<'a> HasCommonTagFields<'a> for CommonTagFields<'a> {
 	}
 
 	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
-		match &self.children {
-			None => &[],
-			Some(children) => children.as_ref(),
-		}
+		self.children.as_deref().unwrap_or(&[])
 	}
 
 	fn base_text(&self) -> &str {

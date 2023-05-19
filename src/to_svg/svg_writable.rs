@@ -92,7 +92,7 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 		self.to_svg_with_child_writer(context, writer, |writer| match &self {
 			AnyChildTag::Container(container) => {
 				let fb = container.as_fibroblast();
-				context.with_new_root(fb.context.get_root().as_path(), || {
+				context.with_new_root(fb.context.get_root().clone(), || {
 					for child in self.children(context)? {
 						child.to_svg(context, writer)?;
 					}

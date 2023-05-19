@@ -30,12 +30,6 @@ pub fn get_cli_parser() -> App<'static, 'static> {
 pub fn handle_cli_matches(matches: ArgMatches) -> ClgnDecodingResult<()> {
 	let in_file = matches.value_of("skeleton").unwrap(); // safe so long as in-file is required (.takes_value(true))
 	let out_file = matches.value_of("out-file").unwrap();
-	// let out_file = match out_file {
-	// 	Some(value) => Cow::Borrowed(value),
-	// 	None => PathBuf::from(in_file)
-	// 		.with_extension("svg")
-	// 		.to_string_lossy(),
-	// };
 
 	let file_writer = std::fs::OpenOptions::new()
 		.read(false)
@@ -47,7 +41,9 @@ pub fn handle_cli_matches(matches: ArgMatches) -> ClgnDecodingResult<()> {
 		.map_err(|e| ClgnDecodingError::Io(e, in_file.parse::<PathBuf>().unwrap()))?;
 	let mut xml_writer = XmlWriter::new(file_writer);
 
-	Fibroblast::from_dir(in_file)?.to_svg(&mut xml_writer)?;
+	let f = Fibroblast::from_dir(in_file.into())?;
+	println!("{f:?}");
+	f.to_svg(&mut xml_writer)?;
 
 	Ok(())
 }

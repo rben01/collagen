@@ -1,7 +1,6 @@
 use super::{
 	common_tag_fields::{CommonTagFields, HasCommonTagFields, HasVars},
 	AnyChildTag, AttrKVValueVec, ClgnDecodingResult, DecodingContext, TagLike, TagVariables,
-	XmlAttrs,
 };
 use crate::{dispatch_to_common_tag_fields, fibroblast::data_types::SimpleValue};
 use serde::{Deserialize, Serialize};
@@ -14,6 +13,7 @@ use std::borrow::Cow;
 ///
 /// `RootTag` accepts only the properties in [`CommonTagFields`](crate::fibroblast::tags::CommonTagFields).
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct RootTag<'a> {
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,

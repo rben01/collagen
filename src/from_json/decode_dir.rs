@@ -5,12 +5,11 @@
 use super::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 use crate::fibroblast::{data_types::DecodingContext, tags::RootTag, Fibroblast};
 use serde_json;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 impl<'a> Fibroblast<'a> {
-	pub fn from_dir(path: impl AsRef<Path>) -> ClgnDecodingResult<Self> {
-		let path = path.as_ref();
-		let context = DecodingContext::new_at_root(path);
+	pub fn from_dir(path: PathBuf) -> ClgnDecodingResult<Self> {
+		let context = DecodingContext::new_at_root(path.clone());
 		Fibroblast::from_dir_with_context(path, context)
 	}
 

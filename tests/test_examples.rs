@@ -10,7 +10,7 @@ fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl
 	let mut fibroblast_bytes = Vec::<u8>::new();
 	let mut xml_writer = XmlWriter::new(&mut fibroblast_bytes);
 
-	let fibroblast = Fibroblast::from_dir(clgn_path).unwrap();
+	let fibroblast = Fibroblast::from_dir(clgn_path.to_owned()).unwrap();
 	fibroblast.to_svg(&mut xml_writer).unwrap();
 
 	let out_bytes = std::fs::read(out_path).unwrap();

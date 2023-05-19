@@ -21,7 +21,7 @@ use std::{
 	borrow::Cow,
 	cell::{Ref, RefCell},
 	collections::BTreeSet,
-	path::{Path, PathBuf},
+	path::PathBuf,
 };
 use strum_macros::EnumString;
 
@@ -266,17 +266,17 @@ impl<'a> DecodingContext<'a> {
 		}
 	}
 
-	pub(crate) fn new_at_root(root_path: impl AsRef<Path>) -> Self {
-		Self::new(root_path.as_ref().to_owned(), Map::new())
+	pub(crate) fn new_at_root(root_path: PathBuf) -> Self {
+		Self::new(root_path, Map::new())
 	}
 
-	pub(crate) fn replace_root(&self, root: impl AsRef<Path>) -> PathBuf {
-		self.root_path.replace(root.as_ref().to_owned())
+	pub(crate) fn replace_root(&self, root: PathBuf) -> PathBuf {
+		self.root_path.replace(root)
 	}
 
 	pub(crate) fn with_new_root<T>(
 		&self,
-		new_root: impl AsRef<Path>,
+		new_root: PathBuf,
 		f: impl FnOnce() -> ClgnDecodingResult<T>,
 	) -> ClgnDecodingResult<T> {
 		let orig_path = self.replace_root(new_root);
@@ -862,7 +862,7 @@ impl<'a> DecodingContext<'a> {
 mod tests {
 	use super::*;
 	use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as VV};
-	use std::str::FromStr;
+	use std::{path::Path, str::FromStr};
 
 	struct Invalid<'a>(Vec<&'a str>);
 	struct Missing<'a>(Vec<&'a str>);
@@ -1024,16 +1024,16 @@ mod tests {
 
 		#[test]
 		fn with_new() {
-			let context = DecodingContext::new_at_root("root0");
+			let context = DecodingContext::new_at_root("root0".into());
 
 			assert_eq!(*context.get_root(), Path::new("root0"));
 
 			context
-				.with_new_root("root1", || {
+				.with_new_root("root1".into(), || {
 					assert_eq!(*context.get_root(), Path::new("root1"));
 
 					context
-						.with_new_root("root2", || {
+						.with_new_root("root2".into(), || {
 							assert_eq!(*context.get_root(), Path::new("root2"));
 							Ok(())
 						})
@@ -1042,7 +1042,7 @@ mod tests {
 					assert_eq!(*context.get_root(), Path::new("root1"));
 
 					context
-						.with_new_root("root3", || {
+						.with_new_root("root3".into(), || {
 							assert_eq!(*context.get_root(), Path::new("root3"));
 							Ok(())
 						})

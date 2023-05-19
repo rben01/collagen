@@ -114,9 +114,9 @@ impl<'a> ContainerTag<'a> {
 				let abs_clgn_path =
 					crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
 
-				context.replace_root(&abs_clgn_path);
+				context.replace_root(abs_clgn_path.clone());
 
-				let subroot = Fibroblast::from_dir_with_context(&abs_clgn_path, context)?;
+				let subroot = Fibroblast::from_dir_with_context(abs_clgn_path, context)?;
 				self._child_clgn.fill(subroot).unwrap();
 				Ok(self._child_clgn.borrow().unwrap())
 			}

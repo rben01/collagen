@@ -1,10 +1,10 @@
 use super::{
 	any_child_tag::AnyChildTag,
-	common_tag_fields::{CommonTagFields, HasCommonTagFields, HasVars},
+	common_tag_fields::{CommonTagFields, HasCommonTagFields},
 };
 use crate::{
 	dispatch_to_common_tag_fields,
-	fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs},
+	fibroblast::data_types::{DecodingContext, XmlAttrs},
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
 use lazy_static::lazy_static;
