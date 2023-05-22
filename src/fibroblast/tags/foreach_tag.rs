@@ -105,24 +105,26 @@ where
 		closed,
 	} = Range::deserialize(deserializer)?;
 
-	if step == Some(0) {
-		return Err(<D::Error as serde::de::Error>::invalid_value(
-			serde::de::Unexpected::Signed(0),
-			&"step must not be 0",
-		));
-	}
+	let step = match step {
+		Some(step) => {
+			if step == 0 {
+				return Err(<D::Error as serde::de::Error>::invalid_value(
+					serde::de::Unexpected::Signed(0),
+					&"step must not be 0",
+				));
+			}
+			if (end > start) != (step > 0) && end != start {
+				return Err(<D::Error as serde::de::Error>::custom(format!(
+					"must have either `start <= end && step > 0` or `start >= end && step < 0`, \
+					 got start={}, end={}, step={}.",
+					start, end, step
+				)));
+			}
+			Some(step.try_into().unwrap())
+		}
+		None => None,
+	};
 
-	let step_nonopt = step.unwrap_or(if start < end { 1 } else { -1 });
-
-	if (end > start) != (step_nonopt > 0) {
-		return Err(<D::Error as serde::de::Error>::custom(format!(
-			"must have either `start <= end && step > 0` or `start >= end && step < 0`, \
-			 got start={}, end={}, step={}.",
-			start, end, step_nonopt
-		)));
-	}
-
-	let step = step.map(|s| NonZeroI64::new(s).unwrap());
 	Ok((start, end, step, closed))
 }
 
