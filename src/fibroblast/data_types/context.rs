@@ -26,7 +26,8 @@ use std::{
 use strum_macros::EnumString;
 
 lazy_static! {
-	static ref VAR_NAME_CHAR_RE: Regex = Regex::new(r"\w").unwrap();
+	static ref VAR_NAME_CHAR_RE: Regex = Regex::new(r"^\w+$").unwrap();
+	static ref NON_EXPR_RE: Regex = Regex::new(r"\(|\)").unwrap();
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -361,9 +362,9 @@ impl<'a> DecodingContext<'a> {
 	/// Parse an expression between curly braces
 	fn parse_expr(
 		&self,
-		s: &'_ str,
+		s: &str,
 		original_index: usize,
-		variables_referenced: BTreeSet<String>,
+		variables_referenced: &BTreeSet<String>,
 	) -> Result<VariableValue, Vec<VariableSubstitutionError>> {
 		#[derive(Debug, Clone, Copy)]
 		enum ArgKind<'c> {
@@ -389,7 +390,7 @@ impl<'a> DecodingContext<'a> {
 			context: &DecodingContext,
 			arg: ArgKind,
 			errors: &mut Vec<VariableSubstitutionError>,
-			variables_referenced: BTreeSet<String>,
+			variables_referenced: &BTreeSet<String>,
 		) -> Result<f64, ()> {
 			match arg {
 				ArgKind::Lit(num) => Ok(num),
@@ -412,20 +413,20 @@ impl<'a> DecodingContext<'a> {
 						match value {
 							VariableValue::Number(cn) => Ok(f64::from(*cn)),
 							VariableValue::String(value) => {
-								let mut variables_referenced = variables_referenced;
+								let mut variables_referenced = variables_referenced.clone();
 								variables_referenced.insert(name.to_owned());
 								match context
-									.eval_exprs_in_string_helper(value, variables_referenced)
+									.eval_exprs_in_string_helper(value, &variables_referenced)
 								{
 									Ok(s) => match s.parse() {
 										Ok(x) => Ok(x),
 										Err(_) => {
 											errors.push(
-									VariableSubstitutionError::ExpectedNumGotStringForVariable {
-										name: name.to_owned(),
-										value: value.to_owned(),
-									},
-								);
+												VariableSubstitutionError::ExpectedNumGotStringForVariable {
+													name: name.to_owned(),
+													value: value.to_owned(),
+												},
+											);
 											Err(())
 										}
 									},
@@ -455,9 +456,7 @@ impl<'a> DecodingContext<'a> {
 		) -> Result<f64, ()> {
 			match arg {
 				Some(tok) => match tok.kind {
-					TokenKind::Arg(arg) => {
-						eval_arg(context, arg, errors, variables_referenced.clone())
-					}
+					TokenKind::Arg(arg) => eval_arg(context, arg, errors, variables_referenced),
 					TokenKind::Error => Ok(1.0),
 					_ => panic!("unexpected token {tok:?}"),
 				},
@@ -470,7 +469,8 @@ impl<'a> DecodingContext<'a> {
 
 		let mut errors = Vec::new();
 
-		let s = s.trim();
+		let mut is_complex_expr = false;
+		let mut has_seen_non_whitespace = false;
 		let mut next_special_tok_ends_curr_tok = false;
 		let mut left = 0;
 		let mut tok_stack = Vec::<Token>::new();
@@ -478,35 +478,40 @@ impl<'a> DecodingContext<'a> {
 		for (i, c) in s.chars().chain(std::iter::once(' ')).enumerate() {
 			match c {
 				c if c.is_whitespace() && !next_special_tok_ends_curr_tok => {
-					left = i + 1;
+					if has_seen_non_whitespace {
+						left = i + 1;
+					}
 				}
 				c if c.is_whitespace() || c == '(' || c == ')' => {
+					is_complex_expr |= !c.is_whitespace();
 					next_special_tok_ends_curr_tok = false;
 
 					let tok_str = &s[left..i];
 
-					if !tok_str.is_empty() {
-						let tok_kind = match tok_stack.last() {
-							Some(Token {
-								pos: _,
-								kind: TokenKind::Start,
-							}) => TokenKind::Function(tok_str),
-							_ => {
-								if let Ok(num) = tok_str.parse() {
-									TokenKind::Arg(ArgKind::Lit(num))
-								} else {
-									TokenKind::Arg(ArgKind::Var(tok_str))
+					if is_complex_expr {
+						if !tok_str.trim().is_empty() {
+							let tok_kind = match tok_stack.last() {
+								Some(Token {
+									pos: _,
+									kind: TokenKind::Start,
+								}) => TokenKind::Function(tok_str),
+								_ => {
+									if let Ok(num) = tok_str.parse() {
+										TokenKind::Arg(ArgKind::Lit(num))
+									} else {
+										TokenKind::Arg(ArgKind::Var(tok_str))
+									}
 								}
-							}
-						};
-						let tok = Token {
-							pos: i,
-							kind: tok_kind,
-						};
-						tok_stack.push(tok);
-					}
+							};
+							let tok = Token {
+								pos: i,
+								kind: tok_kind,
+							};
+							tok_stack.push(tok);
+						}
 
-					left = i + 1;
+						left = i + 1;
+					}
 
 					if c == '(' {
 						tok_stack.push(Token {
@@ -554,7 +559,7 @@ impl<'a> DecodingContext<'a> {
 											self,
 											arg,
 											&mut errors,
-											variables_referenced.clone(),
+											&variables_referenced.clone(),
 										),
 										TokenKind::Error => Ok(1.0),
 										_ => panic!("unexpected token {tok:?}"),
@@ -565,7 +570,7 @@ impl<'a> DecodingContext<'a> {
 										self,
 										expr_tok_iter.next(),
 										&mut errors,
-										&variables_referenced,
+										variables_referenced,
 										|| {
 											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: n_args }
 										},
@@ -585,7 +590,7 @@ impl<'a> DecodingContext<'a> {
 										self,
 										expr_tok_iter.next(),
 										&mut errors,
-										&variables_referenced,
+										variables_referenced,
 										|| {
 											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: 0 }
 										},
@@ -615,7 +620,9 @@ impl<'a> DecodingContext<'a> {
 									Err(())
 								}
 							}
-							_ => panic!("logic error: the token following Start was not Function"),
+							_ => unreachable!(
+								"logic error: the token following Start was not Function"
+							),
 						};
 
 						// Replace tokens comprising this expression with a single token
@@ -636,14 +643,37 @@ impl<'a> DecodingContext<'a> {
 				_ => {
 					next_special_tok_ends_curr_tok = true;
 				}
-			}
+			};
+			has_seen_non_whitespace |= !c.is_whitespace();
+		}
+
+		if left < s.len() {
+			let tok_str = &s[left..];
+
+			let tok_kind = match tok_stack.last() {
+				Some(Token {
+					pos: _,
+					kind: TokenKind::Start,
+				}) => TokenKind::Function(tok_str),
+				_ => {
+					if let Ok(num) = tok_str.parse() {
+						TokenKind::Arg(ArgKind::Lit(num))
+					} else {
+						TokenKind::Arg(ArgKind::Var(tok_str))
+					}
+				}
+			};
+			let tok = Token {
+				pos: left,
+				kind: tok_kind,
+			};
+			tok_stack.push(tok);
 		}
 
 		match tok_stack.len() {
 			0 => {
-				errors.push(VariableSubstitutionError::Parse(ParseError::Empty {
-					position: original_index,
-				}));
+				// should be an entirely whitespace name
+				errors.push(VariableSubstitutionError::InvalidVariableName(s.into()));
 			}
 			1 => {
 				let tok = tok_stack[0];
@@ -654,25 +684,43 @@ impl<'a> DecodingContext<'a> {
 							return Ok(VariableValue::Number(ConcreteNumber::Float(x)))
 						}
 						// a single variable name was provided, which we now have to substitute
-						ArgKind::Var(name) => match self.get_var(name) {
-							Some(val) => match val {
-								VariableValue::Number(cn) => return Ok(VariableValue::Number(*cn)),
-								VariableValue::String(s) => {
-									let mut variables_referenced = variables_referenced;
-									variables_referenced.insert(name.to_owned());
-									match self.eval_exprs_in_string_helper(s, variables_referenced)
-									{
-										Ok(ret) => {
-											return Ok(VariableValue::String(ret.into_owned()))
+						ArgKind::Var(name) => {
+							// let x = eval_arg(context, arg, &mut errors, variables_referenced)
+							if !VAR_NAME_CHAR_RE.is_match(name) {
+								errors.push(VariableSubstitutionError::InvalidVariableName(
+									name.to_owned(),
+								));
+							} else {
+								match self.get_var(name) {
+									Some(val) => match val {
+										VariableValue::Number(cn) => {
+											return Ok(VariableValue::Number(*cn))
 										}
-										Err(e) => errors.extend(e),
+										VariableValue::String(s) => {
+											let mut variables_referenced =
+												variables_referenced.clone();
+											variables_referenced.insert(name.to_owned());
+											match self.eval_exprs_in_string_helper(
+												s,
+												&variables_referenced,
+											) {
+												Ok(ret) => {
+													return Ok(VariableValue::String(
+														ret.into_owned(),
+													))
+												}
+												Err(e) => errors.extend(e),
+											}
+										}
+									},
+									None => {
+										errors.push(VariableSubstitutionError::UnknownVariableName(
+											name.to_owned(),
+										))
 									}
 								}
-							},
-							None => errors.push(VariableSubstitutionError::UnknownVariableName(
-								name.to_owned(),
-							)),
-						},
+							}
+						}
 					},
 					TokenKind::Start => errors.push(VariableSubstitutionError::Parse(
 						ParseError::UnclosedParen { position: tok.pos },
@@ -709,13 +757,13 @@ impl<'a> DecodingContext<'a> {
 		&self,
 		s: &'b str,
 	) -> Result<Cow<'b, str>, Vec<VariableSubstitutionError>> {
-		self.eval_exprs_in_string_helper(s, BTreeSet::new())
+		self.eval_exprs_in_string_helper(s, &BTreeSet::new())
 	}
 
 	fn eval_exprs_in_string_helper<'b>(
 		&self,
 		s: &'b str,
-		variables_referenced: BTreeSet<String>,
+		variables_referenced: &BTreeSet<String>,
 	) -> Result<Cow<'b, str>, Vec<VariableSubstitutionError>> {
 		#[derive(Debug)]
 		enum ParseState {
@@ -731,6 +779,7 @@ impl<'a> DecodingContext<'a> {
 
 		let mut parse_state = ParseState::Normal;
 		let mut prev_was_backslash = false;
+		let mut did_parse_expr = false;
 		let mut left = 0;
 		let mut opening_brace_idx = 0;
 
@@ -738,11 +787,6 @@ impl<'a> DecodingContext<'a> {
 		// ¯\_(ツ)_/¯
 		for (i, c) in s.chars().enumerate() {
 			match (prev_was_backslash, &parse_state, c) {
-				// (_, InsideBracesValid | InsideBracesInvalid, '\\') => {
-				// 	return Err(VariableSubstitutionError::Parse(BackslashInVariableName {
-				// 		position: i,
-				// 	}));
-				// }
 				(false, _, '\\') => {
 					prev_was_backslash = true;
 				}
@@ -752,17 +796,17 @@ impl<'a> DecodingContext<'a> {
 					parse_state = InsideBracesValid;
 					opening_brace_idx = i;
 				}
-				(false, InsideBracesValid, '}') if i > left => {
+				(false, InsideBracesValid, '}') => {
 					modified_from_original = true;
+					did_parse_expr = true;
 
 					let expr = &s[left..i];
-					match self.parse_expr(expr, opening_brace_idx, variables_referenced.clone()) {
+					match self.parse_expr(expr, opening_brace_idx, variables_referenced) {
 						Ok(x) => {
 							string_result.push_str(&x.as_str());
 						}
 						Err(e) => {
 							errors.extend(e);
-							string_result.push_str("<<ERROR>>");
 						}
 					};
 
@@ -783,13 +827,14 @@ impl<'a> DecodingContext<'a> {
 					prev_was_backslash = false;
 					modified_from_original = true;
 				}
-				(true, Normal, _) => {
+				(true, _, _) => {
 					errors.push(VariableSubstitutionError::Parse(
 						ParseError::InvalidEscapeSequence {
 							position: (i - 1, i),
 							char: c,
 						},
 					));
+					prev_was_backslash = false;
 					continue;
 				}
 
@@ -799,27 +844,28 @@ impl<'a> DecodingContext<'a> {
 			}
 		}
 
-		if !errors.is_empty() {
-			return Err(errors);
-		}
-
-		match (prev_was_backslash, parse_state) {
-			(true, _) => errors.push(VariableSubstitutionError::Parse(
+		if !did_parse_expr && prev_was_backslash {
+			errors.push(VariableSubstitutionError::Parse(
 				ParseError::EndedWithBackslash,
-			)),
-			(_, Normal) => {
-				string_result.push_str(&s[left..]);
-				return Ok(if modified_from_original {
-					Cow::Owned(string_result)
-				} else {
-					Cow::Borrowed(s)
-				});
+			))
+		} else {
+			match parse_state {
+				InsideBracesValid => errors.push(VariableSubstitutionError::Parse(
+					ParseError::UnterminatedVariable {
+						content: s[left..].to_string(),
+					},
+				)),
+				Normal => {
+					string_result.push_str(&s[left..]);
+					if errors.is_empty() {
+						return Ok(if modified_from_original {
+							Cow::Owned(string_result)
+						} else {
+							Cow::Borrowed(s)
+						});
+					}
+				}
 			}
-			(_, InsideBracesValid) => errors.push(VariableSubstitutionError::Parse(
-				ParseError::UnterminatedVariable {
-					content: s[left..].to_string(),
-				},
-			)),
 		}
 
 		Err(errors)
@@ -864,8 +910,25 @@ mod tests {
 	use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as VV};
 	use std::{path::Path, str::FromStr};
 
-	struct Invalid<'a>(Vec<&'a str>);
-	struct Missing<'a>(Vec<&'a str>);
+	impl From<ParseError> for VariableSubstitutionError {
+		fn from(value: ParseError) -> Self {
+			Self::Parse(value)
+		}
+	}
+
+	enum BadVarReason {
+		Invalid,
+		Missing,
+	}
+	struct BadVar<'a>(BadVarReason, &'a str);
+	impl<'a> BadVar<'a> {
+		fn invalid(var: &'a str) -> Self {
+			Self(BadVarReason::Invalid, var)
+		}
+		fn missing(var: &'a str) -> Self {
+			Self(BadVarReason::Missing, var)
+		}
+	}
 
 	impl<'a> DecodingContext<'a> {
 		pub(crate) fn new_empty() -> Self {
@@ -1162,10 +1225,14 @@ mod tests {
 			use super::{ParseError, VariableSubstitutionError, VariableValue as VV};
 
 			#[track_caller]
-			fn test(context: &DecodingContext, s: &str, err: ParseError) {
+			fn test<T, V>(context: &DecodingContext, s: &str, err: V)
+			where
+				T: Into<VariableSubstitutionError>,
+				V: Into<Vec<T>>,
+			{
 				assert_eq!(
 					context.eval_exprs_in_str(s).unwrap_err(),
-					vec![VariableSubstitutionError::Parse(err)]
+					err.into().into_iter().map(|e| e.into()).collect::<Vec<_>>()
 				);
 			}
 
@@ -1181,123 +1248,146 @@ mod tests {
 				("e", &val_e),
 			]);
 
-			test(&empty_context, r"\", ParseError::EndedWithBackslash);
-			test(&empty_context, r"x\", ParseError::EndedWithBackslash);
+			test(&empty_context, r"\", [ParseError::EndedWithBackslash]);
+			test(&empty_context, r"x\", [ParseError::EndedWithBackslash]);
 			test(
 				&empty_context,
 				r"xytas\{\}\",
-				ParseError::EndedWithBackslash,
+				[ParseError::EndedWithBackslash],
 			);
 			test(
 				&nonempty_context,
 				r"xytas{d}\",
-				ParseError::EndedWithBackslash,
+				[ParseError::EndedWithBackslash],
 			);
 			test(
 				&nonempty_context,
 				r"\\xytas{a}\\{e}\",
-				ParseError::EndedWithBackslash,
+				[ParseError::UnexpectedClosingBrace { position: 2 }],
 			);
 
 			test(
 				&empty_context,
 				"}",
-				ParseError::UnexpectedClosingBrace { position: 0 },
+				[ParseError::UnexpectedClosingBrace { position: 0 }],
 			);
 			test(
 				&empty_context,
 				"xyz}",
-				ParseError::UnexpectedClosingBrace { position: 3 },
+				[ParseError::UnexpectedClosingBrace { position: 3 }],
 			);
 			test(
 				&nonempty_context,
 				"{a}{b}}",
-				ParseError::UnexpectedClosingBrace { position: 6 },
+				[ParseError::UnexpectedClosingBrace { position: 6 }],
 			);
 			test(
 				&empty_context,
-				"{xyz}6789}ajshd", // Yep, the missing variable is ignored when we can't parse
-				ParseError::UnexpectedClosingBrace { position: 9 },
+				"{xyz}6789}ajshd",
+				[
+					VariableSubstitutionError::UnknownVariableName("xyz".into()),
+					ParseError::UnexpectedClosingBrace { position: 9 }.into(),
+				],
 			);
 
 			test(
 				&empty_context,
 				r"{",
-				ParseError::UnterminatedVariable {
+				[ParseError::UnterminatedVariable {
 					content: "".to_owned(),
-				},
+				}],
 			);
 			test(
 				&empty_context,
 				r"{xyz",
-				ParseError::UnterminatedVariable {
+				[ParseError::UnterminatedVariable {
 					content: "xyz".to_owned(),
-				},
+				}],
 			);
 			test(
 				&empty_context,
-				r"ak{jh}sd{js", // Again, missing variable ignored when we can't parse
-				ParseError::UnterminatedVariable {
-					content: "js".to_owned(),
-				},
+				r"ak{jh}sd{js",
+				[
+					VariableSubstitutionError::UnknownVariableName("jh".into()),
+					ParseError::UnterminatedVariable {
+						content: "js".to_owned(),
+					}
+					.into(),
+				],
 			);
 
 			test(
 				&empty_context,
-				r"ak{\jh}sd{js", // Again, missing variable ignored when we can't parse
-				ParseError::BackslashInVariableName { position: 3 },
+				r"ak{\jh}sd{js",
+				[
+					VariableSubstitutionError::Parse(ParseError::InvalidEscapeSequence {
+						position: (3, 4),
+						char: 'j',
+					}),
+					VariableSubstitutionError::InvalidVariableName("\\jh".into()),
+					ParseError::UnterminatedVariable {
+						content: "js".into(),
+					}
+					.into(),
+				],
 			);
 			test(
 				&empty_context,
-				r"ak{xyjh}sd{\js", // Again, missing variable ignored when we can't parse
-				ParseError::BackslashInVariableName { position: 11 },
+				r"ak{xyjh}sd{\Ks",
+				[
+					VariableSubstitutionError::UnknownVariableName("xyjh".into()),
+					VariableSubstitutionError::Parse(ParseError::InvalidEscapeSequence {
+						position: (11, 12),
+						char: 'K',
+					}),
+					ParseError::UnterminatedVariable {
+						content: "\\Ks".into(),
+					}
+					.into(),
+				],
 			);
 
 			test(
 				&empty_context,
 				r"\{\x",
-				ParseError::InvalidEscapeSequence {
+				[ParseError::InvalidEscapeSequence {
 					position: (2, 3),
 					char: 'x',
-				},
+				}],
 			);
 			test(
 				&empty_context,
 				r"\\x\|",
-				ParseError::InvalidEscapeSequence {
+				[ParseError::InvalidEscapeSequence {
 					position: (3, 4),
 					char: '|',
-				},
+				}],
 			);
 		}
 
 		#[test]
 		fn missing_vars() {
 			#[track_caller]
-			fn test(context: &DecodingContext, input: impl AsRef<str>, missing: Missing) {
+			fn test<'a>(
+				context: &DecodingContext,
+				input: impl AsRef<str>,
+				missing: impl Into<Vec<&'a str>>,
+			) {
 				assert_eq!(
 					context.eval_exprs_in_str(input.as_ref()).err().unwrap(),
 					missing
-						.0
-						.iter()
-						.map(|&s| VariableSubstitutionError::UnknownVariableName(s.to_owned()))
+						.into()
+						.into_iter()
+						.map(|s| VariableSubstitutionError::UnknownVariableName(s.to_owned()))
 						.collect::<Vec<_>>()
 				)
 			}
 
 			let empty_context = DecodingContext::new_empty();
 
-			test(
-				&empty_context,
-				"{missing_var}",
-				Missing(vec!["missing_var"]),
-			);
-			test(&empty_context, "{mv1} {mv2}", Missing(vec!["mv1", "mv2"]));
-			test(
-				&empty_context,
-				"a {mv1} b {mv2} c",
-				Missing(vec!["mv1", "mv2"]),
-			);
+			test(&empty_context, "{missing_var}", ["missing_var"]);
+			test(&empty_context, "{mv1} {mv2}", ["mv1", "mv2"]);
+			test(&empty_context, "a {mv1} b {mv2} c", ["mv1", "mv2"]);
 
 			let xyz_ref = "xyz";
 			let xyz_string = VV::String(xyz_ref.to_string());
@@ -1306,26 +1396,18 @@ mod tests {
 				("b", &xyz_string),
 			]);
 
-			test(
-				&nonempty_context,
-				"{mv1} {mv2}",
-				Missing(vec!["mv1", "mv2"]),
-			);
-			test(&nonempty_context, "{a} {mv2}", Missing(vec!["mv2"]));
+			test(&nonempty_context, "{mv1} {mv2}", ["mv1", "mv2"]);
+			test(&nonempty_context, "{a} {mv2}", ["mv2"]);
 			test(
 				&nonempty_context,
 				"{a} {mv2} {mv2} {mv2}",
-				Missing(vec!["mv2", "mv2", "mv2"]),
+				["mv2", "mv2", "mv2"],
 			);
-			test(
-				&nonempty_context,
-				"{a} {b} {mv1} {mv2}",
-				Missing(vec!["mv1", "mv2"]),
-			);
+			test(&nonempty_context, "{a} {b} {mv1} {mv2}", ["mv1", "mv2"]);
 			test(
 				&nonempty_context,
 				"{a} {mv1} {mv1} {mv2} {mv1} {mv2} {mv2} {b} ",
-				Missing(vec!["mv1", "mv1", "mv2", "mv1", "mv2", "mv2"]),
+				["mv1", "mv1", "mv2", "mv1", "mv2", "mv2"],
 			);
 
 			// Not actually missing any
@@ -1335,55 +1417,64 @@ mod tests {
 		#[test]
 		fn illegal_var_names() {
 			#[track_caller]
-			fn test(context: &DecodingContext, input: impl AsRef<str>, invalid: Invalid) {
+			fn test<'a>(
+				context: &DecodingContext,
+				input: impl AsRef<str>,
+				invalid: impl Into<Vec<&'a str>>,
+			) {
 				assert_eq!(
 					context.eval_exprs_in_str(input.as_ref()).err().unwrap(),
 					invalid
-						.0
-						.iter()
-						.map(|&s| VariableSubstitutionError::InvalidVariableName(s.to_owned()))
+						.into()
+						.into_iter()
+						.map(|s| VariableSubstitutionError::InvalidVariableName(s.to_owned()))
 						.collect::<Vec<_>>()
 				)
 			}
 
 			let empty_context = DecodingContext::new_empty();
 
-			test(&empty_context, "{}", Invalid(vec![""]));
-			test(&empty_context, "{ }", Invalid(vec![" "]));
-			test(&empty_context, "{\n}", Invalid(vec!["\n"]));
-			test(&empty_context, "{ a }", Invalid(vec![" a "]));
-			test(&empty_context, "{a.}", Invalid(vec!["a."]));
-			test(&empty_context, "{ .}", Invalid(vec![" ."]));
+			test(&empty_context, "{}", [""]);
+			test(&empty_context, "{ }", [" "]);
+			test(&empty_context, "{\n}", ["\n"]);
+			test(&empty_context, "{ a }", [" a "]);
+			test(&empty_context, "{a.}", ["a."]);
+			test(&empty_context, "{ .}", [" ."]);
 
-			test(&empty_context, "{} {}", Invalid(vec!["", ""]));
-			test(&empty_context, "{ } {}", Invalid(vec![" ", ""]));
-			test(&empty_context, "{} { }", Invalid(vec!["", " "]));
-			test(&empty_context, "{ } { }", Invalid(vec![" ", " "]));
+			test(&empty_context, "{} {}", ["", ""]);
+			test(&empty_context, "{ } {}", [" ", ""]);
+			test(&empty_context, "{} { }", ["", " "]);
+			test(&empty_context, "{ } { }", [" ", " "]);
 			test(
 				&empty_context,
 				"{} { } {  } { a } { a } { b } {}",
-				Invalid(vec!["", " ", "  ", " a ", " a ", " b ", ""]),
+				["", " ", "  ", " a ", " a ", " b ", ""],
 			);
 		}
 
 		#[test]
 		fn illegal_and_missing_var_names() {
 			#[track_caller]
-			fn test(
+			fn test<'a>(
 				context: &DecodingContext,
 				input: impl AsRef<str>,
-				illegal: Invalid,
-				missing: Missing,
+				vars: impl Into<Vec<BadVar<'a>>>,
 			) {
 				assert_eq!(
 					context.eval_exprs_in_str(input.as_ref()).err().unwrap(),
-					illegal
-						.0
-						.iter()
-						.map(|&s| VariableSubstitutionError::InvalidVariableName(s.to_owned()))
-						.chain(missing.0.iter().map(|&s| {
-							VariableSubstitutionError::UnknownVariableName(s.to_owned())
-						}))
+					vars.into()
+						.into_iter()
+						.map(|BadVar(reason, var)| {
+							let var = var.to_owned();
+							match reason {
+								BadVarReason::Invalid => {
+									VariableSubstitutionError::InvalidVariableName(var)
+								}
+								BadVarReason::Missing => {
+									VariableSubstitutionError::UnknownVariableName(var)
+								}
+							}
+						})
 						.collect::<Vec<_>>(),
 				)
 			}
@@ -1393,43 +1484,58 @@ mod tests {
 			test(
 				&empty_context,
 				"{} {a}",
-				Invalid(vec![""]),
-				Missing(vec!["a"]),
+				[BadVar::invalid(""), BadVar::missing("a")],
 			);
 
 			test(
 				&empty_context,
 				"{} {a}",
-				Invalid(vec![""]),
-				Missing(vec!["a"]),
+				[BadVar::invalid(""), BadVar::missing("a")],
 			);
 
 			test(
 				&empty_context,
 				"{} {a} {} {a}",
-				Invalid(vec!["", ""]),
-				Missing(vec!["a", "a"]),
+				[
+					BadVar::invalid(""),
+					BadVar::missing("a"),
+					BadVar::invalid(""),
+					BadVar::missing("a"),
+				],
 			);
 
 			test(
 				&empty_context,
-				"{} {a} { } {b}",
-				Invalid(vec!["", " "]),
-				Missing(vec!["a", "b"]),
+				"{} {a} { } {    } {b}",
+				[
+					BadVar::invalid(""),
+					BadVar::missing("a"),
+					BadVar::invalid(" "),
+					BadVar::invalid("    "),
+					BadVar::missing("b"),
+				],
 			);
 
 			test(
 				&empty_context,
 				"{} { a } { } { b }",
-				Invalid(vec!["", " a ", " ", " b "]),
-				Missing(vec![]),
+				[
+					BadVar::invalid(""),
+					BadVar::invalid(" a "),
+					BadVar::invalid(" "),
+					BadVar::invalid(" b "),
+				],
 			);
 
 			test(
 				&empty_context,
 				"{a} {b} {c} {d}",
-				Invalid(vec![]),
-				Missing(vec!["a", "b", "c", "d"]),
+				[
+					BadVar::missing("a"),
+					BadVar::missing("b"),
+					BadVar::missing("c"),
+					BadVar::missing("d"),
+				],
 			);
 
 			let xyz_ref = "xyz";
@@ -1444,29 +1550,38 @@ mod tests {
 			test(
 				&nonempty_context,
 				"{} {a} {} {a}",
-				Invalid(vec!["", ""]),
-				Missing(vec![]),
+				[BadVar::invalid(""), BadVar::invalid("")],
 			);
 
 			test(
 				&nonempty_context,
 				"{} {a} { } {e}",
-				Invalid(vec!["", " "]),
-				Missing(vec!["e"]),
+				[
+					BadVar::invalid(""),
+					BadVar::invalid(" "),
+					BadVar::missing("e"),
+				],
 			);
 
 			test(
 				&nonempty_context,
 				"{} { a } { } { b }",
-				Invalid(vec!["", " a ", " ", " b "]),
-				Missing(vec![]),
+				[
+					BadVar::invalid(""),
+					BadVar::invalid(" a "),
+					BadVar::invalid(" "),
+					BadVar::invalid(" b "),
+				],
 			);
 
 			test(
 				&nonempty_context,
 				"{a} {b} { c } { d } {e}",
-				Invalid(vec![" c ", " d "]),
-				Missing(vec!["e"]),
+				[
+					BadVar::invalid(" c "),
+					BadVar::invalid(" d "),
+					BadVar::missing("e"),
+				],
 			);
 
 			assert!(nonempty_context

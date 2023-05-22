@@ -34,7 +34,6 @@ impl Cli {
 		let mut xml_writer = XmlWriter::new(file_writer);
 
 		let f = Fibroblast::from_dir(in_file.into())?;
-		println!("{f:?}");
 		f.to_svg(&mut xml_writer)?;
 
 		Ok(())
