@@ -1,6 +1,5 @@
 use super::{
-	common_tag_fields::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS,
-	EMPTY_VARS,
+	traits::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS,
 };
 use crate::{
 	fibroblast::data_types::{ConcreteNumber, Map},

@@ -30,12 +30,6 @@
 //! - [`AnyChildTag`]: An enum wrapping any one of a number of distinct kinds of child
 //!   tags. See its docs for more info.
 
-pub(self) use super::data_types::{AttrKVValueVec, Map, TagVariables, XmlAttrs};
-pub(self) use crate::{
-	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
-};
-use lazy_static::lazy_static;
-use std::borrow::Cow;
 pub(super) mod any_child_tag;
 pub(super) mod common_tag_fields;
 pub(super) mod container_tag;
@@ -45,13 +39,23 @@ pub(super) mod image_tag;
 pub(super) mod nested_svg_tag;
 pub(super) mod other_tag;
 pub(super) mod root_tag;
+
+pub(self) use super::data_types::{AttrKVValueVec, Map, TagVariables, XmlAttrs};
+pub(self) use crate::{
+	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
+};
 pub use any_child_tag::AnyChildTag;
-pub use common_tag_fields::CommonTagFields;
+pub use common_tag_fields::{traits, CommonTagFields};
 pub use container_tag::ContainerTag;
 pub use font_tag::FontTag;
+pub use foreach_tag::ForeachTag;
 pub use image_tag::ImageTag;
+use lazy_static::lazy_static;
+pub use nested_svg_tag::NestedSvgTag;
 pub use other_tag::OtherTag;
 pub use root_tag::RootTag;
+pub(crate) use root_tag::UnvalidatedRootTag;
+use std::borrow::Cow;
 
 lazy_static! {
 	/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since

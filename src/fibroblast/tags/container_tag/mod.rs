@@ -1,11 +1,14 @@
+mod unvalidated;
+
 use super::{
-	any_child_tag::AnyChildTag, common_tag_fields::HasCommonTagFields, AttrKVValueVec,
-	ClgnDecodingResult, DecodingContext, TagVariables,
+	any_child_tag::AnyChildTag, traits::HasCommonTagFields, AttrKVValueVec, ClgnDecodingResult,
+	DecodingContext, TagVariables,
 };
 use crate::fibroblast::Fibroblast;
 use lazycell::LazyCell;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::borrow::Cow;
+pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedContainerTag;
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -90,14 +93,22 @@ use std::borrow::Cow;
 /// (The `xmnls="..."` is added automatically if not present in the `collagen.json` file.)
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct ContainerTag<'a> {
-	// TODO: Should this be renamed "{import,include}{,_path,ing,s}"? Leaning towards simply "include"
 	clgn_path: String,
 
 	#[serde(skip)]
-	#[serde(default)]
 	_child_clgn: LazyCell<Fibroblast<'a>>,
+}
+
+impl From<UnvalidatedContainerTag> for ContainerTag<'_> {
+	fn from(value: UnvalidatedContainerTag) -> Self {
+		let UnvalidatedContainerTag { clgn_path } = value;
+		Self {
+			clgn_path,
+			_child_clgn: LazyCell::new(),
+		}
+	}
 }
 
 impl<'a> ContainerTag<'a> {

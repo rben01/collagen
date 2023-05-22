@@ -1,6 +1,7 @@
+mod unvalidated;
+
 use super::{
-	any_child_tag::AnyChildTag,
-	common_tag_fields::{CommonTagFields, HasCommonTagFields},
+	any_child_tag::AnyChildTag, common_tag_fields::CommonTagFields, traits::HasCommonTagFields,
 };
 use crate::{
 	dispatch_to_common_tag_fields,
@@ -10,7 +11,8 @@ use crate::{
 use lazy_static::lazy_static;
 use lazycell::LazyCell;
 use regex::{Regex, RegexBuilder};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedNestedSvgTag;
 
 lazy_static! {
 	static ref XML_HEADER_RE: Regex = RegexBuilder::new(r"^\s*<\?xml.*?\?>")
@@ -20,7 +22,7 @@ lazy_static! {
 		.unwrap();
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct NestedSvgTag<'a> {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
@@ -29,8 +31,25 @@ pub struct NestedSvgTag<'a> {
 	common_tag_fields: CommonTagFields<'a>,
 
 	#[serde(skip)]
-	#[serde(default)]
 	_text: LazyCell<String>,
+}
+
+impl<'a> TryFrom<UnvalidatedNestedSvgTag> for NestedSvgTag<'a> {
+	type Error = ClgnDecodingError;
+
+	fn try_from(value: UnvalidatedNestedSvgTag) -> Result<Self, Self::Error> {
+		let UnvalidatedNestedSvgTag {
+			svg_path,
+			common_tag_fields,
+		} = value;
+		let common_tag_fields = common_tag_fields.try_into()?;
+
+		Ok(Self {
+			svg_path,
+			common_tag_fields,
+			_text: LazyCell::new(),
+		})
+	}
 }
 
 dispatch_to_common_tag_fields!(impl HasVars for NestedSvgTag<'_>);

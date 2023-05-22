@@ -1,17 +1,23 @@
+pub(crate) mod unvalidated;
+
 use super::{
 	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag, image_tag::ImageTag,
 	nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec, ClgnDecodingResult, TagLike,
 	TagVariables,
 };
-use crate::fibroblast::{
-	data_types::{DecodingContext, SimpleValue},
-	tags::{
-		common_tag_fields::{HasCommonTagFields, HasVars},
-		XmlAttrs,
+use crate::{
+	fibroblast::{
+		data_types::{DecodingContext, SimpleValue},
+		tags::{
+			traits::{HasCommonTagFields, HasVars},
+			XmlAttrs,
+		},
 	},
+	to_svg::svg_writable::ClgnDecodingError,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::borrow::Cow;
+use unvalidated::UnvalidatedAnyChildTag;
 
 /// A wrapper around child tags. During deserialization, the type of child tag to
 /// deserialize an object into is determined solely from the object's set of keys.
@@ -26,9 +32,7 @@ use std::borrow::Cow;
 ///   came bundled with the Collagen executable
 /// - [`OtherTag`]: the most general option; represents any kind of SVG tag that does
 ///   not need any special handling as the above tags do
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(deny_unknown_fields)]
+#[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum AnyChildTag<'a> {
 	Image(ImageTag<'a>),
@@ -37,6 +41,21 @@ pub enum AnyChildTag<'a> {
 	Foreach(ForeachTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
+}
+
+impl<'a> TryFrom<UnvalidatedAnyChildTag> for AnyChildTag<'a> {
+	type Error = ClgnDecodingError;
+
+	fn try_from(value: UnvalidatedAnyChildTag) -> Result<Self, Self::Error> {
+		Ok(match value {
+			UnvalidatedAnyChildTag::Image(t) => Self::Image(t.try_into()?),
+			UnvalidatedAnyChildTag::Container(t) => Self::Container(t.into()),
+			UnvalidatedAnyChildTag::NestedSvg(t) => Self::NestedSvg(t.try_into()?),
+			UnvalidatedAnyChildTag::Foreach(t) => Self::Foreach(t.try_into()?),
+			UnvalidatedAnyChildTag::Font(t) => Self::Font(t),
+			UnvalidatedAnyChildTag::Other(t) => Self::Other(t.try_into()?),
+		})
+	}
 }
 
 impl<'a> AnyChildTag<'a> {
