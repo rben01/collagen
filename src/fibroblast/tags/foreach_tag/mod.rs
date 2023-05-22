@@ -19,6 +19,7 @@ pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedForeachTag;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ForeachTag<'a> {
+	#[serde(rename = "for_each")]
 	pub(super) iterable: Iterable<LoopVariable>,
 	pub(super) template: Box<AnyChildTag<'a>>,
 	// the absence of children makes 'static appropriate here
@@ -40,14 +41,24 @@ impl<'a> TryFrom<UnvalidatedForeachTag> for ForeachTag<'a> {
 		let iterable: Iterable<LoopVariable> = iterable.try_into()?;
 		{
 			let mut iter = (&iterable).into_iter();
-			let len = iter.next().unwrap().collection.len();
+			let first_lv = &iter.next().unwrap();
+			let base_len = first_lv.collection.len();
 
-			for LoopVariable { collection, .. } in iter {
-				if collection.len() != len {
+			for lv in iter {
+				let len = lv.collection.len();
+				if len != base_len {
 					return Err(ClgnDecodingError::Foreach {
-						msg: "when specifying multiple collections in a `for_each`, \
-					 		   they must all have the same length"
-							.into(),
+						msg: format!(
+							"when specifying multiple collections in a `for_each`, \
+					 		   they must all have the same length; but got {} with length {} \
+								and {} with length {}",
+							serde_json::to_string(first_lv)
+								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
+							base_len,
+							serde_json::to_string(lv)
+								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
+							len
+						),
 					});
 				}
 			}
@@ -56,14 +67,14 @@ impl<'a> TryFrom<UnvalidatedForeachTag> for ForeachTag<'a> {
 		let template = Box::new((*template).try_into()?);
 
 		let common_tag_fields: CommonTagFields = common_tag_fields.try_into()?;
-		if !common_tag_fields
+		let n_children = common_tag_fields
 			.children
 			.as_ref()
-			.map(|v| v.is_empty())
-			.unwrap_or(false)
-		{
+			.map(|v| v.len())
+			.unwrap_or(0);
+		if n_children > 0 {
 			return Err(ClgnDecodingError::Foreach {
-				msg: "for_each must not have any children".into(),
+				msg: "for_each must not have any children; use the `template` field instead".into(),
 			});
 		}
 

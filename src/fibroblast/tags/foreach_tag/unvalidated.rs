@@ -10,5 +10,6 @@ pub struct UnvalidatedForeachTag {
 	#[serde(rename = "for_each")]
 	pub(super) iterable: UnvalidatedIterable<UnvalidatedLoopVariable>,
 	pub(super) template: Box<UnvalidatedAnyChildTag>,
+	#[serde(flatten)]
 	pub(super) common_tag_fields: UnvalidatedCommonTagFields,
 }

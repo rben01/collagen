@@ -23,6 +23,7 @@ pub enum ClgnDecodingError {
 	InvalidPath(PathBuf),
 	Zip(ZipError),
 	JsonDecode(json::Error, PathBuf),
+	JsonEncode(json::Error, Option<PathBuf>),
 	Xml(XmlError),
 	ToSvgString(Utf8Error),
 	Image { msg: String },
@@ -36,10 +37,11 @@ impl ClgnDecodingError {
 		match self {
 			Parse(..) => 3,
 			JsonDecode(..) => 4,
-			Xml(..) => 5,
+			JsonEncode(..) => 5,
 			InvalidPath(..) => 6,
 			Io(..) => 7,
 			Image { .. } => 8,
+			Xml(..) => 15,
 			ToSvgString(..) => 19,
 			BundledFontNotFound { .. } => 22,
 			Zip(..) => 33,
@@ -57,6 +59,7 @@ impl Display for ClgnDecodingError {
 			InvalidPath(p) => write!(f, "Invalid path: {:?}", p),
 			Zip(e) => write!(f, "{:?}", e),
 			JsonDecode(e, path) => write!(f, "{:?}: {}", path, e),
+			JsonEncode(e, path) => write!(f, "{:?}: {}", path, e),
 			Xml(e) => write!(f, "{:?}", e),
 			ToSvgString(e) => write!(
 				f,

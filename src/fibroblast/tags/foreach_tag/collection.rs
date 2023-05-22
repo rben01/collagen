@@ -55,12 +55,15 @@ impl TryFrom<UnvalidatedCollection> for Collection {
 					Some(step) => {
 						if step == 0 && end != start {
 							return Err(ClgnDecodingError::Foreach {
-								msg: "step must not be 0 when start != end".into(),
+								msg: format!(
+									"step must not be 0 when start != end (start={}, end={})",
+									start, end
+								),
 							});
 						}
 						// step must point in the direction from start to end, with the
 						// caveat that if end == start then step can be anything
-						if (end > start) && (step < 0) || (end < start) || (step > 0) {
+						if (end > start) && (step < 0) || (end < start) && (step > 0) {
 							return Err(ClgnDecodingError::Foreach {
 								msg: format!(
 									"if end != start, then must have either `start < end && step > 0` \
@@ -69,7 +72,7 @@ impl TryFrom<UnvalidatedCollection> for Collection {
 								),
 							});
 						}
-						if end == start && closed.unwrap_or(false) {
+						if end == start && !closed.unwrap_or(false) {
 							return Err(ClgnDecodingError::Foreach {
 								msg: format!(
 									"start == end (== {}), but closed was false \

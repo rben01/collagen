@@ -12,7 +12,9 @@ pub(super) struct UnvalidatedLoopVariable {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LoopVariable {
+	#[serde(rename = "variable")]
 	pub(super) name: String,
+	#[serde(rename = "in")]
 	pub(super) collection: Collection,
 }
 
