@@ -12,8 +12,8 @@ use crate::{
 	to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
 };
 use iterable::Iterable;
-use lazycell::LazyCell;
 use loop_variable::LoopVariable;
+use once_cell::sync::OnceCell;
 use serde::Serialize;
 pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedForeachTag;
 
@@ -25,7 +25,7 @@ pub struct ForeachTag<'a> {
 	// the absence of children makes 'static appropriate here
 	pub(super) common_tag_fields: CommonTagFields<'static>,
 	#[serde(skip)]
-	pub(super) children: LazyCell<Vec<AnyChildTag<'a>>>,
+	pub(super) children: OnceCell<Vec<AnyChildTag<'a>>>,
 }
 
 impl<'a> TryFrom<UnvalidatedForeachTag> for ForeachTag<'a> {
@@ -78,7 +78,7 @@ impl<'a> TryFrom<UnvalidatedForeachTag> for ForeachTag<'a> {
 			});
 		}
 
-		let children = LazyCell::new();
+		let children = OnceCell::new();
 
 		Ok(Self {
 			iterable,
@@ -113,41 +113,40 @@ impl<'a> ForeachTag<'a> {
 	}
 
 	pub(crate) fn children(&'a self) -> ClgnDecodingResult<&'a [AnyChildTag<'a>]> {
-		if let Some(children) = self.children.borrow() {
-			return Ok(children.as_ref());
-		}
+		self.children
+			.get_or_try_init(|| {
+				let mut children = Vec::new();
+				for i in 0..self.loop_len() {
+					let mut tag = *self.template.clone();
 
-		let mut children = Vec::new();
-		for i in 0..self.loop_len() {
-			let mut tag = *self.template.clone();
+					for LoopVariable { name, collection } in &self.iterable {
+						let elem = collection.get(i).unwrap();
 
-			for LoopVariable { name, collection } in &self.iterable {
-				let elem = collection.get(i).unwrap();
+						match &mut tag {
+							AnyChildTag::Image(t) => {
+								insert_var(t.base_vars_mut(), name.clone(), elem);
+							}
+							AnyChildTag::Container(_) => {}
+							AnyChildTag::NestedSvg(t) => {
+								insert_var(t.base_vars_mut(), name.clone(), elem);
+							}
+							AnyChildTag::Font(t) => {
+								insert_var(t.base_vars_mut(), name.clone(), elem);
+							}
+							AnyChildTag::Other(t) => {
+								insert_var(t.base_vars_mut(), name.clone(), elem);
+							}
+							AnyChildTag::Foreach(t) => {
+								insert_var(t.base_vars_mut(), name.clone(), elem);
+							}
+						};
+					}
 
-				match &mut tag {
-					AnyChildTag::Image(t) => {
-						insert_var(t.base_vars_mut(), name.clone(), elem);
-					}
-					AnyChildTag::Container(_) => {}
-					AnyChildTag::NestedSvg(t) => {
-						insert_var(t.base_vars_mut(), name.clone(), elem);
-					}
-					AnyChildTag::Font(t) => {
-						insert_var(t.base_vars_mut(), name.clone(), elem);
-					}
-					AnyChildTag::Other(t) => {
-						insert_var(t.base_vars_mut(), name.clone(), elem);
-					}
-					AnyChildTag::Foreach(t) => {
-						insert_var(t.base_vars_mut(), name.clone(), elem);
-					}
-				};
-			}
+					children.push(tag);
+				}
 
-			children.push(tag);
-		}
-
-		self.children.fill(children).unwrap();
-		Ok(self.children.borrow().unwrap().as_ref())
+				Ok(children)
+			})
+			.map(|v| v.as_slice())
 	}
 }

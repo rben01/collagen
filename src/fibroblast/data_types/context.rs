@@ -15,7 +15,7 @@ use crate::{
 	fibroblast::data_types::{ConcreteNumber, Map, MapEntry},
 	to_svg::svg_writable::ClgnDecodingResult,
 };
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{
 	borrow::Cow,
@@ -25,10 +25,7 @@ use std::{
 };
 use strum_macros::EnumString;
 
-lazy_static! {
-	static ref VAR_NAME_CHAR_RE: Regex = Regex::new(r"^\w+$").unwrap();
-	static ref NON_EXPR_RE: Regex = Regex::new(r"\(|\)").unwrap();
-}
+static VAR_NAME_CHAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\w+$").unwrap());
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {

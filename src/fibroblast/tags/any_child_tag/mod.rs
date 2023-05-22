@@ -37,7 +37,7 @@ use unvalidated::UnvalidatedAnyChildTag;
 pub enum AnyChildTag<'a> {
 	Image(ImageTag<'a>),
 	Container(ContainerTag<'a>),
-	NestedSvg(NestedSvgTag<'a>),
+	NestedSvg(NestedSvgTag),
 	Foreach(ForeachTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
@@ -50,7 +50,7 @@ impl<'a> TryFrom<UnvalidatedAnyChildTag> for AnyChildTag<'a> {
 		Ok(match value {
 			UnvalidatedAnyChildTag::Image(t) => Self::Image(t.try_into()?),
 			UnvalidatedAnyChildTag::Container(t) => Self::Container(t.into()),
-			UnvalidatedAnyChildTag::NestedSvg(t) => Self::NestedSvg(t.try_into()?),
+			UnvalidatedAnyChildTag::NestedSvg(t) => Self::NestedSvg(t.into()),
 			UnvalidatedAnyChildTag::Foreach(t) => Self::Foreach(t.try_into()?),
 			UnvalidatedAnyChildTag::Font(t) => Self::Font(t),
 			UnvalidatedAnyChildTag::Other(t) => Self::Other(t.try_into()?),
@@ -59,27 +59,13 @@ impl<'a> TryFrom<UnvalidatedAnyChildTag> for AnyChildTag<'a> {
 }
 
 impl<'a> AnyChildTag<'a> {
-	fn initialize(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
-		match self {
-			AnyChildTag::Container(t) => {
-				t.initialize(context)?;
-			}
-			AnyChildTag::NestedSvg(t) => t.initialize(context)?,
-			_ => {}
-		}
-
-		Ok(())
-	}
-
 	pub(crate) fn children(
 		&'a self,
 		context: &'a DecodingContext<'a>,
 	) -> ClgnDecodingResult<&'a [AnyChildTag]> {
-		self.initialize(context)?;
-
 		use AnyChildTag::*;
 		Ok(match self {
-			Container(t) => t.children(),
+			Container(t) => t.children(context)?,
 			NestedSvg(t) => t.children(),
 			Image(t) => t.base_children(),
 			Foreach(t) => t.children()?,
@@ -103,11 +89,9 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 	}
 
 	fn vars(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
-		self.initialize(context)?;
-
 		use AnyChildTag::*;
 		Ok(match &self {
-			Container(t) => t.vars()?,
+			Container(t) => t.vars(context)?,
 			NestedSvg(t) => t.base_vars(),
 			Image(t) => t.base_vars(),
 			Foreach(t) => t.base_vars(),
@@ -126,11 +110,9 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 				.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
 		}
 
-		self.initialize(context)?;
-
 		use AnyChildTag::*;
 		let mut attrs = match &self {
-			Container(t) => context.sub_vars_into_attrs(t.attrs()?),
+			Container(t) => context.sub_vars_into_attrs(t.attrs(context)?),
 			NestedSvg(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
 			Image(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
 			Foreach(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
@@ -149,14 +131,12 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		Ok(attrs)
 	}
 
-	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn text(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
 		use AnyChildTag::*;
 
-		self.initialize(context)?;
-
 		Ok(match &self {
-			Container(t) => t.text()?,
-			NestedSvg(t) => t.base_text().into(),
+			Container(t) => t.text(context)?,
+			NestedSvg(t) => t.text(context)?.into(),
 			Image(t) => context.eval_exprs_in_str(t.base_text())?,
 			Foreach(t) => t.base_text().into(),
 			Other(t) => context.eval_exprs_in_str(t.base_text())?,

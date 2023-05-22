@@ -70,22 +70,24 @@ mod tests {
 				)
 			}
 
-			cfg_if::cfg_if! {
-				if #[cfg(target_os = "windows")] {
-					let platform = "windows";
-					let path_sep = "\\";
-					let expected_str = match expected {
-						PlatformPaths::Same(path) => path,
-						PlatformPaths::Different { windows, .. } => windows,
-					};
-				} else {
-					let platform = "not-windows";
-					let path_sep = "/";
-					let expected_str = match expected {
-						PlatformPaths::Same(path) => path,
-						PlatformPaths::Different { other, .. } => other,
-					};
-				}
+			let platform;
+			let path_sep;
+			let expected_str;
+
+			if cfg!(target_os = "windows") {
+				platform = "windows";
+				path_sep = "\\";
+				expected_str = match expected {
+					PlatformPaths::Same(path) => path,
+					PlatformPaths::Different { windows, .. } => windows,
+				};
+			} else {
+				platform = "not-windows";
+				path_sep = "/";
+				expected_str = match expected {
+					PlatformPaths::Same(path) => path,
+					PlatformPaths::Different { other, .. } => other,
+				};
 			}
 
 			let expected = PathBuf::from(expected_str.replace('|', path_sep));

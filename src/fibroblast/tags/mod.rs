@@ -50,20 +50,18 @@ pub use container_tag::ContainerTag;
 pub use font_tag::FontTag;
 pub use foreach_tag::ForeachTag;
 pub use image_tag::ImageTag;
-use lazy_static::lazy_static;
 pub use nested_svg_tag::NestedSvgTag;
+use once_cell::sync::Lazy;
 pub use other_tag::OtherTag;
 pub use root_tag::RootTag;
 pub(crate) use root_tag::UnvalidatedRootTag;
 use std::borrow::Cow;
 
-lazy_static! {
-	/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
-	/// `BTreeMap` doesn't allocate until it has at least one element, this really costs
-	/// almost nothing
-	pub(crate) static ref EMPTY_ATTRS: XmlAttrs = XmlAttrs(Map::new());
-	pub(crate) static ref EMPTY_VARS: TagVariables = TagVariables(Map::new());
-}
+/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
+/// `BTreeMap` doesn't allocate until it has at least one element, this really costs
+/// almost nothing
+pub(crate) static EMPTY_ATTRS: Lazy<XmlAttrs> = Lazy::new(|| XmlAttrs(Map::new()));
+pub(crate) static EMPTY_VARS: Lazy<TagVariables> = Lazy::new(|| TagVariables(Map::new()));
 
 pub(crate) trait TagLike<'a> {
 	fn tag_name(&self) -> &str;
