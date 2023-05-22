@@ -4,6 +4,7 @@ use super::{
 use crate::{
 	fibroblast::data_types::{ConcreteNumber, Map},
 	to_svg::svg_writable::ClgnDecodingError,
+	utils::b64_encode,
 	ClgnDecodingResult,
 };
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};
@@ -281,7 +282,7 @@ impl FontTag {
 		let path = path.as_ref();
 		let abs_font_path = crate::utils::paths::pathsep_aware_join(&*context.get_root(), path)?;
 
-		let b64_string = base64::encode(
+		let b64_string = b64_encode(
 			std::fs::read(abs_font_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_font_path))?,
 		);

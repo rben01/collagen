@@ -5,6 +5,7 @@ use crate::{
 	dispatch_to_common_tag_fields,
 	fibroblast::data_types::{DecodingContext, SimpleValue},
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+	utils::b64_encode,
 };
 use serde::Serialize;
 use std::{borrow::Cow, path::PathBuf};
@@ -133,7 +134,7 @@ impl<'a> ImageTag<'a> {
 		let abs_image_path =
 			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.image_path)?;
 
-		let b64_string = base64::encode(
+		let b64_string = b64_encode(
 			std::fs::read(abs_image_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_image_path))?,
 		);

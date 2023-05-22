@@ -27,10 +27,10 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 		W: std::io::Write,
 		F: FnOnce(&mut XmlWriter<W>) -> ClgnDecodingResult<()>,
 	{
-		let tag_name_bytes = self.tag_name().as_bytes();
+		let tag_name = self.tag_name();
 
 		// Open the tag (write e.g., `<rect attr1="val1">`)
-		let mut curr_elem = BytesStart::borrowed_name(tag_name_bytes);
+		let mut curr_elem = BytesStart::new(tag_name);
 
 		// Write the tag's children and text
 		context.with_new_vars(self.vars(context)?, || {
@@ -47,16 +47,16 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 
 			let text = self.text(context)?;
 			writer.write_event(XmlEvent::Text(if self.should_escape_text() {
-				BytesText::from_plain_str(text.as_ref())
+				BytesText::new(text.as_ref())
 			} else {
-				BytesText::from_escaped(text.as_bytes())
+				BytesText::from_escaped(text)
 			}))?;
 
 			Ok(())
 		})?;
 
 		// Close the tag
-		writer.write_event(XmlEvent::End(BytesEnd::borrowed(tag_name_bytes)))?;
+		writer.write_event(XmlEvent::End(BytesEnd::new(tag_name)))?;
 
 		Ok(())
 	}
