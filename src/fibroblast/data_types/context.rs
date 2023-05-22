@@ -138,6 +138,8 @@ enum VariadicFunction {
 	Mul,
 	Max,
 	Min,
+	And,
+	Or,
 }
 
 impl VariadicFunction {
@@ -151,6 +153,8 @@ impl VariadicFunction {
 			Mul => 1.0,
 			Max => f64::MIN,
 			Min => f64::MAX,
+			And => 1.0,
+			Or => 0.0,
 		};
 
 		args.into_iter()
@@ -163,9 +167,43 @@ impl VariadicFunction {
 					Mul => a * b,
 					Max => a.max(b),
 					Min => a.min(b),
+					And => a.min(f64::from(b != 0.0)),
+					Or => a.max(f64::from(b != 0.0)),
 				};
 				Ok(res)
 			})
+	}
+}
+
+#[derive(Debug, EnumString)]
+#[strum(serialize_all = "lowercase")]
+enum TernaryFunction {
+	#[strum(serialize = "if")]
+	IfElse,
+}
+
+impl TernaryFunction {
+	fn call(
+		&self,
+		x1: Result<f64, ()>,
+		x2: Result<f64, ()>,
+		x3: Result<f64, ()>,
+	) -> Result<f64, ()> {
+		use TernaryFunction::*;
+
+		let x1 = x1?;
+		let x2 = x2?;
+		let x3 = x3?;
+
+		Ok(match self {
+			IfElse => {
+				if x1 != 0.0 {
+					x2
+				} else {
+					x3
+				}
+			}
+		})
 	}
 }
 
@@ -176,23 +214,41 @@ enum BinaryFunction {
 	Sub,
 	#[strum(serialize = "/")]
 	Div,
+	#[strum(serialize = "%")]
+	Mod,
 	Pow,
 	Atan2,
+	#[strum(serialize = "<")]
+	Lt,
+	#[strum(serialize = "<=")]
+	Le,
+	#[strum(serialize = "=")]
+	Eq,
+	#[strum(serialize = ">")]
+	Gt,
+	#[strum(serialize = ">=")]
+	Ge,
 }
 
 impl BinaryFunction {
-	fn call(&self, arg1: Result<f64, ()>, arg2: Result<f64, ()>) -> Result<f64, ()> {
+	fn call(&self, x: Result<f64, ()>, y: Result<f64, ()>) -> Result<f64, ()> {
 		use BinaryFunction::*;
-		arg1.and_then(|x1| {
-			arg2.map(|x2| match self {
-				Sub => x1 - x2,
-				Div => x1 / x2,
-				Pow => x1.powf(x2),
-				// a tad confusing; the first argument is the "y" of atan2, the second is
-				// the "x"; a.atan2(b) is atan2(b, a), and so these arguments are in the
-				// correct order
-				Atan2 => x1.atan2(x2),
-			})
+		let x = x?;
+		let y = y?;
+		Ok(match self {
+			Sub => x - y,
+			Div => x / y,
+			Mod => x % y,
+			Pow => x.powf(y),
+			// a tad confusing; the first argument is the "y" of atan2, the second is
+			// the "x"; a.atan2(b) is atan2(b, a), and so these arguments are in the
+			// correct order
+			Atan2 => x.atan2(y),
+			Lt => (x < y).into(),
+			Le => (x <= y).into(),
+			Eq => (x == y).into(),
+			Gt => (x > y).into(),
+			Ge => (x >= y).into(),
 		})
 	}
 }
@@ -564,6 +620,17 @@ impl<'a> DecodingContext<'a> {
 										TokenKind::Error => Ok(1.0),
 										_ => panic!("unexpected token {tok:?}"),
 									}))
+								} else if let Ok(func) = func_name.parse::<TernaryFunction>() {
+									let expected_n_args = 3;
+									let [arg1, arg2, arg3] = [0, 1, 2].map(|n_args| check_next_arg(self, expr_tok_iter.next(), &mut errors, variables_referenced, ||VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: n_args }));
+									let remaining_tokens = expr_tok_iter.count();
+									if remaining_tokens != 0 {
+										errors.push(
+											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
+										Err(())
+									} else {
+										func.call(arg1, arg2, arg3)
+									}
 								} else if let Ok(func) = func_name.parse::<BinaryFunction>() {
 									let expected_n_args = 2;
 									let [arg1, arg2] = [0, 1].map(|n_args| check_next_arg(
