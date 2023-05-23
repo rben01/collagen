@@ -115,7 +115,7 @@ type VariableSubstitutionResult<T> = Result<T, VariableSubstitutionError>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum VariableSubstitutionError {
 	Parse(ParseError),
-	Nom(String),
+	Nom(nom::Err<String>),
 	InvalidVariableName(String),
 	UnknownVariableName(String),
 	ExpectedNumGotStringForVariable {
@@ -442,9 +442,9 @@ impl<'a> DecodingContext<'a> {
 	) -> VariableSubstitutionResult<Cow<'b, str>> {
 		use nom::{
 			branch::alt,
-			bytes::complete::{is_not, take_till1, take_while},
+			bytes::complete::{escaped, is_not, tag, take_till1, take_while},
 			character::complete::{alpha1, alphanumeric0, char, multispace0, multispace1, satisfy},
-			combinator::{cut, map, not, recognize},
+			combinator::{all_consuming, cut, map, not, recognize, value},
 			multi::{many0, many0_count, separated_list0},
 			number::complete::double,
 			sequence::{delimited, pair, tuple},
@@ -608,6 +608,16 @@ impl<'a> DecodingContext<'a> {
 			))(input)
 		}
 
+		fn esc_char(input: &str) -> IResult<&str, &str> {
+			alt((
+				value("\\", tag(r"\\")),
+				value("(", tag(r"\(")),
+				value(")", tag(r"\)")),
+				value("{", tag(r"\{")),
+				value("}", tag(r"\}")),
+			))(input)
+		}
+
 		fn arg(input: &str) -> IResult<&str, Arg<'_>> {
 			alt((
 				map(double, Arg::Lit),
@@ -650,7 +660,11 @@ impl<'a> DecodingContext<'a> {
 			context: &DecodingContext,
 			variables_referenced: &BTreeSet<String>,
 		) -> VariableSubstitutionResult<Cow<'a, str>> {
-			let (rest, ans) = recognize(cut(many0(alt((
+			if input.is_empty() {
+				return Ok(input.into());
+			}
+
+			let (rest, ans) = all_consuming(many0(alt((
 				map(brace_expr, |braced| {
 					VariableSubstitutionResult::Ok(match braced {
 						BracedExpr::Var(var) => {
@@ -668,19 +682,16 @@ impl<'a> DecodingContext<'a> {
 							}
 						}
 						BracedExpr::SExpr(ex) => {
-							println!("{:?}", ex.eval(context, variables_referenced));
 							Cow::Owned(ex.eval(context, variables_referenced)?.to_string())
 						}
 					})
 				}),
-				map(recognize(none_of("(){} \t\n\r")), |s: &str| {
-					Ok(Cow::Borrowed(s))
-				}),
-			)))))(input)
-			.map_err(|e| VariableSubstitutionError::Nom(e.to_string()))?;
+				map(esc_char, |s| Ok(Cow::Borrowed(s))),
+				map(is_not(r"\(){}"), |s| Ok(Cow::Borrowed(s))),
+			))))(input)
+			.map_err(|e| dbg!(VariableSubstitutionError::Nom(e.map(|e| e.to_string()))))?;
 
-			assert!(rest.is_empty());
-			Ok(ans.into())
+			Ok(ans.into_iter().collect::<Result<String, _>>()?.into())
 		}
 
 		parse(s, self, variables_referenced)
@@ -701,9 +712,12 @@ impl<'a> DecodingContext<'a> {
 		let mut subd_attrs = Vec::with_capacity(n_attrs);
 
 		for (k, orig_val) in attrs_iter {
+			println!("{:?}", (k, &orig_val,));
+
 			let new_val = match orig_val.as_ref() {
 				SimpleValue::Text(text) => {
 					let subd_text = self.eval_exprs_in_str(text)?;
+					dbg!(&subd_text);
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
 						_orig_text => orig_val,
@@ -711,6 +725,7 @@ impl<'a> DecodingContext<'a> {
 				}
 				_wasnt_text => orig_val,
 			};
+			println!("nv={new_val:?}");
 
 			subd_attrs.push((k, new_val));
 		}
