@@ -13,7 +13,15 @@
 use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
 use crate::{
 	fibroblast::data_types::{ConcreteNumber, Map, MapEntry},
-	to_svg::svg_writable::ClgnDecodingResult,
+	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+};
+use nom::{
+	character::{
+		complete::{alphanumeric1, anychar, none_of, one_of},
+		streaming::multispace0,
+	},
+	multi::{many1, many1_count},
+	IResult,
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
@@ -24,8 +32,6 @@ use std::{
 	path::PathBuf,
 };
 use strum_macros::EnumString;
-
-static VAR_NAME_CHAR_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\w+$").unwrap());
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
@@ -57,6 +63,7 @@ pub enum ParseError {
 		position: usize,
 	},
 }
+
 impl std::fmt::Display for ParseError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use ParseError::*;
@@ -100,12 +107,15 @@ impl std::fmt::Display for ParseError {
 	}
 }
 
+type VariableSubstitutionResult<T> = Result<T, VariableSubstitutionError>;
+
 /// It's really tempting to want to change these `String`s to `&'a str`s, but if you do
 /// that, then [`ClgnDecodingError`] — and hence [`ClgnDecodingResult`] — need lifetimes
 /// too. Yech.
 #[derive(Debug, PartialEq, Eq)]
 pub enum VariableSubstitutionError {
 	Parse(ParseError),
+	Nom(String),
 	InvalidVariableName(String),
 	UnknownVariableName(String),
 	ExpectedNumGotStringForVariable {
@@ -140,7 +150,10 @@ enum VariadicFunction {
 }
 
 impl VariadicFunction {
-	fn call(&self, args: impl IntoIterator<Item = Result<f64, ()>>) -> Result<f64, ()> {
+	fn call(
+		&self,
+		args: impl IntoIterator<Item = VariableSubstitutionResult<f64>>,
+	) -> VariableSubstitutionResult<f64> {
 		use VariadicFunction::*;
 
 		// I assume the optimizer will rewrite this to only have a single `match self` in
@@ -154,21 +167,20 @@ impl VariadicFunction {
 			Or => 0.0,
 		};
 
-		args.into_iter()
-			.fold(Ok(init), |a: Result<f64, ()>, b: Result<f64, ()>| {
-				let a = a?;
-				let b = b?;
+		args.into_iter().fold(Ok(init), |a, b| {
+			let a = a?;
+			let b = b?;
 
-				let res = match self {
-					Add => a + b,
-					Mul => a * b,
-					Max => a.max(b),
-					Min => a.min(b),
-					And => a.min(f64::from(b != 0.0)),
-					Or => a.max(f64::from(b != 0.0)),
-				};
-				Ok(res)
-			})
+			let res = match self {
+				Add => a + b,
+				Mul => a * b,
+				Max => a.max(b),
+				Min => a.min(b),
+				And => a.min(f64::from(b != 0.0)),
+				Or => a.max(f64::from(b != 0.0)),
+			};
+			Ok(res)
+		})
 	}
 }
 
@@ -182,10 +194,10 @@ enum TernaryFunction {
 impl TernaryFunction {
 	fn call(
 		&self,
-		x1: Result<f64, ()>,
-		x2: Result<f64, ()>,
-		x3: Result<f64, ()>,
-	) -> Result<f64, ()> {
+		x1: VariableSubstitutionResult<f64>,
+		x2: VariableSubstitutionResult<f64>,
+		x3: VariableSubstitutionResult<f64>,
+	) -> VariableSubstitutionResult<f64> {
 		use TernaryFunction::*;
 
 		let x1 = x1?;
@@ -228,7 +240,11 @@ enum BinaryFunction {
 }
 
 impl BinaryFunction {
-	fn call(&self, x: Result<f64, ()>, y: Result<f64, ()>) -> Result<f64, ()> {
+	fn call(
+		&self,
+		x: VariableSubstitutionResult<f64>,
+		y: VariableSubstitutionResult<f64>,
+	) -> VariableSubstitutionResult<f64> {
 		use BinaryFunction::*;
 		let x = x?;
 		let y = y?;
@@ -265,7 +281,7 @@ enum UnaryFunction {
 }
 
 impl UnaryFunction {
-	fn call(&self, arg: Result<f64, ()>) -> Result<f64, ()> {
+	fn call(&self, arg: VariableSubstitutionResult<f64>) -> VariableSubstitutionResult<f64> {
 		use UnaryFunction::*;
 		arg.map(|x| match self {
 			Exp => x.exp(),
@@ -412,527 +428,262 @@ impl<'a> DecodingContext<'a> {
 		self.vars_map.borrow().get(var).copied()
 	}
 
-	/// Parse an expression between curly braces
-	fn parse_expr(
-		&self,
-		s: &str,
-		original_index: usize,
-		variables_referenced: &BTreeSet<String>,
-	) -> Result<VariableValue, Vec<VariableSubstitutionError>> {
-		#[derive(Debug, Clone, Copy)]
-		enum ArgKind<'c> {
-			Lit(f64),
-			Var(&'c str),
-		}
-
-		#[derive(Debug, Clone, Copy)]
-		enum TokenKind<'c> {
-			Start,
-			Function(&'c str),
-			Arg(ArgKind<'c>),
-			Error,
-		}
-
-		#[derive(Debug, Clone, Copy)]
-		struct Token<'c> {
-			pos: usize,
-			kind: TokenKind<'c>,
-		}
-
-		fn eval_arg(
-			context: &DecodingContext,
-			arg: ArgKind,
-			errors: &mut Vec<VariableSubstitutionError>,
-			variables_referenced: &BTreeSet<String>,
-		) -> Result<f64, ()> {
-			match arg {
-				ArgKind::Lit(num) => Ok(num),
-				ArgKind::Var(name) => {
-					if !VAR_NAME_CHAR_RE.is_match(name) {
-						errors.push(VariableSubstitutionError::InvalidVariableName(
-							name.to_owned(),
-						));
-						Err(())
-					} else if variables_referenced.contains(name) {
-						errors.push(VariableSubstitutionError::RecursiveSubstitutionError {
-							names: variables_referenced
-								.iter()
-								.map(|s| s.to_owned())
-								.chain(std::iter::once(name.to_owned()))
-								.collect::<Vec<_>>(),
-						});
-						Err(())
-					} else if let Some(value) = context.get_var(name) {
-						match value {
-							VariableValue::Number(cn) => Ok(f64::from(*cn)),
-							VariableValue::String(value) => {
-								let mut variables_referenced = variables_referenced.clone();
-								variables_referenced.insert(name.to_owned());
-								match context
-									.eval_exprs_in_string_helper(value, &variables_referenced)
-								{
-									Ok(s) => match s.parse() {
-										Ok(x) => Ok(x),
-										Err(_) => {
-											errors.push(
-												VariableSubstitutionError::ExpectedNumGotStringForVariable {
-													name: name.to_owned(),
-													value: value.to_owned(),
-												},
-											);
-											Err(())
-										}
-									},
-									Err(e) => {
-										errors.extend(e);
-										Err(())
-									}
-								}
-							}
-						}
-					} else {
-						errors.push(VariableSubstitutionError::UnknownVariableName(
-							name.to_owned(),
-						));
-						Err(())
-					}
-				}
-			}
-		}
-
-		fn check_next_arg(
-			context: &DecodingContext,
-			arg: Option<&Token>,
-			errors: &mut Vec<VariableSubstitutionError>,
-			variables_referenced: &BTreeSet<String>,
-			if_missing_err_ctor: impl Fn() -> VariableSubstitutionError,
-		) -> Result<f64, ()> {
-			match arg {
-				Some(tok) => match tok.kind {
-					TokenKind::Arg(arg) => eval_arg(context, arg, errors, variables_referenced),
-					TokenKind::Error => Ok(1.0),
-					_ => panic!("unexpected token {tok:?}"),
-				},
-				None => {
-					errors.push(if_missing_err_ctor());
-					Err(())
-				}
-			}
-		}
-
-		let mut errors = Vec::new();
-
-		let mut is_complex_expr = false;
-		let mut has_seen_non_whitespace = false;
-		let mut next_special_tok_ends_curr_tok = false;
-		let mut left = 0;
-		let mut tok_stack = Vec::<Token>::new();
-
-		for (i, c) in s.chars().chain(std::iter::once(' ')).enumerate() {
-			match c {
-				c if c.is_whitespace() && !next_special_tok_ends_curr_tok => {
-					if has_seen_non_whitespace {
-						left = i + 1;
-					}
-				}
-				c if c.is_whitespace() || c == '(' || c == ')' => {
-					is_complex_expr |= !c.is_whitespace();
-					next_special_tok_ends_curr_tok = false;
-
-					let tok_str = &s[left..i];
-
-					if is_complex_expr {
-						if !tok_str.trim().is_empty() {
-							let tok_kind = match tok_stack.last() {
-								Some(Token {
-									pos: _,
-									kind: TokenKind::Start,
-								}) => TokenKind::Function(tok_str),
-								_ => {
-									if let Ok(num) = tok_str.parse() {
-										TokenKind::Arg(ArgKind::Lit(num))
-									} else {
-										TokenKind::Arg(ArgKind::Var(tok_str))
-									}
-								}
-							};
-							let tok = Token {
-								pos: i,
-								kind: tok_kind,
-							};
-							tok_stack.push(tok);
-						}
-
-						left = i + 1;
-					}
-
-					if c == '(' {
-						tok_stack.push(Token {
-							pos: original_index + i,
-							kind: TokenKind::Start,
-						});
-					} else if c == ')' {
-						let matching_start_pos =
-							match tok_stack.iter().enumerate().rev().find_map(|(j, tok)| {
-								matches!(tok.kind, TokenKind::Start).then_some(j)
-							}) {
-								Some(pos) => pos,
-								None => {
-									errors.push(VariableSubstitutionError::Parse(
-										ParseError::UnexpectedClosingParen {
-											position: original_index + i,
-										},
-									));
-									// This is unrecoverable
-									return Err(errors);
-								}
-							};
-						let mut expr_tok_iter = tok_stack[matching_start_pos + 1..].iter();
-
-						let first_tok = match expr_tok_iter.next() {
-							Some(tok) => tok,
-							None => {
-								errors.push(VariableSubstitutionError::EmptyParentheses {
-									pos: original_index + i,
-								});
-								let start = tok_stack.pop().unwrap();
-								tok_stack.push(Token {
-									pos: start.pos,
-									kind: TokenKind::Error,
-								});
-								continue;
-							}
-						};
-
-						let res = match first_tok.kind {
-							TokenKind::Function(func_name) => {
-								if let Ok(func) = func_name.parse::<VariadicFunction>() {
-									func.call(expr_tok_iter.map(|tok| match tok.kind {
-										TokenKind::Arg(arg) => eval_arg(
-											self,
-											arg,
-											&mut errors,
-											&variables_referenced.clone(),
-										),
-										TokenKind::Error => Ok(1.0),
-										_ => panic!("unexpected token {tok:?}"),
-									}))
-								} else if let Ok(func) = func_name.parse::<TernaryFunction>() {
-									let expected_n_args = 3;
-									let [arg1, arg2, arg3] = [0, 1, 2].map(|n_args| check_next_arg(self, expr_tok_iter.next(), &mut errors, variables_referenced, ||VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: n_args }));
-									let remaining_tokens = expr_tok_iter.count();
-									if remaining_tokens != 0 {
-										errors.push(
-											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
-										Err(())
-									} else {
-										func.call(arg1, arg2, arg3)
-									}
-								} else if let Ok(func) = func_name.parse::<BinaryFunction>() {
-									let expected_n_args = 2;
-									let [arg1, arg2] = [0, 1].map(|n_args| check_next_arg(
-										self,
-										expr_tok_iter.next(),
-										&mut errors,
-										variables_referenced,
-										|| {
-											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: n_args }
-										},
-									));
-
-									let remaining_tokens = expr_tok_iter.count();
-									if remaining_tokens != 0 {
-										errors.push(
-											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
-										Err(())
-									} else {
-										func.call(arg1, arg2)
-									}
-								} else if let Ok(func) = func_name.parse::<UnaryFunction>() {
-									let expected_n_args = 1;
-									let arg = check_next_arg(
-										self,
-										expr_tok_iter.next(),
-										&mut errors,
-										variables_referenced,
-										|| {
-											VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: 0 }
-										},
-									);
-
-									let remaining_tokens = expr_tok_iter.count();
-									if remaining_tokens != 0 {
-										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: expected_n_args, actual: expected_n_args+remaining_tokens });
-										Err(())
-									} else {
-										func.call(arg)
-									}
-								} else if let Ok(func) = func_name.parse::<NullaryFunction>() {
-									let remaining_tokens = expr_tok_iter.count();
-									if remaining_tokens != 0 {
-										errors.push(VariableSubstitutionError::WrongNumberOfFunctionArguments { name: func_name.to_owned(), expected: 0, actual: remaining_tokens });
-										Err(())
-									} else {
-										Ok(func.call())
-									}
-								} else {
-									errors.push(
-										VariableSubstitutionError::UnrecognizedFunctionName(
-											func_name.to_owned(),
-										),
-									);
-									Err(())
-								}
-							}
-							_ => unreachable!(
-								"logic error: the token following Start was not Function"
-							),
-						};
-
-						// Replace tokens comprising this expression with a single token
-						// containing the result
-						let start_pos = tok_stack[matching_start_pos].pos;
-						tok_stack.drain(matching_start_pos..);
-						let new_kind = match res {
-							Ok(val) => TokenKind::Arg(ArgKind::Lit(val)),
-							Err(()) => TokenKind::Error,
-						};
-						tok_stack.push(Token {
-							pos: start_pos,
-							kind: new_kind,
-						});
-					}
-				}
-
-				_ => {
-					next_special_tok_ends_curr_tok = true;
-				}
-			};
-			has_seen_non_whitespace |= !c.is_whitespace();
-		}
-
-		if left < s.len() {
-			let tok_str = &s[left..];
-
-			let tok_kind = match tok_stack.last() {
-				Some(Token {
-					pos: _,
-					kind: TokenKind::Start,
-				}) => TokenKind::Function(tok_str),
-				_ => {
-					if let Ok(num) = tok_str.parse() {
-						TokenKind::Arg(ArgKind::Lit(num))
-					} else {
-						TokenKind::Arg(ArgKind::Var(tok_str))
-					}
-				}
-			};
-			let tok = Token {
-				pos: left,
-				kind: tok_kind,
-			};
-			tok_stack.push(tok);
-		}
-
-		match tok_stack.len() {
-			0 => {
-				// should be an entirely whitespace name
-				errors.push(VariableSubstitutionError::InvalidVariableName(s.into()));
-			}
-			1 => {
-				let tok = tok_stack[0];
-				match tok.kind {
-					TokenKind::Arg(arg) => match arg {
-						// we ended up with a number
-						ArgKind::Lit(x) => {
-							return Ok(VariableValue::Number(ConcreteNumber::Float(x)))
-						}
-						// a single variable name was provided, which we now have to substitute
-						ArgKind::Var(name) => {
-							// let x = eval_arg(context, arg, &mut errors, variables_referenced)
-							if !VAR_NAME_CHAR_RE.is_match(name) {
-								errors.push(VariableSubstitutionError::InvalidVariableName(
-									name.to_owned(),
-								));
-							} else {
-								match self.get_var(name) {
-									Some(val) => match val {
-										VariableValue::Number(cn) => {
-											return Ok(VariableValue::Number(*cn))
-										}
-										VariableValue::String(s) => {
-											let mut variables_referenced =
-												variables_referenced.clone();
-											variables_referenced.insert(name.to_owned());
-											match self.eval_exprs_in_string_helper(
-												s,
-												&variables_referenced,
-											) {
-												Ok(ret) => {
-													return Ok(VariableValue::String(
-														ret.into_owned(),
-													))
-												}
-												Err(e) => errors.extend(e),
-											}
-										}
-									},
-									None => {
-										errors.push(VariableSubstitutionError::UnknownVariableName(
-											name.to_owned(),
-										))
-									}
-								}
-							}
-						}
-					},
-					TokenKind::Start => errors.push(VariableSubstitutionError::Parse(
-						ParseError::UnclosedParen { position: tok.pos },
-					)),
-					TokenKind::Error => {}
-					TokenKind::Function(_) => panic!("last token on the stack was a function"),
-				}
-			}
-			_ => {
-				if let Some(unclosed_paren_pos) =
-					tok_stack.iter().enumerate().rev().find_map(|(_, tok)| {
-						matches!(tok.kind, TokenKind::Start).then_some(tok.pos)
-					}) {
-					errors.push(VariableSubstitutionError::Parse(
-						ParseError::UnclosedParen {
-							position: unclosed_paren_pos,
-						},
-					));
-				} else {
-					errors.push(VariableSubstitutionError::Parse(
-						ParseError::InvalidExpression {
-							expr: s.to_owned(),
-							position: original_index,
-						},
-					));
-				}
-			}
-		}
-
-		Err(errors)
-	}
-
 	pub(crate) fn eval_exprs_in_str<'b>(
 		&self,
 		s: &'b str,
-	) -> Result<Cow<'b, str>, Vec<VariableSubstitutionError>> {
-		self.eval_exprs_in_string_helper(s, &BTreeSet::new())
+	) -> VariableSubstitutionResult<Cow<'b, str>> {
+		self.eval_exprs_in_string_helper_2(s, &BTreeSet::new())
 	}
 
-	fn eval_exprs_in_string_helper<'b>(
+	fn eval_exprs_in_string_helper_2<'b>(
 		&self,
 		s: &'b str,
 		variables_referenced: &BTreeSet<String>,
-	) -> Result<Cow<'b, str>, Vec<VariableSubstitutionError>> {
+	) -> VariableSubstitutionResult<Cow<'b, str>> {
+		use nom::{
+			branch::alt,
+			bytes::complete::{is_not, take_till1, take_while},
+			character::complete::{alpha1, alphanumeric0, char, multispace0, multispace1, satisfy},
+			combinator::{cut, map, not, recognize},
+			multi::{many0, many0_count, separated_list0},
+			number::complete::double,
+			sequence::{delimited, pair, tuple},
+		};
+
 		#[derive(Debug)]
-		enum ParseState {
-			Normal,
-			InsideBracesValid,
+		enum BracedExpr<'a> {
+			Var(&'a str),
+			SExpr(SExpr<'a>),
 		}
-		use ParseState::*;
 
-		let mut errors = Vec::new();
+		#[derive(Debug)]
+		enum Arg<'a> {
+			Lit(f64),
+			Var(&'a str),
+			SExpr(SExpr<'a>),
+		}
 
-		let mut modified_from_original = false;
-		let mut string_result = String::new();
-
-		let mut parse_state = ParseState::Normal;
-		let mut prev_was_backslash = false;
-		let mut did_parse_expr = false;
-		let mut left = 0;
-		let mut opening_brace_idx = 0;
-
-		// Don't really know what I'm doing when it comes to parsing, but this works, so
-		// ¯\_(ツ)_/¯
-		for (i, c) in s.chars().enumerate() {
-			match (prev_was_backslash, &parse_state, c) {
-				(false, _, '\\') => {
-					prev_was_backslash = true;
-				}
-				(false, Normal, '{') => {
-					string_result.push_str(&s[left..i]);
-					left = i + c.len_utf8();
-					parse_state = InsideBracesValid;
-					opening_brace_idx = i;
-				}
-				(false, InsideBracesValid, '}') => {
-					modified_from_original = true;
-					did_parse_expr = true;
-
-					let expr = &s[left..i];
-					match self.parse_expr(expr, opening_brace_idx, variables_referenced) {
-						Ok(x) => {
-							string_result.push_str(&x.as_str());
+		impl Arg<'_> {
+			fn eval(
+				&self,
+				context: &'_ DecodingContext<'_>,
+				variables_referenced: &BTreeSet<String>,
+			) -> VariableSubstitutionResult<f64> {
+				Ok(match self {
+					Arg::Lit(x) => *x,
+					Arg::Var(var) => {
+						let var = *var;
+						if variables_referenced.contains(var) {
+							return Err(VariableSubstitutionError::RecursiveSubstitutionError {
+								names: vec![var.to_owned()],
+							});
 						}
-						Err(e) => {
-							errors.extend(e);
+						let val = context.get_var(var).ok_or_else(|| {
+							VariableSubstitutionError::UnknownVariableName(var.into())
+						})?;
+						match val {
+							VariableValue::Number(x) => f64::from(*x),
+							VariableValue::String(s) => {
+								let mut variables_referenced = variables_referenced.clone();
+								variables_referenced.insert(var.to_owned());
+								let res = context
+									.eval_exprs_in_string_helper_2(s, &variables_referenced)?;
+								if let Ok(x) = res.parse() {
+									x
+								} else {
+									return Err(
+										VariableSubstitutionError::ExpectedNumGotStringForVariable {
+											 name: var.to_owned(),
+											 value: res.into_owned()
+											}
+);
+								}
+							}
 						}
-					};
-
-					left = i + c.len_utf8();
-					parse_state = Normal;
-				}
-				(false, Normal, '}') => {
-					errors.push(VariableSubstitutionError::Parse(
-						ParseError::UnexpectedClosingBrace { position: i },
-					));
-					return Err(errors);
-				}
-				(true, Normal, '{' | '}' | '\\') => {
-					string_result.push_str(&s[left..i - '\\'.len_utf8()]);
-					string_result.push(c);
-
-					left = i + c.len_utf8();
-					prev_was_backslash = false;
-					modified_from_original = true;
-				}
-				(true, _, _) => {
-					errors.push(VariableSubstitutionError::Parse(
-						ParseError::InvalidEscapeSequence {
-							position: (i - 1, i),
-							char: c,
-						},
-					));
-					prev_was_backslash = false;
-					continue;
-				}
-
-				_ => {
-					// Do nothing; i will advance
-				}
+					}
+					Arg::SExpr(ex) => ex.eval(context, variables_referenced)?,
+				})
 			}
 		}
 
-		if !did_parse_expr && prev_was_backslash {
-			errors.push(VariableSubstitutionError::Parse(
-				ParseError::EndedWithBackslash,
-			))
-		} else {
-			match parse_state {
-				InsideBracesValid => errors.push(VariableSubstitutionError::Parse(
-					ParseError::UnterminatedVariable {
-						content: s[left..].to_string(),
-					},
-				)),
-				Normal => {
-					string_result.push_str(&s[left..]);
-					if errors.is_empty() {
-						return Ok(if modified_from_original {
-							Cow::Owned(string_result)
-						} else {
-							Cow::Borrowed(s)
+		#[derive(Debug)]
+		struct SExpr<'a> {
+			fn_name: &'a str,
+			args: Vec<Arg<'a>>,
+		}
+
+		impl SExpr<'_> {
+			fn eval(
+				&self,
+				context: &'_ DecodingContext<'_>,
+				variables_referenced: &BTreeSet<String>,
+			) -> VariableSubstitutionResult<f64> {
+				let Self { fn_name, args } = self;
+				let fn_name = *fn_name;
+				let mut args_iter = args
+					.iter()
+					.map(|arg| arg.eval(context, variables_referenced));
+				Ok(if let Ok(func) = fn_name.parse::<VariadicFunction>() {
+					func.call(args_iter)?
+				} else if let Ok(func) = fn_name.parse::<TernaryFunction>() {
+					let expected_n_args = 3;
+					if args.len() != expected_n_args {
+						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
+							name: fn_name.to_owned(),
+							expected: expected_n_args,
+							actual: args.len(),
 						});
 					}
-				}
+					func.call(
+						args_iter.next().unwrap(),
+						args_iter.next().unwrap(),
+						args_iter.next().unwrap(),
+					)?
+				} else if let Ok(func) = fn_name.parse::<BinaryFunction>() {
+					let expected_n_args = 2;
+					if args.len() != expected_n_args {
+						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
+							name: fn_name.to_owned(),
+							expected: expected_n_args,
+							actual: args.len(),
+						});
+					}
+					func.call(args_iter.next().unwrap(), args_iter.next().unwrap())?
+				} else if let Ok(func) = fn_name.parse::<UnaryFunction>() {
+					let expected_n_args = 1;
+					if args.len() != expected_n_args {
+						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
+							name: fn_name.to_owned(),
+							expected: expected_n_args,
+							actual: args.len(),
+						});
+					}
+					func.call(args_iter.next().unwrap())?
+				} else if let Ok(func) = fn_name.parse::<NullaryFunction>() {
+					let expected_n_args = 0;
+					if args.len() != expected_n_args {
+						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
+							name: fn_name.to_owned(),
+							expected: expected_n_args,
+							actual: args.len(),
+						});
+					}
+					func.call()
+				} else {
+					return Err(VariableSubstitutionError::UnrecognizedFunctionName(
+						fn_name.to_owned(),
+					));
+				})
 			}
 		}
 
-		Err(errors)
+		fn parse_char(input: &str, c: char) -> IResult<&str, char> {
+			char(c)(input)
+		}
+
+		fn l_brace(input: &str) -> IResult<&str, char> {
+			parse_char(input, '{')
+		}
+
+		fn r_brace(input: &str) -> IResult<&str, char> {
+			parse_char(input, '}')
+		}
+
+		fn l_paren(input: &str) -> IResult<&str, char> {
+			parse_char(input, '(')
+		}
+
+		fn r_paren(input: &str) -> IResult<&str, char> {
+			parse_char(input, ')')
+		}
+
+		fn special_char(input: &str) -> IResult<&str, char> {
+			one_of("(){}")(input)
+		}
+
+		fn ident(input: &str) -> IResult<&str, &str> {
+			recognize(pair(
+				satisfy(|c| c.is_alphabetic() || c == '_'),
+				many0_count(satisfy(|c| c.is_alphanumeric() || c == '_')),
+			))(input)
+		}
+
+		fn arg(input: &str) -> IResult<&str, Arg<'_>> {
+			alt((
+				map(double, Arg::Lit),
+				map(ident, Arg::Var),
+				map(s_expr, Arg::SExpr),
+			))(input)
+		}
+
+		fn fn_name(input: &str) -> IResult<&str, &str> {
+			is_not("(){} \t\n\r")(input)
+		}
+
+		fn s_expr(input: &str) -> IResult<&str, SExpr> {
+			let (rest, (_, _, fn_name, args, _, _)) = tuple((
+				l_paren,
+				multispace0,
+				fn_name,
+				many0(map(pair(multispace1, arg), |(_, arg)| arg)),
+				multispace0,
+				r_paren,
+			))(input)?;
+
+			Ok((rest, SExpr { fn_name, args }))
+		}
+
+		fn brace_expr(input: &str) -> IResult<&str, BracedExpr<'_>> {
+			let (rest, (_, _, braced, _, _)) = tuple((
+				l_brace,
+				multispace0,
+				alt((map(ident, BracedExpr::Var), map(s_expr, BracedExpr::SExpr))),
+				multispace0,
+				r_brace,
+			))(input)?;
+
+			Ok((rest, braced))
+		}
+
+		fn parse<'a>(
+			input: &'a str,
+			context: &DecodingContext,
+			variables_referenced: &BTreeSet<String>,
+		) -> VariableSubstitutionResult<Cow<'a, str>> {
+			let (rest, ans) = recognize(cut(many0(alt((
+				map(brace_expr, |braced| {
+					VariableSubstitutionResult::Ok(match braced {
+						BracedExpr::Var(var) => {
+							let val = context.get_var(var).ok_or_else(|| {
+								VariableSubstitutionError::UnknownVariableName(var.into())
+							})?;
+							match val {
+								VariableValue::Number(x) => Cow::Owned(x.to_string()),
+								VariableValue::String(s) => {
+									let mut variables_referenced = variables_referenced.clone();
+									variables_referenced.insert(s.clone());
+									context
+										.eval_exprs_in_string_helper_2(s, &variables_referenced)?
+								}
+							}
+						}
+						BracedExpr::SExpr(ex) => {
+							println!("{:?}", ex.eval(context, variables_referenced));
+							Cow::Owned(ex.eval(context, variables_referenced)?.to_string())
+						}
+					})
+				}),
+				map(recognize(none_of("(){} \t\n\r")), |s: &str| {
+					Ok(Cow::Borrowed(s))
+				}),
+			)))))(input)
+			.map_err(|e| VariableSubstitutionError::Nom(e.to_string()))?;
+
+			assert!(rest.is_empty());
+			Ok(ans.into())
+		}
+
+		parse(s, self, variables_referenced)
 	}
 
 	pub(crate) fn sub_vars_into_attrs<I>(
