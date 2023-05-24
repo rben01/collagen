@@ -163,9 +163,7 @@ impl<'a> DecodingContext<'a> {
 		let val = match self.get_var(var) {
 			Some(val) => val,
 			None => {
-				parsing_errs.push(VariableSubstitutionError::UnknownVariableName(
-					var.to_owned(),
-				));
+				parsing_errs.push(VariableSubstitutionError::MissingVariable(var.to_owned()));
 				return Err(parsing_errs);
 			}
 		};
@@ -632,7 +630,7 @@ mod tests {
 				&empty_context,
 				"{xyz}6789}ajshd",
 				[
-					VariableSubstitutionError::UnknownVariableName("xyz".into()),
+					VariableSubstitutionError::MissingVariable("xyz".into()),
 					ParseError::UnexpectedClosingBrace { position: 9 }.into(),
 				],
 			);
@@ -655,7 +653,7 @@ mod tests {
 				&empty_context,
 				r"ak{jh}sd{js",
 				[
-					VariableSubstitutionError::UnknownVariableName("jh".into()),
+					VariableSubstitutionError::MissingVariable("jh".into()),
 					ParseError::UnterminatedVariable {
 						content: "js".to_owned(),
 					}
@@ -682,7 +680,7 @@ mod tests {
 				&empty_context,
 				r"ak{xyjh}sd{\Ks",
 				[
-					VariableSubstitutionError::UnknownVariableName("xyjh".into()),
+					VariableSubstitutionError::MissingVariable("xyjh".into()),
 					VariableSubstitutionError::Parsing(ParseError::InvalidEscapeSequence {
 						position: (11, 12),
 						char: 'K',
@@ -725,7 +723,7 @@ mod tests {
 					missing
 						.into()
 						.into_iter()
-						.map(|s| VariableSubstitutionError::UnknownVariableName(s.to_owned()))
+						.map(|s| VariableSubstitutionError::MissingVariable(s.to_owned()))
 						.collect::<Vec<_>>()
 				)
 			}
@@ -818,7 +816,7 @@ mod tests {
 									VariableSubstitutionError::InvalidVariableName(var)
 								}
 								BadVarReason::Missing => {
-									VariableSubstitutionError::UnknownVariableName(var)
+									VariableSubstitutionError::MissingVariable(var)
 								}
 							}
 						})

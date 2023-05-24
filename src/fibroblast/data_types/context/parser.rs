@@ -124,12 +124,10 @@ impl Arg<'_> {
 				match val {
 					VariableValue::Number(x) => x.into(),
 					VariableValue::String(s) => {
-						return Err(vec![
-							VariableSubstitutionError::ExpectedNumGotStringForVariable {
-								name: var.to_owned(),
-								value: s,
-							},
-						])
+						return Err(vec![VariableSubstitutionError::ExpectedNumGotString {
+							variable: var.to_owned(),
+							value: s,
+						}])
 					}
 				}
 			}
@@ -208,7 +206,12 @@ pub(super) fn parse<'a>(
 	let (rest, ans) = match parse_res {
 		Ok(x) => x,
 		Err(e) => {
-			parsing_errs.push(VariableSubstitutionError::Parsing(e.map(|e| e.to_string())));
+			match e {
+				nom::Err::Error(e) => {
+					parsing_errs.push(VariableSubstitutionError::Parsing(e.to_string()))
+				}
+				_ => unreachable!(),
+			};
 			return Err(parsing_errs);
 		}
 	};

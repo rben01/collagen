@@ -7,11 +7,11 @@ pub type VariableSubstitutionResult<T> = Result<T, Vec<VariableSubstitutionError
 /// too. Yech.
 #[derive(Debug)]
 pub enum VariableSubstitutionError {
-	Parsing(nom::Err<String>),
+	Parsing(String),
 	FunctionCall(ArityError),
 	InvalidVariableName(String),
-	UnknownVariableName(String),
-	ExpectedNumGotStringForVariable { name: String, value: String },
+	MissingVariable(String),
+	ExpectedNumGotString { variable: String, value: String },
 	RecursiveSubstitutionError { variable: String },
 	UnrecognizedFunctionName(String),
 }
