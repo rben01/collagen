@@ -1,7 +1,7 @@
 //! Contains the data types used for the in-memory representation of a `Fibroblast`.
 
+use crate::utils::Map;
 use serde::{Deserialize, Serialize};
-pub(crate) use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map};
 use std::{
 	borrow::Cow,
 	ops::{Deref, DerefMut},

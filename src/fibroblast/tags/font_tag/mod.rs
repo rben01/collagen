@@ -2,9 +2,9 @@ use super::{
 	traits::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS,
 };
 use crate::{
-	fibroblast::data_types::{ConcreteNumber, Map},
+	fibroblast::data_types::ConcreteNumber,
 	to_svg::svg_writable::ClgnDecodingError,
-	utils::b64_encode,
+	utils::{b64_encode, Map},
 	ClgnDecodingResult,
 };
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};

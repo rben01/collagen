@@ -8,7 +8,7 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
-use crate::fibroblast::data_types::context::VariableSubstitutionError;
+use crate::fibroblast::data_types::context::errors::VariableSubstitutionError;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::{fmt::Display, io, path::PathBuf, str::Utf8Error};
@@ -18,7 +18,7 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
 pub enum ClgnDecodingError {
-	Parse(VariableSubstitutionError),
+	Parsing(VariableSubstitutionError),
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
 	Zip(ZipError),
@@ -35,7 +35,7 @@ impl ClgnDecodingError {
 	pub fn exit_code(&self) -> i32 {
 		use ClgnDecodingError::*;
 		match self {
-			Parse(..) => 3,
+			Parsing(..) => 3,
 			JsonDecode(..) => 4,
 			JsonEncode(..) => 5,
 			InvalidPath(..) => 6,
@@ -54,7 +54,7 @@ impl Display for ClgnDecodingError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use ClgnDecodingError::*;
 		match self {
-			Parse(e) => write!(f, "{:?}", e),
+			Parsing(e) => write!(f, "Parsing: {:?}", e),
 			Io(e, path) => write!(f, "{:?}: {}", path, e),
 			InvalidPath(p) => write!(f, "Invalid path: {:?}", p),
 			Zip(e) => write!(f, "{:?}", e),
@@ -79,7 +79,7 @@ impl Display for ClgnDecodingError {
 
 impl From<VariableSubstitutionError> for ClgnDecodingError {
 	fn from(err: VariableSubstitutionError) -> Self {
-		Self::Parse(err)
+		Self::Parsing(err)
 	}
 }
 

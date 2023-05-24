@@ -10,308 +10,22 @@
 //! a deserialized `path`, the root path must also be supplied; only then can decoding
 //! proceed.
 
+pub(crate) mod errors;
+pub(super) mod functions;
+pub(crate) mod parser;
+
 use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
 use crate::{
-	fibroblast::data_types::{ConcreteNumber, Map, MapEntry},
-	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+	to_svg::svg_writable::ClgnDecodingResult,
+	utils::{Map, MapEntry, Set},
 };
-use nom::{
-	character::{
-		complete::{alphanumeric1, anychar, none_of, one_of},
-		streaming::multispace0,
-	},
-	multi::{many1, many1_count},
-	IResult,
-};
-use once_cell::sync::Lazy;
-use regex::Regex;
+use errors::{VariableSubstitutionError, VariableSubstitutionResult};
+use parser::{is_valid_var_name, parse};
 use std::{
 	borrow::Cow,
 	cell::{Ref, RefCell},
-	collections::BTreeSet,
 	path::PathBuf,
 };
-use strum_macros::EnumString;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ParseError {
-	EndedWithBackslash,
-	UnexpectedClosingBrace {
-		position: usize,
-	},
-	UnterminatedVariable {
-		content: String,
-	},
-	BackslashInVariableName {
-		position: usize,
-	},
-	InvalidEscapeSequence {
-		position: (usize, usize),
-		char: char,
-	},
-	UnexpectedClosingParen {
-		position: usize,
-	},
-	UnclosedParen {
-		position: usize,
-	},
-	Empty {
-		position: usize,
-	},
-	InvalidExpression {
-		expr: String,
-		position: usize,
-	},
-}
-
-impl std::fmt::Display for ParseError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		use ParseError::*;
-		match self {
-			EndedWithBackslash => write!(f, "Strings may not end with a single backslash"),
-			UnexpectedClosingBrace { position } => write!(
-				f,
-				"Unexpected character at position {}: '}}' without a matching '{{'",
-				position,
-			),
-			UnterminatedVariable { content } => write!(
-				f,
-				"Unterminated variable; saw {:?} before the string ended",
-				content
-			),
-			BackslashInVariableName { position } => write!(
-				f,
-				"Unexpected character at position {}; a backslash may not occur in a variable name",
-				position
-			),
-			InvalidEscapeSequence { position, char } => write!(
-				f,
-				r#"Invalid escape sequence "\{}" at position {:?}"#,
-				char, position
-			),
-			UnexpectedClosingParen { position } => {
-				write!(f, "Unexpected closing paren at position {:?}", position)
-			}
-			UnclosedParen { position } => {
-				write!(f, "Unclosed open paren at position {:?}", position)
-			}
-			Empty { position } => {
-				write!(f, "Unexpected empty expression at position {:?}", position)
-			}
-			InvalidExpression { expr, position } => write!(
-				f,
-				"Invalid expression {:?} at position {:?}",
-				expr, position
-			),
-		}
-	}
-}
-
-type VariableSubstitutionResult<T> = Result<T, VariableSubstitutionError>;
-
-/// It's really tempting to want to change these `String`s to `&'a str`s, but if you do
-/// that, then [`ClgnDecodingError`] — and hence [`ClgnDecodingResult`] — need lifetimes
-/// too. Yech.
-#[derive(Debug, PartialEq, Eq)]
-pub enum VariableSubstitutionError {
-	Parse(ParseError),
-	Nom(nom::Err<String>),
-	InvalidVariableName(String),
-	UnknownVariableName(String),
-	ExpectedNumGotStringForVariable {
-		name: String,
-		value: String,
-	},
-	RecursiveSubstitutionError {
-		names: Vec<String>,
-	},
-	EmptyParentheses {
-		pos: usize,
-	},
-	UnrecognizedFunctionName(String),
-	WrongNumberOfFunctionArguments {
-		name: String,
-		expected: usize,
-		actual: usize,
-	},
-}
-
-#[derive(Debug, EnumString)]
-#[strum(serialize_all = "lowercase")]
-enum VariadicFunction {
-	#[strum(serialize = "+")]
-	Add,
-	#[strum(serialize = "*")]
-	Mul,
-	Max,
-	Min,
-	And,
-	Or,
-}
-
-impl VariadicFunction {
-	fn call(
-		&self,
-		args: impl IntoIterator<Item = VariableSubstitutionResult<f64>>,
-	) -> VariableSubstitutionResult<f64> {
-		use VariadicFunction::*;
-
-		// I assume the optimizer will rewrite this to only have a single `match self` in
-		// practice, rather than `1 + args.into_iter().count()`
-		let init = match self {
-			Add => 0.0,
-			Mul => 1.0,
-			Max => f64::MIN,
-			Min => f64::MAX,
-			And => 1.0,
-			Or => 0.0,
-		};
-
-		args.into_iter().fold(Ok(init), |a, b| {
-			let a = a?;
-			let b = b?;
-
-			let res = match self {
-				Add => a + b,
-				Mul => a * b,
-				Max => a.max(b),
-				Min => a.min(b),
-				And => a.min(f64::from(b != 0.0)),
-				Or => a.max(f64::from(b != 0.0)),
-			};
-			Ok(res)
-		})
-	}
-}
-
-#[derive(Debug, EnumString)]
-#[strum(serialize_all = "lowercase")]
-enum TernaryFunction {
-	#[strum(serialize = "if")]
-	IfElse,
-}
-
-impl TernaryFunction {
-	fn call(
-		&self,
-		x1: VariableSubstitutionResult<f64>,
-		x2: VariableSubstitutionResult<f64>,
-		x3: VariableSubstitutionResult<f64>,
-	) -> VariableSubstitutionResult<f64> {
-		use TernaryFunction::*;
-
-		let x1 = x1?;
-		let x2 = x2?;
-		let x3 = x3?;
-
-		Ok(match self {
-			IfElse => {
-				if x1 != 0.0 {
-					x2
-				} else {
-					x3
-				}
-			}
-		})
-	}
-}
-
-#[derive(Debug, EnumString)]
-#[strum(serialize_all = "lowercase")]
-enum BinaryFunction {
-	#[strum(serialize = "-")]
-	Sub,
-	#[strum(serialize = "/")]
-	Div,
-	#[strum(serialize = "%")]
-	Mod,
-	Pow,
-	Atan2,
-	#[strum(serialize = "<")]
-	Lt,
-	#[strum(serialize = "<=")]
-	Le,
-	#[strum(serialize = "=")]
-	Eq,
-	#[strum(serialize = ">")]
-	Gt,
-	#[strum(serialize = ">=")]
-	Ge,
-}
-
-impl BinaryFunction {
-	fn call(
-		&self,
-		x: VariableSubstitutionResult<f64>,
-		y: VariableSubstitutionResult<f64>,
-	) -> VariableSubstitutionResult<f64> {
-		use BinaryFunction::*;
-		let x = x?;
-		let y = y?;
-		Ok(match self {
-			Sub => x - y,
-			Div => x / y,
-			Mod => x % y,
-			Pow => x.powf(y),
-			// a tad confusing; the first argument is the "y" of atan2, the second is
-			// the "x"; a.atan2(b) is atan2(b, a), and so these arguments are in the
-			// correct order
-			Atan2 => x.atan2(y),
-			Lt => (x < y).into(),
-			Le => (x <= y).into(),
-			Eq => (x == y).into(),
-			Gt => (x > y).into(),
-			Ge => (x >= y).into(),
-		})
-	}
-}
-
-#[derive(Debug, EnumString)]
-#[strum(serialize_all = "lowercase")]
-enum UnaryFunction {
-	Exp,
-	Log,
-	Log2,
-	Sin,
-	Cos,
-	Tan,
-	Asin,
-	Acos,
-	Atan,
-}
-
-impl UnaryFunction {
-	fn call(&self, arg: VariableSubstitutionResult<f64>) -> VariableSubstitutionResult<f64> {
-		use UnaryFunction::*;
-		arg.map(|x| match self {
-			Exp => x.exp(),
-			Log => x.ln(),
-			Log2 => x.log2(),
-			Sin => x.sin(),
-			Cos => x.cos(),
-			Tan => x.tan(),
-			Asin => x.asin(),
-			Acos => x.acos(),
-			Atan => x.atan(),
-		})
-	}
-}
-
-#[derive(Debug, EnumString)]
-#[strum(serialize_all = "lowercase", ascii_case_insensitive)]
-enum NullaryFunction {
-	E,
-	Pi,
-}
-
-impl NullaryFunction {
-	fn call(&self) -> f64 {
-		match self {
-			NullaryFunction::E => std::f64::consts::E,
-			NullaryFunction::Pi => std::f64::consts::PI,
-		}
-	}
-}
 
 /// A context in which something can be decoded
 ///
@@ -428,272 +142,53 @@ impl<'a> DecodingContext<'a> {
 		self.vars_map.borrow().get(var).copied()
 	}
 
+	fn eval_variable(
+		&self,
+		var: &str,
+		variables_referenced: &Set<String>,
+	) -> VariableSubstitutionResult<VariableValue> {
+		if !is_valid_var_name(var) {
+			return Err(VariableSubstitutionError::InvalidVariableName(
+				var.to_owned(),
+			));
+		}
+		if variables_referenced.contains(var) {
+			return Err(VariableSubstitutionError::RecursiveSubstitutionError {
+				names: vec![var.to_owned()],
+			});
+		}
+		let val = match self.get_var(var) {
+			Some(val) => val,
+			None => {
+				return Err(VariableSubstitutionError::UnknownVariableName(
+					var.to_owned(),
+				))
+			}
+		};
+		Ok(match val {
+			VariableValue::Number(x) => (*x).into(),
+			VariableValue::String(s) => {
+				let mut variables_referenced = variables_referenced.clone();
+				variables_referenced.insert(var.to_owned());
+				self.eval_exprs_in_str_helper(s, &variables_referenced)?
+					.into_owned()
+					.into()
+			}
+		})
+	}
+
 	pub(crate) fn eval_exprs_in_str<'b>(
 		&self,
 		s: &'b str,
 	) -> VariableSubstitutionResult<Cow<'b, str>> {
-		self.eval_exprs_in_string_helper_2(s, &BTreeSet::new())
+		parse(s, self, &Set::new())
 	}
 
-	fn eval_exprs_in_string_helper_2<'b>(
+	pub(crate) fn eval_exprs_in_str_helper<'b>(
 		&self,
 		s: &'b str,
-		variables_referenced: &BTreeSet<String>,
+		variables_referenced: &Set<String>,
 	) -> VariableSubstitutionResult<Cow<'b, str>> {
-		use nom::{
-			branch::alt,
-			bytes::complete::{escaped, is_not, tag, take_till1, take_while},
-			character::complete::{alpha1, alphanumeric0, char, multispace0, multispace1, satisfy},
-			combinator::{all_consuming, cut, map, not, recognize, value},
-			multi::{many0, many0_count, separated_list0},
-			number::complete::double,
-			sequence::{delimited, pair, tuple},
-		};
-
-		#[derive(Debug)]
-		enum BracedExpr<'a> {
-			Var(&'a str),
-			SExpr(SExpr<'a>),
-		}
-
-		#[derive(Debug)]
-		enum Arg<'a> {
-			Lit(f64),
-			Var(&'a str),
-			SExpr(SExpr<'a>),
-		}
-
-		impl Arg<'_> {
-			fn eval(
-				&self,
-				context: &'_ DecodingContext<'_>,
-				variables_referenced: &BTreeSet<String>,
-			) -> VariableSubstitutionResult<f64> {
-				Ok(match self {
-					Arg::Lit(x) => *x,
-					Arg::Var(var) => {
-						let var = *var;
-						if variables_referenced.contains(var) {
-							return Err(VariableSubstitutionError::RecursiveSubstitutionError {
-								names: vec![var.to_owned()],
-							});
-						}
-						let val = context.get_var(var).ok_or_else(|| {
-							VariableSubstitutionError::UnknownVariableName(var.into())
-						})?;
-						match val {
-							VariableValue::Number(x) => f64::from(*x),
-							VariableValue::String(s) => {
-								let mut variables_referenced = variables_referenced.clone();
-								variables_referenced.insert(var.to_owned());
-								let res = context
-									.eval_exprs_in_string_helper_2(s, &variables_referenced)?;
-								if let Ok(x) = res.parse() {
-									x
-								} else {
-									return Err(
-										VariableSubstitutionError::ExpectedNumGotStringForVariable {
-											 name: var.to_owned(),
-											 value: res.into_owned()
-											}
-);
-								}
-							}
-						}
-					}
-					Arg::SExpr(ex) => ex.eval(context, variables_referenced)?,
-				})
-			}
-		}
-
-		#[derive(Debug)]
-		struct SExpr<'a> {
-			fn_name: &'a str,
-			args: Vec<Arg<'a>>,
-		}
-
-		impl SExpr<'_> {
-			fn eval(
-				&self,
-				context: &'_ DecodingContext<'_>,
-				variables_referenced: &BTreeSet<String>,
-			) -> VariableSubstitutionResult<f64> {
-				let Self { fn_name, args } = self;
-				let fn_name = *fn_name;
-				let mut args_iter = args
-					.iter()
-					.map(|arg| arg.eval(context, variables_referenced));
-				Ok(if let Ok(func) = fn_name.parse::<VariadicFunction>() {
-					func.call(args_iter)?
-				} else if let Ok(func) = fn_name.parse::<TernaryFunction>() {
-					let expected_n_args = 3;
-					if args.len() != expected_n_args {
-						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
-							name: fn_name.to_owned(),
-							expected: expected_n_args,
-							actual: args.len(),
-						});
-					}
-					func.call(
-						args_iter.next().unwrap(),
-						args_iter.next().unwrap(),
-						args_iter.next().unwrap(),
-					)?
-				} else if let Ok(func) = fn_name.parse::<BinaryFunction>() {
-					let expected_n_args = 2;
-					if args.len() != expected_n_args {
-						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
-							name: fn_name.to_owned(),
-							expected: expected_n_args,
-							actual: args.len(),
-						});
-					}
-					func.call(args_iter.next().unwrap(), args_iter.next().unwrap())?
-				} else if let Ok(func) = fn_name.parse::<UnaryFunction>() {
-					let expected_n_args = 1;
-					if args.len() != expected_n_args {
-						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
-							name: fn_name.to_owned(),
-							expected: expected_n_args,
-							actual: args.len(),
-						});
-					}
-					func.call(args_iter.next().unwrap())?
-				} else if let Ok(func) = fn_name.parse::<NullaryFunction>() {
-					let expected_n_args = 0;
-					if args.len() != expected_n_args {
-						return Err(VariableSubstitutionError::WrongNumberOfFunctionArguments {
-							name: fn_name.to_owned(),
-							expected: expected_n_args,
-							actual: args.len(),
-						});
-					}
-					func.call()
-				} else {
-					return Err(VariableSubstitutionError::UnrecognizedFunctionName(
-						fn_name.to_owned(),
-					));
-				})
-			}
-		}
-
-		fn parse_char(input: &str, c: char) -> IResult<&str, char> {
-			char(c)(input)
-		}
-
-		fn l_brace(input: &str) -> IResult<&str, char> {
-			parse_char(input, '{')
-		}
-
-		fn r_brace(input: &str) -> IResult<&str, char> {
-			parse_char(input, '}')
-		}
-
-		fn l_paren(input: &str) -> IResult<&str, char> {
-			parse_char(input, '(')
-		}
-
-		fn r_paren(input: &str) -> IResult<&str, char> {
-			parse_char(input, ')')
-		}
-
-		fn special_char(input: &str) -> IResult<&str, char> {
-			one_of("(){}")(input)
-		}
-
-		fn ident(input: &str) -> IResult<&str, &str> {
-			recognize(pair(
-				satisfy(|c| c.is_alphabetic() || c == '_'),
-				many0_count(satisfy(|c| c.is_alphanumeric() || c == '_')),
-			))(input)
-		}
-
-		fn esc_char(input: &str) -> IResult<&str, &str> {
-			alt((
-				value("\\", tag(r"\\")),
-				value("(", tag(r"\(")),
-				value(")", tag(r"\)")),
-				value("{", tag(r"\{")),
-				value("}", tag(r"\}")),
-			))(input)
-		}
-
-		fn arg(input: &str) -> IResult<&str, Arg<'_>> {
-			alt((
-				map(double, Arg::Lit),
-				map(ident, Arg::Var),
-				map(s_expr, Arg::SExpr),
-			))(input)
-		}
-
-		fn fn_name(input: &str) -> IResult<&str, &str> {
-			is_not("(){} \t\n\r")(input)
-		}
-
-		fn s_expr(input: &str) -> IResult<&str, SExpr> {
-			let (rest, (_, _, fn_name, args, _, _)) = tuple((
-				l_paren,
-				multispace0,
-				fn_name,
-				many0(map(pair(multispace1, arg), |(_, arg)| arg)),
-				multispace0,
-				r_paren,
-			))(input)?;
-
-			Ok((rest, SExpr { fn_name, args }))
-		}
-
-		fn brace_expr(input: &str) -> IResult<&str, BracedExpr<'_>> {
-			let (rest, (_, _, braced, _, _)) = tuple((
-				l_brace,
-				multispace0,
-				alt((map(ident, BracedExpr::Var), map(s_expr, BracedExpr::SExpr))),
-				multispace0,
-				r_brace,
-			))(input)?;
-
-			Ok((rest, braced))
-		}
-
-		fn parse<'a>(
-			input: &'a str,
-			context: &DecodingContext,
-			variables_referenced: &BTreeSet<String>,
-		) -> VariableSubstitutionResult<Cow<'a, str>> {
-			if input.is_empty() {
-				return Ok(input.into());
-			}
-
-			let (rest, ans) = all_consuming(many0(alt((
-				map(brace_expr, |braced| {
-					VariableSubstitutionResult::Ok(match braced {
-						BracedExpr::Var(var) => {
-							let val = context.get_var(var).ok_or_else(|| {
-								VariableSubstitutionError::UnknownVariableName(var.into())
-							})?;
-							match val {
-								VariableValue::Number(x) => Cow::Owned(x.to_string()),
-								VariableValue::String(s) => {
-									let mut variables_referenced = variables_referenced.clone();
-									variables_referenced.insert(s.clone());
-									context
-										.eval_exprs_in_string_helper_2(s, &variables_referenced)?
-								}
-							}
-						}
-						BracedExpr::SExpr(ex) => {
-							Cow::Owned(ex.eval(context, variables_referenced)?.to_string())
-						}
-					})
-				}),
-				map(esc_char, |s| Ok(Cow::Borrowed(s))),
-				map(is_not(r"\(){}"), |s| Ok(Cow::Borrowed(s))),
-			))))(input)
-			.map_err(|e| dbg!(VariableSubstitutionError::Nom(e.map(|e| e.to_string()))))?;
-
-			Ok(ans.into_iter().collect::<Result<String, _>>()?.into())
-		}
-
 		parse(s, self, variables_referenced)
 	}
 
@@ -712,12 +207,9 @@ impl<'a> DecodingContext<'a> {
 		let mut subd_attrs = Vec::with_capacity(n_attrs);
 
 		for (k, orig_val) in attrs_iter {
-			println!("{:?}", (k, &orig_val,));
-
 			let new_val = match orig_val.as_ref() {
 				SimpleValue::Text(text) => {
 					let subd_text = self.eval_exprs_in_str(text)?;
-					dbg!(&subd_text);
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
 						_orig_text => orig_val,
@@ -725,7 +217,6 @@ impl<'a> DecodingContext<'a> {
 				}
 				_wasnt_text => orig_val,
 			};
-			println!("nv={new_val:?}");
 
 			subd_attrs.push((k, new_val));
 		}
@@ -742,7 +233,7 @@ mod tests {
 
 	impl From<ParseError> for VariableSubstitutionError {
 		fn from(value: ParseError) -> Self {
-			Self::Parse(value)
+			Self::Parsing(value)
 		}
 	}
 
@@ -1150,7 +641,7 @@ mod tests {
 				&empty_context,
 				r"ak{\jh}sd{js",
 				[
-					VariableSubstitutionError::Parse(ParseError::InvalidEscapeSequence {
+					VariableSubstitutionError::Parsing(ParseError::InvalidEscapeSequence {
 						position: (3, 4),
 						char: 'j',
 					}),
@@ -1166,7 +657,7 @@ mod tests {
 				r"ak{xyjh}sd{\Ks",
 				[
 					VariableSubstitutionError::UnknownVariableName("xyjh".into()),
-					VariableSubstitutionError::Parse(ParseError::InvalidEscapeSequence {
+					VariableSubstitutionError::Parsing(ParseError::InvalidEscapeSequence {
 						position: (11, 12),
 						char: 'K',
 					}),

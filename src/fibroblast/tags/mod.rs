@@ -40,9 +40,10 @@ pub(super) mod nested_svg_tag;
 pub(super) mod other_tag;
 pub(super) mod root_tag;
 
-pub(self) use super::data_types::{AttrKVValueVec, Map, TagVariables, XmlAttrs};
 pub(self) use crate::{
-	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
+	fibroblast::data_types::{AttrKVValueVec, DecodingContext, TagVariables, XmlAttrs},
+	to_svg::svg_writable::ClgnDecodingResult,
+	utils::Map,
 };
 pub use any_child_tag::AnyChildTag;
 pub use common_tag_fields::{traits, CommonTagFields};
