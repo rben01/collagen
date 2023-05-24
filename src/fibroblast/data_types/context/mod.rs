@@ -156,7 +156,7 @@ impl<'a> DecodingContext<'a> {
 		let mut parsing_errs = Vec::new();
 		if variables_referenced.contains(var) {
 			parsing_errs.push(VariableSubstitutionError::RecursiveSubstitutionError {
-				names: vec![var.to_owned()],
+				variable: var.to_owned(),
 			});
 		}
 

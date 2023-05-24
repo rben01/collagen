@@ -12,7 +12,7 @@ pub enum VariableSubstitutionError {
 	InvalidVariableName(String),
 	UnknownVariableName(String),
 	ExpectedNumGotStringForVariable { name: String, value: String },
-	RecursiveSubstitutionError { names: Vec<String> },
+	RecursiveSubstitutionError { variable: String },
 	UnrecognizedFunctionName(String),
 }
 
