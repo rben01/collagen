@@ -124,10 +124,12 @@ impl Arg<'_> {
 				match val {
 					VariableValue::Number(x) => x.into(),
 					VariableValue::String(s) => {
-						return Err(VariableSubstitutionError::ExpectedNumGotStringForVariable {
-							name: var.to_owned(),
-							value: s,
-						})
+						return Err(vec![
+							VariableSubstitutionError::ExpectedNumGotStringForVariable {
+								name: var.to_owned(),
+								value: s,
+							},
+						])
 					}
 				}
 			}
@@ -154,21 +156,22 @@ impl SExpr<'_> {
 			.iter()
 			.map(|arg| arg.eval(context, variables_referenced));
 
-		Ok(if let Ok(func) = fn_name.parse::<VariadicFunction>() {
-			func.try_call(args_iter)?
+		if let Ok(func) = fn_name.parse::<VariadicFunction>() {
+			func.try_call(args_iter)
 		} else if let Ok(func) = fn_name.parse::<TernaryFunction>() {
-			func.try_call(args_iter)?
+			func.try_call(args_iter)
 		} else if let Ok(func) = fn_name.parse::<BinaryFunction>() {
-			func.try_call(args_iter)?
+			func.try_call(args_iter)
 		} else if let Ok(func) = fn_name.parse::<UnaryFunction>() {
-			func.try_call(args_iter)?
+			func.try_call(args_iter)
 		} else if let Ok(func) = fn_name.parse::<NullaryFunction>() {
-			func.try_call(args_iter)?
+			func.try_call(args_iter)
 		} else {
-			return Err(VariableSubstitutionError::UnrecognizedFunctionName(
+			return Err(vec![VariableSubstitutionError::UnrecognizedFunctionName(
 				fn_name.to_owned(),
-			));
-		})
+			)]);
+		}
+		.map_err(Vec::<VariableSubstitutionError>::from)
 	}
 }
 
@@ -181,20 +184,38 @@ pub(super) fn parse<'a>(
 		return Ok(input.into());
 	}
 
-	let (rest, ans) = all_consuming(many0(alt((
+	let mut parsing_errs = Vec::new();
+
+	let parse_res = all_consuming(many0(alt((
 		map(brace_expr, |braced| -> VariableSubstitutionResult<_> {
-			Ok(Cow::Owned(match braced {
-				BracedExpr::Var(var) => context
-					.eval_variable(var, variables_referenced)?
-					.as_str()
-					.into_owned(),
-				BracedExpr::SExpr(ex) => ex.eval(context, variables_referenced)?.to_string(),
-			}))
+			Ok(match braced {
+				BracedExpr::Var(var) => match context.eval_variable(var, variables_referenced) {
+					Ok(x) => Cow::Owned(x.as_str().into_owned()),
+					Err(e) => {
+						parsing_errs.extend(e);
+						Cow::Borrowed("")
+					}
+				},
+				BracedExpr::SExpr(ex) => {
+					Cow::Owned(ex.eval(context, variables_referenced)?.to_string())
+				}
+			})
 		}),
 		map(esc_char, |s| Ok(Cow::Borrowed(s))),
 		map(is_not(r"\(){}"), |s| Ok(Cow::Borrowed(s))),
-	))))(input)
-	.map_err(|e| VariableSubstitutionError::Parsing(e.map(|e| e.to_string())))?;
+	))))(input);
+
+	let (rest, ans) = match parse_res {
+		Ok(x) => x,
+		Err(e) => {
+			parsing_errs.push(VariableSubstitutionError::Parsing(e.map(|e| e.to_string())));
+			return Err(parsing_errs);
+		}
+	};
+
+	if !parsing_errs.is_empty() {
+		return Err(parsing_errs);
+	}
 
 	assert!(rest.is_empty(), "input remaining: {rest:?}");
 	Ok(ans.into_iter().collect::<Result<String, _>>()?.into())

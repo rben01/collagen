@@ -148,31 +148,45 @@ impl<'a> DecodingContext<'a> {
 		variables_referenced: &Set<String>,
 	) -> VariableSubstitutionResult<VariableValue> {
 		if !is_valid_var_name(var) {
-			return Err(VariableSubstitutionError::InvalidVariableName(
+			return Err(vec![VariableSubstitutionError::InvalidVariableName(
 				var.to_owned(),
-			));
+			)]);
 		}
+
+		let mut parsing_errs = Vec::new();
 		if variables_referenced.contains(var) {
-			return Err(VariableSubstitutionError::RecursiveSubstitutionError {
+			parsing_errs.push(VariableSubstitutionError::RecursiveSubstitutionError {
 				names: vec![var.to_owned()],
 			});
 		}
+
 		let val = match self.get_var(var) {
 			Some(val) => val,
 			None => {
-				return Err(VariableSubstitutionError::UnknownVariableName(
+				parsing_errs.push(VariableSubstitutionError::UnknownVariableName(
 					var.to_owned(),
-				))
+				));
+				return Err(parsing_errs);
 			}
 		};
 		Ok(match val {
 			VariableValue::Number(x) => (*x).into(),
 			VariableValue::String(s) => {
+				if !parsing_errs.is_empty() {
+					return Err(parsing_errs);
+				}
+
 				let mut variables_referenced = variables_referenced.clone();
 				variables_referenced.insert(var.to_owned());
-				self.eval_exprs_in_str_helper(s, &variables_referenced)?
-					.into_owned()
-					.into()
+				match self.eval_exprs_in_str_helper(s, &variables_referenced) {
+					Ok(x) => x,
+					Err(e) => {
+						parsing_errs.extend(e);
+						return Err(parsing_errs);
+					}
+				}
+				.into_owned()
+				.into()
 			}
 		})
 	}
@@ -206,10 +220,18 @@ impl<'a> DecodingContext<'a> {
 		};
 		let mut subd_attrs = Vec::with_capacity(n_attrs);
 
+		let mut parsing_errs = Vec::new();
+
 		for (k, orig_val) in attrs_iter {
 			let new_val = match orig_val.as_ref() {
 				SimpleValue::Text(text) => {
-					let subd_text = self.eval_exprs_in_str(text)?;
+					let subd_text = match self.eval_exprs_in_str(text) {
+						Ok(x) => x,
+						Err(e) => {
+							parsing_errs.extend(e);
+							continue;
+						}
+					};
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
 						_orig_text => orig_val,
@@ -219,6 +241,10 @@ impl<'a> DecodingContext<'a> {
 			};
 
 			subd_attrs.push((k, new_val));
+		}
+
+		if !parsing_errs.is_empty() {
+			return Err(parsing_errs.into());
 		}
 
 		Ok(AttrKVValueVec(subd_attrs))
