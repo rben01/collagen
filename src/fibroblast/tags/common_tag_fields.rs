@@ -1,10 +1,7 @@
 pub mod traits;
-pub(in crate::fibroblast::tags) mod unvalidated;
 
 use super::{AnyChildTag, TagVariables, XmlAttrs};
-use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
-use serde::Serialize;
-pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedCommonTagFields;
+use serde::{Deserialize, Serialize};
 
 /// The properties common to most tags. Unless documented otherwise, all tag types are
 /// expected to accept at least the following keys. Note that none of these properties
@@ -56,62 +53,32 @@ pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedCommonTagFields;
 ///     encoding characters that are have special meaning in XML, such as `<` and `>`,
 ///     in a safe representation, such as `&lt;` and `&gt;`, respectively. Text should
 ///     go through exactly one round of XML-encoding before inclusion in XML.
-#[derive(Serialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct CommonTagFields<'a> {
 	/// (Optional) A dictionary mapping variable names to their values. None is
 	/// equivalent to no variables.
-	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	vars: Option<TagVariables>,
 
 	/// (Optional) A dictionary of name="value" XML attributes. None is equivalent to no
 	/// attributes.
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	attrs: Option<XmlAttrs>,
 
 	/// (Optional) A list of children of this tag. None is equivalent to the empty list.
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub(crate) children: Option<Vec<AnyChildTag<'a>>>,
 
 	/// (Optional) The text contained inside this tag, i.e., the "some text" in
 	/// `<tag>some text</tag>`. None is equivalent to the empty string.
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	text: Option<String>,
 
 	/// (Optional) Whether `text` needs to be escaped before inclusion in XML. "Escaping"
 	/// means converting illegal characters, such as `<`, to a safe representation, such
 	/// as `&lt;`. Text should go through exactly one round of escaping before inclusion
 	/// in XML. None is equivalent to `true`.
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	should_escape_text: Option<bool>,
-}
-
-impl<'a> TryFrom<UnvalidatedCommonTagFields> for CommonTagFields<'a> {
-	type Error = ClgnDecodingError;
-
-	fn try_from(value: UnvalidatedCommonTagFields) -> Result<Self, Self::Error> {
-		let UnvalidatedCommonTagFields {
-			vars,
-			attrs,
-			children,
-			text,
-			should_escape_text,
-		} = value;
-
-		let children = children
-			.map(|c| {
-				c.into_iter()
-					.map(|child| child.try_into())
-					.collect::<ClgnDecodingResult<Vec<_>>>()
-			})
-			.transpose()?;
-
-		Ok(Self {
-			vars,
-			attrs,
-			children,
-			text,
-			should_escape_text,
-		})
-	}
 }

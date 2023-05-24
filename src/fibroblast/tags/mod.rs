@@ -55,7 +55,6 @@ pub use nested_svg_tag::NestedSvgTag;
 use once_cell::sync::Lazy;
 pub use other_tag::OtherTag;
 pub use root_tag::RootTag;
-pub(crate) use root_tag::UnvalidatedRootTag;
 use std::borrow::Cow;
 
 /// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since

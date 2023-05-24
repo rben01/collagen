@@ -14,7 +14,7 @@ pub(crate) mod errors;
 pub(super) mod functions;
 pub(crate) mod parser;
 
-use super::{AttrKVValueVec, SimpleValue, TagVariables, VariableValue};
+use super::{AttrKVValueVec, ConcreteNumber, SimpleValue, TagVariables, VariableValue};
 use crate::{
 	to_svg::svg_writable::ClgnDecodingResult,
 	utils::{Map, MapEntry, Set},
@@ -168,7 +168,7 @@ impl<'a> DecodingContext<'a> {
 			}
 		};
 		Ok(match val {
-			VariableValue::Number(x) => (*x).into(),
+			VariableValue::Number(n) => (*n).into(),
 			VariableValue::String(s) => {
 				if !parsing_errs.is_empty() {
 					return Err(parsing_errs);
@@ -177,14 +177,15 @@ impl<'a> DecodingContext<'a> {
 				let mut variables_referenced = variables_referenced.clone();
 				variables_referenced.insert(var.to_owned());
 				match self.eval_exprs_in_str_helper(s, &variables_referenced) {
-					Ok(x) => x,
+					Ok(x) => match x.parse() {
+						Ok(n) => ConcreteNumber::Float(n).into(),
+						Err(_) => x.into_owned().into(),
+					},
 					Err(e) => {
 						parsing_errs.extend(e);
 						return Err(parsing_errs);
 					}
 				}
-				.into_owned()
-				.into()
 			}
 		})
 	}

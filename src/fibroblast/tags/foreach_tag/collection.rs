@@ -1,166 +1,130 @@
+use std::borrow::Cow;
+
 use crate::{
-	fibroblast::data_types::{ConcreteNumber, VariableValue},
+	fibroblast::{
+		data_types::{context::errors::VariableSubstitutionError, ConcreteNumber, VariableValue},
+		DecodingContext,
+	},
 	to_svg::svg_writable::ClgnDecodingError,
+	ClgnDecodingResult,
 };
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroI64;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub(super) enum UnvalidatedCollection {
-	// List must go first for untagged to treat a list as a List and not a Range
-	List(Vec<VariableValue>),
+pub(super) enum UnprocessedLoopCollection {
 	Range {
-		start: i64,
-		end: i64,
-		#[serde(default)]
-		step: Option<i64>,
-		#[serde(default)]
-		closed: Option<bool>,
-	},
-}
-
-#[derive(Serialize, Debug, Clone)]
-#[serde(untagged)]
-pub(super) enum Collection {
-	Range {
-		start: i64,
-		end: i64,
-		#[serde(skip_serializing_if = "Option::is_none")]
-		step: Option<NonZeroI64>,
-		#[serde(skip_serializing_if = "Option::is_none")]
+		start: VariableValue,
+		end: VariableValue,
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		step: Option<VariableValue>,
+		#[serde(default, skip_serializing_if = "Option::is_none")]
 		closed: Option<bool>,
 	},
 	List(Vec<VariableValue>),
 }
 
-impl TryFrom<UnvalidatedCollection> for Collection {
-	type Error = ClgnDecodingError;
+#[derive(Debug, Default, Clone, Copy, Serialize)]
+pub(crate) struct ReifiedRange {
+	start: f64,
+	end: f64,
+	step: f64,
+	closed: bool,
+}
 
-	fn try_from(value: UnvalidatedCollection) -> Result<Self, Self::Error> {
-		Ok(match value {
-			UnvalidatedCollection::List(v) => Self::List(v),
-			UnvalidatedCollection::Range {
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub(crate) enum LoopCollection {
+	Range(ReifiedRange),
+	List(Vec<VariableValue>),
+}
+
+impl UnprocessedLoopCollection {
+	pub(super) fn reified(&self, context: &DecodingContext) -> ClgnDecodingResult<LoopCollection> {
+		fn get_endpoint(x: &VariableValue, context: &DecodingContext) -> ClgnDecodingResult<f64> {
+			Ok(match x {
+				VariableValue::Number(n) => (*n).into(),
+				VariableValue::String(s) => {
+					context.eval_exprs_in_str(s)?.parse().map_err(|_| {
+						ClgnDecodingError::Parsing(vec![
+							VariableSubstitutionError::ExpectedNumGotString {
+								variable: "start".to_owned(),
+								value: s.clone(),
+							},
+						])
+					})?
+				}
+			})
+		}
+
+		Ok(match self {
+			UnprocessedLoopCollection::Range {
 				start,
 				end,
 				step,
 				closed,
 			} => {
-				let step = match step {
-					// error conditions:
-					// - step == 0 && end != start
-					// - end > start && step < 0
-					// - end < start && step > 0
-					// - end == start && closed.unwrap_or(false)
-					Some(step) => {
-						if step == 0 && end != start {
-							return Err(ClgnDecodingError::Foreach {
-								msg: format!(
-									"step must not be 0 when start != end (start={}, end={})",
-									start, end
-								),
-							});
-						}
-						// step must point in the direction from start to end, with the
-						// caveat that if end == start then step can be anything
-						if (end > start) && (step < 0) || (end < start) && (step > 0) {
-							return Err(ClgnDecodingError::Foreach {
-								msg: format!(
-									"if end != start, then must have either `start < end && step > 0` \
-									 or `start > end && step < 0`; got start={}, end={}, step={}",
-									start, end, step
-								),
-							});
-						}
-						if end == start && !closed.unwrap_or(false) {
-							return Err(ClgnDecodingError::Foreach {
-								msg: format!(
-									"start == end (== {}), but closed was false \
-								    (or unspecified, which is equivalent to false), \
-							       which would result in an empty range",
-									start
-								),
-							});
-						}
-						Some(NonZeroI64::new(step).unwrap())
-					}
-					None => None,
-				};
+				let start = get_endpoint(start, context)?;
+				let end = get_endpoint(end, context)?;
+				let step = step
+					.as_ref()
+					.map(|step| get_endpoint(step, context))
+					.transpose()?
+					.unwrap_or(if start < end { 1.0 } else { -1.0 });
 
-				Collection::Range {
+				LoopCollection::Range(ReifiedRange {
 					start,
 					end,
 					step,
-					closed,
-				}
+					closed: closed.unwrap_or(false),
+				})
 			}
+			UnprocessedLoopCollection::List(list) => LoopCollection::List(
+				list.iter()
+					.map(|v| {
+						Ok(match v {
+							VariableValue::Number(_) => v.clone(),
+							VariableValue::String(s) => {
+								context.eval_exprs_in_str(s)?.into_owned().into()
+							}
+						})
+					})
+					.collect::<ClgnDecodingResult<Vec<_>>>()?,
+			),
 		})
 	}
 }
 
-enum ReifiedCollection<'a> {
-	Range {
-		start: i64,
-		end: i64,
-		step: NonZeroI64,
-		closed: bool,
-	},
-	List(&'a [VariableValue]),
-}
-
-impl Collection {
-	fn reified(&self) -> ReifiedCollection {
-		match self {
-			&Collection::Range {
-				start,
-				end,
-				step,
-				closed,
-			} => ReifiedCollection::Range {
-				start,
-				end,
-				step: step.unwrap_or(if start < end {
-					NonZeroI64::new(1).unwrap()
-				} else {
-					NonZeroI64::new(-1).unwrap()
-				}),
-				closed: closed.unwrap_or(false),
-			},
-			Collection::List(v) => ReifiedCollection::List(v.as_ref()),
-		}
-	}
-
+impl LoopCollection {
 	pub(super) fn len(&self) -> usize {
-		match self.reified() {
-			ReifiedCollection::Range {
+		match self {
+			&Self::Range(ReifiedRange {
 				start,
 				end,
 				step,
 				closed,
-			} => {
-				let step = step.get();
-				let d_end = if closed { step } else { 0 };
+			}) => {
+				let d_end = if closed { step } else { 0.0 };
 
-				let len = (end + d_end - start) / step;
-				assert!(len >= 0, "logic error: Collection::len() < 0");
+				let len = ((end + d_end - start) / step).floor();
+				assert!(len >= 0.0, "logic error: Collection::len() < 0");
 				len as usize
 			}
-			ReifiedCollection::List(v) => v.len(),
+			Self::List(v) => v.len(),
 		}
 	}
 
-	pub(super) fn get(&self, index: usize) -> Option<VariableValue> {
-		match self.reified() {
-			ReifiedCollection::Range {
+	pub(super) fn get(&self, index: usize) -> Option<Cow<VariableValue>> {
+		match self {
+			&Self::Range(ReifiedRange {
 				start,
 				end,
 				step,
 				closed,
-			} => {
-				let index = index as i64;
-				let step = step.get();
+			}) => {
+				let index = index as f64;
 				let next = start + step * index;
-				let out_of_bounds = match (step > 0, closed) {
+				let out_of_bounds = match (step > 0.0, closed) {
 					(true, true) => next > end,
 					(true, false) => next >= end,
 					(false, true) => next < end,
@@ -171,9 +135,9 @@ impl Collection {
 					return None;
 				}
 
-				Some(ConcreteNumber::Int(next).into())
+				Some(Cow::Owned(ConcreteNumber::Float(next).into()))
 			}
-			ReifiedCollection::List(v) => v.get(index).cloned(),
+			Self::List(v) => v.get(index).map(Cow::Borrowed),
 		}
 	}
 }

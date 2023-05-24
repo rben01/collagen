@@ -1,14 +1,11 @@
-mod unvalidated;
-
 use super::{
 	any_child_tag::AnyChildTag, traits::HasCommonTagFields, AttrKVValueVec, ClgnDecodingResult,
 	DecodingContext, TagVariables,
 };
 use crate::fibroblast::Fibroblast;
 use once_cell::sync::OnceCell;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedContainerTag;
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -93,7 +90,7 @@ pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedContainerTag;
 /// (The `xmnls="..."` is added automatically if not present in the `collagen.json` file.)
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContainerTag<'a> {
 	clgn_path: String,
 
@@ -101,39 +98,7 @@ pub struct ContainerTag<'a> {
 	_child_clgn: OnceCell<Fibroblast<'a>>,
 }
 
-impl From<UnvalidatedContainerTag> for ContainerTag<'_> {
-	fn from(value: UnvalidatedContainerTag) -> Self {
-		let UnvalidatedContainerTag { clgn_path } = value;
-		Self {
-			clgn_path,
-			_child_clgn: OnceCell::new(),
-		}
-	}
-}
-
 impl<'a> ContainerTag<'a> {
-	/// If not filled, fill in this `ContainerTag` with the `Fibroblast` given by
-	/// `self.clgn_path`. Always returns the contained `Fibroblast`
-	// pub(super) fn initialize(
-	// 	&self,
-	// 	context: &DecodingContext<'a>,
-	// ) -> ClgnDecodingResult<&Fibroblast<'a>> {
-	// 	match self._child_clgn.get() {
-	// 		Some(fb) => Ok(fb),
-	// 		None => {
-	// 			let context = context.clone();
-	// 			let abs_clgn_path =
-	// 				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
-
-	// 			context.replace_root(abs_clgn_path.clone());
-
-	// 			let subroot = Fibroblast::from_dir_with_context(abs_clgn_path, context)?;
-	// 			self._child_clgn.set(subroot).unwrap();
-	// 			Ok(self._child_clgn.get().unwrap())
-	// 		}
-	// 	}
-	// }
-
 	pub(crate) fn as_fibroblast(
 		&'a self,
 		context: &'a DecodingContext<'a>,

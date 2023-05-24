@@ -1,79 +1,54 @@
-use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
+use super::collection::UnprocessedLoopCollection;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-pub(super) enum UnvalidatedIterable<T> {
-	Atom(T),
-	List(Vec<T>),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoopVariable {
+	#[serde(rename = "variable")]
+	pub(super) name: String,
+	#[serde(rename = "in")]
+	pub(super) loop_collection: UnprocessedLoopCollection,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum Iterable<T> {
-	Atom(T),
-	List(Vec<T>),
+pub enum Loop {
+	Atom(LoopVariable),
+	List(Vec<LoopVariable>),
 }
 
-impl<T, U> TryFrom<UnvalidatedIterable<U>> for Iterable<T>
-where
-	U: TryInto<T, Error = ClgnDecodingError>,
-{
-	type Error = ClgnDecodingError;
-
-	fn try_from(value: UnvalidatedIterable<U>) -> Result<Self, Self::Error> {
-		Ok(match value {
-			UnvalidatedIterable::Atom(x) => Self::Atom(x.try_into()?),
-			UnvalidatedIterable::List(v) => {
-				if v.is_empty() {
-					return Err(ClgnDecodingError::Foreach {
-						msg: "the list of variables to loop over in a `for_each` must be nonempty"
-							.into(),
-					});
-				}
-				Self::List(
-					v.into_iter()
-						.map(|x| x.try_into())
-						.collect::<ClgnDecodingResult<Vec<_>>>()?,
-				)
-			}
-		})
-	}
-}
-
-impl<'a, T> IntoIterator for &'a Iterable<T> {
-	type Item = &'a T;
-	type IntoIter = IterableIter<'a, T>;
+impl<'a> IntoIterator for &'a Loop {
+	type Item = &'a LoopVariable;
+	type IntoIter = LoopIter<'a>;
 
 	fn into_iter(self) -> Self::IntoIter {
-		IterableIter::new(self)
+		LoopIter::new(self)
 	}
 }
 
-pub struct IterableIter<'a, T> {
-	iterable: &'a Iterable<T>,
+pub struct LoopIter<'a> {
+	iterable: &'a Loop,
 	index: usize,
 }
 
-impl<'a, T> IterableIter<'a, T> {
-	fn new(iterable: &'a Iterable<T>) -> Self {
+impl<'a> LoopIter<'a> {
+	fn new(iterable: &'a Loop) -> Self {
 		Self { iterable, index: 0 }
 	}
 }
 
-impl<'a, T> Iterator for IterableIter<'a, T> {
-	type Item = &'a T;
+impl<'a> Iterator for LoopIter<'a> {
+	type Item = &'a LoopVariable;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let Self { iterable, index } = self;
 		let next = match &*iterable {
-			Iterable::Atom(x) => {
+			Loop::Atom(x) => {
 				if *index > 0 {
 					return None;
 				}
 				x
 			}
-			Iterable::List(v) => {
+			Loop::List(v) => {
 				if *index >= v.len() {
 					return None;
 				}

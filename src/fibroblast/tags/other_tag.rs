@@ -1,9 +1,6 @@
-mod unvalidated;
-
 use super::common_tag_fields::CommonTagFields;
-use crate::{dispatch_to_common_tag_fields, to_svg::svg_writable::ClgnDecodingError};
-use serde::Serialize;
-pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedOtherTag;
+use crate::dispatch_to_common_tag_fields;
+use serde::{Deserialize, Serialize};
 
 /// `OtherTag` is a generic tag that doesn't need to be handled specially, such as
 /// `<rect>`, which needs no special. This is different from, say, `<image>`, which
@@ -20,7 +17,7 @@ pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedOtherTag;
 ///   - Description: The tag's name. For instance, to make a `<rect>` tag, use
 ///     `"tag_name": "rect"`.
 /// - Other: `OtherTag` accepts all properties in [`CommonTagFields`].
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OtherTag<'a> {
 	#[serde(rename = "tag")]
 	tag_name: String,
@@ -32,23 +29,6 @@ pub struct OtherTag<'a> {
 impl<'a> OtherTag<'a> {
 	pub(super) fn tag_name(&self) -> &str {
 		self.tag_name.as_ref()
-	}
-}
-
-impl<'a> TryFrom<UnvalidatedOtherTag> for OtherTag<'a> {
-	type Error = ClgnDecodingError;
-
-	fn try_from(value: UnvalidatedOtherTag) -> Result<Self, Self::Error> {
-		let UnvalidatedOtherTag {
-			tag_name,
-			common_tag_fields,
-		} = value;
-		let common_tag_fields = common_tag_fields.try_into()?;
-
-		Ok(Self {
-			tag_name,
-			common_tag_fields,
-		})
 	}
 }
 

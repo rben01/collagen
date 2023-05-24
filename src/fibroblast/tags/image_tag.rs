@@ -1,5 +1,3 @@
-mod unvalidated;
-
 use super::common_tag_fields::CommonTagFields;
 use crate::{
 	dispatch_to_common_tag_fields,
@@ -7,9 +5,8 @@ use crate::{
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 	utils::b64_encode,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::PathBuf};
-pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedImageTag;
 
 /// A tag for handling images on disk. Collagen handles images specially, so we need a
 /// separate type for their tags. `ImageTag`s look more or less like the following:
@@ -55,7 +52,7 @@ pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedImageTag;
 ///     extension of `image_path`. (An error will be raised if this inference is not
 ///     possible, for instance if the image file lacks )
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
 	image_path: String,
@@ -67,24 +64,6 @@ pub struct ImageTag<'a> {
 
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,
-}
-
-impl<'a> TryFrom<UnvalidatedImageTag> for ImageTag<'a> {
-	type Error = ClgnDecodingError;
-
-	fn try_from(value: UnvalidatedImageTag) -> Result<Self, Self::Error> {
-		let UnvalidatedImageTag {
-			image_path,
-			kind,
-			common_tag_fields,
-		} = value;
-		let common_tag_fields = common_tag_fields.try_into()?;
-		Ok(Self {
-			image_path,
-			kind,
-			common_tag_fields,
-		})
-	}
 }
 
 dispatch_to_common_tag_fields!(impl HasVars for ImageTag<'_>);

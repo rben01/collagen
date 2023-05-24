@@ -1,23 +1,17 @@
-pub(crate) mod unvalidated;
-
 use super::{
 	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag, image_tag::ImageTag,
 	nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec, ClgnDecodingResult, TagLike,
 	TagVariables,
 };
-use crate::{
-	fibroblast::{
-		data_types::{DecodingContext, SimpleValue},
-		tags::{
-			traits::{HasCommonTagFields, HasVars},
-			XmlAttrs,
-		},
+use crate::fibroblast::{
+	data_types::{DecodingContext, SimpleValue},
+	tags::{
+		traits::{HasCommonTagFields, HasVars},
+		XmlAttrs,
 	},
-	to_svg::svg_writable::ClgnDecodingError,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use unvalidated::UnvalidatedAnyChildTag;
 
 /// A wrapper around child tags. During deserialization, the type of child tag to
 /// deserialize an object into is determined solely from the object's set of keys.
@@ -32,7 +26,7 @@ use unvalidated::UnvalidatedAnyChildTag;
 ///   came bundled with the Collagen executable
 /// - [`OtherTag`]: the most general option; represents any kind of SVG tag that does
 ///   not need any special handling as the above tags do
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum AnyChildTag<'a> {
 	Image(ImageTag<'a>),
@@ -41,21 +35,6 @@ pub enum AnyChildTag<'a> {
 	Foreach(ForeachTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
-}
-
-impl<'a> TryFrom<UnvalidatedAnyChildTag> for AnyChildTag<'a> {
-	type Error = ClgnDecodingError;
-
-	fn try_from(value: UnvalidatedAnyChildTag) -> Result<Self, Self::Error> {
-		Ok(match value {
-			UnvalidatedAnyChildTag::Image(t) => Self::Image(t.try_into()?),
-			UnvalidatedAnyChildTag::Container(t) => Self::Container(t.into()),
-			UnvalidatedAnyChildTag::NestedSvg(t) => Self::NestedSvg(t.into()),
-			UnvalidatedAnyChildTag::Foreach(t) => Self::Foreach(t.try_into()?),
-			UnvalidatedAnyChildTag::Font(t) => Self::Font(t),
-			UnvalidatedAnyChildTag::Other(t) => Self::Other(t.try_into()?),
-		})
-	}
 }
 
 impl<'a> AnyChildTag<'a> {
@@ -68,7 +47,7 @@ impl<'a> AnyChildTag<'a> {
 			Container(t) => t.children(context)?,
 			NestedSvg(t) => t.children(),
 			Image(t) => t.base_children(),
-			Foreach(t) => t.children()?,
+			Foreach(t) => t.children(context)?,
 			Other(t) => t.base_children(),
 			Font(t) => t.base_children(),
 		})
@@ -101,6 +80,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 	}
 
 	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+		use AnyChildTag::*;
 		fn attrs_iter(
 			xml_attrs: &XmlAttrs,
 		) -> impl IntoIterator<Item = (&str, Cow<'_, SimpleValue>)> {
@@ -110,7 +90,6 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 				.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
 		}
 
-		use AnyChildTag::*;
 		let mut attrs = match &self {
 			Container(t) => context.sub_vars_into_attrs(t.attrs(context)?),
 			NestedSvg(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
@@ -133,14 +112,13 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 
 	fn text(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
 		use AnyChildTag::*;
-
 		Ok(match &self {
 			Container(t) => t.text(context)?,
 			NestedSvg(t) => t.text(context)?.into(),
 			Image(t) => context.eval_exprs_in_str(t.base_text())?,
 			Foreach(t) => t.base_text().into(),
 			Other(t) => context.eval_exprs_in_str(t.base_text())?,
-			Font(t) => Cow::Owned(t.font_embed_text(context)?),
+			Font(t) => t.font_embed_text(context)?.into(),
 		})
 	}
 

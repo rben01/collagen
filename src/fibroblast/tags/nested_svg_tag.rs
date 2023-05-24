@@ -1,5 +1,3 @@
-mod unvalidated;
-
 use super::{any_child_tag::AnyChildTag, traits::HasVars, TagVariables, EMPTY_ATTRS, EMPTY_VARS};
 use crate::{
 	fibroblast::data_types::{DecodingContext, XmlAttrs},
@@ -7,8 +5,7 @@ use crate::{
 };
 use once_cell::sync::{Lazy, OnceCell};
 use regex::{Regex, RegexBuilder};
-use serde::Serialize;
-pub(in crate::fibroblast::tags) use unvalidated::UnvalidatedNestedSvgTag;
+use serde::{Deserialize, Serialize};
 
 static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
 	RegexBuilder::new(r"^\s*<\?xml.*?\?>")
@@ -18,7 +15,7 @@ static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
 		.unwrap()
 });
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NestedSvgTag {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
@@ -31,22 +28,6 @@ pub struct NestedSvgTag {
 
 	#[serde(skip)]
 	_text: OnceCell<String>,
-}
-
-impl From<UnvalidatedNestedSvgTag> for NestedSvgTag {
-	fn from(value: UnvalidatedNestedSvgTag) -> Self {
-		let UnvalidatedNestedSvgTag {
-			svg_path,
-			vars,
-			attrs,
-		} = value;
-		Self {
-			svg_path,
-			vars,
-			attrs,
-			_text: OnceCell::new(),
-		}
-	}
 }
 
 impl HasVars for NestedSvgTag {
@@ -74,25 +55,6 @@ impl NestedSvgTag {
 }
 
 impl NestedSvgTag {
-	// pub(super) fn initialize(&self, context: &DecodingContext<'_>) -> ClgnDecodingResult<()> {
-	// 	match self._text.borrow() {
-	// 		Some(_text) => Ok(()),
-	// 		None => {
-	// 			let context = context.clone();
-	// 			let abs_svg_path =
-	// 				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
-
-	// 			let text = std::fs::read_to_string(&abs_svg_path)
-	// 				.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
-	// 			let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
-
-	// 			self._text.fill(text).unwrap();
-
-	// 			Ok(())
-	// 		}
-	// 	}
-	// }
-
 	pub(super) fn tag_name(&self) -> &str {
 		"g"
 	}

@@ -122,7 +122,7 @@ impl Arg<'_> {
 				let var = *var;
 				let val = context.eval_variable(var, variables_referenced)?;
 				match val {
-					VariableValue::Number(x) => x.into(),
+					VariableValue::Number(n) => n.into(),
 					VariableValue::String(s) => {
 						return Err(vec![VariableSubstitutionError::ExpectedNumGotString {
 							variable: var.to_owned(),

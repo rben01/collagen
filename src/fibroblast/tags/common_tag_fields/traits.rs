@@ -1,6 +1,5 @@
-use crate::fibroblast::tags::{AnyChildTag, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS};
-
 use super::CommonTagFields;
+use crate::fibroblast::tags::{AnyChildTag, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS};
 
 pub(crate) trait HasVars {
 	fn base_vars(&self) -> &TagVariables;
