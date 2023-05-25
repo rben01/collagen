@@ -90,7 +90,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 
 		// If more cases arise, convert this to a match
 		if let AnyChildTag::Image(t) = self {
-			if t.kind() != Some("svg".into()) {
+			if t.kind().as_deref() != Some("svg") {
 				let (k, v) = t.get_image_attr_pair(context)?;
 				attrs.push((k, Cow::Owned(v)));
 			}
