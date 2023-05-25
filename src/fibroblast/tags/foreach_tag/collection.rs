@@ -41,7 +41,7 @@ pub(crate) enum LoopCollection {
 
 impl UnprocessedLoopCollection {
 	pub(super) fn reified(&self, context: &DecodingContext) -> ClgnDecodingResult<LoopCollection> {
-		fn get_endpoint(x: &VariableValue, context: &DecodingContext) -> ClgnDecodingResult<f64> {
+		fn evaluate(x: &VariableValue, context: &DecodingContext) -> ClgnDecodingResult<f64> {
 			Ok(match x {
 				VariableValue::Number(n) => (*n).into(),
 				VariableValue::String(s) => {
@@ -64,11 +64,11 @@ impl UnprocessedLoopCollection {
 				step,
 				closed,
 			} => {
-				let start = get_endpoint(start, context)?;
-				let end = get_endpoint(end, context)?;
+				let start = evaluate(start, context)?;
+				let end = evaluate(end, context)?;
 				let step = step
 					.as_ref()
-					.map(|step| get_endpoint(step, context))
+					.map(|step| evaluate(step, context))
 					.transpose()?
 					.unwrap_or(if start < end { 1.0 } else { -1.0 });
 

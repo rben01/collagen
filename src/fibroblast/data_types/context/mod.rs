@@ -160,12 +160,9 @@ impl<'a> DecodingContext<'a> {
 			});
 		}
 
-		let val = match self.get_var(var) {
-			Some(val) => val,
-			None => {
-				parsing_errs.push(VariableSubstitutionError::MissingVariable(var.to_owned()));
-				return Err(parsing_errs);
-			}
+		let Some(val) =  self.get_var(var) else{
+			parsing_errs.push(VariableSubstitutionError::MissingVariable(var.to_owned()));
+			return Err(parsing_errs);
 		};
 		Ok(match val {
 			VariableValue::Number(n) => (*n).into(),

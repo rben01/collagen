@@ -28,11 +28,20 @@ impl<'a> IntoIterator for &'a Loop {
 pub struct LoopIter<'a> {
 	iterable: &'a Loop,
 	index: usize,
+	len: usize,
 }
 
 impl<'a> LoopIter<'a> {
 	fn new(iterable: &'a Loop) -> Self {
-		Self { iterable, index: 0 }
+		let len = match iterable {
+			Loop::Atom(_) => 1,
+			Loop::List(v) => v.len(),
+		};
+		Self {
+			iterable,
+			index: 0,
+			len,
+		}
 	}
 }
 
@@ -40,20 +49,19 @@ impl<'a> Iterator for LoopIter<'a> {
 	type Item = &'a LoopVariable;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		let Self { iterable, index } = self;
+		let Self {
+			iterable,
+			index,
+			len,
+		} = self;
+
+		if *index >= *len {
+			return None;
+		}
+
 		let next = match &*iterable {
-			Loop::Atom(x) => {
-				if *index > 0 {
-					return None;
-				}
-				x
-			}
-			Loop::List(v) => {
-				if *index >= v.len() {
-					return None;
-				}
-				&v[*index]
-			}
+			Loop::Atom(x) => x,
+			Loop::List(v) => &v[*index],
 		};
 
 		*index += 1;
