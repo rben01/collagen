@@ -23,15 +23,13 @@ pub(crate) use variable_value::VariableValue;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct XmlAttrs(pub(crate) Map<String, SimpleValue>);
 
-impl Deref for XmlAttrs {
-	type Target = Map<String, SimpleValue>;
+type AttrKVPair<'a> = (&'a str, Cow<'a, SimpleValue>);
 
-	fn deref(&self) -> &Self::Target {
-		&self.0
+impl XmlAttrs {
+	pub(crate) fn iter(&self) -> impl Iterator<Item = AttrKVPair<'_>> {
+		self.0.iter().map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
 	}
 }
-
-type AttrKVPair<'a> = (&'a str, Cow<'a, SimpleValue>);
 
 /// A vector of key, value pairs representing attributes
 pub(crate) struct AttrKVValueVec<'a>(Vec<AttrKVPair<'a>>);

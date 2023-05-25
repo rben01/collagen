@@ -4,11 +4,8 @@ use super::{
 	TagVariables,
 };
 use crate::fibroblast::{
-	data_types::{DecodingContext, SimpleValue},
-	tags::{
-		traits::{HasCommonTagFields, HasVars},
-		XmlAttrs,
-	},
+	data_types::DecodingContext,
+	tags::traits::{HasCommonTagFields, HasVars},
 };
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -81,22 +78,14 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 
 	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		use AnyChildTag::*;
-		fn attrs_iter(
-			xml_attrs: &XmlAttrs,
-		) -> impl IntoIterator<Item = (&str, Cow<'_, SimpleValue>)> {
-			xml_attrs
-				.0
-				.iter()
-				.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
-		}
 
 		let mut attrs = match &self {
 			Container(t) => context.sub_vars_into_attrs(t.attrs(context)?),
-			NestedSvg(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
-			Image(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
-			Foreach(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
-			Other(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
-			Font(t) => context.sub_vars_into_attrs(attrs_iter(t.base_attrs())),
+			NestedSvg(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			Image(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			Foreach(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			Other(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			Font(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 		}?;
 
 		// If more cases arise, convert this to a match
