@@ -85,15 +85,11 @@ impl<'a> ForeachTag<'a> {
 					return Err(ClgnDecodingError::Foreach {
 						msg: format!(
 							"when specifying multiple collections in a `for_each`, \
-					 		 they must all have the same length; but got {} (originally \
-							 {}), with length {}, and {} (originally {}) with length {}",
-							serde_json::to_string(&first_collection.reified(context).unwrap())
-								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
+					 		 they must all have the same length; but got {} \
+							 with length {}, and {} with length {}",
 							serde_json::to_string(first_collection)
 								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
 							iterable_len,
-							serde_json::to_string(&reified)
-								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
 							serde_json::to_string(collection)
 								.map_err(|e| ClgnDecodingError::JsonEncode(e, None))?,
 							reified.len()
