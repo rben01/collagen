@@ -129,13 +129,7 @@ impl<'a> ContainerTag<'a> {
 		context: &'a DecodingContext<'a>,
 	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		let fb = self.as_fibroblast(context)?;
-		fb.context.sub_vars_into_attrs(
-			fb.root
-				.base_attrs()
-				.0
-				.iter()
-				.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
-		)
+		fb.context.sub_vars_into_attrs(fb.root.base_attrs().iter())
 	}
 
 	pub(super) fn children(

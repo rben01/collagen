@@ -39,12 +39,7 @@ impl<'a> TagLike<'a> for RootTag<'a> {
 
 	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		let base_attrs = self.base_attrs();
-		let mut new_attrs = context.sub_vars_into_attrs(
-			base_attrs
-				.0
-				.iter()
-				.map(|(k, v)| (k.as_ref(), Cow::Borrowed(v))),
-		)?;
+		let mut new_attrs = context.sub_vars_into_attrs(base_attrs.iter())?;
 
 		if !base_attrs.0.contains_key("xmlns") {
 			new_attrs.push((

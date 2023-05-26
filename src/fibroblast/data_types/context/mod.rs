@@ -136,9 +136,6 @@ impl<'a> DecodingContext<'a> {
 	}
 
 	pub(crate) fn get_var(&self, var: &str) -> Option<&'a VariableValue> {
-		// Nothing is really copied here; self.vars_map.borrow().get(var) returns a
-		// double reference `&&T`, which we just want to turn into a `&T` (so, sure, a
-		// pointer is copied. NBD)
 		self.vars_map.borrow().get(var).copied()
 	}
 

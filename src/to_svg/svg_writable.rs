@@ -29,22 +29,27 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	{
 		let tag_name = self.tag_name();
 
-		// Open the tag (write e.g., `<rect attr1="val1">`)
+		// Open the tag (write e.g., `<rect`)
 		let mut curr_elem = BytesStart::new(tag_name);
 
-		// Write the tag's children and text
+		// Write the tag itself, and its children and text
 		context.with_new_vars(self.vars(context)?, || {
 			let attr_values = self.attrs(context)?;
-			let attr_strings = attr_values
-				.iter()
-				.filter_map(|(k, v)| v.to_maybe_string().map(|s| (*k, s)))
-				.collect::<Vec<_>>();
 
-			curr_elem.extend_attributes(attr_strings.iter().map(|(k, v)| (*k, v.as_ref())));
+			// Write e.g., `attr1="val1"`
+			for (k, v) in attr_values.iter() {
+				if let Some(v) = v.to_maybe_string() {
+					curr_elem.push_attribute((*k, v.as_ref()));
+				}
+			}
+
+			// Finish tag, writing `>`
 			writer.write_event(XmlEvent::Start(curr_elem))?;
 
+			// Write the children
 			write_children(writer)?;
 
+			// Write the tag's text `<tag attr="val">text here`
 			let text = self.text(context)?;
 			writer.write_event(XmlEvent::Text(if self.should_escape_text() {
 				BytesText::new(text.as_ref())
@@ -55,7 +60,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 			Ok(())
 		})?;
 
-		// Close the tag
+		// Close the tag (`</rect>`)
 		writer.write_event(XmlEvent::End(BytesEnd::new(tag_name)))?;
 
 		Ok(())
