@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 pub struct ForeachTag<'a> {
 	#[serde(rename = "for_each")]
 	pub(super) loops: Loop,
+	#[serde(rename = "do")]
 	pub(super) template: Box<AnyChildTag<'a>>,
 	#[serde(flatten)]
 	// the absence of children makes 'static appropriate here
