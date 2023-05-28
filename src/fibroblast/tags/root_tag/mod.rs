@@ -37,7 +37,7 @@ impl<'a> TagLike<'a> for RootTag<'a> {
 		Ok(self.base_vars())
 	}
 
-	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		let base_attrs = self.base_attrs();
 		let mut new_attrs = context.sub_vars_into_attrs(base_attrs.iter())?;
 

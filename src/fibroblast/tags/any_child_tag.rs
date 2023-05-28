@@ -28,7 +28,7 @@ use std::borrow::Cow;
 pub enum AnyChildTag<'a> {
 	Image(ImageTag<'a>),
 	Container(ContainerTag<'a>),
-	NestedSvg(NestedSvgTag),
+	NestedSvg(NestedSvgTag<'a>),
 	Foreach(ForeachTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
@@ -37,7 +37,7 @@ pub enum AnyChildTag<'a> {
 impl<'a> AnyChildTag<'a> {
 	pub(crate) fn children(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<&'a [AnyChildTag]> {
 		use AnyChildTag::*;
 		Ok(match self {
@@ -64,7 +64,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		}
 	}
 
-	fn vars(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
+	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
 		use AnyChildTag::*;
 		Ok(match &self {
 			Container(t) => t.vars(context)?,
@@ -76,7 +76,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		})
 	}
 
-	fn attrs(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		use AnyChildTag::*;
 
 		let mut attrs = match &self {
@@ -90,7 +90,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 
 		// If more cases arise, convert this to a match
 		if let AnyChildTag::Image(t) = self {
-			if t.kind().as_deref() != Some("svg") {
+			if t.kind(context)?.as_ref() != "svg" {
 				let (k, v) = t.get_image_attr_pair(context)?;
 				attrs.push((k, Cow::Owned(v)));
 			}
@@ -99,7 +99,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		Ok(attrs)
 	}
 
-	fn text(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
 		use AnyChildTag::*;
 		Ok(match &self {
 			Container(t) => t.text(context)?,
@@ -111,7 +111,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		})
 	}
 
-	fn should_escape_text(&'a self) -> bool {
+	fn should_escape_text(&self) -> bool {
 		use AnyChildTag::*;
 		match &self {
 			Container(t) => t.should_escape_text(),
