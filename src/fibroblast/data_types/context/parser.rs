@@ -15,7 +15,7 @@ use nom::{
 	combinator::{all_consuming, map, recognize, value},
 	multi::{many0, many0_count},
 	number::complete::double,
-	sequence::{pair, tuple},
+	sequence::{pair, preceded, tuple},
 	IResult,
 };
 
@@ -41,8 +41,8 @@ fn r_paren(input: &str) -> IResult<&str, char> {
 
 fn ident(input: &str) -> IResult<&str, &str> {
 	recognize(pair(
-		satisfy(|c| c.is_alphabetic() || c == '_'),
-		many0_count(satisfy(|c| c.is_alphanumeric() || c == '_')),
+		satisfy(|c| c.is_alphabetic() || c == '_' || c == '-'),
+		many0_count(satisfy(|c| c.is_alphanumeric() || c == '_' || c == '-')),
 	))(input)
 }
 
@@ -73,7 +73,7 @@ fn s_expr(input: &str) -> IResult<&str, SExpr> {
 		l_paren,
 		multispace0,
 		word,
-		many0(map(pair(multispace1, arg), |(_, arg)| arg)),
+		many0(preceded(multispace1, arg)),
 		multispace0,
 		r_paren,
 	))(input)?;

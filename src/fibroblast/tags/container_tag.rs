@@ -96,17 +96,29 @@ pub struct ContainerTag<'a> {
 
 	#[serde(skip)]
 	_child_clgn: OnceCell<Fibroblast<'a>>,
+
+	#[serde(skip)]
+	clgn_path_reified: OnceCell<Cow<'a, str>>,
 }
 
 impl<'a> ContainerTag<'a> {
+	fn clgn_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
+		Ok(self
+			.clgn_path_reified
+			.get_or_try_init(|| context.eval_exprs_in_str(&self.clgn_path))?
+			.as_ref())
+	}
+
 	pub(crate) fn as_fibroblast(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<&'a Fibroblast<'a>> {
 		self._child_clgn.get_or_try_init(|| {
+			let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
+				&*context.get_root(),
+				&self.clgn_path(&context)?,
+			)?;
 			let context = context.clone();
-			let abs_clgn_path =
-				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
 			context.replace_root(abs_clgn_path.clone());
 			let subroot = Fibroblast::from_dir_with_context(abs_clgn_path, context)?;
 			Ok(subroot)
@@ -119,14 +131,14 @@ impl<'a> ContainerTag<'a> {
 
 	pub(super) fn vars(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<&'a TagVariables> {
 		self.as_fibroblast(context)?.vars()
 	}
 
 	pub(super) fn attrs(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		let fb = self.as_fibroblast(context)?;
 		fb.context.sub_vars_into_attrs(fb.root.base_attrs().iter())
@@ -134,15 +146,15 @@ impl<'a> ContainerTag<'a> {
 
 	pub(super) fn children(
 		&'a self,
-		context: &'a DecodingContext<'a>,
-	) -> ClgnDecodingResult<&'a [AnyChildTag<'a>]> {
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<&'_ [AnyChildTag<'_>]> {
 		Ok(self.as_fibroblast(context)?.children())
 	}
 
 	pub(super) fn text(
 		&'a self,
-		context: &'a DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, str>> {
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'_, str>> {
 		self.as_fibroblast(context)?.text()
 	}
 

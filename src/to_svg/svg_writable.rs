@@ -19,7 +19,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	/// Calls `write_children` when it's time to write the children
 	fn to_svg_with_child_writer<W, F>(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<W>,
 		write_children: F,
 	) -> ClgnDecodingResult<()>
@@ -70,11 +70,11 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	/// where the output goes -- a `String`, to a file, etc.
 	fn to_svg(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>;
 
-	fn to_svg_string(&'a self, context: &'a DecodingContext<'a>) -> ClgnDecodingResult<String> {
+	fn to_svg_string(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<String> {
 		let mut writer = XmlWriter::new(Cursor::new(Vec::new()));
 		self.to_svg(context, &mut writer)?;
 
@@ -88,7 +88,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 	fn to_svg(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>
 	where
@@ -117,7 +117,7 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 	fn to_svg(
 		&'a self,
-		context: &'a DecodingContext<'a>,
+		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>
 	where

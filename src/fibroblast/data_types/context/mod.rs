@@ -191,7 +191,7 @@ impl<'a> DecodingContext<'a> {
 		parse(s, self, &Set::new())
 	}
 
-	pub(crate) fn eval_exprs_in_str_helper<'b>(
+	fn eval_exprs_in_str_helper<'b>(
 		&self,
 		s: &'b str,
 		variables_referenced: &Set<String>,
@@ -199,10 +199,7 @@ impl<'a> DecodingContext<'a> {
 		parse(s, self, variables_referenced)
 	}
 
-	pub(crate) fn sub_vars_into_attrs<I>(
-		&'a self,
-		attrs: I,
-	) -> ClgnDecodingResult<AttrKVValueVec<'a>>
+	pub(crate) fn sub_vars_into_attrs<I>(&self, attrs: I) -> ClgnDecodingResult<AttrKVValueVec<'a>>
 	where
 		I: IntoIterator<Item = (&'a str, Cow<'a, SimpleValue>)>,
 	{

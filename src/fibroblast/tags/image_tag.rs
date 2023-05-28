@@ -5,8 +5,9 @@ use crate::{
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 	utils::b64_encode,
 };
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, path::PathBuf};
+use std::{borrow::Cow, path::Path};
 
 /// A tag for handling images on disk. Collagen handles images specially, so we need a
 /// separate type for their tags. `ImageTag`s look more or less like the following:
@@ -64,45 +65,57 @@ pub struct ImageTag<'a> {
 
 	#[serde(flatten)]
 	common_tag_fields: CommonTagFields<'a>,
+
+	#[serde(skip)]
+	image_path_reified: OnceCell<Cow<'a, str>>,
 }
 
 dispatch_to_common_tag_fields!(impl HasVars for ImageTag<'_>);
 dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for ImageTag<'a>);
 
 impl<'a> ImageTag<'a> {
+	fn image_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
+		Ok(self
+			.image_path_reified
+			.get_or_try_init(|| context.eval_exprs_in_str(&self.image_path))?
+			.as_ref())
+	}
+
 	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `{TYPE}`
 	/// in the data URI `data:image/{TYPE};base64,...`. If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
-	pub(crate) fn kind(&'a self) -> Option<Cow<'a, str>> {
-		match &self.kind {
-			Some(kind) => Some(Cow::Borrowed(kind)),
+	pub(crate) fn kind(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, str>> {
+		Ok(match &self.kind {
+			Some(kind) => Cow::Borrowed(kind),
 			None => {
-				let path = PathBuf::from(&self.image_path);
-				let extn = path.extension()?.to_str()?.to_ascii_lowercase();
-				Some(Cow::Owned(extn))
+				let image_path = self.image_path(context)?;
+				let path = Path::new(&image_path);
+				let kind = path
+					.extension()
+					.and_then(|extn| extn.to_str())
+					.map(|s| Cow::Owned(s.to_ascii_lowercase()))
+					.ok_or_else(|| ClgnDecodingError::Image {
+						msg: format!(
+							r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
+							self.image_path
+						),
+					})?;
+				kind
 			}
-		}
+		})
 	}
 
 	/// Get the key-value pair (as a tuple) that makes the image actually work! (E.g.,
 	/// the tuple `("href", "data:image/jpeg;base64,...")`)
 	pub(super) fn get_image_attr_pair(
 		&'a self,
-		context: &DecodingContext,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<(&'a str, SimpleValue)> {
 		let key = "href";
-
-		let kind = match self.kind() {
-			Some(kind) => kind,
-			None => {
-				return Err(ClgnDecodingError::Image {
-					msg: format!(
-						r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
-						self.image_path
-					),
-				});
-			}
-		};
+		let kind = self.kind(context)?;
 
 		// I'd like to find the "right" way to reduce memory usage here. We're reading a
 		// file into memory and then storing its b64 string also in memory. That's
@@ -110,8 +123,9 @@ impl<'a> ImageTag<'a> {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 
+		let image_path = context.eval_exprs_in_str(&self.image_path)?;
 		let abs_image_path =
-			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.image_path)?;
+			crate::utils::paths::pathsep_aware_join(&*context.get_root(), image_path)?;
 
 		let b64_string = b64_encode(
 			std::fs::read(abs_image_path.as_path())
