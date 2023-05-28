@@ -1,7 +1,7 @@
 use super::{
-	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag, image_tag::ImageTag,
-	nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec, ClgnDecodingResult, TagLike,
-	TagVariables,
+	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag, if_tag::IfTag,
+	image_tag::ImageTag, nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec,
+	ClgnDecodingResult, TagLike, TagVariables,
 };
 use crate::fibroblast::{
 	data_types::DecodingContext,
@@ -30,6 +30,7 @@ pub enum AnyChildTag<'a> {
 	Container(ContainerTag<'a>),
 	NestedSvg(NestedSvgTag<'a>),
 	Foreach(ForeachTag<'a>),
+	If(IfTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
 }
@@ -45,6 +46,7 @@ impl<'a> AnyChildTag<'a> {
 			NestedSvg(t) => t.children(),
 			Image(t) => t.base_children(),
 			Foreach(t) => t.children(context)?,
+			If(t) => t.children(context)?,
 			Other(t) => t.base_children(),
 			Font(t) => t.base_children(),
 		})
@@ -59,6 +61,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			NestedSvg(t) => t.tag_name(),
 			Image(t) => t.tag_name(),
 			Foreach(t) => t.tag_name(),
+			If(t) => t.tag_name(),
 			Other(t) => t.tag_name(),
 			Font(t) => t.tag_name(),
 		}
@@ -71,6 +74,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			NestedSvg(t) => t.base_vars(),
 			Image(t) => t.base_vars(),
 			Foreach(t) => t.base_vars(),
+			If(t) => t.base_vars(),
 			Other(t) => t.base_vars(),
 			Font(t) => t.base_vars(),
 		})
@@ -84,6 +88,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			NestedSvg(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Image(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Foreach(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			If(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Other(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Font(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 		}?;
@@ -106,6 +111,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			NestedSvg(t) => t.text(context)?.into(),
 			Image(t) => context.eval_exprs_in_str(t.base_text())?,
 			Foreach(t) => t.base_text().into(),
+			If(t) => t.base_text().into(),
 			Other(t) => context.eval_exprs_in_str(t.base_text())?,
 			Font(t) => t.font_embed_text(context)?.into(),
 		})
@@ -118,6 +124,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			NestedSvg(t) => t.should_escape_text(),
 			Image(t) => t.should_escape_text(),
 			Foreach(t) => t.should_escape_text(),
+			If(t) => t.should_escape_text(),
 			Other(t) => t.should_escape_text(),
 			Font(t) => t.should_escape_text(),
 		}

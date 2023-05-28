@@ -131,6 +131,9 @@ impl<'a> ForeachTag<'a> {
 							AnyChildTag::Foreach(t) => {
 								insert_var(t.base_vars_mut(), name, elem);
 							}
+							AnyChildTag::If(t) => {
+								insert_var(t.base_vars_mut(), name, elem);
+							}
 						};
 					}
 

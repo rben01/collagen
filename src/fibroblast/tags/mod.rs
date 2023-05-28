@@ -35,6 +35,7 @@ pub(super) mod common_tag_fields;
 pub(super) mod container_tag;
 pub(super) mod font_tag;
 pub(super) mod foreach_tag;
+pub(super) mod if_tag;
 pub(super) mod image_tag;
 pub(super) mod nested_svg_tag;
 pub(super) mod other_tag;

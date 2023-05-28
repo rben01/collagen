@@ -28,6 +28,8 @@ pub enum ClgnDecodingError {
 	ToSvgString(Utf8Error),
 	Image { msg: String },
 	Foreach { msg: String },
+	If { msg: String },
+	InvalidField { msg: String },
 	BundledFontNotFound { font_name: String },
 }
 
@@ -44,8 +46,10 @@ impl ClgnDecodingError {
 			Xml(..) => 15,
 			ToSvgString(..) => 19,
 			BundledFontNotFound { .. } => 22,
+			InvalidField { .. } => 27,
 			Zip(..) => 33,
 			Foreach { .. } => 77,
+			If { .. } => 78,
 		}
 	}
 }
@@ -66,8 +70,10 @@ impl Display for ClgnDecodingError {
 				"{:?}; invalid UTF-8 sequence when converting to string",
 				e
 			),
+			InvalidField { msg } => write!(f, "{}", msg),
 			Image { msg } => write!(f, "{}", msg),
 			Foreach { msg } => write!(f, "{}", msg),
+			If { msg } => write!(f, "{}", msg),
 			BundledFontNotFound { font_name } => write!(
 				f,
 				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",
