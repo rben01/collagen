@@ -96,7 +96,7 @@ impl Display for ClgnDecodingError {
 				out_file,
 			} => write!(
 				f,
-				"Refusing to run. \
+				"Refusing to run in --watch mode. \
 				 out_file {out_file:?} is a descendent of in_folder \
 				 {in_folder:?}, which would lead to an infinite loop: \
 				 every time out_file were modified, it would kick off another \
