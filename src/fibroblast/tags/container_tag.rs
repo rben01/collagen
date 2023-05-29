@@ -112,11 +112,11 @@ impl<'a> ContainerTag<'a> {
 	pub(crate) fn as_fibroblast(
 		&'a self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<&'a Fibroblast<'a>> {
+	) -> ClgnDecodingResult<&Fibroblast<'a>> {
 		self._child_clgn.get_or_try_init(|| {
 			let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
 				&*context.get_root(),
-				&self.clgn_path(&context)?,
+				self.clgn_path(&context)?,
 			)?;
 			let context = context.clone();
 			context.replace_root(abs_clgn_path.clone());
@@ -132,7 +132,7 @@ impl<'a> ContainerTag<'a> {
 	pub(super) fn vars(
 		&'a self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<&'a TagVariables> {
+	) -> ClgnDecodingResult<&TagVariables> {
 		self.as_fibroblast(context)?.vars()
 	}
 
@@ -151,10 +151,7 @@ impl<'a> ContainerTag<'a> {
 		Ok(self.as_fibroblast(context)?.children())
 	}
 
-	pub(super) fn text(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'_, str>> {
+	pub(super) fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<str>> {
 		self.as_fibroblast(context)?.text()
 	}
 

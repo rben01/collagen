@@ -1,6 +1,4 @@
-//! For writing the in-memory representation to SVG. At some point I would like to
-//! implement <https://serde.rs/transcode.html>, using `serde` to stream straight from
-//! JSON to SVG (XML). I don't think it should be *that* hard.
+//! For writing the in-memory representation to SVG.
 
 use crate::fibroblast::{
 	data_types::DecodingContext,
@@ -12,7 +10,7 @@ use quick_xml::{
 	events::{BytesEnd, BytesStart, BytesText, Event as XmlEvent},
 	Writer as XmlWriter,
 };
-use std::{fmt::Debug, io::Cursor};
+use std::io::Cursor;
 
 pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 	/// Writes `tag` to SVG (aka XML) through an `XmlWriter`, with a `DecodingContext`.
@@ -90,10 +88,7 @@ impl<'a> SvgWritableTag<'a> for AnyChildTag<'a> {
 		&'a self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
-	) -> ClgnDecodingResult<()>
-	where
-		Self: Debug,
-	{
+	) -> ClgnDecodingResult<()> {
 		self.to_svg_with_child_writer(context, writer, |writer| match &self {
 			AnyChildTag::Container(container) => {
 				let fb = container.as_fibroblast(context)?;
@@ -119,10 +114,7 @@ impl<'a> SvgWritableTag<'a> for RootTag<'a> {
 		&'a self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
-	) -> ClgnDecodingResult<()>
-	where
-		Self: Debug,
-	{
+	) -> ClgnDecodingResult<()> {
 		self.to_svg_with_child_writer(context, writer, |writer| {
 			for child in self.children() {
 				child.to_svg(context, writer)?;

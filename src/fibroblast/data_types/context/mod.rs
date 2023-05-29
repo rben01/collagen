@@ -224,7 +224,7 @@ impl<'a> DecodingContext<'a> {
 					};
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-						_orig_text => orig_val,
+						Cow::Borrowed(_orig) => orig_val,
 					}
 				}
 				_wasnt_text => orig_val,

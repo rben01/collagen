@@ -387,6 +387,31 @@ clgn -i path/to/collagen -o output-file.svg
 
 <div class="paragraph">
 
+To continuously monitor the input folder and re-run on any changes, you
+can run Collagen in watch mode:
+
+</div>
+
+<div class="listingblock">
+
+<div class="content">
+
+``` highlight
+clgn -i path/to/collagen -o output-file.svg --watch
+```
+
+</div>
+
+</div>
+
+<div class="paragraph">
+
+This will log a success message
+
+</div>
+
+<div class="paragraph">
+
 [This doc](https://rben01.github.io/collagen) has several examples that
 can serve as a good starting point for creating a manifest. More
 examples are available as test cases in `tests/examples`.

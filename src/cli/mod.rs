@@ -43,16 +43,21 @@ fn create_writer(
 	Ok(XmlWriter::new(file_writer))
 }
 
+fn run_once(in_folder: &Path, out_file: &Path) {
+	fn run_once_inner(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
+		Fibroblast::from_dir(in_folder.clone().into())?
+			.to_svg(&mut create_writer(in_folder, out_file)?)
+	}
+
+	match run_once_inner(in_folder, out_file) {
+		Ok(()) => eprintln!("Success; output to {out_file:?}"),
+		Err(e) => eprintln!("Error while watching {:?}: {:?}", in_folder, e),
+	}
+}
+
 impl Cli {
 	pub fn run(self) -> ClgnDecodingResult<()> {
 		use notify::{event::ModifyKind, EventKind::*};
-
-		macro_rules! error {
-			($e:expr, $in_folder:expr $(,)?) => {
-				eprintln!("Got error {:?} while watching {:?}", $e, $in_folder);
-				continue;
-			};
-		}
 
 		let Self {
 			in_folder,
@@ -61,9 +66,12 @@ impl Cli {
 			debounce_ms,
 		} = self;
 
-		Fibroblast::from_dir(in_folder.clone().into())?
-			.to_svg(&mut create_writer(&in_folder, &out_file)?)?;
+		let in_folder = in_folder.as_ref();
+		let out_file = out_file.as_ref();
+
 		if watch {
+			run_once(in_folder, out_file);
+
 			let (tx, rx) = std::sync::mpsc::channel();
 
 			let mut debouncer = new_debouncer(
@@ -100,35 +108,23 @@ impl Cli {
 					continue;
 				}
 
-				// I don't fully understand why this can't be written as
-				// `Fibroblast::from_dir(...).and_then(|f| f.to_svg(...))`; it runs into
-				// some lifetime issues I can't figure out (who cares when the argument to
-				// and_then is dropped, it's not used afterwards)
-				let f = match Fibroblast::from_dir(in_folder.clone().into()) {
-					Ok(f) => f,
-					Err(e) => {
-						error!(e, in_folder);
-					}
-				};
-				match f.to_svg(&mut create_writer(&in_folder, &out_file)?) {
-					Ok(()) => {
-						if modified_paths.len() == 1 {
-							eprintln!(
-								"Observed changes to {:?} in {in_folder:?}; rerunning",
-								modified_paths.iter().next().unwrap()
-							)
-						} else {
-							eprintln!(
-								"Observed changes to {:?} in {in_folder:?}; rerunning",
-								modified_paths
-							)
-						}
-					}
-					Err(e) => {
-						error!(e, in_folder);
-					}
+				if modified_paths.len() == 1 {
+					eprintln!(
+						"Rerunning on {in_folder:?} due to changes to {:?}",
+						modified_paths.iter().next().unwrap()
+					)
+				} else {
+					eprintln!(
+						"Rerunning on {in_folder:?} due to changes to {:?}",
+						modified_paths
+					)
 				}
+
+				run_once(in_folder, out_file);
 			}
+		} else {
+			Fibroblast::from_dir(in_folder.clone().into())?
+				.to_svg(&mut create_writer(&in_folder, &out_file)?)?;
 		}
 
 		Ok(())

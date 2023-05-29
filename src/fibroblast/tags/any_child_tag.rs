@@ -104,7 +104,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 		Ok(attrs)
 	}
 
-	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<str>> {
 		use AnyChildTag::*;
 		Ok(match &self {
 			Container(t) => t.text(context)?,

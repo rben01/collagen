@@ -22,7 +22,7 @@ pub(crate) trait HasVars {
 // theory they should work (or at least give a better error message.)
 pub(crate) trait HasCommonTagFields<'a>: HasVars {
 	fn base_attrs(&self) -> &XmlAttrs;
-	fn base_children(&'a self) -> &'a [AnyChildTag<'a>];
+	fn base_children(&self) -> &[AnyChildTag<'a>];
 	fn base_text(&self) -> &str;
 	fn should_escape_text(&self) -> bool;
 }
@@ -42,7 +42,7 @@ impl<'a> HasCommonTagFields<'a> for CommonTagFields<'a> {
 		self.attrs.as_ref().unwrap_or(&EMPTY_ATTRS)
 	}
 
-	fn base_children(&'a self) -> &'a [AnyChildTag<'a>] {
+	fn base_children(&self) -> &[AnyChildTag<'a>] {
 		self.children.as_deref().unwrap_or(&[])
 	}
 
@@ -77,7 +77,7 @@ macro_rules! dispatch_to_common_tag_fields {
 				self.common_tag_fields.base_attrs()
 			}
 
-			fn base_children(&'a self) -> &'a [$crate::fibroblast::tags::AnyChildTag<'a>] {
+			fn base_children(&self) -> &[$crate::fibroblast::tags::AnyChildTag<'a>] {
 				self.common_tag_fields.base_children()
 			}
 

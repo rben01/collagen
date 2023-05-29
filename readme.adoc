@@ -145,6 +145,15 @@ Once installed, if you have a manifest file at path `path/to/collagen/manifest.j
 clgn -i path/to/collagen -o output-file.svg
 ----
 
+To continuously monitor the input folder and re-run on any changes, you can run Collagen in watch mode:
+
+[source,bash]
+----
+clgn -i path/to/collagen -o output-file.svg --watch
+----
+
+This will log a success message
+
 https://rben01.github.io/collagen[This doc] has several examples that can serve as a good starting point for creating a manifest.
 More examples are available as test cases in `tests/examples`.
 

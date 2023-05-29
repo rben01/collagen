@@ -52,11 +52,11 @@ impl<'a> Fibroblast<'a> {
 		self.root.vars(&self.context)
 	}
 
-	pub(crate) fn children(&'a self) -> &[AnyChildTag<'a>] {
+	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
 		self.root.children()
 	}
 
-	pub(crate) fn text(&'a self) -> ClgnDecodingResult<Cow<'a, str>> {
+	pub(crate) fn text(&'a self) -> ClgnDecodingResult<Cow<str>> {
 		self.root.text(&self.context)
 	}
 }

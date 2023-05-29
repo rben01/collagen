@@ -23,7 +23,7 @@ dispatch_to_common_tag_fields!(impl HasVars for RootTag<'_>);
 dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for RootTag<'a>);
 
 impl<'a> RootTag<'a> {
-	pub(crate) fn children(&'a self) -> &[AnyChildTag<'a>] {
+	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
 		self.base_children()
 	}
 }
@@ -51,7 +51,7 @@ impl<'a> TagLike<'a> for RootTag<'a> {
 		Ok(new_attrs)
 	}
 
-	fn text(&'a self, _: &DecodingContext) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn text(&self, _: &DecodingContext) -> ClgnDecodingResult<Cow<str>> {
 		Ok(Cow::Borrowed(self.base_text()))
 	}
 
