@@ -11,7 +11,9 @@ pub struct IfTag<'a> {
 	#[serde(rename = "if")]
 	pub(super) predicate: String,
 	#[serde(rename = "then")]
-	pub(super) template: Box<AnyChildTag<'a>>,
+	pub(super) true_template: Box<AnyChildTag<'a>>,
+	#[serde(rename = "else")]
+	pub(super) false_template: Option<Box<AnyChildTag<'a>>>,
 	#[serde(flatten)]
 	// the absence of children makes 'static appropriate here
 	pub(super) common_tag_fields: CommonTagFields<'static>,
@@ -36,8 +38,25 @@ impl<'a> IfTag<'a> {
 		self.common_tag_fields.should_escape_text()
 	}
 
-	pub(crate) fn child(&'a self) -> &'a AnyChildTag<'a> {
-		&self.template.as_ref()
+	pub(crate) fn should_be_emitted(&self, context: &DecodingContext) -> ClgnDecodingResult<bool> {
+		let val = context.eval_exprs_in_str(&self.predicate)?;
+		let res = val.parse::<f64>().map_err(|_| ClgnDecodingError::If {
+			msg: format!(
+				"`if` tag's predicate, {:?}, did not evaluate to a float",
+				self.predicate
+			),
+		})?;
+		Ok(res != 0.0)
+	}
+
+	pub(crate) fn child(
+		&self,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<Option<&AnyChildTag<'a>>> {
+		Ok(self
+			.should_be_emitted(context)?
+			.then(|| self.true_template.as_ref())
+			.or_else(|| self.false_template.as_deref()))
 	}
 
 	pub(crate) fn children(
@@ -56,21 +75,9 @@ impl<'a> IfTag<'a> {
 			});
 		}
 
-		Ok(if self.should_be_emitted(context)? {
-			slice::from_ref(self.child())
-		} else {
-			&[]
+		Ok(match self.child(context)? {
+			Some(child) => slice::from_ref(child),
+			None => &[],
 		})
-	}
-
-	pub(crate) fn should_be_emitted(&self, context: &DecodingContext) -> ClgnDecodingResult<bool> {
-		let val = context.eval_exprs_in_str(&self.predicate)?;
-		let res = val.parse::<f64>().map_err(|_| ClgnDecodingError::If {
-			msg: format!(
-				"`if` tag's predicate, {:?}, did not evaluate to a float",
-				self.predicate
-			),
-		})?;
-		Ok(res != 0.0)
 	}
 }
