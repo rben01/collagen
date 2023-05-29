@@ -2,6 +2,7 @@
 :nofooter:
 :toc: macro
 :!figure-caption:
+:experimental:
 
 image:https://img.shields.io/crates/v/collagen[link=https://crates.io/crates/collagen]
 
@@ -154,6 +155,8 @@ clgn -i path/to/collagen -o output-file.svg --watch
 ----
 
 In watch mode, every time a file in `path/to/collagen` is modified, Collagen will attempt to regenerate the output file and will either print a generic success message or log the specific error encountered, as the case may be.
+Watch mode will never terminate on its own.
+As with most terminal commands, you can terminate it with kbd:[Ctrl-C].
 
 https://rben01.github.io/collagen[This doc] has several examples that can serve as a good starting point for creating a manifest.
 More examples are available as test cases in `tests/examples`.

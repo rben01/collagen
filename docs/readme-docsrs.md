@@ -409,7 +409,9 @@ clgn -i path/to/collagen -o output-file.svg --watch
 In watch mode, every time a file in `path/to/collagen` is modified,
 Collagen will attempt to regenerate the output file and will either
 print a generic success message or log the specific error encountered,
-as the case may be.
+as the case may be. Watch mode will never terminate on its own. As with
+most terminal commands, you can terminate it with <span
+class="kbd">Ctrl-C</span>.
 
 </div>
 
