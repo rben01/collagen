@@ -75,7 +75,7 @@ following manifest will create a rainbow pinwheel.
     "vars": {
         "width": 100,
         "height": "{width}",
-        "n-spokes": 5,
+        "n-spokes": 16,
         "cx": "{(/ width 2)}",
         "cy": "{(/ height 2)}",
         "spoke-length": "{(* width 0.75)}"
