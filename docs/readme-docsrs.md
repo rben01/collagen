@@ -180,7 +180,7 @@ aims to fill this gap in the following ways:
         JPEG. The JPEG has been enlarged to make the compression
         artifacts more easily visible.
 
-        <div class="paragraph">
+        <div class="openblock">
 
         <div class="title">
 
@@ -188,13 +188,21 @@ aims to fill this gap in the following ways:
 
         </div>
 
+        <div class="content">
+
+        <div class="paragraph">
+
         <span class="image"><img
         src="https://rben01.github.io/collagen/docs/readme/jpeg-artifacts/artifacts.png"
         width="300" alt="A screenshot of the word “Collagen” in PNG format" /></span>
 
         </div>
 
-        <div class="paragraph">
+        </div>
+
+        </div>
+
+        <div class="openblock">
 
         <div class="title">
 
@@ -202,10 +210,18 @@ aims to fill this gap in the following ways:
 
         </div>
 
+        <div class="content">
+
+        <div class="paragraph">
+
         <span class="image"><img
         src="https://rben01.github.io/collagen/docs/readme/jpeg-artifacts/artifacts-zoomed.png"
         width="200"
         alt="A screenshot of the word “Collagen” in JPG format zoomed" /></span>
+
+        </div>
+
+        </div>
 
         </div>
 
@@ -216,7 +232,7 @@ aims to fill this gap in the following ways:
         ([source](https://commons.wikimedia.org/wiki/File:Cherry_sweet_cherry_red_fruit_167341.jpg)),
         the PNG file below is 6.6 times bigger than the JPEG.
 
-        <div class="paragraph">
+        <div class="openblock">
 
         <div class="title">
 
@@ -224,13 +240,21 @@ aims to fill this gap in the following ways:
 
         </div>
 
+        <div class="content">
+
+        <div class="paragraph">
+
         <span class="image"><img
         src="https://rben01.github.io/collagen/docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.jpg"
         width="300" alt="A bunch of cherries" /></span>
 
         </div>
 
-        <div class="paragraph">
+        </div>
+
+        </div>
+
+        <div class="openblock">
 
         <div class="title">
 
@@ -238,9 +262,17 @@ aims to fill this gap in the following ways:
 
         </div>
 
+        <div class="content">
+
+        <div class="paragraph">
+
         <span class="image"><img
         src="https://rben01.github.io/collagen/docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.png"
         width="300" alt="A bunch of cherries" /></span>
+
+        </div>
+
+        </div>
 
         </div>
 

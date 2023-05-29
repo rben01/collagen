@@ -1,6 +1,7 @@
 = Collagen — The Collage Generator
 :nofooter:
 :toc: auto
+:!figure-caption:
 
 
 image:https://img.shields.io/crates/v/collagen[link=https://crates.io/crates/collagen]
@@ -86,19 +87,27 @@ Below are a PNG image of some text, and that same PNG after conversion to JPEG.
 The JPEG has been enlarged to make the compression artifacts more easily visible.
 +
 .A screenshot of the word “Collagen” in PNG format
+--
 image::docs/readme/jpeg-artifacts/artifacts.png[A screenshot of the word “Collagen” in PNG format,width=300]
+--
 +
 .A screenshot of the word “Collagen” in JPG format, zoomed in
+--
 image::docs/readme/jpeg-artifacts/artifacts-zoomed.png[A screenshot of the word “Collagen” in JPG format zoomed,width=200]
+--
 
 .. On the other hand, PNG is optimized for images with long runs of few distinct colors, and requires a massive file size to store the kind of data that JPEG is optimized for.
 Despite displaying exactly the same image (https://commons.wikimedia.org/wiki/File:Cherry_sweet_cherry_red_fruit_167341.jpg[source]), the PNG file below is 6.6 times bigger than the JPEG.
 +
 .A JPEG, weighing in at 407KB
+--
 image::docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.jpg[A bunch of cherries,width=300]
+--
 +
 .A PNG, weighing in at 2.7MB
+--
 image::docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.png[A bunch of cherries,width=300]
+--
 .. JPEGs and PNGs are both https://en.wikipedia.org/wiki/Raster_graphics[raster formats], which means they correspond to a rectangular grid of pixels.
 A given raster image has a fixed resolution (given in, say, pixels per inch), which is, roughly speaking, the amount of detail present in the image.
 When you zoom in far enough on a raster image, you'll be able see the individual pixels that comprise the image.
