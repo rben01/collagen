@@ -41,14 +41,18 @@ pub(crate) enum LoopCollection {
 
 impl UnprocessedLoopCollection {
 	pub(super) fn reified(&self, context: &DecodingContext) -> ClgnDecodingResult<LoopCollection> {
-		fn evaluate(x: &VariableValue, context: &DecodingContext) -> ClgnDecodingResult<f64> {
+		fn evaluate(
+			name: String,
+			x: &VariableValue,
+			context: &DecodingContext,
+		) -> ClgnDecodingResult<f64> {
 			Ok(match x {
 				VariableValue::Number(n) => (*n).into(),
 				VariableValue::String(s) => {
 					context.eval_exprs_in_str(s)?.parse().map_err(|_| {
 						ClgnDecodingError::Parsing(vec![
 							VariableSubstitutionError::ExpectedNumGotString {
-								variable: "start".to_owned(),
+								variable: name,
 								value: s.clone(),
 							},
 						])
@@ -64,11 +68,11 @@ impl UnprocessedLoopCollection {
 				step,
 				closed,
 			} => {
-				let start = evaluate(start, context)?;
-				let end = evaluate(end, context)?;
+				let start = evaluate("start".to_owned(), start, context)?;
+				let end = evaluate("end".to_owned(), end, context)?;
 				let step = step
 					.as_ref()
-					.map(|step| evaluate(step, context))
+					.map(|step| evaluate("step".to_owned(), step, context))
 					.transpose()?
 					.unwrap_or(if start < end { 1.0 } else { -1.0 });
 
