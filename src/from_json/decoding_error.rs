@@ -31,6 +31,8 @@ pub enum ClgnDecodingError {
 	If { msg: String },
 	InvalidField { msg: String },
 	BundledFontNotFound { font_name: String },
+	FolderWatch(Vec<notify::Error>),
+	ChannelRecv(std::sync::mpsc::RecvError),
 }
 
 impl ClgnDecodingError {
@@ -48,6 +50,8 @@ impl ClgnDecodingError {
 			BundledFontNotFound { .. } => 22,
 			InvalidField { .. } => 27,
 			Zip(..) => 33,
+			FolderWatch(..) => 49,
+			ChannelRecv(..) => 52,
 			Foreach { .. } => 77,
 			If { .. } => 78,
 		}
@@ -65,6 +69,8 @@ impl Display for ClgnDecodingError {
 			JsonDecode(e, path) => write!(f, "{:?}: {}", path, e),
 			JsonEncode(e, path) => write!(f, "{:?}: {}", path, e),
 			Xml(e) => write!(f, "{:?}", e),
+			FolderWatch(e) => write!(f, "{:?}", e),
+			ChannelRecv(e) => write!(f, "{:?}", e),
 			ToSvgString(e) => write!(
 				f,
 				"{:?}; invalid UTF-8 sequence when converting to string",
@@ -104,5 +110,23 @@ impl From<ZipError> for ClgnDecodingError {
 impl From<XmlError> for ClgnDecodingError {
 	fn from(err: XmlError) -> Self {
 		Self::Xml(err)
+	}
+}
+
+impl From<notify::Error> for ClgnDecodingError {
+	fn from(err: notify::Error) -> Self {
+		Self::FolderWatch(vec![err])
+	}
+}
+
+impl From<Vec<notify::Error>> for ClgnDecodingError {
+	fn from(err: Vec<notify::Error>) -> Self {
+		Self::FolderWatch(err)
+	}
+}
+
+impl From<std::sync::mpsc::RecvError> for ClgnDecodingError {
+	fn from(err: std::sync::mpsc::RecvError) -> Self {
+		Self::ChannelRecv(err)
 	}
 }
