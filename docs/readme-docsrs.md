@@ -406,7 +406,10 @@ clgn -i path/to/collagen -o output-file.svg --watch
 
 <div class="paragraph">
 
-This will log a success message
+In watch mode, every time a file in `path/to/collagen` is modified,
+Collagen will attempt to regenerate the output file and will either
+print a generic success message or log the specific error encountered,
+as the case may be.
 
 </div>
 

@@ -153,7 +153,7 @@ To continuously monitor the input folder and re-run on any changes, you can run 
 clgn -i path/to/collagen -o output-file.svg --watch
 ----
 
-This will log a success message
+In watch mode, every time a file in `path/to/collagen` is modified, Collagen will attempt to regenerate the output file and will either print a generic success message or log the specific error encountered, as the case may be.
 
 https://rben01.github.io/collagen[This doc] has several examples that can serve as a good starting point for creating a manifest.
 More examples are available as test cases in `tests/examples`.
