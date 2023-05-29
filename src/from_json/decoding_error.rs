@@ -26,13 +26,26 @@ pub enum ClgnDecodingError {
 	JsonEncode(json::Error, Option<PathBuf>),
 	Xml(XmlError),
 	ToSvgString(Utf8Error),
-	Image { msg: String },
-	Foreach { msg: String },
-	If { msg: String },
-	InvalidField { msg: String },
-	BundledFontNotFound { font_name: String },
+	Image {
+		msg: String,
+	},
+	Foreach {
+		msg: String,
+	},
+	If {
+		msg: String,
+	},
+	InvalidField {
+		msg: String,
+	},
+	BundledFontNotFound {
+		font_name: String,
+	},
 	FolderWatch(Vec<notify::Error>),
-	RecursiveWatch { msg: String },
+	RecursiveWatch {
+		in_folder: PathBuf,
+		out_file: PathBuf,
+	},
 	ChannelRecv(std::sync::mpsc::RecvError),
 }
 
@@ -78,7 +91,19 @@ impl Display for ClgnDecodingError {
 				"{:?}; invalid UTF-8 sequence when converting to string",
 				e
 			),
-			RecursiveWatch { msg } => write!(f, "{}", msg),
+			RecursiveWatch {
+				in_folder,
+				out_file,
+			} => write!(
+				f,
+				"Refusing to run. \
+				 out_file {out_file:?} is a descendent of in_folder \
+				 {in_folder:?}, which would lead to an infinite loop: \
+				 every time out_file were modified, it would kick off another \
+				 run of Collagen, which would modify out_file, ad infinitum. \
+				 To fix this, set out_file to a location outside \
+				 of {in_folder:?}.",
+			),
 			InvalidField { msg } => write!(f, "{}", msg),
 			Image { msg } => write!(f, "{}", msg),
 			Foreach { msg } => write!(f, "{}", msg),

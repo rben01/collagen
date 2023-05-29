@@ -74,15 +74,8 @@ impl Cli {
 
 				if out_file.starts_with(&in_folder) {
 					return Err(ClgnDecodingError::RecursiveWatch {
-						msg: format!(
-							"Refusing to run. \
-							 out_file {out_file:?} is a descendent of in_folder \
-							 {in_folder:?}, which would lead to an infinite loop: \
-							 every time out_file were modified, it would kick off another \
-							 run of Collagen, which would modify out_file, ad infinitum. \
-							 To fix this, set out_file to a location outside \
-							 of {in_folder:?}."
-						),
+						in_folder: in_folder.to_owned(),
+						out_file: out_file.to_owned(),
 					});
 				}
 			}

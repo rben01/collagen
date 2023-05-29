@@ -70,8 +70,10 @@ impl<'a> IfTag<'a> {
 			.map(|v| v.len())
 			.unwrap_or(0);
 		if n_children > 0 {
-			return Err(ClgnDecodingError::Foreach {
-				msg: "`if` must not have any children; use the `then` field instead".into(),
+			return Err(ClgnDecodingError::If {
+				msg: "`if` must not have any children; use the `then` \
+					    and (optional) `else` fields instead"
+					.into(),
 			});
 		}
 
