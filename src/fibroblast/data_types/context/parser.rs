@@ -53,8 +53,6 @@ fn word(input: &str) -> IResult<&str, &str> {
 fn esc_char(input: &str) -> IResult<&str, &str> {
 	alt((
 		value("\\", tag(r"\\")),
-		value("(", tag(r"\(")),
-		value(")", tag(r"\)")),
 		value("{", tag(r"\{")),
 		value("}", tag(r"\}")),
 	))(input)
@@ -200,7 +198,7 @@ pub(super) fn parse<'a>(
 			})
 		}),
 		map(esc_char, |s| Ok(Cow::Borrowed(s))),
-		map(is_not(r"\(){}"), |s| Ok(Cow::Borrowed(s))),
+		map(is_not(r"\{}"), |s| Ok(Cow::Borrowed(s))),
 	))))(input);
 
 	let (rest, ans) = match parse_res {
