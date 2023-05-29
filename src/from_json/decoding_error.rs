@@ -32,6 +32,7 @@ pub enum ClgnDecodingError {
 	InvalidField { msg: String },
 	BundledFontNotFound { font_name: String },
 	FolderWatch(Vec<notify::Error>),
+	RecursiveWatch { msg: String },
 	ChannelRecv(std::sync::mpsc::RecvError),
 }
 
@@ -51,6 +52,7 @@ impl ClgnDecodingError {
 			InvalidField { .. } => 27,
 			Zip(..) => 33,
 			FolderWatch(..) => 49,
+			RecursiveWatch { .. } => 50,
 			ChannelRecv(..) => 52,
 			Foreach { .. } => 77,
 			If { .. } => 78,
@@ -76,6 +78,7 @@ impl Display for ClgnDecodingError {
 				"{:?}; invalid UTF-8 sequence when converting to string",
 				e
 			),
+			RecursiveWatch { msg } => write!(f, "{}", msg),
 			InvalidField { msg } => write!(f, "{}", msg),
 			Image { msg } => write!(f, "{}", msg),
 			Foreach { msg } => write!(f, "{}", msg),

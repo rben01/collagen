@@ -5,7 +5,7 @@ use clap::Parser;
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
-use std::{path::Path, time::Duration};
+use std::{fs::canonicalize, path::Path, time::Duration};
 
 #[derive(Parser)]
 #[command(name = "clgn", about = "Collagen: The Collage Generator")]
@@ -28,28 +28,24 @@ pub struct Cli {
 	debounce_ms: u64,
 }
 
-fn create_writer(
-	in_folder: impl AsRef<Path>,
-	out_file: impl AsRef<Path>,
-) -> ClgnDecodingResult<XmlWriter<std::fs::File>> {
+fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<std::fs::File>> {
 	let file_writer = std::fs::OpenOptions::new()
 		.read(false)
 		.create(true)
 		.truncate(true)
 		.write(true)
-		.open(out_file)
+		.open(&out_file)
 		// TODO: replace `unwrap` with `into_ok` when stabilized
-		.map_err(|e| ClgnDecodingError::Io(e, in_folder.as_ref().to_owned()))?;
+		.map_err(|e| ClgnDecodingError::Io(e, out_file.as_ref().to_owned()))?;
 	Ok(XmlWriter::new(file_writer))
 }
 
-fn run_once(in_folder: &Path, out_file: &Path) {
-	fn run_once_inner(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
-		Fibroblast::from_dir(in_folder.clone().into())?
-			.to_svg(&mut create_writer(in_folder, out_file)?)
-	}
+fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
+	Fibroblast::from_dir(in_folder.clone().into())?.to_svg(&mut create_writer(out_file)?)
+}
 
-	match run_once_inner(in_folder, out_file) {
+fn run_once_log(in_folder: &Path, out_file: &Path) {
+	match run_once_result(in_folder, out_file) {
 		Ok(()) => eprintln!("Success; output to {out_file:?}"),
 		Err(e) => eprintln!("Error while watching {:?}: {:?}", in_folder, e),
 	}
@@ -66,11 +62,32 @@ impl Cli {
 			debounce_ms,
 		} = self;
 
-		let in_folder = in_folder.as_ref();
-		let out_file = out_file.as_ref();
+		let in_folder: &Path = in_folder.as_ref();
+		let out_file: &Path = out_file.as_ref();
 
 		if watch {
-			run_once(in_folder, out_file);
+			{
+				let in_folder = canonicalize(in_folder)
+					.map_err(|e| ClgnDecodingError::Io(e, in_folder.to_owned()))?;
+				let out_file = canonicalize(out_file)
+					.map_err(|e| ClgnDecodingError::Io(e, in_folder.to_owned()))?;
+
+				if out_file.starts_with(&in_folder) {
+					return Err(ClgnDecodingError::RecursiveWatch {
+						msg: format!(
+							"Refusing to run. \
+							 out_file {out_file:?} is a descendent of in_folder \
+							 {in_folder:?}, which would lead to an infinite loop: \
+							 every time out_file were modified, it would kick off another \
+							 run of Collagen, which would modify out_file, ad infinitum. \
+							 To fix this, set out_file to a location outside \
+							 of {in_folder:?}."
+						),
+					});
+				}
+			}
+
+			run_once_log(in_folder, out_file);
 
 			let (tx, rx) = std::sync::mpsc::channel();
 
@@ -120,11 +137,10 @@ impl Cli {
 					)
 				}
 
-				run_once(in_folder, out_file);
+				run_once_log(in_folder, out_file);
 			}
 		} else {
-			Fibroblast::from_dir(in_folder.clone().into())?
-				.to_svg(&mut create_writer(&in_folder, &out_file)?)?;
+			run_once_result(in_folder, out_file)?;
 		}
 
 		Ok(())
