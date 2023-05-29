@@ -1,10 +1,11 @@
 = Collagen — The Collage Generator
 :nofooter:
-:toc: auto
+:toc: macro
 :!figure-caption:
 
-
 image:https://img.shields.io/crates/v/collagen[link=https://crates.io/crates/collagen]
+
+toc::[]
 
 *_Collagen_* -- from “collage” and “generate” (and because
    https://en.wikipedia.org/wiki/Collagen[collagen] is the protein that holds your body together; `s/protein/tool/;s/body/images/`) -- is a program that takes as input a folder containing a JSON manifest file that describes the layout of any number of SVG elements (`<rect>`, `<line>`, `<g>`, etc.), image files (JPEG, PNG, etc.), other SVGs, and other Collagen folders, and produces as output a single SVG file with any external assets embedded.

@@ -2,24 +2,6 @@
 
 # Collagen — The Collage Generator
 
-<div id="toc" class="toc">
-
-<div id="toctitle">
-
-Table of Contents
-
-</div>
-
--   [Rationale](#_rationale)
--   [Using Collagen](#_using_collagen)
-    -   [Quick Start](#_quick_start)
-    -   [Definitions](#_definitions)
-    -   [In-Depth Description](#_in_depth_description)
-    -   [Basic Schema](#_basic_schema)
--   [Portability Concerns](#_portability_concerns)
-
-</div>
-
 </div>
 
 <div id="content">
@@ -33,6 +15,24 @@ Table of Contents
 <span
 class="image"><a href="https://crates.io/crates/collagen" class="image"><img
 src="https://img.shields.io/crates/v/collagen" alt="collagen" /></a></span>
+
+</div>
+
+<div id="toc" class="toc">
+
+<div id="toctitle" class="title">
+
+Table of Contents
+
+</div>
+
+-   [Rationale](#_rationale)
+-   [Using Collagen](#_using_collagen)
+    -   [Quick Start](#_quick_start)
+    -   [Definitions](#_definitions)
+    -   [In-Depth Description](#_in_depth_description)
+    -   [Basic Schema](#_basic_schema)
+-   [Portability Concerns](#_portability_concerns)
 
 </div>
 
