@@ -102,7 +102,7 @@ image::docs/examples/png-size/Cherry_sweet_cherry_red_fruit_167341-small.png[A b
 .. JPEGs and PNGs are both https://en.wikipedia.org/wiki/Raster_graphics[raster formats], which means they correspond to a rectangular grid of pixels.
 A given raster image has a fixed resolution (given in, say, pixels per inch), which is, roughly speaking, the amount of detail present in the image.
 When you zoom in far enough on a raster image, you'll be able see the individual pixels that comprise the image.
-Meanwhile, https://en.wikipedia.org/wiki/Scalable_Vector_Graphics[veector graphics] store geometric objects such as lines, rectangles, ellipses, and even text, which have no resolution to speak of — you can zoom infinitely far on them and they'll always maintain that smooth, pixel-perfect appearance.
+Meanwhile, https://en.wikipedia.org/wiki/Scalable_Vector_Graphics[vector graphics] store geometric objects such as lines, rectangles, ellipses, and even text, which have no resolution to speak of — you can zoom infinitely far on them and they'll always maintain that smooth, pixel-perfect appearance.
 Without Collagen, if you want to, say, add some text on top of a JPEG, you have no choice to but to rasterize the text, converting the infinitely smooth shapes to a grid of pixels and losing the precision inherent in vector graphics.
 
 +
@@ -111,7 +111,7 @@ Collagen fixes this by allowing JPEGs, PNGs, and any other images supported by b
 . Creating several similar elements by hand is annoying, and keeping them in sync is even worse.
 Collagen provides a `for_each` tag to programmatically create arbitrary numbers of elements, and the children elements can make use of the loop variable to control their behavior.
 We saw this above in the pinwheel, which used the loop variable `i` to set the angle and color of each spoke.
-The `for` loop itself had access to the `n-spokes` variable set at the beginning of the file, which goes back to point 1: variables make things easy.
+The `for` loop itself had access to the `n-spokes` variable set at the beginning of the file, which goes back to point 2: variables make things easy.
 . Why SVG at all?
 Why not some other output image format?
 ** SVGs can indeed store vector graphics and the different kinds of raster images alongside each other.
