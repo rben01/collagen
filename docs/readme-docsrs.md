@@ -184,7 +184,7 @@ aims to fill this gap in the following ways:
 
         <div class="title">
 
-        A screenshot of the word “Collagen” in PNG format
+        *A screenshot of the word “Collagen” in PNG format*
 
         </div>
 
@@ -206,7 +206,7 @@ aims to fill this gap in the following ways:
 
         <div class="title">
 
-        A screenshot of the word “Collagen” in JPG format, zoomed in
+        *A screenshot of the word “Collagen” in JPG format, zoomed in*
 
         </div>
 
@@ -236,7 +236,7 @@ aims to fill this gap in the following ways:
 
         <div class="title">
 
-        A JPEG, weighing in at 407KB
+        *A JPEG, weighing in at 407KB*
 
         </div>
 
@@ -258,7 +258,7 @@ aims to fill this gap in the following ways:
 
         <div class="title">
 
-        A PNG, weighing in at 2.7MB
+        *A PNG, weighing in at 2.7MB*
 
         </div>
 
