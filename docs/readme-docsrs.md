@@ -118,7 +118,7 @@ following manifest will create a rainbow pinwheel.
 <div class="paragraph">
 
 <span class="image"><img
-src="https://rben01.github.io/collagen/docs/examples/pinwheel/pinwheel.svg"
+src="https://rben01.github.io/collagen/docs/readme/pinwheel/pinwheel.svg"
 width="300" alt="A rainbow pinwheel" /></span>
 
 </div>
@@ -189,7 +189,7 @@ aims to fill this gap in the following ways:
         </div>
 
         <span class="image"><img
-        src="https://rben01.github.io/collagen/docs/examples/jpeg-artifacts/artifacts.png"
+        src="https://rben01.github.io/collagen/docs/readme/jpeg-artifacts/artifacts.png"
         width="300" alt="A screenshot of the word “Collagen” in PNG format" /></span>
 
         </div>
@@ -203,7 +203,7 @@ aims to fill this gap in the following ways:
         </div>
 
         <span class="image"><img
-        src="https://rben01.github.io/collagen/docs/examples/jpeg-artifacts/artifacts-zoomed.png"
+        src="https://rben01.github.io/collagen/docs/readme/jpeg-artifacts/artifacts-zoomed.png"
         width="200"
         alt="A screenshot of the word “Collagen” in JPG format zoomed" /></span>
 
@@ -225,7 +225,7 @@ aims to fill this gap in the following ways:
         </div>
 
         <span class="image"><img
-        src="https://rben01.github.io/collagen/docs/examples/png-size/Cherry_sweet_cherry_red_fruit_167341-small.jpg"
+        src="https://rben01.github.io/collagen/docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.jpg"
         width="300" alt="A bunch of cherries" /></span>
 
         </div>
@@ -239,7 +239,7 @@ aims to fill this gap in the following ways:
         </div>
 
         <span class="image"><img
-        src="https://rben01.github.io/collagen/docs/examples/png-size/Cherry_sweet_cherry_red_fruit_167341-small.png"
+        src="https://rben01.github.io/collagen/docs/readme/png-size/Cherry_sweet_cherry_red_fruit_167341-small.png"
         width="300" alt="A bunch of cherries" /></span>
 
         </div>
