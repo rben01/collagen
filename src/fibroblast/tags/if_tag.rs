@@ -1,6 +1,9 @@
 use std::slice;
 
-use super::{traits::HasCommonTagFields, AnyChildTag, CommonTagFields, DecodingContext, XmlAttrs};
+use super::{
+	error_tag::Validatable, traits::HasCommonTagFields, AnyChildTag, CommonTagFields,
+	DecodingContext, XmlAttrs,
+};
 use crate::{
 	dispatch_to_common_tag_fields, to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
 };
@@ -18,6 +21,21 @@ pub struct IfTag<'a> {
 	#[serde(flatten)]
 	// the absence of children makes 'static appropriate here
 	pub(super) common_tag_fields: CommonTagFields<'static>,
+}
+
+impl Validatable for IfTag<'_> {
+	fn validate(mut self) -> ClgnDecodingResult<Self>
+	where
+		Self: Sized,
+	{
+		self.true_template = Box::new(self.true_template.validate()?);
+		self.false_template = self
+			.false_template
+			.map(|ft| ft.validate().map(Box::new))
+			.transpose()?;
+
+		Ok(self)
+	}
 }
 
 dispatch_to_common_tag_fields!(impl HasVars for IfTag<'_>);

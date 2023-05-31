@@ -35,3 +35,4 @@ impl<'a> OtherTag<'a> {
 
 dispatch_to_common_tag_fields!(impl HasVars for OtherTag<'_>);
 dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for OtherTag<'a>);
+dispatch_to_common_tag_fields!(impl Validatable for OtherTag<'_>);

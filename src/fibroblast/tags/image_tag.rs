@@ -73,6 +73,7 @@ pub struct ImageTag<'a> {
 
 dispatch_to_common_tag_fields!(impl HasVars for ImageTag<'_>);
 dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for ImageTag<'a>);
+dispatch_to_common_tag_fields!(impl Validatable for ImageTag<'_>);
 
 impl<'a> ImageTag<'a> {
 	fn image_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {

@@ -2,7 +2,7 @@ use super::{
 	any_child_tag::AnyChildTag, traits::HasCommonTagFields, AttrKVValueVec, ClgnDecodingResult,
 	DecodingContext, TagVariables,
 };
-use crate::fibroblast::Fibroblast;
+use crate::{fibroblast::Fibroblast, impl_trivially_validatable};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -160,3 +160,5 @@ impl<'a> ContainerTag<'a> {
 		false
 	}
 }
+
+impl_trivially_validatable!(ContainerTag<'_>);

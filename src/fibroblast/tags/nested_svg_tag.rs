@@ -1,6 +1,7 @@
 use super::{any_child_tag::AnyChildTag, traits::HasVars, TagVariables, EMPTY_ATTRS, EMPTY_VARS};
 use crate::{
 	fibroblast::data_types::{DecodingContext, XmlAttrs},
+	impl_trivially_validatable,
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
 use once_cell::sync::{Lazy, OnceCell};
@@ -92,3 +93,5 @@ impl<'a> NestedSvgTag<'a> {
 		self.base_children()
 	}
 }
+
+impl_trivially_validatable!(NestedSvgTag<'_>);

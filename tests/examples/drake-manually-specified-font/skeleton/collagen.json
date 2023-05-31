@@ -7,7 +7,7 @@
 				{
 					"tag": "style",
 					"text": "@font-face\\{font-family:'Impact2';src:url('https://github.com/rben01/collagen/raw/main/tests/examples/fonts/impact.woff2') format('woff2');\\}",
-					"encode_entities": false
+					"should_escape_text": false
 				}
 			]
 		},

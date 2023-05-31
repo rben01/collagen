@@ -7,6 +7,7 @@ use crate::{
 	fibroblast::{
 		data_types::DecodingContext,
 		tags::{
+			error_tag::Validatable,
 			traits::{HasCommonTagFields, HasVars},
 			ErrorTagReason,
 		},
@@ -53,17 +54,25 @@ impl<'a> AnyChildTag<'a> {
 	// Error case (because it wouldn't exist on AnyChildTag). But all that duplication!
 	// Not going to happen.
 	pub(crate) fn validate(self) -> ClgnDecodingResult<Self> {
-		match self {
-			Self::Error(error_tag) => {
+		use AnyChildTag::*;
+		Ok(match self {
+			Image(t) => Image(t.validate()?),
+			Container(t) => Container(t.validate()?),
+			NestedSvg(t) => NestedSvg(t.validate()?),
+			Foreach(t) => Foreach(t.validate()?),
+			If(t) => If(t.validate()?),
+			Font(t) => Font(t.validate()?),
+			Other(t) => Other(t.validate()?),
+
+			Error(error_tag) => {
 				let err = match error_tag.json {
 					JsonValue::Object(o) => ErrorTagReason::InvalidObject(o),
 					j => ErrorTagReason::InvalidType(j),
 				};
 
-				Err(ClgnDecodingError::InvalidSchema(err))
+				return Err(ClgnDecodingError::InvalidSchema(err));
 			}
-			_ => Ok(self),
-		}
+		})
 	}
 }
 

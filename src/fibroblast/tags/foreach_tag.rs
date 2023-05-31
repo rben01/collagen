@@ -2,6 +2,7 @@ mod collection;
 mod iterable;
 
 use super::{
+	error_tag::Validatable,
 	traits::{HasCommonTagFields, HasVars},
 	AnyChildTag, CommonTagFields, DecodingContext, XmlAttrs,
 };
@@ -25,6 +26,16 @@ pub struct ForeachTag<'a> {
 	pub(super) common_tag_fields: CommonTagFields<'static>,
 	#[serde(skip)]
 	pub(super) children: OnceCell<Vec<AnyChildTag<'a>>>,
+}
+
+impl Validatable for ForeachTag<'_> {
+	fn validate(mut self) -> ClgnDecodingResult<Self>
+	where
+		Self: Sized,
+	{
+		self.template = Box::new(self.template.validate()?);
+		Ok(self)
+	}
 }
 
 dispatch_to_common_tag_fields!(impl HasVars for ForeachTag<'_>);

@@ -3,6 +3,7 @@ use super::{
 };
 use crate::{
 	fibroblast::data_types::ConcreteNumber,
+	impl_trivially_validatable,
 	to_svg::svg_writable::ClgnDecodingError,
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
@@ -382,3 +383,5 @@ impl FontTag {
 		false
 	}
 }
+
+impl_trivially_validatable!(FontTag);

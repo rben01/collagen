@@ -1,3 +1,4 @@
+use crate::ClgnDecodingResult;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum::IntoEnumIterator;
@@ -116,28 +117,10 @@ impl fmt::Display for ErrorTagReason {
 
 					write!(
 						f,
-						"Based on the presence of the `{key}` key, it looks \
-						 like this was meant to be {a} `{name}`. "
+						"The presence of key {key:?} implies that this is {a} `{name}`. "
 					)?;
 
-					if required_keys.len() > 0 {
-						write!(
-							f,
-							"In addition to {key:?}, the required keys for {a} `{name}` \
-							 are {required_keys:?}. "
-						)?;
-					} else {
-						write!(f, "The `{name}` has no other required keys. ")?;
-					}
-
-					if optional_keys.len() > 0 {
-						write!(
-							f,
-							"The `{name}` supports the following optional keys: {optional_keys:?}. "
-						)?;
-					}
-
-					let forbidden_keys = o
+					let unexpected_keys = o
 						.keys()
 						.filter(|k| {
 							let k = k.as_str();
@@ -145,36 +128,62 @@ impl fmt::Display for ErrorTagReason {
 						})
 						.collect::<Vec<_>>();
 
-					if forbidden_keys.len() > 0 {
+					let missing_keys = required_keys
+						.iter()
+						.copied()
+						.filter(|&k| !o.contains_key(k))
+						.collect::<Vec<_>>();
+					if unexpected_keys.is_empty() && missing_keys.is_empty() {
 						write!(
 							f,
-							"The `{name}` supports no other keys, and the following \
-							 unexpected keys were encountered: {forbidden_keys:?}."
+							"Since you provided all of the other required keys, \
+							 {required_keys:?}, check that the values were all of \
+							 the right type. "
 						)?;
-					}
+					} else {
+						if !missing_keys.is_empty() {
+							write!(
+								f,
+								"In addition to {key:?}, keys {required_keys:?} \
+								 are required, but keys {missing_keys:?} were missing. "
+							)?;
+						} else {
+							write!(f, "`{name}` has no other required keys. ")?;
+						}
 
+						if !unexpected_keys.is_empty() {
+							write!(
+								f,
+								"The only other permitted keys for `{name}` are {optional_keys:?}, \
+								 but keys {unexpected_keys:?} were passed. "
+							)?;
+						}
+					}
+				} else if known_tags_ids_seen.len() >= 2 {
 					write!(
 						f,
-						"If you provided the right set of keys, \
-						 check that everything was of the right type."
+						"Could not infer the tag's type because multiple matching \
+						 primary keys were found: {:?}. At most one \
+						 may be provided. ",
+						known_tags_ids_seen
+							.iter()
+							.map(|kt| kt.primary_key())
+							.collect::<Vec<_>>()
 					)?;
 				} else {
-					if known_tags_ids_seen.len() >= 2 {
-						write!(
-							f,
-							"Could not infer the tag's type because multiple matching \
-							 primary keys were found: {:?}. At most one \
-							 may be provided. ",
-							known_tags_ids_seen
-								.iter()
-								.map(|kt| kt.primary_key())
-								.collect::<Vec<_>>()
-						)?;
-					}
+					write!(
+						f,
+						"Could not infer the tag's type because no \
+						 recognized primary key was found. All tags must have \
+						 exactly one of the following keys: {:?}. ",
+						KnownTag::iter()
+							.map(|kt| kt.primary_key())
+							.collect::<Vec<_>>()
+					)?;
 				}
 				write!(
 					f,
-					"For an in-depth description of the schema, visit \
+					"\nFor an in-depth description of the schema, visit \
 					 https://docs.rs/collagen/{}/\
 					 collagen/fibroblast/tags/enum.AnyChildTag.html",
 					env!("CARGO_PKG_VERSION")
@@ -184,4 +193,24 @@ impl fmt::Display for ErrorTagReason {
 			}
 		}
 	}
+}
+
+pub(crate) trait Validatable {
+	fn validate(self) -> ClgnDecodingResult<Self>
+	where
+		Self: Sized;
+}
+
+#[macro_export]
+macro_rules! impl_trivially_validatable {
+	($type:ty) => {
+		impl $crate::fibroblast::tags::error_tag::Validatable for $type {
+			fn validate(self) -> ClgnDecodingResult<Self>
+			where
+				Self: Sized,
+			{
+				Ok(self)
+			}
+		}
+	};
 }

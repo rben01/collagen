@@ -90,4 +90,27 @@ macro_rules! dispatch_to_common_tag_fields {
 			}
 		}
 	};
+	(impl Validatable for $ty:ty) => {
+		impl $crate::fibroblast::tags::error_tag::Validatable for $ty {
+			fn validate(mut self) -> $crate::from_json::ClgnDecodingResult<Self>
+			where
+				Self: Sized,
+			{
+				// could be a `let Some(children) = ... else ...`, except it gets formatted
+				// weird
+				let children = match self.common_tag_fields.children {
+					Some(children) => children,
+					None => return Ok(self),
+				};
+
+				self.common_tag_fields.children = Some(
+					children
+						.into_iter()
+						.map(|child| child.validate())
+						.collect::<$crate::from_json::ClgnDecodingResult<Vec<_>>>()?,
+				);
+				Ok(self)
+			}
+		}
+	};
 }
