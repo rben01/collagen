@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 ///     `"tag_name": "rect"`.
 /// - Other: `OtherTag` accepts all properties in [`CommonTagFields`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OtherTag<'a> {
 	#[serde(rename = "tag")]
 	tag_name: String,

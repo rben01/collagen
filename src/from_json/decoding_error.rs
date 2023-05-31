@@ -8,7 +8,9 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
-use crate::fibroblast::data_types::context::errors::VariableSubstitutionError;
+use crate::fibroblast::{
+	data_types::context::errors::VariableSubstitutionError, tags::ErrorTagReason,
+};
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::{fmt::Display, io, path::PathBuf, str::Utf8Error};
@@ -18,6 +20,7 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug)]
 pub enum ClgnDecodingError {
+	InvalidSchema(ErrorTagReason),
 	Parsing(Vec<VariableSubstitutionError>),
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
@@ -53,20 +56,21 @@ impl ClgnDecodingError {
 	pub fn exit_code(&self) -> i32 {
 		use ClgnDecodingError::*;
 		match self {
-			Parsing(..) => 3,
-			JsonDecode(..) => 4,
-			JsonEncode(..) => 5,
-			InvalidPath(..) => 6,
-			Io(..) => 7,
+			InvalidSchema { .. } => 1,
+			Parsing { .. } => 3,
+			JsonDecode { .. } => 4,
+			JsonEncode { .. } => 5,
+			InvalidPath { .. } => 6,
+			Io { .. } => 7,
 			Image { .. } => 8,
-			Xml(..) => 15,
-			ToSvgString(..) => 19,
+			Xml { .. } => 15,
+			ToSvgString { .. } => 19,
 			BundledFontNotFound { .. } => 22,
 			InvalidField { .. } => 27,
-			Zip(..) => 33,
-			FolderWatch(..) => 49,
+			Zip { .. } => 33,
+			FolderWatch { .. } => 49,
 			RecursiveWatch { .. } => 50,
-			ChannelRecv(..) => 52,
+			ChannelRecv { .. } => 52,
 			Foreach { .. } => 77,
 			If { .. } => 78,
 		}
@@ -77,6 +81,7 @@ impl Display for ClgnDecodingError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use ClgnDecodingError::*;
 		match self {
+			InvalidSchema(reason) => write!(f, "{}", reason),
 			Parsing(e) => write!(f, "Parsing: {:?}", e),
 			Io(e, path) => write!(f, "{:?}: {}", path, e),
 			InvalidPath(p) => write!(f, "Invalid path: {:?}", p),

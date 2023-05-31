@@ -23,7 +23,8 @@ impl<'a> Fibroblast<'a> {
 		let reader = std::fs::File::open(&manifest_path)
 			.map_err(|e| ClgnDecodingError::Io(e, manifest_path.clone()))?;
 		let root = serde_json::from_reader::<_, RootTag>(reader)
-			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?;
+			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
+			.validate()?;
 
 		Ok(Fibroblast { root, context })
 	}

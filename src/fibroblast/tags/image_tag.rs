@@ -54,6 +54,7 @@ use std::{borrow::Cow, path::Path};
 ///     possible, for instance if the image file lacks )
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
 	image_path: String,

@@ -1,13 +1,20 @@
 use super::{
 	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag, if_tag::IfTag,
 	image_tag::ImageTag, nested_svg_tag::NestedSvgTag, other_tag::OtherTag, AttrKVValueVec,
-	ClgnDecodingResult, TagLike, TagVariables,
+	ClgnDecodingResult, ErrorTag, TagLike, TagVariables,
 };
-use crate::fibroblast::{
-	data_types::DecodingContext,
-	tags::traits::{HasCommonTagFields, HasVars},
+use crate::{
+	fibroblast::{
+		data_types::DecodingContext,
+		tags::{
+			traits::{HasCommonTagFields, HasVars},
+			ErrorTagReason,
+		},
+	},
+	to_svg::svg_writable::ClgnDecodingError,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use std::borrow::Cow;
 
 /// A wrapper around child tags. During deserialization, the type of child tag to
@@ -33,6 +40,31 @@ pub enum AnyChildTag<'a> {
 	If(IfTag<'a>),
 	Font(FontTag),
 	Other(OtherTag<'a>),
+	Error(ErrorTag),
+}
+
+impl<'a> AnyChildTag<'a> {
+	// The "right" way to do this, of course, is to have two separate enums,
+	// UnvalidatedAnyChildTag and AnyChildTag, which have all the same variants except
+	// for the extra Error(ErrorTag) in UnvalidatedChildTag. And of course then we'd need
+	// UnvalidatedCommonTagFields and an Unvalidated_ version of every kind of tag. And
+	// then this function would consume a UnvalidatedAnyChildTag and return a
+	// ClgnDecodingResult<AnyChildTag>, and the compiler would ensure we had elimited the
+	// Error case (because it wouldn't exist on AnyChildTag). But all that duplication!
+	// Not going to happen.
+	pub(crate) fn validate(self) -> ClgnDecodingResult<Self> {
+		match self {
+			Self::Error(error_tag) => {
+				let err = match error_tag.json {
+					JsonValue::Object(o) => ErrorTagReason::InvalidObject(o),
+					j => ErrorTagReason::InvalidType(j),
+				};
+
+				Err(ClgnDecodingError::InvalidSchema(err))
+			}
+			_ => Ok(self),
+		}
+	}
 }
 
 impl<'a> AnyChildTag<'a> {
@@ -49,6 +81,7 @@ impl<'a> AnyChildTag<'a> {
 			If(t) => t.children(context)?,
 			Other(t) => t.base_children(),
 			Font(t) => t.base_children(),
+			Error(_) => unreachable!(),
 		})
 	}
 }
@@ -64,6 +97,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			If(t) => t.tag_name(),
 			Other(t) => t.tag_name(),
 			Font(t) => t.tag_name(),
+			Error(_) => unreachable!(),
 		}
 	}
 
@@ -77,12 +111,12 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			If(t) => t.base_vars(),
 			Other(t) => t.base_vars(),
 			Font(t) => t.base_vars(),
+			Error(_) => unreachable!(),
 		})
 	}
 
 	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
 		use AnyChildTag::*;
-
 		let mut attrs = match &self {
 			Container(t) => context.sub_vars_into_attrs(t.attrs(context)?),
 			NestedSvg(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
@@ -91,6 +125,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			If(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Other(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
 			Font(t) => context.sub_vars_into_attrs(t.base_attrs().iter()),
+			Error(_) => unreachable!(),
 		}?;
 
 		// If more cases arise, convert this to a match
@@ -114,6 +149,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			If(t) => t.base_text().into(),
 			Other(t) => context.eval_exprs_in_str(t.base_text())?,
 			Font(t) => t.font_embed_text(context)?.into(),
+			Error(_) => unreachable!(),
 		})
 	}
 
@@ -127,6 +163,7 @@ impl<'a> TagLike<'a> for AnyChildTag<'a> {
 			If(t) => t.should_escape_text(),
 			Other(t) => t.should_escape_text(),
 			Font(t) => t.should_escape_text(),
+			Error(_) => unreachable!(),
 		}
 	}
 }

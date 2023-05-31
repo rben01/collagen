@@ -14,6 +14,7 @@ use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ForeachTag<'a> {
 	#[serde(rename = "for_each")]
 	pub(super) loops: Loop,
@@ -134,6 +135,7 @@ impl<'a> ForeachTag<'a> {
 							AnyChildTag::If(t) => {
 								insert_var(t.base_vars_mut(), name, elem);
 							}
+							AnyChildTag::Error(_) => unreachable!(),
 						};
 					}
 

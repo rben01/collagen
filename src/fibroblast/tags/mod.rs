@@ -33,6 +33,7 @@
 pub(super) mod any_child_tag;
 pub(super) mod common_tag_fields;
 pub(super) mod container_tag;
+pub(super) mod error_tag;
 pub(super) mod font_tag;
 pub(super) mod foreach_tag;
 pub(super) mod if_tag;
@@ -49,8 +50,10 @@ pub(self) use crate::{
 pub use any_child_tag::AnyChildTag;
 pub use common_tag_fields::{traits, CommonTagFields};
 pub use container_tag::ContainerTag;
+pub use error_tag::{ErrorTag, ErrorTagReason};
 pub use font_tag::FontTag;
 pub use foreach_tag::ForeachTag;
+pub use if_tag::IfTag;
 pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
 use once_cell::sync::Lazy;

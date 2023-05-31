@@ -91,6 +91,7 @@ use std::borrow::Cow;
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ContainerTag<'a> {
 	clgn_path: String,
 

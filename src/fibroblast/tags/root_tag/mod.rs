@@ -23,6 +23,20 @@ dispatch_to_common_tag_fields!(impl HasVars for RootTag<'_>);
 dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for RootTag<'a>);
 
 impl<'a> RootTag<'a> {
+	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
+		let Some(children) = self.common_tag_fields.children else {
+			return Ok(self);
+		};
+		self.common_tag_fields.children = Some(
+			children
+				.into_iter()
+				.map(|child| child.validate())
+				.collect::<ClgnDecodingResult<Vec<_>>>()?,
+		);
+
+		Ok(self)
+	}
+
 	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
 		self.base_children()
 	}

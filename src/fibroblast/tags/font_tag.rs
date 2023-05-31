@@ -241,6 +241,7 @@ impl<'de> Deserialize<'de> for FontFace {
 /// }
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct FontTag {
 	fonts: Vec<FontFace>,
 

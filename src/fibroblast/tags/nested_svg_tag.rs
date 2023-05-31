@@ -17,6 +17,7 @@ static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
 });
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NestedSvgTag<'a> {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
