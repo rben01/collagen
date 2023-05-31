@@ -1,7 +1,7 @@
 pub(crate) mod paths;
 use base64::Engine;
 
-pub(crate) use std::collections::{hash_map::Entry as MapEntry, HashMap as Map, HashSet as Set};
+pub(crate) use std::collections::{btree_map::Entry as MapEntry, BTreeMap as Map, BTreeSet as Set};
 
 pub(crate) fn b64_encode(s: impl AsRef<[u8]>) -> String {
 	let engine = base64::engine::general_purpose::STANDARD_NO_PAD;

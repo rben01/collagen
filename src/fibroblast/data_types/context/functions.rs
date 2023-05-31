@@ -1,6 +1,7 @@
 use strum_macros::{AsRefStr, EnumString, IntoStaticStr};
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 #[allow(dead_code)]
 pub struct ArityError {
 	func: &'static str,

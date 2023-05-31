@@ -6,14 +6,19 @@ pub type VariableSubstitutionResult<T> = Result<T, Vec<VariableSubstitutionError
 /// that, then [`ClgnDecodingError`] — and hence [`ClgnDecodingResult`] — need lifetimes
 /// too. Yech.
 #[derive(Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum VariableSubstitutionError {
 	Parsing(String),
 	FunctionCall(ArityError),
-	InvalidVariableName(String),
+	InvalidVariableNameOrExpression(String),
 	MissingVariable(String),
 	ExpectedNumGotString { variable: String, value: String },
 	RecursiveSubstitutionError { variable: String },
 	UnrecognizedFunctionName(String),
+	InvalidEscapedChar(char),
+	TrailingBackslash,
+	UnmatchedRightBrace,
+	UnmatchedLeftBrace,
 }
 
 impl From<FunctionCallError<Vec<VariableSubstitutionError>>> for Vec<VariableSubstitutionError> {

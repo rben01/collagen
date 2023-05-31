@@ -15,9 +15,9 @@ fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl
 
 	let out_bytes = std::fs::read(out_path).unwrap();
 
-	assert_eq!(
-		fibroblast_bytes,
-		out_bytes,
+	assert!(
+		// not assert_eq because on failure, the debug representations are long and useless
+		fibroblast_bytes == out_bytes,
 		"Collagen generated from input did not match expected output. Input path: {:?}. Output path: {:?}.",
 		clgn_path,
 		out_path
