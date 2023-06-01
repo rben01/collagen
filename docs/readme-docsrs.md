@@ -397,7 +397,7 @@ Collagen to make one.
                         {
                             "variable": "line",
                             "in": [
-                                "Using SVG-based text",
+                                "Using SVG-based text,",
                                 "which is infinitely",
                                 "zoomable and has",
                                 "no artifacts"
