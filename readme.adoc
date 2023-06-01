@@ -55,7 +55,7 @@ For instance, the following manifest will create a rainbow pinwheel.
 					"x2": "{(- cx dx)}",
 					"y1": "{(+ cy dy)}",
 					"y2": "{(- cy dy)}",
-					"stroke": "hsl\\({(* (/ i n-spokes) 360)}, 100%, 50%\\)"
+					"stroke": "hsl({(* (/ i n-spokes) 360)}, 100%, 50%)"
 				}
 			}
 		}
