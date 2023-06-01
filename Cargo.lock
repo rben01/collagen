@@ -206,7 +206,7 @@ checksum = "8a2dd5a6fe8c6e3502f568a6353e5273bbb15193ad9a89e457b9970798efbea1"
 
 [[package]]
 name = "collagen"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "base64",
  "clap",
