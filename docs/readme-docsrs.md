@@ -26,13 +26,13 @@ Table of Contents
 
 </div>
 
--   [Rationale](#_rationale)
--   [Using Collagen](#_using_collagen)
-    -   [Quick Start](#_quick_start)
-    -   [Definitions](#_definitions)
-    -   [In-Depth Description](#_in_depth_description)
-    -   [Basic Schema](#_basic_schema)
--   [Portability Concerns](#_portability_concerns)
+-   [Rationale](#rationale)
+-   [Using Collagen](#using-collagen)
+    -   [Quick Start](#quick-start)
+    -   [Definitions](#definitions)
+    -   [In-Depth Description](#in-depth-description)
+    -   [Basic Schema](#basic-schema)
+-   [Portability Concerns](#portability-concerns)
 
 </div>
 
@@ -341,7 +341,92 @@ aims to fill this gap in the following ways:
 <div class="paragraph">
 
 The above features make Collagen suitable as an “image editor for
-programmers”.
+programmers”. Everybody loves memes, programmers included, so let’s use
+Collagen to make one.
+
+</div>
+
+`collagen.json`
+
+<div class="content">
+
+<div class="listingblock">
+
+<div class="content">
+
+``` highlight
+{
+    "vars": { "width": 800 },
+    "attrs": { "viewBox": "0 0 {width} 650" },
+    "children": [
+        {
+            "tag": "defs",
+            "children": [
+                {
+                    "tag": "style",
+                    "text": "@import url(\"https://my-fonts.pages.dev/Impact/impact.css\");",
+                    "should_escape_text": false
+                }
+            ]
+        },
+        {
+            "image_path": "./drake-small.jpg",
+            "attrs": {
+                "width": "{width}"
+            }
+        },
+        {
+            "vars": {
+                "x": 550,
+                "dy": 50
+            },
+            "tag": "text",
+            "attrs": {
+                "font-family": "Impact",
+                "font-size": 50,
+                "color": "black",
+                "text-anchor": "middle",
+                "vertical-align": "top",
+                "x": "{x}",
+                "y": 420
+            },
+            "children": [
+                {
+                    "for_each": [
+                        { "variable": "i", "in": { "start": 0, "end": 4 } },
+                        {
+                            "variable": "line",
+                            "in": [
+                                "Using SVG-based text",
+                                "which is infinitely",
+                                "zoomable and has",
+                                "no artifacts"
+                            ]
+                        }
+                    ],
+                    "do": {
+                        "tag": "tspan",
+                        "text": "{line}",
+                        "attrs": { "x": "{x}", "dy": "{(if (= i 0) 0 dy)}" }
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
+
+</div>
+
+</div>
+
+</div>
+
+<div class="paragraph">
+
+<span
+class="image"><img src="https://rben01.github.io/collagen/docs/readme/drake/drake.svg"
+width="400" alt="A Drake meme. Top panel" /></span>
 
 </div>
 
