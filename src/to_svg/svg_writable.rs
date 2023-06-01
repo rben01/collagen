@@ -25,41 +25,43 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 		W: std::io::Write,
 		F: FnOnce(&mut XmlWriter<W>) -> ClgnDecodingResult<()>,
 	{
-		let tag_name = self.tag_name();
-
-		// Open the tag (write e.g., `<rect`)
-		let mut curr_elem = BytesStart::new(tag_name);
-
 		// Write the tag itself, and its children and text
 		context.with_new_vars(self.vars(context)?, || {
-			let attr_values = self.attrs(context)?;
+			if let Some(tag_name) = self.tag_name() {
+				// Open the tag (write e.g., `<rect`)
+				let mut curr_elem = BytesStart::new(tag_name);
 
-			// Write e.g., `attr1="val1"`
-			for (k, v) in attr_values.iter() {
-				if let Some(v) = v.to_maybe_string() {
-					curr_elem.push_attribute((*k, v.as_ref()));
+				let attr_values = self.attrs(context)?;
+
+				// Write e.g., `attr1="val1"`
+				for (k, v) in attr_values.iter() {
+					if let Some(v) = v.to_maybe_string() {
+						curr_elem.push_attribute((*k, v.as_ref()));
+					}
 				}
-			}
 
-			// Finish tag, writing `>`
-			writer.write_event(XmlEvent::Start(curr_elem))?;
+				// Finish tag, writing `>`
+				writer.write_event(XmlEvent::Start(curr_elem))?;
 
-			// Write the children
-			write_children(writer)?;
+				// Write the children
+				write_children(writer)?;
 
-			// Write the tag's text `<tag attr="val">text here`
-			let text = self.text(context)?;
-			writer.write_event(XmlEvent::Text(if self.should_escape_text() {
-				BytesText::new(text.as_ref())
+				// Write the tag's text `<tag attr="val">text here`
+				let text = self.text(context)?;
+				writer.write_event(XmlEvent::Text(if self.should_escape_text() {
+					BytesText::new(text.as_ref())
+				} else {
+					BytesText::from_escaped(text)
+				}))?;
+
+				// Close the tag (`</rect>`)
+				writer.write_event(XmlEvent::End(BytesEnd::new(tag_name)))?;
 			} else {
-				BytesText::from_escaped(text)
-			}))?;
+				write_children(writer)?;
+			}
 
 			Ok(())
 		})?;
-
-		// Close the tag (`</rect>`)
-		writer.write_event(XmlEvent::End(BytesEnd::new(tag_name)))?;
 
 		Ok(())
 	}

@@ -43,8 +43,8 @@ impl<'a> RootTag<'a> {
 }
 
 impl<'a> TagLike<'a> for RootTag<'a> {
-	fn tag_name(&self) -> &str {
-		"svg"
+	fn tag_name(&self) -> Option<&'static str> {
+		Some("svg")
 	}
 
 	fn vars(&self, _: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {

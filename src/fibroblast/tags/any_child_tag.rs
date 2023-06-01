@@ -96,16 +96,16 @@ impl<'a> AnyChildTag<'a> {
 }
 
 impl<'a> TagLike<'a> for AnyChildTag<'a> {
-	fn tag_name(&self) -> &str {
+	fn tag_name(&self) -> Option<&str> {
 		use AnyChildTag::*;
 		match &self {
-			Container(t) => t.tag_name(),
-			NestedSvg(t) => t.tag_name(),
-			Image(t) => t.tag_name(),
+			Container(t) => Some(t.tag_name()),
+			NestedSvg(t) => Some(t.tag_name()),
+			Image(t) => Some(t.tag_name()),
 			Foreach(t) => t.tag_name(),
 			If(t) => t.tag_name(),
-			Other(t) => t.tag_name(),
-			Font(t) => t.tag_name(),
+			Other(t) => Some(t.tag_name()),
+			Font(t) => Some(t.tag_name()),
 			Error(_) => unreachable!(),
 		}
 	}

@@ -2,13 +2,11 @@ mod collection;
 mod iterable;
 
 use super::{
-	error_tag::Validatable,
-	traits::{HasCommonTagFields, HasVars},
-	AnyChildTag, CommonTagFields, DecodingContext, XmlAttrs,
+	error_tag::Validatable, traits::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs,
+	EMPTY_ATTRS, EMPTY_VARS,
 };
 use crate::{
-	dispatch_to_common_tag_fields, fibroblast::data_types::insert_var,
-	to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
+	fibroblast::data_types::insert_var, to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
 };
 use iterable::{Loop, LoopVariable};
 use once_cell::sync::OnceCell;
@@ -21,9 +19,8 @@ pub struct ForeachTag<'a> {
 	pub(super) loops: Loop,
 	#[serde(rename = "do")]
 	pub(super) template: Box<AnyChildTag<'a>>,
-	#[serde(flatten)]
-	// the absence of children makes 'static appropriate here
-	pub(super) common_tag_fields: CommonTagFields<'static>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	vars: Option<TagVariables>,
 	#[serde(skip)]
 	pub(super) children: OnceCell<Vec<AnyChildTag<'a>>>,
 }
@@ -38,41 +35,37 @@ impl Validatable for ForeachTag<'_> {
 	}
 }
 
-dispatch_to_common_tag_fields!(impl HasVars for ForeachTag<'_>);
+impl HasVars for ForeachTag<'_> {
+	fn base_vars(&self) -> &TagVariables {
+		self.vars.as_ref().unwrap_or(&*EMPTY_VARS)
+	}
+
+	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
+		&mut self.vars
+	}
+}
 
 impl<'a> ForeachTag<'a> {
-	pub(crate) fn tag_name(&self) -> &'static str {
-		"g"
+	pub(crate) fn tag_name(&self) -> Option<&'static str> {
+		None
 	}
 
 	pub(crate) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
+		&*EMPTY_ATTRS
 	}
 
 	pub(crate) fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
+		Default::default()
 	}
 
 	pub(crate) fn should_escape_text(&self) -> bool {
-		self.common_tag_fields.should_escape_text()
+		Default::default()
 	}
 
 	pub(crate) fn children(
 		&'a self,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<&'a [AnyChildTag<'a>]> {
-		let n_children = self
-			.common_tag_fields
-			.children
-			.as_ref()
-			.map(|v| v.len())
-			.unwrap_or(0);
-		if n_children > 0 {
-			return Err(ClgnDecodingError::Foreach {
-				msg: "for_each must not have any children; use the `template` field instead".into(),
-			});
-		}
-
 		let (loops, loop_len) = {
 			let mut loops = Vec::new();
 

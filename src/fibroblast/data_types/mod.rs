@@ -58,7 +58,7 @@ impl<'a> IntoIterator for AttrKVValueVec<'a> {
 }
 
 /// Map of `String` -> `VariableValue`
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct TagVariables(pub(crate) Map<String, VariableValue>);
 
 pub(crate) fn insert_var(

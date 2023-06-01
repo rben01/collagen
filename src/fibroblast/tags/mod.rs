@@ -68,7 +68,7 @@ pub(crate) static EMPTY_ATTRS: Lazy<XmlAttrs> = Lazy::new(|| XmlAttrs(Map::new()
 pub(crate) static EMPTY_VARS: Lazy<TagVariables> = Lazy::new(|| TagVariables(Map::new()));
 
 pub(crate) trait TagLike<'a> {
-	fn tag_name(&self) -> &str;
+	fn tag_name(&self) -> Option<&str>;
 	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables>;
 	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>>;
 	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<str>>;

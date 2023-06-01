@@ -1,12 +1,10 @@
 use std::slice;
 
 use super::{
-	error_tag::Validatable, traits::HasCommonTagFields, AnyChildTag, CommonTagFields,
-	DecodingContext, XmlAttrs,
+	error_tag::Validatable, traits::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs,
+	EMPTY_ATTRS, EMPTY_VARS,
 };
-use crate::{
-	dispatch_to_common_tag_fields, to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
-};
+use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,9 +16,8 @@ pub struct IfTag<'a> {
 	pub(super) true_template: Box<AnyChildTag<'a>>,
 	#[serde(rename = "else")]
 	pub(super) false_template: Option<Box<AnyChildTag<'a>>>,
-	#[serde(flatten)]
-	// the absence of children makes 'static appropriate here
-	pub(super) common_tag_fields: CommonTagFields<'static>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	vars: Option<TagVariables>,
 }
 
 impl Validatable for IfTag<'_> {
@@ -38,23 +35,31 @@ impl Validatable for IfTag<'_> {
 	}
 }
 
-dispatch_to_common_tag_fields!(impl HasVars for IfTag<'_>);
+impl HasVars for IfTag<'_> {
+	fn base_vars(&self) -> &TagVariables {
+		self.vars.as_ref().unwrap_or(&*EMPTY_VARS)
+	}
+
+	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
+		&mut self.vars
+	}
+}
 
 impl<'a> IfTag<'a> {
-	pub(crate) fn tag_name(&self) -> &'static str {
-		"g"
+	pub(crate) fn tag_name(&self) -> Option<&'static str> {
+		None
 	}
 
 	pub(crate) fn base_attrs(&self) -> &XmlAttrs {
-		self.common_tag_fields.base_attrs()
+		&*EMPTY_ATTRS
 	}
 
 	pub(crate) fn base_text(&self) -> &str {
-		self.common_tag_fields.base_text()
+		""
 	}
 
 	pub(crate) fn should_escape_text(&self) -> bool {
-		self.common_tag_fields.should_escape_text()
+		Default::default()
 	}
 
 	pub(crate) fn should_be_emitted(&self, context: &DecodingContext) -> ClgnDecodingResult<bool> {
@@ -82,20 +87,6 @@ impl<'a> IfTag<'a> {
 		&'a self,
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<&'a [AnyChildTag<'a>]> {
-		let n_children = self
-			.common_tag_fields
-			.children
-			.as_ref()
-			.map(|v| v.len())
-			.unwrap_or(0);
-		if n_children > 0 {
-			return Err(ClgnDecodingError::If {
-				msg: "`if` must not have any children; use the `then` \
-					    and (optional) `else` fields instead"
-					.into(),
-			});
-		}
-
 		Ok(match self.child(context)? {
 			Some(child) => slice::from_ref(child),
 			None => &[],
