@@ -26,13 +26,13 @@ Table of Contents
 
 </div>
 
--   [Rationale](#rationale)
--   [Using Collagen](#using-collagen)
-    -   [Quick Start](#quick-start)
-    -   [Definitions](#definitions)
-    -   [In-Depth Description](#in-depth-description)
-    -   [Basic Schema](#basic-schema)
--   [Portability Concerns](#portability-concerns)
+- [Rationale](#rationale)
+- [Using Collagen](#using-collagen)
+  - [Quick Start](#quick-start)
+  - [Definitions](#definitions)
+  - [In-Depth Description](#in-depth-description)
+  - [Basic Schema](#basic-schema)
+- [Portability Concerns](#portability-concerns)
 
 </div>
 
@@ -72,6 +72,7 @@ following manifest will create a rainbow pinwheel.
 
 ``` highlight
 {
+    "$schema": "https://rben01.github.io/collagen/schemas/schema.json",
     "vars": {
         "width": 100,
         "height": "{width}",
@@ -322,17 +323,17 @@ aims to fill this gap in the following ways:
 
     <div class="ulist">
 
-    -   SVGs can indeed store vector graphics and the different kinds of
-        raster images alongside each other.
+    - SVGs can indeed store vector graphics and the different kinds of
+      raster images alongside each other.
 
-    -   SVGs are widely compatible, as they’re supported by nearly every
-        browser.
+    - SVGs are widely compatible, as they’re supported by nearly every
+      browser.
 
-    -   SVGs are "just" a tree of nodes with some attributes, so they’re
-        simple to implement.
+    - SVGs are "just" a tree of nodes with some attributes, so they’re
+      simple to implement.
 
-    -   SVGs are written in XML, which is plain text and simple(-ish) to
-        edit.
+    - SVGs are written in XML, which is plain text and simple(-ish) to
+      edit.
 
     </div>
 
@@ -356,6 +357,7 @@ Collagen to make one.
 
 ``` highlight
 {
+    "$schema": "https://rben01.github.io/collagen/schemas/schema.json",
     "vars": { "width": 800 },
     "attrs": { "viewBox": "0 0 {width} 650" },
     "children": [
@@ -604,7 +606,10 @@ error for an object to contain unexpected keys.
 
 <div class="paragraph">
 
-The recognized tags are listed at
+For users: add
+`"$schema": "https://rben01.github.io/collagen/schemas/schema.json"` to
+your manifest to get validation and suggestions. For developers: the
+tags are listed at
 [docs.rs/collagen](https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html).
 
 </div>

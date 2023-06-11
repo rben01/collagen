@@ -26,6 +26,7 @@ For instance, the following manifest will create a rainbow pinwheel.
 [source,json]
 ----
 {
+	"$schema": "https://rben01.github.io/collagen/schemas/schema.json",
 	"vars": {
 		"width": 100,
 		"height": "{width}",
@@ -140,6 +141,7 @@ Everybody loves memes, programmers included, so let's use Collagen to make one.
 [source,json]
 ----
 {
+	"$schema": "https://rben01.github.io/collagen/schemas/schema.json",
 	"vars": { "width": 800 },
 	"attrs": { "viewBox": "0 0 {width} 650" },
 	"children": [
@@ -269,8 +271,8 @@ Collagen identifies the type of an object it deserializes simply by the keys it 
 For instance, the presence of the `"for_each"` property tells Collagen that this tag is a `for` loop tag, while the `"image_path"` property tells Collagen that this tag is an `<image>` tag with an associated image file to embed.
 To avoid ambiguities, it is an error for an object to contain unexpected keys.
 
-
-The recognized tags are listed at https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html[docs.rs/collagen].
+For users: add `"$schema": "https://rben01.github.io/collagen/schemas/schema.json"` to the top-level object of your manifest to get validation and suggestions.
+For developers: the tags are listed at https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html[docs.rs/collagen].
 
 == Portability Concerns
 
