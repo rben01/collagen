@@ -608,8 +608,8 @@ error for an object to contain unexpected keys.
 
 For users: add
 `"$schema": "https://rben01.github.io/collagen/schemas/schema.json"` to
-your manifest to get validation and suggestions. For developers: the
-tags are listed at
+the top-level object of your manifest to get validation and suggestions.
+For developers: the tags are listed at
 [docs.rs/collagen](https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html).
 
 </div>
