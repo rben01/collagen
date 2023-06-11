@@ -32,7 +32,7 @@ Table of Contents
   - [Definitions](#definitions)
   - [In-Depth Description](#in-depth-description)
   - [Basic Schema](#basic-schema)
-- [Portability Concerns](#portability-concerns)
+- [FAQ](#faq)
 
 </div>
 
@@ -622,38 +622,70 @@ For developers: the tags are listed at
 
 <div class="sect1">
 
-## Portability Concerns
+## FAQ
 
 <div class="sectionbody">
 
-<div class="paragraph">
+<div class="qlist qanda">
 
-In general, filesystem paths are not necessarily valid UTF-8 strings.
-Furthermore, Windows and \\\*nix systems use different path separators.
-How, then, does Collagen handle paths to files on disk in a
-platform-agnostic way? All paths consumed by Collagen must be valid
-UTF-8 strings using forward slashes (`/`) as the path separator. Forward
-slashes are replaced with the system path separator before resolving the
-path. So `path/to/image` remains unchanged on \\\*nix systems, but
-becomes `path\to\image` on Windows. This means that in order to be
-portable, path components should not contain the path separator of any
-system, even if it is legal on the system on which the skeleton is
-authored. For instance, filenames with backslashes `\` are legal on
-Linux, but would pose a problem when decoding on Windows. Generally
-speaking, if you restrict your file and folder names to use word
-characters, hyphens, whitespace, and a limited set of punctuation, you
-should be fine.
+1.  *How is this different from a templating language like
+    [Liquid](https://shopify.github.io/liquid/)?*
 
-</div>
+    Templating languages generally consist of two components: the
+    templating library, which does the rendering of the template, and
+    the template language, which usually resembles HTML with the
+    addition of things like control flow and interpolation. The library
+    is responsible for combining a template file and *some external
+    data* and turning them into an output file. But you can’t
+    (generally) write your data literally in the template file, which is
+    inconvenient, and the overhead of needing to write down your data
+    separately can be quite large compared to the complexity of the
+    image you would use Collagen to create. In addition, to actually
+    drive the templating library probably requires writing some code in
+    the library’s language and running it in the language’s runtime.
 
-<div class="paragraph">
+    <div class="paragraph">
 
-Naturally you are also limited by the inherent system limitations on
-path names. For instance, while `CON` is a valid filename on Linux, it
-is forbidden by Windows. Collagen makes no effort to do filename
-validation on behalf of systems on which it may be used; it is up to the
-author of a skeleton to ensure that it can be decoded on a target
-device.
+    In contrast, Collagen lets you include data (such as lists to loop
+    over) directly in the manifest and runs via single executable with
+    no runtime to speak of. It also lets you write your image in a
+    single file (`collagen.json`) instead of two (the template file and
+    the “real code” that creates the output.) In addition, with
+    Collagen, there is no syntax to learn, per se; you simply write
+    JSON. If you reference Collagen’s [JSON
+    schema](https://rben01.github.io/collagen/schemas/schema.json),
+    writing a Collagen manifest becomes pretty simple and convenient.
+
+    </div>
+
+2.  *How does Collagen handle paths across multiple platforms?*
+
+    In general, filesystem paths are not necessarily valid UTF-8
+    strings. Furthermore, Windows and \*nix systems use different path
+    separators. How, then, does Collagen handle paths to files on disk
+    in a platform-agnostic way? All paths consumed by Collagen must be
+    valid UTF-8 strings using forward slashes (`/`) as the path
+    separator. Forward slashes are replaced with the system path
+    separator before resolving the path. So `path/to/image` remains
+    unchanged on \\\*nix systems, but becomes `path\to\image` on
+    Windows. This means that in order to be portable, path components
+    should not contain the path separator of any system, even if it is
+    legal on the system on which the skeleton is authored. For instance,
+    filenames with backslashes `\` are legal on Linux, but would pose a
+    problem when decoding on Windows. Generally speaking, if you
+    restrict your file and folder names to use word characters, hyphens,
+    whitespace, and a limited set of punctuation, you should be fine.
+
+    <div class="paragraph">
+
+    Naturally you are also limited by the inherent system limitations on
+    path names. For instance, while `CON` is a valid filename on Linux,
+    it is forbidden by Windows. Collagen makes no effort to do filename
+    validation on behalf of systems on which it may be used; it is up to
+    the author of a skeleton to ensure that it can be decoded on a
+    target device.
+
+    </div>
 
 </div>
 
