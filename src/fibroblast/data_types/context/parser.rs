@@ -3,7 +3,7 @@ use std::{borrow::Cow, cell::RefCell};
 use super::{
 	errors::{VariableSubstitutionError, VariableSubstitutionResult},
 	functions::{
-		BinaryFunction, NullaryFunction, TernaryFunction, UnaryFunction, VariadicFunction,
+		BinaryFunction, NullaryFunction, TernaryFunction, UnaryFunction, VariadicNum2NumFunction,
 	},
 	DecodingContext,
 };
@@ -176,7 +176,7 @@ impl SExpr<'_> {
 			.iter()
 			.map(|arg| arg.eval(context, variables_referenced));
 
-		if let Ok(func) = fn_name.parse::<VariadicFunction>() {
+		if let Ok(func) = fn_name.parse::<VariadicNum2NumFunction>() {
 			func.try_call(args_iter)
 		} else if let Ok(func) = fn_name.parse::<TernaryFunction>() {
 			func.try_call(args_iter)

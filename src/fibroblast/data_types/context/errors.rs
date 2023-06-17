@@ -1,4 +1,4 @@
-use super::functions::{ArityError, FunctionCallError};
+use super::functions::{FunctionCallError, FunctionCallSiteError};
 
 pub type VariableSubstitutionResult<T> = Result<T, Vec<VariableSubstitutionError>>;
 
@@ -9,7 +9,7 @@ pub type VariableSubstitutionResult<T> = Result<T, Vec<VariableSubstitutionError
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum VariableSubstitutionError {
 	Parsing(String),
-	FunctionCall(ArityError),
+	FunctionCall(FunctionCallSiteError),
 	InvalidVariableNameOrExpression(String),
 	MissingVariable(String),
 	ExpectedNumGotString { variable: String, value: String },
@@ -24,8 +24,10 @@ pub enum VariableSubstitutionError {
 impl From<FunctionCallError<Vec<VariableSubstitutionError>>> for Vec<VariableSubstitutionError> {
 	fn from(err: FunctionCallError<Vec<VariableSubstitutionError>>) -> Self {
 		match err {
-			FunctionCallError::Arity(e) => vec![VariableSubstitutionError::FunctionCall(e)],
-			FunctionCallError::Other(e) => e,
+			FunctionCallError::CallSite(e) => {
+				vec![VariableSubstitutionError::FunctionCall(e)]
+			}
+			FunctionCallError::Upstream(e) => e,
 		}
 	}
 }
