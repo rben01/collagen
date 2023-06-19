@@ -1,5 +1,5 @@
 use super::{
-	function_impls::{arity_error, ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};

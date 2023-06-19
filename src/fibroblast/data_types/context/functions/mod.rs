@@ -1,6 +1,6 @@
 mod binary_num_to_num;
 mod constants;
-mod function_impls;
+mod function_impl_utils;
 mod ternary_any;
 mod unary_collection_to_num;
 mod unary_num_to_num;
@@ -17,7 +17,7 @@ use self::{
 	variadic_num_to_num::VariadicNumToNumFunction,
 };
 use crate::fibroblast::data_types::{
-	context::functions::function_impls::FallibleFunctionImpl, VariableValue,
+	context::functions::function_impl_utils::FallibleFunctionImpl, VariableValue,
 };
 use std::str::FromStr;
 

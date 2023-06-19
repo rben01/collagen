@@ -1,6 +1,6 @@
 use super::{
 	arity_error,
-	function_impls::{ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use std::f64::consts::PI;

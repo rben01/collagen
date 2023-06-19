@@ -1,5 +1,6 @@
 use super::{
-	arity_error, function_impls::FallibleFunctionImpl, Arity, FunctionCallResult, VariableValue,
+	arity_error, function_impl_utils::FallibleFunctionImpl, Arity, FunctionCallResult,
+	VariableValue,
 };
 use std::f64::{self, consts};
 use strum_macros::{EnumString, IntoStaticStr};

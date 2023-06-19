@@ -1,6 +1,6 @@
-use super::{function_impls::FallibleFunctionImpl, Arity, FunctionCallResult, VariableValue};
+use super::{function_impl_utils::FallibleFunctionImpl, Arity, FunctionCallResult, VariableValue};
 use crate::fibroblast::data_types::context::functions::{
-	arity_error, function_impls::ensure_string,
+	arity_error, function_impl_utils::ensure_string,
 };
 use strum_macros::{EnumString, IntoStaticStr};
 
