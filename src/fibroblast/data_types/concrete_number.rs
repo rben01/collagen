@@ -67,6 +67,12 @@ impl From<ConcreteNumber> for f64 {
 	}
 }
 
+impl From<f64> for ConcreteNumber {
+	fn from(x: f64) -> Self {
+		Self::Float(x)
+	}
+}
+
 impl<'de> Deserialize<'de> for ConcreteNumber {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where

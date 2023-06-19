@@ -18,16 +18,16 @@ impl<'a> DecodingContext<'a> {
 	}
 }
 
-fn missing_var(name: impl Into<String>) -> VariableSubstitutionError {
-	VariableSubstitutionError::MissingVariable(name.into())
+fn missing_var(name: impl Into<String>) -> VariableEvaluationError {
+	VariableEvaluationError::MissingVariable(name.into())
 }
 
-fn invalid_expr(expr: impl Into<String>) -> VariableSubstitutionError {
-	VariableSubstitutionError::InvalidVariableNameOrExpression(expr.into())
+fn invalid_expr(expr: impl Into<String>) -> VariableEvaluationError {
+	VariableEvaluationError::InvalidVariableNameOrExpression(expr.into())
 }
 
-fn invalid_esc(c: char) -> VariableSubstitutionError {
-	VariableSubstitutionError::InvalidEscapedChar(c)
+fn invalid_esc(c: char) -> VariableEvaluationError {
+	VariableEvaluationError::InvalidEscapedChar(c)
 }
 
 mod vars {
@@ -296,12 +296,12 @@ mod substitution {
 
 	#[test]
 	fn parse_errors() {
-		use super::{VariableSubstitutionError, VariableValue as VV};
+		use super::{VariableEvaluationError, VariableValue as VV};
 
 		#[track_caller]
 		fn test<V>(context: &DecodingContext, s: &str, err: V)
 		where
-			V: Into<Vec<VariableSubstitutionError>>,
+			V: Into<Vec<VariableEvaluationError>>,
 		{
 			assert_eq!(
 				context.eval_exprs_in_str(s).unwrap_err(),
@@ -323,29 +323,29 @@ mod substitution {
 		test(
 			&empty_context,
 			r"\",
-			[VariableSubstitutionError::TrailingBackslash],
+			[VariableEvaluationError::TrailingBackslash],
 		);
 		test(
 			&empty_context,
 			r"x\",
-			[VariableSubstitutionError::TrailingBackslash],
+			[VariableEvaluationError::TrailingBackslash],
 		);
 		test(
 			&empty_context,
 			r"xytas\{\}\",
-			[VariableSubstitutionError::TrailingBackslash],
+			[VariableEvaluationError::TrailingBackslash],
 		);
 		test(
 			&nonempty_context,
 			r"xytas{c}\",
-			[VariableSubstitutionError::TrailingBackslash],
+			[VariableEvaluationError::TrailingBackslash],
 		);
 		test(
 			&nonempty_context,
 			r"xytas{xy}\",
 			[
-				VariableSubstitutionError::MissingVariable("xy".into()),
-				VariableSubstitutionError::TrailingBackslash,
+				VariableEvaluationError::MissingVariable("xy".into()),
+				VariableEvaluationError::TrailingBackslash,
 			],
 		);
 		test(
@@ -353,8 +353,8 @@ mod substitution {
 			r"xytas{d}\",
 			// two tailing backslashes because d is itself a trailing backslash
 			[
-				VariableSubstitutionError::TrailingBackslash,
-				VariableSubstitutionError::TrailingBackslash,
+				VariableEvaluationError::TrailingBackslash,
+				VariableEvaluationError::TrailingBackslash,
 			],
 		);
 		test(
@@ -363,37 +363,37 @@ mod substitution {
 			[
 				invalid_esc('x'),
 				// Because e is a bad backslash
-				VariableSubstitutionError::UnmatchedRightBrace,
-				VariableSubstitutionError::TrailingBackslash,
+				VariableEvaluationError::UnmatchedRightBrace,
+				VariableEvaluationError::TrailingBackslash,
 			],
 		);
 
 		test(
 			&empty_context,
 			"{",
-			[VariableSubstitutionError::UnmatchedLeftBrace],
+			[VariableEvaluationError::UnmatchedLeftBrace],
 		);
 		test(
 			&empty_context,
 			"{xyz",
-			[VariableSubstitutionError::UnmatchedLeftBrace],
+			[VariableEvaluationError::UnmatchedLeftBrace],
 		);
 		test(
 			&empty_context,
 			"}",
-			[VariableSubstitutionError::UnmatchedRightBrace],
+			[VariableEvaluationError::UnmatchedRightBrace],
 		);
 		test(
 			&empty_context,
 			"xyz}",
-			[VariableSubstitutionError::UnmatchedRightBrace],
+			[VariableEvaluationError::UnmatchedRightBrace],
 		);
 		test(
 			&empty_context,
 			"{xyz}{",
 			[
 				missing_var("xyz"),
-				VariableSubstitutionError::UnmatchedLeftBrace,
+				VariableEvaluationError::UnmatchedLeftBrace,
 			],
 		);
 		test(
@@ -401,20 +401,20 @@ mod substitution {
 			"{xyz}}",
 			[
 				missing_var("xyz"),
-				VariableSubstitutionError::UnmatchedRightBrace,
+				VariableEvaluationError::UnmatchedRightBrace,
 			],
 		);
 		test(
 			&nonempty_context,
 			"{a}{b}}",
-			[VariableSubstitutionError::UnmatchedRightBrace],
+			[VariableEvaluationError::UnmatchedRightBrace],
 		);
 		test(
 			&empty_context,
 			"{xyz}6789}ajshd",
 			[
 				missing_var("xyz"),
-				VariableSubstitutionError::UnmatchedRightBrace,
+				VariableEvaluationError::UnmatchedRightBrace,
 			],
 		);
 
@@ -423,7 +423,7 @@ mod substitution {
 			r"ak{jh}sd{js",
 			[
 				missing_var("jh"),
-				VariableSubstitutionError::UnmatchedLeftBrace,
+				VariableEvaluationError::UnmatchedLeftBrace,
 			],
 		);
 
@@ -432,7 +432,7 @@ mod substitution {
 			r"ak{\jh}sd{js",
 			[
 				invalid_expr("\\jh"),
-				VariableSubstitutionError::UnmatchedLeftBrace,
+				VariableEvaluationError::UnmatchedLeftBrace,
 			],
 		);
 		test(
@@ -440,8 +440,8 @@ mod substitution {
 			r"ak{xyjh}sd{\Ks",
 			[
 				missing_var("xyjh"),
-				VariableSubstitutionError::UnmatchedLeftBrace,
-				VariableSubstitutionError::InvalidEscapedChar('K'),
+				VariableEvaluationError::UnmatchedLeftBrace,
+				VariableEvaluationError::InvalidEscapedChar('K'),
 			],
 		);
 
@@ -462,7 +462,7 @@ mod substitution {
 				missing
 					.into()
 					.into_iter()
-					.map(|s| VariableSubstitutionError::MissingVariable(s.to_owned()))
+					.map(|s| VariableEvaluationError::MissingVariable(s.to_owned()))
 					.collect::<Vec<_>>()
 			)
 		}
@@ -511,11 +511,7 @@ mod substitution {
 				invalid
 					.into()
 					.into_iter()
-					.map(
-						|s| VariableSubstitutionError::InvalidVariableNameOrExpression(
-							s.to_owned()
-						)
-					)
+					.map(|s| VariableEvaluationError::InvalidVariableNameOrExpression(s.to_owned()))
 					.collect::<Vec<_>>()
 			)
 		}
@@ -541,7 +537,7 @@ mod substitution {
 		fn test(
 			context: &DecodingContext,
 			input: impl AsRef<str>,
-			vars: impl Into<Vec<VariableSubstitutionError>>,
+			vars: impl Into<Vec<VariableEvaluationError>>,
 		) {
 			assert_eq!(
 				context.eval_exprs_in_str(input.as_ref()).err().unwrap(),

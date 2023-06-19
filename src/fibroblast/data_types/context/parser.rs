@@ -1,10 +1,8 @@
 use std::{borrow::Cow, cell::RefCell};
 
 use super::{
-	errors::{VariableSubstitutionError, VariableSubstitutionResult},
-	functions::{
-		BinaryFunction, NullaryFunction, TernaryFunction, UnaryFunction, VariadicNum2NumFunction,
-	},
+	errors::{VariableEvaluationError, VariableSubstitutionResult},
+	functions::Function,
 	DecodingContext,
 };
 use crate::{fibroblast::data_types::VariableValue, utils::Set};
@@ -132,25 +130,14 @@ impl Arg<'_> {
 		&self,
 		context: &'_ DecodingContext<'_>,
 		variables_referenced: &Set<String>,
-	) -> VariableSubstitutionResult<f64> {
+	) -> VariableSubstitutionResult<VariableValue> {
 		Ok(match self {
-			&Arg::Lit(x) => x,
-			&Arg::Var(var) => {
-				let val = context.eval_variable(var, variables_referenced)?;
-				match val {
-					VariableValue::Number(n) => n.into(),
-					VariableValue::String(s) => {
-						return Err(vec![VariableSubstitutionError::ExpectedNumGotString {
-							variable: var.to_owned(),
-							value: s,
-						}])
-					}
-				}
-			}
+			&Arg::Lit(x) => x.into(),
+			&Arg::Var(var) => context.eval_variable(var, variables_referenced)?,
 			Arg::SExpr(ex) => ex.eval(context, variables_referenced)?,
 			&Arg::Error(e) => {
 				return Err(vec![
-					VariableSubstitutionError::InvalidVariableNameOrExpression(e.to_owned()),
+					VariableEvaluationError::InvalidVariableNameOrExpression(e.to_owned()),
 				])
 			}
 		})
@@ -169,29 +156,21 @@ impl SExpr<'_> {
 		&self,
 		context: &'_ DecodingContext<'_>,
 		variables_referenced: &Set<String>,
-	) -> VariableSubstitutionResult<f64> {
+	) -> VariableSubstitutionResult<VariableValue> {
 		let Self { fn_name, args } = self;
 		let fn_name = *fn_name;
 		let args_iter = args
 			.iter()
 			.map(|arg| arg.eval(context, variables_referenced));
 
-		if let Ok(func) = fn_name.parse::<VariadicNum2NumFunction>() {
-			func.try_call(args_iter)
-		} else if let Ok(func) = fn_name.parse::<TernaryFunction>() {
-			func.try_call(args_iter)
-		} else if let Ok(func) = fn_name.parse::<BinaryFunction>() {
-			func.try_call(args_iter)
-		} else if let Ok(func) = fn_name.parse::<UnaryFunction>() {
-			func.try_call(args_iter)
-		} else if let Ok(func) = fn_name.parse::<NullaryFunction>() {
-			func.try_call(args_iter)
-		} else {
-			return Err(vec![VariableSubstitutionError::UnrecognizedFunctionName(
+		let Ok(func) = fn_name.parse::<Function>() else {
+			return Err(vec![VariableEvaluationError::UnrecognizedFunctionName(
 				fn_name.to_owned(),
 			)]);
-		}
-		.map_err(Vec::<VariableSubstitutionError>::from)
+		};
+
+		func.try_call(args_iter)
+			.map_err(Vec::<VariableEvaluationError>::from)
 	}
 }
 
@@ -221,7 +200,7 @@ pub(super) fn parse<'a>(
 				}
 				BracedExpr::Error(s) => {
 					parsing_errs.borrow_mut().push(
-						VariableSubstitutionError::InvalidVariableNameOrExpression(s.to_owned()),
+						VariableEvaluationError::InvalidVariableNameOrExpression(s.to_owned()),
 					);
 					Cow::Borrowed("")
 				}
@@ -232,25 +211,25 @@ pub(super) fn parse<'a>(
 		map(invalid_esc_char, |c| {
 			parsing_errs
 				.borrow_mut()
-				.push(VariableSubstitutionError::InvalidEscapedChar(c));
+				.push(VariableEvaluationError::InvalidEscapedChar(c));
 			Ok(Cow::Borrowed(""))
 		}),
 		map(terminated(char('\\'), eof), |_| {
 			parsing_errs
 				.borrow_mut()
-				.push(VariableSubstitutionError::TrailingBackslash);
+				.push(VariableEvaluationError::TrailingBackslash);
 			Ok(Cow::Borrowed(""))
 		}),
 		map(l_brace, |_| {
 			parsing_errs
 				.borrow_mut()
-				.push(VariableSubstitutionError::UnmatchedLeftBrace);
+				.push(VariableEvaluationError::UnmatchedLeftBrace);
 			Ok(Cow::Borrowed(""))
 		}),
 		map(r_brace, |_| {
 			parsing_errs
 				.borrow_mut()
-				.push(VariableSubstitutionError::UnmatchedRightBrace);
+				.push(VariableEvaluationError::UnmatchedRightBrace);
 			Ok(Cow::Borrowed(""))
 		}),
 	))))(input);
@@ -261,7 +240,7 @@ pub(super) fn parse<'a>(
 		Err(e) => {
 			match e {
 				nom::Err::Error(e) => {
-					parsing_errs.push(VariableSubstitutionError::Parsing(e.to_string()))
+					parsing_errs.push(VariableEvaluationError::Parsing(e.to_string()))
 				}
 				_ => unreachable!(),
 			};

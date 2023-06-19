@@ -1,6 +1,6 @@
 use super::{
-	Arity, Function, FunctionCallError, FunctionCallResult, FunctionCallSiteError, FunctionDatum,
-	FunctionDatumType,
+	Arity, FunctionCallError, FunctionCallResult, FunctionCallSiteError, FunctionDatumType,
+	VariableValue,
 };
 
 pub(super) fn arity_error<T, E>(
@@ -16,20 +16,20 @@ pub(super) fn arity_error<T, E>(
 }
 
 pub(super) fn ensure_number<D, E>(
-	name: &'static str,
+	func: impl Into<&'static str>,
 	val: D,
 	idx: usize,
 ) -> FunctionCallResult<f64, E>
 where
-	D: Into<FunctionCallResult<FunctionDatum, E>>,
+	D: Into<FunctionCallResult<VariableValue, E>>,
 {
 	let val = val.into()?;
 	Ok(match val {
-		FunctionDatum::Number(x) => x,
-		FunctionDatum::Text(_) => {
+		VariableValue::Number(x) => x.into(),
+		VariableValue::String(_) => {
 			return Err(FunctionCallError::CallSite(
 				FunctionCallSiteError::ArgumentType {
-					func: name,
+					func: func.into(),
 					position: idx,
 					expected: FunctionDatumType::Number,
 					actual: FunctionDatumType::Text,
@@ -39,21 +39,18 @@ where
 	})
 }
 
-pub(super) fn ensure_string<D, E>(
-	name: &'static str,
-	val: D,
-	idx: usize,
-) -> FunctionCallResult<String, E>
+pub(super) fn ensure_string<T, D, E>(func: T, val: D, idx: usize) -> FunctionCallResult<String, E>
 where
-	D: Into<FunctionCallResult<FunctionDatum, E>>,
+	T: Into<&'static str>,
+	D: Into<FunctionCallResult<VariableValue, E>>,
 {
 	let val = val.into()?;
 	Ok(match val {
-		FunctionDatum::Text(s) => s,
-		FunctionDatum::Number(_) => {
+		VariableValue::String(s) => s,
+		VariableValue::Number(_) => {
 			return Err(FunctionCallError::CallSite(
 				FunctionCallSiteError::ArgumentType {
-					func: name,
+					func: func.into(),
 					position: idx,
 					expected: FunctionDatumType::Text,
 					actual: FunctionDatumType::Number,
@@ -63,16 +60,16 @@ where
 	})
 }
 
-pub(super) trait FallibleFunctionImpl: Into<Function> {
+pub(super) trait FallibleFunctionImpl: Into<&'static str> {
 	type Output;
 
 	fn try_call<I, E>(self, args: I) -> FunctionCallResult<Self::Output, E>
 	where
-		I: Iterator<Item = FunctionCallResult<FunctionDatum, E>>;
+		I: IntoIterator<Item = FunctionCallResult<VariableValue, E>>;
 }
 
 #[macro_export]
-macro_rules! gen_specifc_function_enum {
+macro_rules! gen_specific_function_enum {
 	(enum $ty:ident { $($variant:ident),* $(,)? }) => {
 		#[derive(Copy, Clone, Debug)]
 		pub(super) enum $ty {
@@ -81,14 +78,14 @@ macro_rules! gen_specifc_function_enum {
 
 		impl $ty {
 			pub(crate) fn name(self) -> &'static str {
-				Function::from(self).into()
+				self.into()
 			}
 		}
 
-		impl From<$ty> for Function {
+		impl From<$ty> for $crate::fibroblast::data_types::context::functions::Function {
 			fn from(value: $ty) -> Self {
 				match value {
-					$($ty::$variant => { Function::$variant }),*
+					$($ty::$variant => { $crate::fibroblast::data_types::context::functions::Function::$variant }),*
 				}
 			}
 		}

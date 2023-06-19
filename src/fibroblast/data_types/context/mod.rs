@@ -19,7 +19,7 @@ use crate::{
 	to_svg::svg_writable::ClgnDecodingResult,
 	utils::{Map, MapEntry, Set},
 };
-use errors::{VariableSubstitutionError, VariableSubstitutionResult};
+use errors::{VariableEvaluationError, VariableSubstitutionResult};
 use parser::parse;
 use std::{
 	borrow::Cow,
@@ -146,13 +146,13 @@ impl<'a> DecodingContext<'a> {
 	) -> VariableSubstitutionResult<VariableValue> {
 		let mut parsing_errs = Vec::new();
 		if variables_referenced.contains(var) {
-			parsing_errs.push(VariableSubstitutionError::RecursiveSubstitutionError {
+			parsing_errs.push(VariableEvaluationError::RecursiveSubstitutionError {
 				variable: var.to_owned(),
 			});
 		}
 
 		let Some(val) =  self.get_var(var) else{
-			parsing_errs.push(VariableSubstitutionError::MissingVariable(var.to_owned()));
+			parsing_errs.push(VariableEvaluationError::MissingVariable(var.to_owned()));
 			return Err(parsing_errs);
 		};
 		Ok(match val {

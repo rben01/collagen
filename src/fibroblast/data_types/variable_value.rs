@@ -1,6 +1,6 @@
 use super::concrete_number::ConcreteNumber;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 /// The value of a variable; either a number or a string
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -9,6 +9,16 @@ use std::borrow::Cow;
 pub(crate) enum VariableValue {
 	Number(ConcreteNumber),
 	String(String),
+}
+
+impl fmt::Display for VariableValue {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		use VariableValue::*;
+		match self {
+			Number(n) => write!(f, "{}", n),
+			String(s) => write!(f, "{}", s),
+		}
+	}
 }
 
 impl VariableValue {
@@ -21,9 +31,9 @@ impl VariableValue {
 	}
 }
 
-impl From<ConcreteNumber> for VariableValue {
-	fn from(x: ConcreteNumber) -> Self {
-		Self::Number(x)
+impl<T: Into<ConcreteNumber>> From<T> for VariableValue {
+	fn from(x: T) -> Self {
+		Self::Number(x.into())
 	}
 }
 

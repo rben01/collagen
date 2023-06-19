@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
 	fibroblast::{
-		data_types::{context::errors::VariableSubstitutionError, ConcreteNumber, VariableValue},
+		data_types::{context::errors::VariableEvaluationError, ConcreteNumber, VariableValue},
 		DecodingContext,
 	},
 	to_svg::svg_writable::ClgnDecodingError,
@@ -51,7 +51,7 @@ impl UnprocessedLoopCollection {
 				VariableValue::String(s) => {
 					context.eval_exprs_in_str(s)?.parse().map_err(|_| {
 						ClgnDecodingError::Parsing(vec![
-							VariableSubstitutionError::ExpectedNumGotString {
+							VariableEvaluationError::ExpectedNumGotString {
 								variable: name,
 								value: s.clone(),
 							},

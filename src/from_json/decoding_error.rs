@@ -9,7 +9,7 @@
 //! everywhere.)
 
 use crate::fibroblast::{
-	data_types::context::errors::VariableSubstitutionError, tags::ErrorTagReason,
+	data_types::context::errors::VariableEvaluationError, tags::ErrorTagReason,
 };
 use quick_xml::Error as XmlError;
 use serde_json as json;
@@ -21,7 +21,7 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 #[derive(Debug)]
 pub enum ClgnDecodingError {
 	InvalidSchema(ErrorTagReason),
-	Parsing(Vec<VariableSubstitutionError>),
+	Parsing(Vec<VariableEvaluationError>),
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
 	Zip(ZipError),
@@ -122,8 +122,8 @@ impl Display for ClgnDecodingError {
 	}
 }
 
-impl From<Vec<VariableSubstitutionError>> for ClgnDecodingError {
-	fn from(errs: Vec<VariableSubstitutionError>) -> Self {
+impl From<Vec<VariableEvaluationError>> for ClgnDecodingError {
+	fn from(errs: Vec<VariableEvaluationError>) -> Self {
 		Self::Parsing(errs)
 	}
 }
