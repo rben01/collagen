@@ -6,6 +6,7 @@ mod unary_collection_to_num;
 mod unary_num_to_num;
 mod unary_or_binary_num_to_num;
 mod unary_string_to_string;
+mod unary_t_to_t;
 mod variadic_num_to_num;
 
 use self::{
@@ -13,7 +14,7 @@ use self::{
 	ternary_any::TernaryAnyFunction, unary_collection_to_num::UnaryCollectionToStringFunction,
 	unary_num_to_num::UnaryNumToNumFunction,
 	unary_or_binary_num_to_num::UnaryOrBinaryNumToNumFunction,
-	unary_string_to_string::UnaryStringToStringFunction,
+	unary_string_to_string::UnaryStringToStringFunction, unary_t_to_t::UnaryTToT,
 	variadic_num_to_num::VariadicNumToNumFunction,
 };
 use crate::fibroblast::data_types::{
@@ -87,6 +88,7 @@ pub enum FunctionDatumType {
 pub(super) enum Function {
 	Constant(ConstantFunction),
 	UnaryNumToNum(UnaryNumToNumFunction),
+	UnaryTToT(UnaryTToT),
 	UnaryOrBinaryNumToNum(UnaryOrBinaryNumToNumFunction),
 	BinaryNumToNum(BinaryNumToNumFunction),
 	VariadicNumToNum(VariadicNumToNumFunction),
@@ -103,6 +105,7 @@ impl FromStr for Function {
 			.parse()
 			.map(Self::Constant)
 			.or_else(|_| fn_name.parse().map(Self::UnaryNumToNum))
+			.or_else(|_| fn_name.parse().map(Self::UnaryTToT))
 			.or_else(|_| fn_name.parse().map(Self::UnaryOrBinaryNumToNum))
 			.or_else(|_| fn_name.parse().map(Self::BinaryNumToNum))
 			.or_else(|_| fn_name.parse().map(Self::VariadicNumToNum))
@@ -127,6 +130,7 @@ impl Function {
 		Ok(match self {
 			Constant(f) => f.try_call(args)?.into(),
 			UnaryNumToNum(f) => f.try_call(args)?.into(),
+			UnaryTToT(f) => f.try_call(args)?.into(),
 			UnaryOrBinaryNumToNum(f) => f.try_call(args)?.into(),
 			BinaryNumToNum(f) => f.try_call(args)?.into(),
 			VariadicNumToNum(f) => f.try_call(args)?.into(),
