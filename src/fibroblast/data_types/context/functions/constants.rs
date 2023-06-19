@@ -6,7 +6,7 @@ use std::f64::{self, consts};
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
-#[strum(serialize_all = "kebab-case")]
+#[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
 pub(in crate::fibroblast::data_types::context) enum ConstantFunction {
 	E,
 	Pi,
