@@ -1,10 +1,9 @@
-use strum_macros::{EnumString, IntoStaticStr};
-
 use super::{
 	arity_error,
 	function_impls::{ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
+use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Copy, Clone, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]

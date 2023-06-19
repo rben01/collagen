@@ -5,7 +5,7 @@ use super::{
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
-#[strum(serialize_all = "kebab_case")]
+#[strum(serialize_all = "kebab-case")]
 pub(in crate::fibroblast::data_types::context) enum VariadicNumToNumFunction {
 	#[strum(serialize = "+")]
 	Add,

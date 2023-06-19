@@ -3,10 +3,11 @@ use super::{
 	function_impls::{ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
+use std::f64::consts::PI;
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
-#[strum(serialize_all = "kebab_case")]
+#[strum(serialize_all = "kebab-case")]
 pub(in crate::fibroblast::data_types::context) enum UnaryNumToNumFunction {
 	// Boolean
 	Not,
@@ -30,6 +31,8 @@ pub(in crate::fibroblast::data_types::context) enum UnaryNumToNumFunction {
 	Asin,
 	Acos,
 	Atan,
+	Deg2rad,
+	Rad2deg,
 	// Hyperbolic trig
 	Sinh,
 	Cosh,
@@ -86,6 +89,8 @@ impl FallibleFunctionImpl for UnaryNumToNumFunction {
 			Asin => x.asin(),
 			Acos => x.acos(),
 			Atan => x.atan(),
+			Deg2rad => x * PI / 180.0,
+			Rad2deg => x * 180.0 / PI,
 
 			Sinh => x.sinh(),
 			Cosh => x.cosh(),

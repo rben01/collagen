@@ -67,27 +67,3 @@ pub(super) trait FallibleFunctionImpl: Into<&'static str> {
 	where
 		I: IntoIterator<Item = FunctionCallResult<VariableValue, E>>;
 }
-
-#[macro_export]
-macro_rules! gen_specific_function_enum {
-	(enum $ty:ident { $($variant:ident),* $(,)? }) => {
-		#[derive(Copy, Clone, Debug)]
-		pub(super) enum $ty {
-			$($variant),*
-		}
-
-		impl $ty {
-			pub(crate) fn name(self) -> &'static str {
-				self.into()
-			}
-		}
-
-		impl From<$ty> for $crate::fibroblast::data_types::context::functions::Function {
-			fn from(value: $ty) -> Self {
-				match value {
-					$($ty::$variant => { $crate::fibroblast::data_types::context::functions::Function::$variant }),*
-				}
-			}
-		}
-	};
-}
