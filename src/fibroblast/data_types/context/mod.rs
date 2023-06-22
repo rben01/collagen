@@ -14,7 +14,7 @@ pub(crate) mod errors;
 pub(super) mod functions;
 pub(crate) mod parser;
 
-use super::{AttrKVValueVec, ConcreteNumber, SimpleValue, TagVariables, VariableValue};
+use super::{ConcreteNumber, SimpleValue, TagVariables, VariableValue, XmlAttrsBorrowed};
 use crate::{
 	to_svg::svg_writable::ClgnDecodingResult,
 	utils::{Map, MapEntry, Set},
@@ -193,9 +193,14 @@ impl<'a> DecodingContext<'a> {
 		parse(s, self, variables_referenced)
 	}
 
-	pub(crate) fn sub_vars_into_attrs<I>(&self, attrs: I) -> ClgnDecodingResult<AttrKVValueVec<'a>>
+	pub(crate) fn sub_vars_into_attrs<K, V, I>(
+		&self,
+		attrs: I,
+	) -> ClgnDecodingResult<XmlAttrsBorrowed>
 	where
-		I: IntoIterator<Item = (&'a str, Cow<'a, SimpleValue>)>,
+		K: AsRef<str>,
+		V: AsRef<SimpleValue>,
+		I: IntoIterator<Item = (K, V)>,
 	{
 		let attrs_iter = attrs.into_iter();
 		let n_attrs = match attrs_iter.size_hint() {
@@ -207,7 +212,9 @@ impl<'a> DecodingContext<'a> {
 		let mut parsing_errs = Vec::new();
 
 		for (k, orig_val) in attrs_iter {
-			let new_val = match orig_val.as_ref() {
+			let k = k.as_ref();
+			let orig_val = orig_val.as_ref();
+			let new_val = match orig_val {
 				SimpleValue::Text(text) => {
 					let subd_text = match self.eval_exprs_in_str(text) {
 						Ok(x) => x,
@@ -218,10 +225,10 @@ impl<'a> DecodingContext<'a> {
 					};
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-						Cow::Borrowed(_orig) => orig_val,
+						Cow::Borrowed(_orig) => Cow::Borrowed(orig_val),
 					}
 				}
-				_wasnt_text => orig_val,
+				_wasnt_text => Cow::Borrowed(orig_val),
 			};
 
 			subd_attrs.push((k, new_val));
@@ -231,7 +238,7 @@ impl<'a> DecodingContext<'a> {
 			return Err(parsing_errs.into());
 		}
 
-		Ok(AttrKVValueVec(subd_attrs))
+		Ok(XmlAttrsBorrowed(subd_attrs))
 	}
 }
 

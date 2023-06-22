@@ -53,7 +53,7 @@ use serde::{Deserialize, Serialize};
 ///     encoding characters that are have special meaning in XML, such as `<` and `>`,
 ///     in a safe representation, such as `&lt;` and `&gt;`, respectively. Text should
 ///     go through exactly one round of XML-encoding before inclusion in XML.
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommonTagFields<'a> {
 	/// (Optional) A dictionary mapping variable names to their values. None is

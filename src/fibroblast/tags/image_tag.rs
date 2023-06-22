@@ -1,7 +1,10 @@
-use super::common_tag_fields::CommonTagFields;
+use super::{
+	element::{AsSvgElement, HasOwnedVars, HasVars},
+	AnyChildTag, DeChildTags, DeTagVariables, DeXmlAttrs,
+};
 use crate::{
-	dispatch_to_common_tag_fields,
-	fibroblast::data_types::{DecodingContext, SimpleValue},
+	fibroblast::data_types::{DecodingContext, SimpleValue, XmlAttrsBorrowed},
+	impl_validatable_via_children,
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 	utils::b64_encode,
 };
@@ -65,15 +68,51 @@ pub struct ImageTag<'a> {
 	kind: Option<String>,
 
 	#[serde(flatten)]
-	common_tag_fields: CommonTagFields<'a>,
+	vars: DeTagVariables,
+
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
+
+	#[serde(flatten)]
+	children: DeChildTags<'a>,
 
 	#[serde(skip)]
 	image_path_reified: OnceCell<Cow<'a, str>>,
 }
 
-dispatch_to_common_tag_fields!(impl HasVars for ImageTag<'_>);
-dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for ImageTag<'a>);
-dispatch_to_common_tag_fields!(impl Validatable for ImageTag<'_>);
+impl HasVars for ImageTag<'_> {
+	fn vars(&self) -> &super::TagVariables {
+		self.vars.as_ref()
+	}
+}
+
+impl HasOwnedVars for ImageTag<'_> {
+	fn vars_mut(&self) -> &mut Option<super::TagVariables> {
+		self.vars.as_mut()
+	}
+}
+
+impl<'a> AsSvgElement<'a> for ImageTag<'a> {
+	fn tag_name(&self) -> &'static str {
+		"image"
+	}
+
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().0)?;
+		let (k, v) = self.get_image_attr_pair(context)?;
+		attrs.0.push((k, Cow::Owned(v)));
+		Ok(attrs)
+	}
+
+	fn children(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		Ok(Cow::Borrowed(self.children.as_ref()))
+	}
+}
+
+impl_validatable_via_children!(ImageTag<'_>);
 
 impl<'a> ImageTag<'a> {
 	fn image_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
@@ -136,9 +175,5 @@ impl<'a> ImageTag<'a> {
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 
 		Ok((key, SimpleValue::Text(src_str)))
-	}
-
-	pub(super) fn tag_name(&self) -> &str {
-		"image"
 	}
 }

@@ -19,6 +19,12 @@ pub(crate) enum SimpleValue {
 	Absent,
 }
 
+impl AsRef<SimpleValue> for SimpleValue {
+	fn as_ref(&self) -> &SimpleValue {
+		self
+	}
+}
+
 impl SimpleValue {
 	/// If anything other than `Absent`, return a stringified verion wrapped in a
 	/// `Some`. If `Absent` then `None`.

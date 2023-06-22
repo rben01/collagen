@@ -1,8 +1,10 @@
 use super::{
-	traits::HasVars, AnyChildTag, DecodingContext, TagVariables, XmlAttrs, EMPTY_ATTRS, EMPTY_VARS,
+	element::{AsSvgElement, HasOwnedVars, HasVars},
+	text_tag::TextTag,
+	AnyChildTag, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables,
 };
 use crate::{
-	fibroblast::data_types::ConcreteNumber,
+	fibroblast::data_types::{ConcreteNumber, XmlAttrsBorrowed},
 	impl_trivially_validatable,
 	to_svg::svg_writable::ClgnDecodingError,
 	utils::{b64_encode, Map},
@@ -246,36 +248,47 @@ impl<'de> Deserialize<'de> for FontFace {
 pub struct FontTag {
 	fonts: Vec<FontFace>,
 
-	#[serde(default)]
-	vars: Option<TagVariables>,
+	#[serde(flatten)]
+	vars: DeTagVariables,
 
-	#[serde(default)]
-	attrs: Option<XmlAttrs>,
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
 }
 
 impl HasVars for FontTag {
-	fn base_vars(&self) -> &TagVariables {
-		self.vars.as_ref().unwrap_or(&EMPTY_VARS)
+	fn vars(&self) -> &TagVariables {
+		self.vars.as_ref()
+	}
+}
+
+impl HasOwnedVars for FontTag {
+	fn vars_mut(&self) -> &mut Option<TagVariables> {
+		self.vars.as_mut()
+	}
+}
+
+impl<'a> AsSvgElement<'a> for FontTag {
+	fn tag_name(&self) -> &'static str {
+		"defs"
 	}
 
-	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
-		&mut self.vars
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		context.sub_vars_into_attrs(self.attrs.as_ref().0.iter().map(|(k, v)| (k, v)))
+	}
+
+	fn children(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		Ok(Cow::Borrowed(&[AnyChildTag::Text(TextTag {
+			text: self.font_embed_text(context)?,
+			is_preescaped: Some(true),
+			vars: DeTagVariables { vars: None },
+		})]))
 	}
 }
 
 impl FontTag {
-	pub(super) fn tag_name(&self) -> &str {
-		"defs"
-	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.attrs.as_ref().unwrap_or(&EMPTY_ATTRS)
-	}
-
-	pub(super) fn base_children<'a>(&self) -> &[AnyChildTag<'a>] {
-		&[]
-	}
-
 	pub(super) fn get_font_path_attr_pair(
 		&self,
 		path: impl AsRef<str>,
@@ -377,10 +390,6 @@ impl FontTag {
 		text.push_str("</style>");
 
 		Ok(text)
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		false
 	}
 }
 

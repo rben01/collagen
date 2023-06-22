@@ -1,9 +1,10 @@
 use super::{
-	common_tag_fields::CommonTagFields,
-	traits::{HasCommonTagFields, HasVars},
-	AnyChildTag, AttrKVValueVec, ClgnDecodingResult, DecodingContext, TagLike, TagVariables,
+	element::{AsSvgElement, HasVars},
+	error_tag::Validatable,
+	AnyChildTag, ClgnDecodingResult, DeChildTags, DeTagVariables, DeXmlAttrs, DecodingContext,
+	TagVariables,
 };
-use crate::{dispatch_to_common_tag_fields, fibroblast::data_types::SimpleValue};
+use crate::fibroblast::data_types::{SimpleValue, XmlAttrsBorrowed};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -16,60 +17,62 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RootTag<'a> {
 	#[serde(flatten)]
-	common_tag_fields: CommonTagFields<'a>,
+	pub(crate) vars: DeTagVariables,
+
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
+
+	#[serde(flatten)]
+	children: DeChildTags<'a>,
 }
 
-dispatch_to_common_tag_fields!(impl HasVars for RootTag<'_>);
-dispatch_to_common_tag_fields!(impl<'a> HasCommonTagFields<'a> for RootTag<'a>);
-
-impl<'a> RootTag<'a> {
-	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
-		let Some(children) = self.common_tag_fields.children else {
-			return Ok(self);
-		};
-		self.common_tag_fields.children = Some(
-			children
-				.into_iter()
-				.map(|child| child.validate())
-				.collect::<ClgnDecodingResult<Vec<_>>>()?,
-		);
-
-		Ok(self)
-	}
-
-	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
-		self.base_children()
+impl HasVars for RootTag<'_> {
+	fn vars(&self) -> &TagVariables {
+		self.vars.as_ref()
 	}
 }
 
-impl<'a> TagLike<'a> for RootTag<'a> {
-	fn tag_name(&self) -> Option<&'static str> {
-		Some("svg")
+impl<'a> AsSvgElement<'a> for RootTag<'a> {
+	fn tag_name(&self) -> &'static str {
+		"svg"
 	}
 
-	fn vars(&self, _: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
-		Ok(self.base_vars())
-	}
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().0)?;
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		let base_attrs = self.base_attrs();
-		let mut new_attrs = context.sub_vars_into_attrs(base_attrs.iter())?;
-
-		if !base_attrs.0.contains_key("xmlns") {
-			new_attrs.push((
+		if !attrs.0.iter().any(|(k, _)| *k == "xmlns") {
+			attrs.0.push((
 				"xmlns",
 				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
 			));
 		}
 
-		Ok(new_attrs)
+		Ok(attrs)
 	}
 
-	fn text(&self, _: &DecodingContext) -> ClgnDecodingResult<Cow<str>> {
-		Ok(Cow::Borrowed(self.base_text()))
+	fn children(
+		&'a self,
+		_: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		Ok(Cow::Borrowed(self.children.as_ref()))
 	}
+}
 
-	fn should_escape_text(&self) -> bool {
-		self.common_tag_fields.should_escape_text()
+impl<'a> RootTag<'a> {
+	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
+		let children = self.children.children.take();
+		let Some(children) = children else {
+			return Ok(self);
+		};
+		self.children = DeChildTags {
+			children: Some(
+				children
+					.into_iter()
+					.map(|child| child.validate())
+					.collect::<ClgnDecodingResult<Vec<_>>>()?,
+			),
+		};
+
+		Ok(self)
 	}
 }

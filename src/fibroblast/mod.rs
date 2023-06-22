@@ -7,12 +7,17 @@
 pub(super) mod data_types;
 pub mod tags;
 
+use self::{
+	data_types::XmlAttrsBorrowed,
+	tags::{
+		element::{AsSvgElement, HasVars},
+		root_tag::RootTag,
+	},
+};
 pub use super::from_json::decoding_error::ClgnDecodingResult;
 pub use crate::fibroblast::data_types::DecodingContext;
-use data_types::TagVariables;
 use std::borrow::Cow;
-pub(crate) use tags::TagLike;
-use tags::{AnyChildTag, RootTag};
+use tags::AnyChildTag;
 
 /// The whole shebang: both the (context-less) root tag and the context in which to
 /// decode it.
@@ -47,16 +52,31 @@ pub struct Fibroblast<'a> {
 	pub(crate) context: DecodingContext<'a>,
 }
 
+impl HasVars for Fibroblast<'_> {
+	fn vars(&self) -> &tags::TagVariables {
+		self.root.vars.as_ref()
+	}
+}
+
+impl<'a> AsSvgElement<'a> for Fibroblast<'a> {
+	fn tag_name(&self) -> &'static str {
+		self.root.tag_name()
+	}
+
+	fn attrs(&'a self, _: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		unreachable!()
+	}
+
+	fn children(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		Ok(self.root.children(context)?)
+	}
+}
+
 impl<'a> Fibroblast<'a> {
-	pub(crate) fn vars(&'a self) -> ClgnDecodingResult<&TagVariables> {
-		self.root.vars(&self.context)
-	}
-
-	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
-		self.root.children()
-	}
-
-	pub(crate) fn text(&'a self) -> ClgnDecodingResult<Cow<str>> {
-		self.root.text(&self.context)
+	fn attrs(&'a self) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		self.root.attrs(&self.context)
 	}
 }

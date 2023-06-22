@@ -1,8 +1,12 @@
 use super::{
-	any_child_tag::AnyChildTag, traits::HasCommonTagFields, AttrKVValueVec, ClgnDecodingResult,
-	DecodingContext, TagVariables,
+	any_child_tag::AnyChildTag,
+	element::{AsSvgElement, HasVars},
+	ClgnDecodingResult, DecodingContext, TagVariables, EMPTY_VARS,
 };
-use crate::{fibroblast::Fibroblast, impl_trivially_validatable};
+use crate::{
+	fibroblast::{data_types::XmlAttrsBorrowed, Fibroblast},
+	impl_trivially_validatable,
+};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -102,6 +106,30 @@ pub struct ContainerTag<'a> {
 	clgn_path_reified: OnceCell<Cow<'a, str>>,
 }
 
+impl HasVars for ContainerTag<'_> {
+	fn vars(&self, context: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
+		Ok(self.as_fibroblast(context)?.vars(context))
+	}
+}
+
+impl<'a> AsSvgElement<'a> for ContainerTag<'a> {
+	fn tag_name(&self) -> &'static str {
+		"g"
+	}
+
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		let fb = self.as_fibroblast(context)?;
+		fb.context.sub_vars_into_attrs(fb.root.attrs(context)?.0)
+	}
+
+	fn children(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		self.as_fibroblast(context)?.children(context)
+	}
+}
+
 impl<'a> ContainerTag<'a> {
 	fn clgn_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
 		Ok(self
@@ -124,40 +152,6 @@ impl<'a> ContainerTag<'a> {
 			let subroot = Fibroblast::from_dir_with_context(abs_clgn_path, context)?;
 			Ok(subroot)
 		})
-	}
-
-	pub(super) fn tag_name(&self) -> &str {
-		"g"
-	}
-
-	pub(super) fn vars(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<&TagVariables> {
-		self.as_fibroblast(context)?.vars()
-	}
-
-	pub(super) fn attrs(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<AttrKVValueVec<'a>> {
-		let fb = self.as_fibroblast(context)?;
-		fb.context.sub_vars_into_attrs(fb.root.base_attrs().iter())
-	}
-
-	pub(super) fn children(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<&'_ [AnyChildTag<'_>]> {
-		Ok(self.as_fibroblast(context)?.children())
-	}
-
-	pub(super) fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<str>> {
-		self.as_fibroblast(context)?.text()
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		false
 	}
 }
 

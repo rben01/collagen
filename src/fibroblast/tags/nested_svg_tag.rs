@@ -1,6 +1,11 @@
-use super::{any_child_tag::AnyChildTag, traits::HasVars, TagVariables, EMPTY_ATTRS, EMPTY_VARS};
+use super::{
+	any_child_tag::AnyChildTag,
+	element::{AsSvgElement, HasVars},
+	text_tag::TextTag,
+	DeTagVariables, DeXmlAttrs, TagVariables, EMPTY_VARS,
+};
 use crate::{
-	fibroblast::data_types::{DecodingContext, XmlAttrs},
+	fibroblast::data_types::{DecodingContext, XmlAttrsBorrowed},
 	impl_trivially_validatable,
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
@@ -23,26 +28,46 @@ pub struct NestedSvgTag<'a> {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
 
-	#[serde(default)]
-	vars: Option<TagVariables>,
-
-	#[serde(default)]
-	attrs: Option<XmlAttrs>,
-
-	#[serde(skip)]
-	_text: OnceCell<String>,
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
 
 	#[serde(skip)]
 	svg_path_reified: OnceCell<Cow<'a, str>>,
 }
 
 impl HasVars for NestedSvgTag<'_> {
-	fn base_vars(&self) -> &TagVariables {
-		self.vars.as_ref().unwrap_or(&EMPTY_VARS)
+	fn vars(&self) -> &TagVariables {
+		&*EMPTY_VARS
+	}
+}
+
+impl<'a> AsSvgElement<'a> for NestedSvgTag<'a> {
+	fn tag_name(&self) -> &'static str {
+		"g"
 	}
 
-	fn base_vars_mut(&mut self) -> &mut Option<TagVariables> {
-		&mut self.vars
+	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+		Ok(context.sub_vars_into_attrs(self.attrs.as_ref().0)?)
+	}
+
+	fn children(
+		&'a self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		let svg_path = self.svg_path(context)?;
+
+		let context = context.clone();
+		let abs_svg_path = crate::utils::paths::pathsep_aware_join(&*context.get_root(), svg_path)?;
+
+		let text = std::fs::read_to_string(&abs_svg_path)
+			.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
+		let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
+
+		Ok(Cow::Borrowed(&[AnyChildTag::Text(TextTag {
+			text,
+			is_preescaped: Some(true),
+			vars: DeTagVariables { vars: None },
+		})]))
 	}
 }
 
@@ -53,45 +78,33 @@ impl<'a> NestedSvgTag<'a> {
 			.get_or_try_init(|| context.eval_exprs_in_str(&self.svg_path))?
 			.as_ref())
 	}
-
-	pub(super) fn base_attrs(&self) -> &XmlAttrs {
-		self.attrs.as_ref().unwrap_or(&EMPTY_ATTRS)
-	}
-
-	fn base_children(&self) -> &[AnyChildTag<'_>] {
-		&[]
-	}
-
-	pub(super) fn should_escape_text(&self) -> bool {
-		false
-	}
 }
 
-impl<'a> NestedSvgTag<'a> {
-	pub(super) fn tag_name(&self) -> &str {
-		"g"
-	}
+// impl<'a> NestedSvgTag<'a> {
+// 	pub(super) fn tag_name(&self) -> &str {
+// 		"g"
+// 	}
 
-	pub(super) fn text(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
-		self._text
-			.get_or_try_init(|| -> ClgnDecodingResult<String> {
-				let svg_path = self.svg_path(context)?;
+// 	pub(super) fn text(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
+// 		self._text
+// 			.get_or_try_init(|| -> ClgnDecodingResult<String> {
+// 				let svg_path = self.svg_path(context)?;
 
-				let context = context.clone();
-				let abs_svg_path =
-					crate::utils::paths::pathsep_aware_join(&*context.get_root(), svg_path)?;
+// 				let context = context.clone();
+// 				let abs_svg_path =
+// 					crate::utils::paths::pathsep_aware_join(&*context.get_root(), svg_path)?;
 
-				let text = std::fs::read_to_string(&abs_svg_path)
-					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
-				let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
-				Ok(text)
-			})
-			.map(|s| s.as_str())
-	}
+// 				let text = std::fs::read_to_string(&abs_svg_path)
+// 					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
+// 				let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
+// 				Ok(text)
+// 			})
+// 			.map(|s| s.as_str())
+// 	}
 
-	pub(super) fn children(&self) -> &[AnyChildTag<'_>] {
-		self.base_children()
-	}
-}
+// 	pub(super) fn children(&self) -> &[AnyChildTag<'_>] {
+// 		self.base_children()
+// 	}
+// }
 
 impl_trivially_validatable!(NestedSvgTag<'_>);

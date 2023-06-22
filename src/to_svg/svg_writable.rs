@@ -2,8 +2,8 @@
 
 use crate::fibroblast::{
 	data_types::DecodingContext,
-	tags::{AnyChildTag, RootTag},
-	Fibroblast, TagLike,
+	tags::{element::Node, AnyChildTag},
+	Fibroblast,
 };
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
 use quick_xml::{
@@ -12,7 +12,30 @@ use quick_xml::{
 };
 use std::io::Cursor;
 
-pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
+impl<'a> SvgWritableTag<'a> for Node<'a> {
+	fn to_svg_with_child_writer<W, F>(
+		&'a self,
+		context: &DecodingContext<'a>,
+		writer: &mut XmlWriter<W>,
+		write_children: F,
+	) -> ClgnDecodingResult<()>
+	where
+		W: std::io::Write,
+		F: FnOnce(&mut XmlWriter<W>) -> ClgnDecodingResult<()>,
+	{
+		context.with_new_vars(vars, f);
+		Ok(())
+	}
+
+	fn to_svg(
+		&'a self,
+		context: &DecodingContext<'a>,
+		writer: &mut XmlWriter<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+	}
+}
+
+pub(crate) trait SvgWritableTag<'a> {
 	/// Writes `tag` to SVG (aka XML) through an `XmlWriter`, with a `DecodingContext`.
 	/// Calls `write_children` when it's time to write the children
 	fn to_svg_with_child_writer<W, F>(
@@ -47,7 +70,7 @@ pub(crate) trait SvgWritableTag<'a>: TagLike<'a> {
 				write_children(writer)?;
 
 				// Write the tag's text `<tag attr="val">text here`
-				let text = self.text(context)?;
+				let text = self.bytes_text(context)?;
 				writer.write_event(XmlEvent::Text(if self.should_escape_text() {
 					BytesText::new(text.as_ref())
 				} else {

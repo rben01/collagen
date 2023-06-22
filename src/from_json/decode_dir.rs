@@ -3,7 +3,7 @@
 //! and files)
 
 use super::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
-use crate::fibroblast::{data_types::DecodingContext, tags::RootTag, Fibroblast};
+use crate::fibroblast::{data_types::DecodingContext, tags::root_tag::RootTag, Fibroblast};
 use serde_json;
 use std::path::{Path, PathBuf};
 

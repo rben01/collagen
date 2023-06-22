@@ -22,7 +22,7 @@ pub enum ErrorTagReason {
 
 macro_rules! append_common_tag_fields {
 	 ($($keys:expr),* $(,)?) => {
-		&[$($keys,)* "vars", "attrs", "children", "text", "should_escape_text"]
+		&[$($keys,)* "vars", "attrs"]
 	 };
 }
 
@@ -79,13 +79,13 @@ impl KnownTag {
 	fn optional_keys(self) -> &'static [&'static str] {
 		use KnownTag::*;
 		match self {
-			OtherTag => append_common_tag_fields!(),
-			ForeachTag => &["vars", "attrs"],
-			IfTag => &["else", "vars", "attrs"],
+			OtherTag => append_common_tag_fields!("children"),
+			ForeachTag => append_common_tag_fields!(),
+			IfTag => append_common_tag_fields!("else"),
 			ContainerTag => &[],
-			ImageTag => append_common_tag_fields!("kind"),
+			ImageTag => append_common_tag_fields!("kind", "children"),
 			NestedSvgTag => &[],
-			FontTag => &["vars", "attrs"],
+			FontTag => append_common_tag_fields!(),
 		}
 	}
 }
@@ -203,12 +203,35 @@ pub(crate) trait Validatable {
 
 #[macro_export]
 macro_rules! impl_trivially_validatable {
-	($type:ty) => {
-		impl $crate::fibroblast::tags::error_tag::Validatable for $type {
-			fn validate(self) -> ClgnDecodingResult<Self>
+	($ty:ty) => {
+		impl $crate::fibroblast::tags::error_tag::Validatable for $ty {
+			fn validate(self) -> $crate::ClgnDecodingResult<Self>
 			where
 				Self: Sized,
 			{
+				Ok(self)
+			}
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_validatable_via_children {
+	($ty:ty) => {
+		impl $crate::fibroblast::tags::error_tag::Validatable for $ty {
+			fn validate(mut self) -> $crate::ClgnDecodingResult<Self>
+			where
+				Self: Sized,
+			{
+				self.children.children = self
+					.children
+					.children // Option<Vec<T>>
+					.map(|c| {
+						c.into_iter()
+							.map(|child| child.validate())
+							.collect::<$crate::ClgnDecodingResult<Vec<_>>>()
+					}) // Option<Result<Vec<T>, E>>
+					.transpose()?;
 				Ok(self)
 			}
 		}
