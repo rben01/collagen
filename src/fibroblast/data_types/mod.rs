@@ -74,14 +74,36 @@ impl Serialize for XmlAttrs {
 
 type XmlAttrPairBorrowed<'a> = (&'a str, Cow<'a, SimpleValue>);
 
-// impl XmlAttrs {
-// 	pub(crate) fn iter(&self) -> impl Iterator<Item = XmlAttrPairBorrowed<'_>> {
-// 		self.0.iter().map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
-// 	}
-// }
-
-/// A vector of key, value pairs representing attributes
 pub(crate) struct XmlAttrsBorrowed<'a>(pub(crate) Vec<XmlAttrPairBorrowed<'a>>);
+
+impl XmlAttrs {
+	pub(crate) fn iter(&self) -> impl Iterator<Item = XmlAttrPairBorrowed<'_>> {
+		self.0.iter().map(|(k, v)| (k.as_ref(), Cow::Borrowed(v)))
+	}
+}
+
+impl<'a> XmlAttrsBorrowed<'a> {
+	pub(crate) fn iter(&'a self) -> impl Iterator<Item = XmlAttrPairBorrowed<'a>> {
+		self.0.iter().map(|(k, v)| (*k, Cow::Borrowed(v.as_ref())))
+	}
+}
+
+pub(crate) enum XmlAttrsOw<'a> {
+	Owned(XmlAttrs),
+	Borrowed(XmlAttrsBorrowed<'a>),
+}
+
+impl From<XmlAttrs> for XmlAttrsOw<'_> {
+	fn from(value: XmlAttrs) -> Self {
+		Self::Owned(value)
+	}
+}
+
+impl<'a> From<XmlAttrsBorrowed<'a>> for XmlAttrsOw<'a> {
+	fn from(value: XmlAttrsBorrowed<'a>) -> Self {
+		Self::Borrowed(value)
+	}
+}
 
 /// Map of `String` -> `VariableValue`
 #[derive(Debug, Clone, Serialize, Deserialize)]

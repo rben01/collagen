@@ -43,7 +43,7 @@ pub enum AnyChildTag<'a> {
 	Generic(GenericTag<'a>),
 	Image(ImageTag<'a>),
 	Container(ContainerTag<'a>),
-	NestedSvg(NestedSvgTag<'a>),
+	NestedSvg(NestedSvgTag),
 	Foreach(ForeachTag<'a>),
 	If(IfTag<'a>),
 	Font(FontTag),
@@ -102,9 +102,12 @@ impl<'a> AnyChildTag<'a> {
 		})
 	}
 
-	pub(crate) fn as_node(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Node<'a>> {
+	pub(crate) fn as_node<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Node<'a, 'b>> {
 		use AnyChildTag::*;
-		Ok(match self {
+		let x: Node<'a, 'b> = match self {
 			Generic(t) => t.as_svg_elem(context)?.into(),
 			Image(t) => t.as_svg_elem(context)?.into(),
 			Container(t) => t.as_svg_elem(context)?.into(),
@@ -113,7 +116,8 @@ impl<'a> AnyChildTag<'a> {
 			If(t) => t.as_node_gtor(context)?.into(),
 			Font(t) => t.as_svg_elem(context)?.into(),
 			Text(t) => t.as_text_node(context)?.into(),
-			Error(_) => todo!(),
-		})
+			Error(_) => unreachable!(),
+		};
+		Ok(x)
 	}
 }

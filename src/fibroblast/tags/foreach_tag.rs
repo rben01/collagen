@@ -33,14 +33,14 @@ impl HasVars for ForeachTag<'_> {
 }
 
 impl HasOwnedVars for ForeachTag<'_> {
-	fn vars_mut(&self) -> &mut Option<TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
 impl<'a> AsNodeGenerator<'a> for ForeachTag<'a> {
 	fn children(
-		&'a self,
+		&self,
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
 		let (loops, loop_len) = {

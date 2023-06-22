@@ -16,16 +16,16 @@ use quick_xml::{
 };
 use std::io::Cursor;
 
-pub(crate) trait SvgWritable<'a> {
+pub(crate) trait SvgWritable<'a, 'b> {
 	/// Convert the in-memory representation of a Fibroblast to SVG. `writer` determines
 	/// where the output goes -- a `String`, to a file, etc.
 	fn to_svg(
-		&'a self,
+		&'b self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()>;
 
-	fn to_svg_string(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<String> {
+	fn to_svg_string(&'b self, context: &DecodingContext<'a>) -> ClgnDecodingResult<String> {
 		let mut writer = XmlWriter::new(Cursor::new(Vec::new()));
 		self.to_svg(context, &mut writer)?;
 
@@ -36,25 +36,26 @@ pub(crate) trait SvgWritable<'a> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for SvgElement<'a> {
+impl<'a, 'b> SvgWritable<'a, 'b> for SvgElement<'a, 'b> {
 	fn to_svg(
-		&'a self,
+		&'b self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
-		let &Self {
+		let Self {
 			name,
 			attrs,
 			children,
 		} = self;
+		let name = *name;
 
 		// Open the tag (write e.g., `<rect`)
 		let mut curr_elem = BytesStart::new(name);
 
 		// Write e.g., `attr1="val1"`
-		for (k, v) in attrs.0 {
+		for (k, v) in &attrs.0 {
 			if let Some(v) = v.to_maybe_string() {
-				curr_elem.push_attribute((k, v.as_ref()));
+				curr_elem.push_attribute((*k, v.as_ref()));
 			}
 		}
 
@@ -73,9 +74,9 @@ impl<'a> SvgWritable<'a> for SvgElement<'a> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for NodeGenerator<'a> {
+impl<'a, 'b> SvgWritable<'a, 'b> for NodeGenerator<'a, 'b> {
 	fn to_svg(
-		&'a self,
+		&'b self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
@@ -87,15 +88,16 @@ impl<'a> SvgWritable<'a> for NodeGenerator<'a> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for TextNode<'a> {
+impl<'a, 'b> SvgWritable<'a, 'b> for TextNode<'a, 'b> {
 	fn to_svg(
-		&'a self,
+		&self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
 		let Self {
 			text,
 			is_preescaped,
+			..
 		} = self;
 		let text = context.eval_exprs_in_str(text.as_ref())?;
 		writer.write_event(XmlEvent::Text(if *is_preescaped {
@@ -107,16 +109,17 @@ impl<'a> SvgWritable<'a> for TextNode<'a> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
+impl<'a, 'b> SvgWritable<'a, 'b> for AnyChildTag<'a> {
 	fn to_svg(
-		&'a self,
+		&'b self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
 		if let AnyChildTag::Container(container) = self {
 			let fb = container.as_fibroblast(context)?;
 			return context.with_new_root(fb.context.get_root().clone(), || {
-				for child in container.children(context)?.as_ref() {
+				let children = container.children(context)?;
+				for child in &*children {
 					child.to_svg(context, writer)?;
 				}
 				Ok(())
@@ -136,9 +139,9 @@ impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for RootTag<'a> {
+impl<'a, 'b> SvgWritable<'a, 'b> for RootTag<'a> {
 	fn to_svg(
-		&'a self,
+		&'b self,
 		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {

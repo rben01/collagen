@@ -30,16 +30,16 @@ impl HasVars for IfTag<'_> {
 }
 
 impl HasOwnedVars for IfTag<'_> {
-	fn vars_mut(&self) -> &mut Option<TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
 impl<'a> AsNodeGenerator<'a> for IfTag<'a> {
 	fn children(
-		&'a self,
+		&self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	) -> ClgnDecodingResult<Cow<'_, [AnyChildTag<'a>]>> {
 		Ok(Cow::Borrowed(match self.child(context)? {
 			Some(child) => slice::from_ref(child),
 			None => &[],

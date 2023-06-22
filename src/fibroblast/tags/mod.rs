@@ -69,8 +69,6 @@ use super::data_types::XmlAttrsBorrowed;
 /// almost nothing
 pub(crate) static EMPTY_VARS: Lazy<TagVariables> = Lazy::new(|| TagVariables(Map::new()));
 pub(crate) static EMPTY_ATTRS: Lazy<XmlAttrs> = Lazy::new(|| XmlAttrs(Vec::new()));
-pub(crate) static EMPTY_ATTRS_BORROWED: Lazy<XmlAttrsBorrowed> =
-	Lazy::new(|| XmlAttrsBorrowed(Vec::new()));
 
 /// Description: A dictionary whose keys and values will be used to construct the list
 /// of `name="value"` XML attributes. For instance, `{ "tag": "circle", "attrs": { "cx":

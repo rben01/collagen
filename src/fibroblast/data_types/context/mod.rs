@@ -49,7 +49,8 @@ impl<'a> DecodingContext<'a> {
 			vars_map: RefCell::new(vars_ref_map),
 		}
 	}
-
+}
+impl DecodingContext<'_> {
 	pub(crate) fn new_at_root(root_path: PathBuf) -> Self {
 		Self::new(root_path, Map::new())
 	}
@@ -135,7 +136,7 @@ impl<'a> DecodingContext<'a> {
 		result
 	}
 
-	pub(crate) fn get_var(&self, var: &str) -> Option<&'a VariableValue> {
+	pub(crate) fn get_var(&self, var: &str) -> Option<&VariableValue> {
 		self.vars_map.borrow().get(var).copied()
 	}
 
@@ -193,14 +194,12 @@ impl<'a> DecodingContext<'a> {
 		parse(s, self, variables_referenced)
 	}
 
-	pub(crate) fn sub_vars_into_attrs<K, V, I>(
+	pub(crate) fn sub_vars_into_attrs<'b, I>(
 		&self,
 		attrs: I,
-	) -> ClgnDecodingResult<XmlAttrsBorrowed>
+	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>>
 	where
-		K: 'a + AsRef<str>,
-		V: 'a + AsRef<SimpleValue>,
-		I: 'a + IntoIterator<Item = (K, V)>,
+		I: IntoIterator<Item = (&'b str, Cow<'b, SimpleValue>)>,
 	{
 		let attrs_iter = attrs.into_iter();
 		let n_attrs = match attrs_iter.size_hint() {
@@ -212,9 +211,7 @@ impl<'a> DecodingContext<'a> {
 		let mut parsing_errs = Vec::new();
 
 		for (k, orig_val) in attrs_iter {
-			let k = k.as_ref();
-			let orig_val = orig_val.as_ref();
-			let new_val = match orig_val {
+			let new_val = match orig_val.as_ref() {
 				SimpleValue::Text(text) => {
 					let subd_text = match self.eval_exprs_in_str(text) {
 						Ok(x) => x,
@@ -225,10 +222,10 @@ impl<'a> DecodingContext<'a> {
 					};
 					match subd_text {
 						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-						Cow::Borrowed(_orig) => Cow::Borrowed(orig_val),
+						Cow::Borrowed(_orig) => orig_val,
 					}
 				}
-				_wasnt_text => Cow::Borrowed(orig_val),
+				_wasnt_text => orig_val,
 			};
 
 			subd_attrs.push((k, new_val));

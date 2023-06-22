@@ -37,8 +37,8 @@ impl<'a> AsSvgElement<'a> for RootTag<'a> {
 		"svg"
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().0)?;
+	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
 
 		if !attrs.0.iter().any(|(k, _)| *k == "xmlns") {
 			attrs.0.push((
@@ -50,10 +50,10 @@ impl<'a> AsSvgElement<'a> for RootTag<'a> {
 		Ok(attrs)
 	}
 
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		_: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		Ok(Cow::Borrowed(self.children.as_ref()))
 	}
 }

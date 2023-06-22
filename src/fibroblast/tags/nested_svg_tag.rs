@@ -9,7 +9,7 @@ use crate::{
 	impl_trivially_validatable,
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 };
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -24,36 +24,36 @@ static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct NestedSvgTag<'a> {
+pub struct NestedSvgTag {
 	/// The path to the SVG relative to the folder root
 	svg_path: String,
 
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
-
-	#[serde(skip)]
-	svg_path_reified: OnceCell<Cow<'a, str>>,
 }
 
-impl HasVars for NestedSvgTag<'_> {
+impl HasVars for NestedSvgTag {
 	fn vars(&self) -> &TagVariables {
 		&*EMPTY_VARS
 	}
 }
 
-impl<'a> AsSvgElement<'a> for NestedSvgTag<'a> {
-	fn tag_name(&self) -> &'static str {
+impl<'a> AsSvgElement<'a> for NestedSvgTag {
+	fn tag_name(&self) -> &str {
 		"g"
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		Ok(context.sub_vars_into_attrs(self.attrs.as_ref().0)?)
+	fn attrs<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+		Ok(context.sub_vars_into_attrs(self.attrs.as_ref().iter())?)
 	}
 
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		let svg_path = self.svg_path(context)?;
 
 		let context = context.clone();
@@ -63,20 +63,17 @@ impl<'a> AsSvgElement<'a> for NestedSvgTag<'a> {
 			.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
 		let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
 
-		Ok(Cow::Borrowed(&[AnyChildTag::Text(TextTag {
-			text,
-			is_preescaped: Some(true),
-			vars: DeTagVariables { vars: None },
-		})]))
+		// Note: will be tough to remove this seemingly needless allocation without an
+		// enum wrapper
+		Ok(Cow::Owned(vec![AnyChildTag::Text(TextTag::new(
+			text, true,
+		))]))
 	}
 }
 
-impl<'a> NestedSvgTag<'a> {
-	fn svg_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
-		Ok(self
-			.svg_path_reified
-			.get_or_try_init(|| context.eval_exprs_in_str(&self.svg_path))?
-			.as_ref())
+impl NestedSvgTag {
+	fn svg_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
+		Ok(context.eval_exprs_in_str(&self.svg_path)?)
 	}
 }
 
@@ -107,4 +104,4 @@ impl<'a> NestedSvgTag<'a> {
 // 	}
 // }
 
-impl_trivially_validatable!(NestedSvgTag<'_>);
+impl_trivially_validatable!(NestedSvgTag);

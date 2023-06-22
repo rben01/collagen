@@ -46,24 +46,24 @@ impl HasVars for GenericTag<'_> {
 }
 
 impl HasOwnedVars for GenericTag<'_> {
-	fn vars_mut(&self) -> &mut Option<TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
 impl<'a> AsSvgElement<'a> for GenericTag<'a> {
-	fn tag_name(&self) -> &'static str {
+	fn tag_name(&self) -> &str {
 		self.tag_name.as_ref()
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		context.sub_vars_into_attrs(self.attrs.as_ref().0)
+	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+		context.sub_vars_into_attrs(self.attrs.as_ref().iter())
 	}
 
-	fn children(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	fn children<'b>(
+		&'b self,
+		_: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		Ok(Cow::Borrowed(self.children.as_ref()))
 	}
 }

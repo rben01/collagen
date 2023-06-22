@@ -8,7 +8,6 @@ use crate::{
 	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
 	utils::b64_encode,
 };
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::Path};
 
@@ -75,9 +74,6 @@ pub struct ImageTag<'a> {
 
 	#[serde(flatten)]
 	children: DeChildTags<'a>,
-
-	#[serde(skip)]
-	image_path_reified: OnceCell<Cow<'a, str>>,
 }
 
 impl HasVars for ImageTag<'_> {
@@ -87,7 +83,7 @@ impl HasVars for ImageTag<'_> {
 }
 
 impl HasOwnedVars for ImageTag<'_> {
-	fn vars_mut(&self) -> &mut Option<super::TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<super::TagVariables> {
 		self.vars.as_mut()
 	}
 }
@@ -97,17 +93,20 @@ impl<'a> AsSvgElement<'a> for ImageTag<'a> {
 		"image"
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().0)?;
+	fn attrs<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
 		let (k, v) = self.get_image_attr_pair(context)?;
 		attrs.0.push((k, Cow::Owned(v)));
 		Ok(attrs)
 	}
 
-	fn children(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	fn children<'b>(
+		&'b self,
+		_: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		Ok(Cow::Borrowed(self.children.as_ref()))
 	}
 }
@@ -115,25 +114,22 @@ impl<'a> AsSvgElement<'a> for ImageTag<'a> {
 impl_validatable_via_children!(ImageTag<'_>);
 
 impl<'a> ImageTag<'a> {
-	fn image_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
-		Ok(self
-			.image_path_reified
-			.get_or_try_init(|| context.eval_exprs_in_str(&self.image_path))?
-			.as_ref())
+	fn image_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
+		Ok(context.eval_exprs_in_str(&self.image_path)?)
 	}
 
 	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `{TYPE}`
 	/// in the data URI `data:image/{TYPE};base64,...`. If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
-	pub(crate) fn kind(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, str>> {
+	pub(crate) fn kind<'b>(
+		&'b self,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<Cow<'b, str>> {
 		Ok(match &self.kind {
 			Some(kind) => Cow::Borrowed(kind),
 			None => {
 				let image_path = self.image_path(context)?;
-				let path = Path::new(&image_path);
+				let path = Path::new(image_path.as_ref());
 				let kind = path
 					.extension()
 					.and_then(|extn| extn.to_str())
@@ -152,9 +148,9 @@ impl<'a> ImageTag<'a> {
 	/// Get the key-value pair (as a tuple) that makes the image actually work! (E.g.,
 	/// the tuple `("href", "data:image/jpeg;base64,...")`)
 	pub(super) fn get_image_attr_pair(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<(&'a str, SimpleValue)> {
+		&self,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<(&'static str, SimpleValue)> {
 		let key = "href";
 		let kind = self.kind(context)?;
 

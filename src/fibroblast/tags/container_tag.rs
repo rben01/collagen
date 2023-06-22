@@ -1,7 +1,7 @@
 use super::{
 	any_child_tag::AnyChildTag,
 	element::{AsSvgElement, HasVars},
-	ClgnDecodingResult, DecodingContext, TagVariables, EMPTY_VARS,
+	ClgnDecodingResult, DecodingContext, TagVariables,
 };
 use crate::{
 	fibroblast::{data_types::XmlAttrsBorrowed, Fibroblast},
@@ -101,13 +101,10 @@ pub struct ContainerTag<'a> {
 
 	#[serde(skip)]
 	_child_clgn: OnceCell<Fibroblast<'a>>,
-
-	#[serde(skip)]
-	clgn_path_reified: OnceCell<Cow<'a, str>>,
 }
 
-impl ContainerTag<'_> {
-	pub(crate) fn vars(&self, context: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
+impl<'a> ContainerTag<'a> {
+	pub(crate) fn vars(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
 		Ok(self.as_fibroblast(context)?.vars())
 	}
 }
@@ -117,29 +114,29 @@ impl<'a> AsSvgElement<'a> for ContainerTag<'a> {
 		"g"
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+	fn attrs<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
 		let fb = self.as_fibroblast(context)?;
 		fb.context.sub_vars_into_attrs(fb.root.attrs(context)?.0)
 	}
 
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		self.as_fibroblast(context)?.children(context)
 	}
 }
 
 impl<'a> ContainerTag<'a> {
-	fn clgn_path(&'a self, context: &DecodingContext) -> ClgnDecodingResult<&'a str> {
-		Ok(self
-			.clgn_path_reified
-			.get_or_try_init(|| context.eval_exprs_in_str(&self.clgn_path))?
-			.as_ref())
+	fn clgn_path(&self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'_, str>> {
+		Ok(context.eval_exprs_in_str(&self.clgn_path)?)
 	}
 
 	pub(crate) fn as_fibroblast(
-		&'a self,
+		&self,
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<&Fibroblast<'a>> {
 		self._child_clgn.get_or_try_init(|| {

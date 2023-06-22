@@ -19,6 +19,16 @@ pub struct TextTag {
 	vars: DeTagVariables,
 }
 
+impl TextTag {
+	pub(crate) fn new(text: String, is_preescaped: bool) -> Self {
+		Self {
+			text,
+			is_preescaped: Some(is_preescaped),
+			vars: DeTagVariables { vars: None },
+		}
+	}
+}
+
 impl HasVars for TextTag {
 	fn vars(&self) -> &TagVariables {
 		self.vars.as_ref()
@@ -26,33 +36,18 @@ impl HasVars for TextTag {
 }
 
 impl HasOwnedVars for TextTag {
-	fn vars_mut(&self) -> &mut Option<TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
 impl<'a> AsTextNode<'a> for TextTag {
-	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>> {
+	fn raw_text<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
 		Ok(context.eval_exprs_in_str(&self.text)?)
 	}
 
-	fn is_preescaped(&self, context: &DecodingContext) -> ClgnDecodingResult<bool> {
+	fn is_preescaped(&self, _: &DecodingContext) -> ClgnDecodingResult<bool> {
 		Ok(self.is_preescaped.unwrap_or(false))
-	}
-}
-
-impl TextTag {
-	fn text(&self) -> BytesText {
-		if self.should_escape_text() {
-			BytesText::new(&self.text)
-		} else {
-			BytesText::from_escaped(&self.text)
-		}
-	}
-
-	fn should_escape_text(&self) -> bool {
-		let is_preescaped = self.is_preescaped.unwrap_or(false);
-		!is_preescaped
 	}
 }
 

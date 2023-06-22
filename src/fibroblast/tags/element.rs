@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, marker::PhantomData};
 
 use super::{AnyChildTag, DecodingContext, TagVariables};
 use crate::{fibroblast::data_types::XmlAttrsBorrowed, ClgnDecodingResult};
@@ -8,43 +8,51 @@ pub(crate) trait HasVars {
 }
 
 pub(crate) trait HasOwnedVars {
-	fn vars_mut(&self) -> &mut Option<TagVariables>;
+	fn vars_mut(&mut self) -> &mut Option<TagVariables>;
 }
 
-pub(crate) struct NodeGenerator<'a> {
-	children: Cow<'a, [AnyChildTag<'a>]>,
+pub(crate) struct NodeGenerator<'a, 'b> {
+	pub(crate) children: Cow<'b, [AnyChildTag<'a>]>,
 }
 
 pub(crate) trait AsNodeGenerator<'a> {
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>>;
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>>;
 
-	fn as_node_gtor(
-		&'a self,
+	fn as_node_gtor<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<NodeGenerator<'a>> {
+	) -> ClgnDecodingResult<NodeGenerator<'a, 'b>> {
 		let children = self.children(context)?;
 		Ok(NodeGenerator { children })
 	}
 }
 
-pub(crate) struct SvgElement<'a> {
-	name: &'static str,
-	attrs: XmlAttrsBorrowed<'a>,
-	children: Cow<'a, [AnyChildTag<'a>]>,
+pub(crate) struct SvgElement<'a, 'b> {
+	pub(crate) name: &'b str,
+	pub(crate) attrs: XmlAttrsBorrowed<'b>,
+	pub(crate) children: Cow<'b, [AnyChildTag<'a>]>,
 }
 
 pub(crate) trait AsSvgElement<'a> {
-	fn tag_name(&self) -> &'static str;
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>>;
-	fn children(
-		&'a self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>>;
+	fn tag_name(&self) -> &str;
 
-	fn as_svg_elem(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<SvgElement<'a>> {
+	fn attrs<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>>;
+
+	fn children<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>>;
+
+	fn as_svg_elem<'b>(
+		&'b self,
+		context: &DecodingContext<'a>,
+	) -> ClgnDecodingResult<SvgElement<'a, 'b>> {
 		let name = self.tag_name();
 		let attrs = self.attrs(context)?;
 		let children = self.children(context)?;
@@ -56,60 +64,51 @@ pub(crate) trait AsSvgElement<'a> {
 	}
 }
 
-pub(crate) struct TextNode<'a> {
-	text: Cow<'a, str>,
-	is_preescaped: bool,
-}
-
-impl<'a> TextNode<'a> {
-	fn new<T: AsTextNode<'a>>(
-		t: T,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<TextNode<'a>> {
-		let text = t.text(context)?;
-		let is_preescaped = t.is_preescaped(context)?;
-		Ok(Self {
-			text,
-			is_preescaped,
-		})
-	}
+pub(crate) struct TextNode<'a, 'b> {
+	pub(crate) text: Cow<'b, str>,
+	pub(crate) is_preescaped: bool,
+	phantom: PhantomData<&'a ()>,
 }
 
 pub(crate) trait AsTextNode<'a> {
-	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>>;
+	fn raw_text<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>>;
 	fn is_preescaped(&self, context: &DecodingContext) -> ClgnDecodingResult<bool>;
 
-	fn as_text_node(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<TextNode<'a>> {
-		let text = self.text(context)?;
+	fn as_text_node<'b>(
+		&'b self,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<TextNode<'a, 'b>> {
+		let text = self.raw_text(context)?;
 		let is_preescaped = self.is_preescaped(context)?;
 
 		Ok(TextNode {
 			text,
 			is_preescaped,
+			phantom: PhantomData,
 		})
 	}
 }
 
-pub(crate) enum Node<'a> {
-	Element(SvgElement<'a>),
-	Generator(NodeGenerator<'a>),
-	Text(TextNode<'a>),
+pub(crate) enum Node<'a, 'b> {
+	Element(SvgElement<'a, 'b>),
+	Generator(NodeGenerator<'a, 'b>),
+	Text(TextNode<'a, 'b>),
 }
 
-impl<'a> From<SvgElement<'a>> for Node<'a> {
-	fn from(value: SvgElement<'a>) -> Self {
+impl<'a, 'b> From<SvgElement<'a, 'b>> for Node<'a, 'b> {
+	fn from(value: SvgElement<'a, 'b>) -> Self {
 		Self::Element(value)
 	}
 }
 
-impl<'a> From<NodeGenerator<'a>> for Node<'a> {
-	fn from(value: NodeGenerator<'a>) -> Self {
+impl<'a, 'b> From<NodeGenerator<'a, 'b>> for Node<'a, 'b> {
+	fn from(value: NodeGenerator<'a, 'b>) -> Self {
 		Self::Generator(value)
 	}
 }
 
-impl<'a> From<TextNode<'a>> for Node<'a> {
-	fn from(value: TextNode<'a>) -> Self {
+impl<'a, 'b> From<TextNode<'a, 'b>> for Node<'a, 'b> {
+	fn from(value: TextNode<'a, 'b>) -> Self {
 		Self::Text(value)
 	}
 }

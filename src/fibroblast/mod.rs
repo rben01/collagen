@@ -60,24 +60,18 @@ impl HasVars for Fibroblast<'_> {
 }
 
 impl<'a> AsSvgElement<'a> for Fibroblast<'a> {
-	fn tag_name(&self) -> &'static str {
+	fn tag_name(&self) -> &str {
 		self.root.tag_name()
 	}
 
-	fn attrs(&'a self, _: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
+	fn attrs<'b>(&'b self, _: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
 		unreachable!()
 	}
 
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
 		Ok(self.root.children(context)?)
-	}
-}
-
-impl<'a> Fibroblast<'a> {
-	fn attrs(&'a self) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		self.root.attrs(&self.context)
 	}
 }

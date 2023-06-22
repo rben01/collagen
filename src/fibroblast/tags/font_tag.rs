@@ -262,7 +262,7 @@ impl HasVars for FontTag {
 }
 
 impl HasOwnedVars for FontTag {
-	fn vars_mut(&self) -> &mut Option<TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
@@ -272,19 +272,18 @@ impl<'a> AsSvgElement<'a> for FontTag {
 		"defs"
 	}
 
-	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		context.sub_vars_into_attrs(self.attrs.as_ref().0)
+	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+		context.sub_vars_into_attrs(self.attrs.as_ref().iter())
 	}
 
-	fn children(
-		&'a self,
+	fn children<'b>(
+		&'b self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
-		Ok(Cow::Borrowed(&[AnyChildTag::Text(TextTag {
-			text: self.font_embed_text(context)?,
-			is_preescaped: Some(true),
-			vars: DeTagVariables { vars: None },
-		})]))
+	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
+		Ok(Cow::Owned(vec![AnyChildTag::Text(TextTag::new(
+			self.font_embed_text(context)?,
+			true,
+		))]))
 	}
 }
 
