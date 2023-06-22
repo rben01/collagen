@@ -198,9 +198,9 @@ impl<'a> DecodingContext<'a> {
 		attrs: I,
 	) -> ClgnDecodingResult<XmlAttrsBorrowed>
 	where
-		K: AsRef<str>,
-		V: AsRef<SimpleValue>,
-		I: IntoIterator<Item = (K, V)>,
+		K: 'a + AsRef<str>,
+		V: 'a + AsRef<SimpleValue>,
+		I: 'a + IntoIterator<Item = (K, V)>,
 	{
 		let attrs_iter = attrs.into_iter();
 		let n_attrs = match attrs_iter.size_hint() {

@@ -12,6 +12,7 @@ use self::{
 	tags::{
 		element::{AsSvgElement, HasVars},
 		root_tag::RootTag,
+		TagVariables,
 	},
 };
 pub use super::from_json::decoding_error::ClgnDecodingResult;
@@ -53,7 +54,7 @@ pub struct Fibroblast<'a> {
 }
 
 impl HasVars for Fibroblast<'_> {
-	fn vars(&self) -> &tags::TagVariables {
+	fn vars(&self) -> &TagVariables {
 		self.root.vars.as_ref()
 	}
 }

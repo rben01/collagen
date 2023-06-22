@@ -106,9 +106,9 @@ pub struct ContainerTag<'a> {
 	clgn_path_reified: OnceCell<Cow<'a, str>>,
 }
 
-impl HasVars for ContainerTag<'_> {
-	fn vars(&self, context: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
-		Ok(self.as_fibroblast(context)?.vars(context))
+impl ContainerTag<'_> {
+	pub(crate) fn vars(&self, context: &DecodingContext) -> ClgnDecodingResult<&TagVariables> {
+		Ok(self.as_fibroblast(context)?.vars())
 	}
 }
 

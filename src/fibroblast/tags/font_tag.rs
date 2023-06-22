@@ -273,7 +273,7 @@ impl<'a> AsSvgElement<'a> for FontTag {
 	}
 
 	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>> {
-		context.sub_vars_into_attrs(self.attrs.as_ref().0.iter().map(|(k, v)| (k, v)))
+		context.sub_vars_into_attrs(self.attrs.as_ref().0)
 	}
 
 	fn children(

@@ -1,34 +1,21 @@
 use std::borrow::Cow;
 
-use super::{
-	AnyChildTag, ContainerTag, DecodingContext, FontTag, ForeachTag, GenericTag, IfTag, ImageTag,
-	NestedSvgTag, TagVariables,
-};
+use super::{AnyChildTag, DecodingContext, TagVariables};
 use crate::{fibroblast::data_types::XmlAttrsBorrowed, ClgnDecodingResult};
 
 pub(crate) trait HasVars {
-	fn vars(&self, context: &DecodingContext) -> ClgnDecodingResult<&TagVariables>;
+	fn vars(&self) -> &TagVariables;
 }
 
 pub(crate) trait HasOwnedVars {
 	fn vars_mut(&self) -> &mut Option<TagVariables>;
 }
 
-// pub(crate) enum DeTag<'a> {
-// 	Generic(GenericTag<'a>),
-// 	Image(ImageTag<'a>),
-// 	Container(ContainerTag<'a>),
-// 	NestedSvg(NestedSvgTag<'a>),
-// 	Foreach(ForeachTag<'a>),
-// 	If(IfTag<'a>),
-// 	Font(FontTag),
-// }
-
 pub(crate) struct NodeGenerator<'a> {
 	children: Cow<'a, [AnyChildTag<'a>]>,
 }
 
-pub(crate) trait AsNodeGenerator<'a>: HasVars {
+pub(crate) trait AsNodeGenerator<'a> {
 	fn children(
 		&'a self,
 		context: &DecodingContext<'a>,
@@ -49,7 +36,7 @@ pub(crate) struct SvgElement<'a> {
 	children: Cow<'a, [AnyChildTag<'a>]>,
 }
 
-pub(crate) trait AsSvgElement<'a>: HasVars {
+pub(crate) trait AsSvgElement<'a> {
 	fn tag_name(&self) -> &'static str;
 	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>>;
 	fn children(
@@ -57,7 +44,7 @@ pub(crate) trait AsSvgElement<'a>: HasVars {
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>>;
 
-	fn as_tag(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<SvgElement<'a>> {
+	fn as_svg_elem(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<SvgElement<'a>> {
 		let name = self.tag_name();
 		let attrs = self.attrs(context)?;
 		let children = self.children(context)?;
@@ -88,7 +75,7 @@ impl<'a> TextNode<'a> {
 	}
 }
 
-pub(crate) trait AsTextNode<'a>: HasVars {
+pub(crate) trait AsTextNode<'a> {
 	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Cow<'a, str>>;
 	fn is_preescaped(&self, context: &DecodingContext) -> ClgnDecodingResult<bool>;
 
@@ -125,9 +112,4 @@ impl<'a> From<TextNode<'a>> for Node<'a> {
 	fn from(value: TextNode<'a>) -> Self {
 		Self::Text(value)
 	}
-}
-
-pub(crate) struct Tag<'a> {
-	vars: &'a TagVariables,
-	node: Node<'a>,
 }

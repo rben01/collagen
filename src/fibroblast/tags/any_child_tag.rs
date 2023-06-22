@@ -1,6 +1,6 @@
 use super::{
 	container_tag::ContainerTag,
-	element::{AsNodeGenerator, Node, Tag},
+	element::{AsNodeGenerator, Node},
 	font_tag::FontTag,
 	foreach_tag::ForeachTag,
 	generic_tag::GenericTag,
@@ -8,7 +8,7 @@ use super::{
 	image_tag::ImageTag,
 	nested_svg_tag::NestedSvgTag,
 	text_tag::TextTag,
-	ClgnDecodingResult, ErrorTag,
+	ClgnDecodingResult, ErrorTag, TagVariables,
 };
 use crate::{
 	fibroblast::{
@@ -87,21 +87,33 @@ impl Validatable for AnyChildTag<'_> {
 }
 
 impl<'a> AnyChildTag<'a> {
-	fn as_tag(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Tag<'a>> {
+	pub(crate) fn vars(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
 		use AnyChildTag::*;
+		Ok(match self {
+			Generic(t) => t.vars(),
+			Image(t) => t.vars(),
+			Container(t) => t.vars(context)?,
+			NestedSvg(t) => t.vars(),
+			Foreach(t) => t.vars(),
+			If(t) => t.vars(),
+			Font(t) => t.vars(),
+			Text(t) => t.vars(),
+			Error(_) => unreachable!(),
+		})
+	}
 
-		let (vars, node) = match self {
-			Generic(t) => (t.vars(), t.as_tag(context)?.into()),
-			Image(t) => (t.vars(), t.as_tag(context)?.into()),
-			Container(t) => (t.vars(), t.as_tag(context)?.into()),
-			NestedSvg(t) => (t.vars(), t.as_tag(context)?.into()),
-			Foreach(t) => (t.vars(), t.as_node_gtor(context)?.into()),
-			If(t) => (t.vars(), t.as_node_gtor(context)?.into()),
-			Font(t) => (t.vars(), t.as_tag(context)?.into()),
-			Text(t) => (t.vars(), t.as_text_node(context)?.into()),
+	pub(crate) fn as_node(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Node<'a>> {
+		use AnyChildTag::*;
+		Ok(match self {
+			Generic(t) => t.as_svg_elem(context)?.into(),
+			Image(t) => t.as_svg_elem(context)?.into(),
+			Container(t) => t.as_svg_elem(context)?.into(),
+			NestedSvg(t) => t.as_svg_elem(context)?.into(),
+			Foreach(t) => t.as_node_gtor(context)?.into(),
+			If(t) => t.as_node_gtor(context)?.into(),
+			Font(t) => t.as_svg_elem(context)?.into(),
+			Text(t) => t.as_text_node(context)?.into(),
 			Error(_) => todo!(),
-		};
-
-		Ok(Tag { vars, node })
+		})
 	}
 }

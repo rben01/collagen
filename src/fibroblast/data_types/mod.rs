@@ -34,7 +34,7 @@ impl<'de> Deserialize<'de> for XmlAttrs {
 					.write_str("a Map<String, VariableValue> or a List<(String, VariableValue)>")
 			}
 
-			fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+			fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
 			where
 				A: serde::de::MapAccess<'de>,
 			{
@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for XmlAttrs {
 				Ok(XmlAttrs(items))
 			}
 
-			fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
 			where
 				A: serde::de::SeqAccess<'de>,
 			{
