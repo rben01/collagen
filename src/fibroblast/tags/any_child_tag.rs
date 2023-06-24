@@ -1,25 +1,14 @@
 use super::{
-	container_tag::ContainerTag,
-	element::{AsNodeGenerator, Node},
-	font_tag::FontTag,
-	foreach_tag::ForeachTag,
-	generic_tag::GenericTag,
-	if_tag::IfTag,
-	image_tag::ImageTag,
-	nested_svg_tag::NestedSvgTag,
-	text_tag::TextTag,
-	ClgnDecodingResult, ErrorTag, TagVariables,
+	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag,
+	generic_tag::GenericTag, if_tag::IfTag, image_tag::ImageTag, nested_svg_tag::NestedSvgTag,
+	text_tag::TextTag, ClgnDecodingResult, ErrorTag,
 };
 use crate::{
 	fibroblast::{
 		data_types::DecodingContext,
-		tags::{
-			element::{AsSvgElement, AsTextNode, HasVars},
-			error_tag::Validatable,
-			ErrorTagReason,
-		},
+		tags::{error_tag::Validatable, ErrorTagReason},
 	},
-	to_svg::svg_writable::ClgnDecodingError,
+	to_svg::svg_writable::{ClgnDecodingError, SvgWritable},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -86,38 +75,23 @@ impl Validatable for AnyChildTag<'_> {
 	}
 }
 
-impl<'a> AnyChildTag<'a> {
-	pub(crate) fn vars(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
+impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
 		use AnyChildTag::*;
 		Ok(match self {
-			Generic(t) => t.vars(),
-			Image(t) => t.vars(),
-			Container(t) => t.vars(context)?,
-			NestedSvg(t) => t.vars(),
-			Foreach(t) => t.vars(),
-			If(t) => t.vars(),
-			Font(t) => t.vars(),
-			Text(t) => t.vars(),
+			Generic(t) => t.to_svg(context, writer)?,
+			Image(t) => t.to_svg(context, writer)?,
+			Container(t) => t.to_svg(context, writer)?,
+			NestedSvg(t) => t.to_svg(context, writer)?,
+			Foreach(t) => t.to_svg(context, writer)?,
+			If(t) => t.to_svg(context, writer)?,
+			Font(t) => t.to_svg(context, writer)?,
+			Text(t) => t.to_svg(context, writer)?,
 			Error(_) => unreachable!(),
 		})
-	}
-
-	pub(crate) fn as_node<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Node<'a, 'b>> {
-		use AnyChildTag::*;
-		let x: Node<'a, 'b> = match self {
-			Generic(t) => t.as_svg_elem(context)?.into(),
-			Image(t) => t.as_svg_elem(context)?.into(),
-			Container(t) => t.as_svg_elem(context)?.into(),
-			NestedSvg(t) => t.as_svg_elem(context)?.into(),
-			Foreach(t) => t.as_node_gtor(context)?.into(),
-			If(t) => t.as_node_gtor(context)?.into(),
-			Font(t) => t.as_svg_elem(context)?.into(),
-			Text(t) => t.as_text_node(context)?.into(),
-			Error(_) => unreachable!(),
-		};
-		Ok(x)
 	}
 }

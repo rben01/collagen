@@ -1,12 +1,9 @@
 use super::{
-	element::{AsSvgElement, HasVars},
-	error_tag::Validatable,
-	AnyChildTag, ClgnDecodingResult, DeChildTags, DeTagVariables, DeXmlAttrs, DecodingContext,
-	TagVariables,
+	element::HasOwnedVars, error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags,
+	DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables, XmlAttrs,
 };
-use crate::fibroblast::data_types::{SimpleValue, XmlAttrsBorrowed};
+use crate::to_svg::svg_writable::{write_tag, SvgWritable};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 /// The document root (`<svg>...<svg>`). A `collagen.json` file is expected to contain a
 /// single object; that object is always implicitly of type `RootTag`. The set of keys
@@ -26,37 +23,80 @@ pub struct RootTag<'a> {
 	children: DeChildTags<'a>,
 }
 
-impl HasVars for RootTag<'_> {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
+impl HasOwnedVars for RootTag<'_> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
+		self.vars.as_mut()
 	}
 }
 
-impl<'a> AsSvgElement<'a> for RootTag<'a> {
-	fn tag_name(&self) -> &'static str {
-		"svg"
+impl<'a> RootTag<'a> {
+	pub(crate) fn attrs(&self) -> &XmlAttrs {
+		self.attrs.as_ref()
 	}
 
-	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
-
-		if !attrs.0.iter().any(|(k, _)| *k == "xmlns") {
-			attrs.0.push((
-				"xmlns",
-				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
-			));
-		}
-
-		Ok(attrs)
-	}
-
-	fn children<'b>(
-		&'b self,
-		_: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		Ok(Cow::Borrowed(self.children.as_ref()))
+	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
+		self.children.as_ref()
 	}
 }
+
+impl<'a> SvgWritable<'a> for RootTag<'a> {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		context.with_new_vars(self.vars.as_ref(), || {
+			write_tag(
+				writer,
+				"svg",
+				|elem| {
+					let attrs = self.attrs.as_ref();
+					context.write_attrs_into(attrs.iter(), elem)?;
+
+					let xmlns = "xmlns";
+					if !attrs.iter().any(|(k, _)| k == xmlns) {
+						elem.push_attribute((xmlns, "http://www.w3.org/2000/svg"));
+					}
+
+					Ok(())
+				},
+				|writer| {
+					for child in self.children.as_ref() {
+						child.to_svg(context, writer)?;
+					}
+
+					Ok(())
+				},
+			)
+		})
+	}
+}
+
+// impl<'a> AsSvgElement<'a> for RootTag<'a> {
+// 	fn tag_name(&self) -> &'static str {
+// 		"svg"
+// 	}
+
+// 	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
+// 		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
+
+// 		if !attrs.0.iter().any(|(k, _)| *k == "xmlns") {
+// 			attrs.0.push((
+// 				"xmlns",
+// 				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
+// 			));
+// 		}
+
+// 		Ok(attrs)
+// 	}
+
+// 	fn children<'b>(
+// 		&'b self,
+// 		_: &DecodingContext<'a>,
+// 	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
+// 		Ok(Cow::Borrowed(self.children.as_ref()))
+// 	}
+// }
 
 impl<'a> RootTag<'a> {
 	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {

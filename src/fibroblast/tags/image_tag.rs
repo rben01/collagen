@@ -1,11 +1,8 @@
-use super::{
-	element::{AsSvgElement, HasOwnedVars, HasVars},
-	AnyChildTag, DeChildTags, DeTagVariables, DeXmlAttrs,
-};
+use super::{element::HasOwnedVars, DeChildTags, DeTagVariables, DeXmlAttrs, TagVariables};
 use crate::{
-	fibroblast::data_types::{DecodingContext, SimpleValue, XmlAttrsBorrowed},
+	fibroblast::data_types::DecodingContext,
 	impl_validatable_via_children,
-	to_svg::svg_writable::{ClgnDecodingError, ClgnDecodingResult},
+	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 	utils::b64_encode,
 };
 use serde::{Deserialize, Serialize};
@@ -76,42 +73,11 @@ pub struct ImageTag<'a> {
 	children: DeChildTags<'a>,
 }
 
-impl HasVars for ImageTag<'_> {
-	fn vars(&self) -> &super::TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for ImageTag<'_> {
-	fn vars_mut(&mut self) -> &mut Option<super::TagVariables> {
+	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
-
-impl<'a> AsSvgElement<'a> for ImageTag<'a> {
-	fn tag_name(&self) -> &'static str {
-		"image"
-	}
-
-	fn attrs<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
-		let (k, v) = self.get_image_attr_pair(context)?;
-		attrs.0.push((k, Cow::Owned(v)));
-		Ok(attrs)
-	}
-
-	fn children<'b>(
-		&'b self,
-		_: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		Ok(Cow::Borrowed(self.children.as_ref()))
-	}
-}
-
-impl_validatable_via_children!(ImageTag<'_>);
 
 impl<'a> ImageTag<'a> {
 	fn image_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
@@ -150,7 +116,7 @@ impl<'a> ImageTag<'a> {
 	pub(super) fn get_image_attr_pair(
 		&self,
 		context: &DecodingContext,
-	) -> ClgnDecodingResult<(&'static str, SimpleValue)> {
+	) -> ClgnDecodingResult<(&'static str, String)> {
 		let key = "href";
 		let kind = self.kind(context)?;
 
@@ -170,6 +136,38 @@ impl<'a> ImageTag<'a> {
 		);
 		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
 
-		Ok((key, SimpleValue::Text(src_str)))
+		Ok((key, src_str))
 	}
 }
+
+impl<'a> SvgWritable<'a> for ImageTag<'a> {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		context.with_new_vars(self.vars.as_ref(), || {
+			let (img_k, img_v) = self.get_image_attr_pair(context)?;
+
+			write_tag(
+				writer,
+				"img",
+				|elem| {
+					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
+					elem.push_attribute((img_k, img_v.as_ref()));
+					Ok(())
+				},
+				|writer| {
+					for child in self.children.as_ref() {
+						child.to_svg(context, writer)?;
+					}
+					Ok(())
+				},
+			)?;
+
+			Ok(())
+		})
+	}
+}
+
+impl_validatable_via_children!(ImageTag<'_>);

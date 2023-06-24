@@ -20,9 +20,9 @@ impl<'a> Fibroblast<'a> {
 		let path = path.as_ref();
 
 		let manifest_path = path.join("collagen.json");
-		let reader = std::fs::File::open(&manifest_path)
+		let rdr = std::fs::File::open(&manifest_path)
 			.map_err(|e| ClgnDecodingError::Io(e, manifest_path.clone()))?;
-		let root = serde_json::from_reader::<_, RootTag>(reader)
+		let root = serde_json::from_reader::<_, RootTag>(rdr)
 			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
 			.validate()?;
 

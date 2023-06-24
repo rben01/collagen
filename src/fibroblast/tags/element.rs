@@ -1,114 +1,89 @@
-use std::{borrow::Cow, marker::PhantomData};
-
-use super::{AnyChildTag, DecodingContext, TagVariables};
-use crate::{fibroblast::data_types::XmlAttrsBorrowed, ClgnDecodingResult};
-
-pub(crate) trait HasVars {
-	fn vars(&self) -> &TagVariables;
-}
+use crate::{
+	fibroblast::data_types::{SimpleValue, VariableValue},
+	utils::Map,
+};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 pub(crate) trait HasOwnedVars {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables>;
 }
 
-pub(crate) struct NodeGenerator<'a, 'b> {
-	pub(crate) children: Cow<'b, [AnyChildTag<'a>]>,
-}
+/// A type alias for storing XML attribute key-value pairs
+#[derive(Debug, Clone)]
+pub(crate) struct XmlAttrs(pub(crate) Vec<(String, SimpleValue)>);
 
-pub(crate) trait AsNodeGenerator<'a> {
-	fn children<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>>;
+impl<'de> Deserialize<'de> for XmlAttrs {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct XmlAttrsVisitor;
+		impl<'de> Visitor<'de> for XmlAttrsVisitor {
+			type Value = XmlAttrs;
 
-	fn as_node_gtor<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<NodeGenerator<'a, 'b>> {
-		let children = self.children(context)?;
-		Ok(NodeGenerator { children })
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter
+					.write_str("a Map<String, VariableValue> or a List<(String, VariableValue)>")
+			}
+
+			fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+			where
+				A: serde::de::MapAccess<'de>,
+			{
+				let mut items = Vec::new();
+				while let Some((k, v)) = map.next_entry()? {
+					items.push((k, v))
+				}
+
+				Ok(XmlAttrs(items))
+			}
+
+			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+			where
+				A: serde::de::SeqAccess<'de>,
+			{
+				let mut items = Vec::new();
+				while let Some((k, v)) = seq.next_element()? {
+					items.push((k, v))
+				}
+
+				Ok(XmlAttrs(items))
+			}
+		}
+
+		deserializer.deserialize_any(XmlAttrsVisitor)
 	}
 }
 
-pub(crate) struct SvgElement<'a, 'b> {
-	pub(crate) name: &'b str,
-	pub(crate) attrs: XmlAttrsBorrowed<'b>,
-	pub(crate) children: Cow<'b, [AnyChildTag<'a>]>,
-}
-
-pub(crate) trait AsSvgElement<'a> {
-	fn tag_name(&self) -> &str;
-
-	fn attrs<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>>;
-
-	fn children<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>>;
-
-	fn as_svg_elem<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<SvgElement<'a, 'b>> {
-		let name = self.tag_name();
-		let attrs = self.attrs(context)?;
-		let children = self.children(context)?;
-		Ok(SvgElement {
-			name,
-			attrs,
-			children,
-		})
+impl Serialize for XmlAttrs {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		serializer.collect_map(self.0.iter().map(|(k, v)| (k, v)))
 	}
 }
 
-pub(crate) struct TextNode<'a, 'b> {
-	pub(crate) text: Cow<'b, str>,
-	pub(crate) is_preescaped: bool,
-	phantom: PhantomData<&'a ()>,
-}
-
-pub(crate) trait AsTextNode<'a> {
-	fn raw_text<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>>;
-	fn is_preescaped(&self, context: &DecodingContext) -> ClgnDecodingResult<bool>;
-
-	fn as_text_node<'b>(
-		&'b self,
-		context: &DecodingContext,
-	) -> ClgnDecodingResult<TextNode<'a, 'b>> {
-		let text = self.raw_text(context)?;
-		let is_preescaped = self.is_preescaped(context)?;
-
-		Ok(TextNode {
-			text,
-			is_preescaped,
-			phantom: PhantomData,
-		})
+impl XmlAttrs {
+	pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, &SimpleValue)> {
+		self.0.iter().map(|(k, v)| (k.as_ref(), v))
 	}
 }
 
-pub(crate) enum Node<'a, 'b> {
-	Element(SvgElement<'a, 'b>),
-	Generator(NodeGenerator<'a, 'b>),
-	Text(TextNode<'a, 'b>),
-}
+/// Map of `String` -> `VariableValue`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TagVariables(pub(crate) Map<String, VariableValue>);
 
-impl<'a, 'b> From<SvgElement<'a, 'b>> for Node<'a, 'b> {
-	fn from(value: SvgElement<'a, 'b>) -> Self {
-		Self::Element(value)
-	}
-}
-
-impl<'a, 'b> From<NodeGenerator<'a, 'b>> for Node<'a, 'b> {
-	fn from(value: NodeGenerator<'a, 'b>) -> Self {
-		Self::Generator(value)
-	}
-}
-
-impl<'a, 'b> From<TextNode<'a, 'b>> for Node<'a, 'b> {
-	fn from(value: TextNode<'a, 'b>) -> Self {
-		Self::Text(value)
+pub(crate) fn insert_var(
+	into: &mut Option<TagVariables>,
+	key: String,
+	value: VariableValue,
+) -> Option<VariableValue> {
+	match into {
+		Some(vars) => vars.0.insert(key, value),
+		None => {
+			*into = Some(TagVariables(Map::from_iter([(key, value)])));
+			None
+		}
 	}
 }

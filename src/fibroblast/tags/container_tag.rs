@@ -1,15 +1,11 @@
-use super::{
-	any_child_tag::AnyChildTag,
-	element::{AsSvgElement, HasVars},
-	ClgnDecodingResult, DecodingContext, TagVariables,
-};
+use super::{ClgnDecodingResult, DecodingContext};
 use crate::{
-	fibroblast::{data_types::XmlAttrsBorrowed, Fibroblast},
+	fibroblast::Fibroblast,
 	impl_trivially_validatable,
+	to_svg::svg_writable::{write_tag, SvgWritable},
 };
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::RefCell, path::PathBuf};
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -100,33 +96,39 @@ pub struct ContainerTag<'a> {
 	clgn_path: String,
 
 	#[serde(skip)]
-	_child_clgn: OnceCell<Fibroblast<'a>>,
+	resolved_path: RefCell<Option<PathBuf>>,
+
+	#[serde(skip)]
+	fibroblast: RefCell<Option<Fibroblast<'a>>>,
 }
 
-impl<'a> ContainerTag<'a> {
-	pub(crate) fn vars(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables> {
-		Ok(self.as_fibroblast(context)?.vars())
-	}
-}
-
-impl<'a> AsSvgElement<'a> for ContainerTag<'a> {
-	fn tag_name(&self) -> &'static str {
-		"g"
-	}
-
-	fn attrs<'b>(
-		&'b self,
+impl<'a> SvgWritable<'a> for ContainerTag<'a> {
+	fn to_svg(
+		&self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		let fb = self.as_fibroblast(context)?;
-		fb.context.sub_vars_into_attrs(fb.root.attrs(context)?.0)
-	}
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		self.instantiate(context)?;
 
-	fn children<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		self.as_fibroblast(context)?.children(context)
+		let fb = self.fibroblast.borrow();
+		let Fibroblast { root, context } = fb.as_ref().unwrap();
+
+		write_tag(
+			writer,
+			"g",
+			|elem| {
+				context.write_attrs_into(root.attrs().iter(), elem)?;
+				Ok(())
+			},
+			|writer| {
+				for child in root.children() {
+					child.to_svg(context, writer)?;
+				}
+				Ok(())
+			},
+		)?;
+
+		Ok(())
 	}
 }
 
@@ -135,20 +137,21 @@ impl<'a> ContainerTag<'a> {
 		Ok(context.eval_exprs_in_str(&self.clgn_path)?)
 	}
 
-	pub(crate) fn as_fibroblast(
-		&self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<&Fibroblast<'a>> {
-		self._child_clgn.get_or_try_init(|| {
-			let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
-				&*context.get_root(),
-				self.clgn_path(&context)?,
-			)?;
+	pub(crate) fn instantiate(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
+		let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
+			&*context.get_root(),
+			self.clgn_path(&context)?,
+		)?;
+
+		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
 			let context = context.clone();
 			context.replace_root(abs_clgn_path.clone());
-			let subroot = Fibroblast::from_dir_with_context(abs_clgn_path, context)?;
-			Ok(subroot)
-		})
+			let subroot = Fibroblast::from_dir_with_context(&abs_clgn_path, context)?;
+			*self.fibroblast.borrow_mut() = Some(subroot);
+			*self.resolved_path.borrow_mut() = Some(abs_clgn_path);
+		};
+
+		Ok(())
 	}
 }
 

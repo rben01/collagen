@@ -1,11 +1,7 @@
-use super::{
-	element::{AsTextNode, HasOwnedVars, HasVars},
-	DeTagVariables, DecodingContext, TagVariables,
-};
-use crate::{impl_trivially_validatable, ClgnDecodingResult};
+use super::{element::HasOwnedVars, DeTagVariables, DecodingContext, TagVariables};
+use crate::{impl_trivially_validatable, to_svg::svg_writable::SvgWritable, ClgnDecodingResult};
 use quick_xml::events::BytesText;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -19,35 +15,30 @@ pub struct TextTag {
 	vars: DeTagVariables,
 }
 
-impl TextTag {
-	pub(crate) fn new(text: String, is_preescaped: bool) -> Self {
-		Self {
-			text,
-			is_preescaped: Some(is_preescaped),
-			vars: DeTagVariables { vars: None },
-		}
-	}
-}
-
-impl HasVars for TextTag {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for TextTag {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
-impl<'a> AsTextNode<'a> for TextTag {
-	fn raw_text<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
-		Ok(context.eval_exprs_in_str(&self.text)?)
-	}
+impl<'a> SvgWritable<'a> for TextTag {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		let is_preescaped = self.is_preescaped.unwrap_or(false);
+		let text = context.eval_exprs_in_str(&self.text)?;
 
-	fn is_preescaped(&self, _: &DecodingContext) -> ClgnDecodingResult<bool> {
-		Ok(self.is_preescaped.unwrap_or(false))
+		let bt = if is_preescaped {
+			BytesText::from_escaped(text)
+		} else {
+			BytesText::new(text.as_ref())
+		};
+
+		writer.write_event(crate::XmlEvent::Text(bt))?;
+
+		Ok(())
 	}
 }
 

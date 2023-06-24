@@ -2,16 +2,16 @@ mod collection;
 mod iterable;
 
 use super::{
-	element::{AsNodeGenerator, HasOwnedVars, HasVars},
+	element::{insert_var, HasOwnedVars},
 	error_tag::Validatable,
 	AnyChildTag, DeTagVariables, DecodingContext, TagVariables,
 };
 use crate::{
-	fibroblast::data_types::insert_var, to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult,
+	to_svg::svg_writable::{ClgnDecodingError, SvgWritable},
+	ClgnDecodingResult,
 };
 use iterable::{Loop, LoopVariable};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -26,23 +26,18 @@ pub struct ForeachTag<'a> {
 	vars: DeTagVariables,
 }
 
-impl HasVars for ForeachTag<'_> {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for ForeachTag<'_> {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
-impl<'a> AsNodeGenerator<'a> for ForeachTag<'a> {
-	fn children(
+impl<'a> SvgWritable<'a> for ForeachTag<'a> {
+	fn to_svg(
 		&self,
 		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'a, [AnyChildTag<'a>]>> {
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
 		let (loops, loop_len) = {
 			let mut loops = Vec::new();
 
@@ -85,8 +80,6 @@ impl<'a> AsNodeGenerator<'a> for ForeachTag<'a> {
 			(loops, iterable_len)
 		};
 
-		let mut children = Vec::new();
-
 		for i in 0..loop_len {
 			let mut tag = *self.template.clone();
 
@@ -108,10 +101,9 @@ impl<'a> AsNodeGenerator<'a> for ForeachTag<'a> {
 				insert_var(vars, name, elem);
 			}
 
-			children.push(tag);
+			tag.to_svg(context, writer)?;
 		}
-
-		Ok(Cow::Owned(children))
+		Ok(())
 	}
 }
 

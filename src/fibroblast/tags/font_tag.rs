@@ -1,15 +1,12 @@
-use super::{
-	element::{AsSvgElement, HasOwnedVars, HasVars},
-	text_tag::TextTag,
-	AnyChildTag, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables,
-};
+use super::{element::HasOwnedVars, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables};
 use crate::{
-	fibroblast::data_types::{ConcreteNumber, XmlAttrsBorrowed},
+	fibroblast::data_types::ConcreteNumber,
 	impl_trivially_validatable,
-	to_svg::svg_writable::ClgnDecodingError,
+	to_svg::svg_writable::{write_tag, ClgnDecodingError, SvgWritable},
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
 };
+use quick_xml::events::{BytesText, Event};
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};
 use std::borrow::Cow;
 
@@ -255,35 +252,9 @@ pub struct FontTag {
 	attrs: DeXmlAttrs,
 }
 
-impl HasVars for FontTag {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for FontTag {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
-	}
-}
-
-impl<'a> AsSvgElement<'a> for FontTag {
-	fn tag_name(&self) -> &'static str {
-		"defs"
-	}
-
-	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		context.sub_vars_into_attrs(self.attrs.as_ref().iter())
-	}
-
-	fn children<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		Ok(Cow::Owned(vec![AnyChildTag::Text(TextTag::new(
-			self.font_embed_text(context)?,
-			true,
-		))]))
 	}
 }
 
@@ -389,6 +360,31 @@ impl FontTag {
 		text.push_str("</style>");
 
 		Ok(text)
+	}
+}
+
+impl<'a> SvgWritable<'a> for FontTag {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		context.with_new_vars(self.vars.as_ref(), || {
+			write_tag(
+				writer,
+				"defs",
+				|elem| {
+					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
+					Ok(())
+				},
+				|writer| {
+					writer.write_event(Event::Text(BytesText::from_escaped(
+						self.font_embed_text(context)?,
+					)))?;
+					Ok(())
+				},
+			)
+		})
 	}
 }
 

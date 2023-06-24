@@ -1,11 +1,10 @@
-use std::borrow::Cow;
-
 use super::{
-	element::{AsSvgElement, HasOwnedVars, HasVars},
-	AnyChildTag, DeChildTags, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables,
+	element::HasOwnedVars, DeChildTags, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables,
 };
 use crate::{
-	fibroblast::data_types::XmlAttrsBorrowed, impl_validatable_via_children, ClgnDecodingResult,
+	impl_validatable_via_children,
+	to_svg::svg_writable::{write_tag, SvgWritable},
+	ClgnDecodingResult,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,32 +38,35 @@ pub struct GenericTag<'a> {
 	children: DeChildTags<'a>,
 }
 
-impl HasVars for GenericTag<'_> {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for GenericTag<'_> {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
 	}
 }
 
-impl<'a> AsSvgElement<'a> for GenericTag<'a> {
-	fn tag_name(&self) -> &str {
-		self.tag_name.as_ref()
-	}
-
-	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		context.sub_vars_into_attrs(self.attrs.as_ref().iter())
-	}
-
-	fn children<'b>(
-		&'b self,
-		_: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		Ok(Cow::Borrowed(self.children.as_ref()))
+impl<'a> SvgWritable<'a> for GenericTag<'a> {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		context.with_new_vars(self.vars.as_ref(), || {
+			write_tag(
+				writer,
+				&self.tag_name,
+				|elem| {
+					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
+					Ok(())
+				},
+				|writer| {
+					for child in self.children.as_ref() {
+						child.to_svg(context, writer)?;
+					}
+					Ok(())
+				},
+			)?;
+			Ok(())
+		})
 	}
 }
 

@@ -31,7 +31,6 @@
 //!   tags. See its docs for more info.
 
 pub(super) mod any_child_tag;
-pub(super) mod common_tag_fields;
 pub(super) mod container_tag;
 pub(crate) mod element;
 pub(super) mod error_tag;
@@ -44,13 +43,11 @@ pub(super) mod nested_svg_tag;
 pub mod root_tag;
 pub(super) mod text_tag;
 
+use self::element::{TagVariables, XmlAttrs};
 pub(super) use crate::{
-	fibroblast::data_types::{DecodingContext, TagVariables, XmlAttrs},
-	to_svg::svg_writable::ClgnDecodingResult,
-	utils::Map,
+	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult, utils::Map,
 };
 pub use any_child_tag::AnyChildTag;
-pub use common_tag_fields::{traits, CommonTagFields};
 pub use container_tag::ContainerTag;
 pub use error_tag::{ErrorTag, ErrorTagReason};
 pub use font_tag::FontTag;
@@ -61,8 +58,6 @@ pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
-
-use super::data_types::XmlAttrsBorrowed;
 
 /// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
 /// `BTreeMap` doesn't allocate until it has at least one element, this really costs

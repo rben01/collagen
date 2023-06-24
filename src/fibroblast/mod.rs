@@ -7,18 +7,10 @@
 pub(super) mod data_types;
 pub mod tags;
 
-use self::{
-	data_types::XmlAttrsBorrowed,
-	tags::{
-		element::{AsSvgElement, HasVars},
-		root_tag::RootTag,
-		TagVariables,
-	},
-};
+use self::tags::root_tag::RootTag;
 pub use super::from_json::decoding_error::ClgnDecodingResult;
 pub use crate::fibroblast::data_types::DecodingContext;
-use std::borrow::Cow;
-use tags::AnyChildTag;
+use crate::to_svg::svg_writable::SvgWritable;
 
 /// The whole shebang: both the (context-less) root tag and the context in which to
 /// decode it.
@@ -53,25 +45,11 @@ pub struct Fibroblast<'a> {
 	pub(crate) context: DecodingContext<'a>,
 }
 
-impl HasVars for Fibroblast<'_> {
-	fn vars(&self) -> &TagVariables {
-		self.root.vars.as_ref()
-	}
-}
-
-impl<'a> AsSvgElement<'a> for Fibroblast<'a> {
-	fn tag_name(&self) -> &str {
-		self.root.tag_name()
-	}
-
-	fn attrs<'b>(&'b self, _: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-		unreachable!()
-	}
-
-	fn children<'b>(
-		&'b self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-		Ok(self.root.children(context)?)
+impl Fibroblast<'_> {
+	pub fn to_svg<'a>(
+		&self,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		self.root.to_svg(&self.context, writer)
 	}
 }

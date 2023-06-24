@@ -14,8 +14,9 @@ pub(crate) mod errors;
 pub(super) mod functions;
 pub(crate) mod parser;
 
-use super::{ConcreteNumber, SimpleValue, TagVariables, VariableValue, XmlAttrsBorrowed};
+use super::{ConcreteNumber, SimpleValue, VariableValue};
 use crate::{
+	fibroblast::tags::element::TagVariables,
 	to_svg::svg_writable::ClgnDecodingResult,
 	utils::{Map, MapEntry, Set},
 };
@@ -63,11 +64,11 @@ impl DecodingContext<'_> {
 		&self,
 		new_root: PathBuf,
 		f: impl FnOnce() -> ClgnDecodingResult<T>,
-	) -> ClgnDecodingResult<T> {
+	) -> ClgnDecodingResult<(T, PathBuf)> {
 		let orig_path = self.replace_root(new_root);
 		let result = f();
-		self.replace_root(orig_path);
-		result
+		let new_root = self.replace_root(orig_path);
+		result.map(|t| (t, new_root))
 	}
 
 	pub(crate) fn get_root(&self) -> Ref<PathBuf> {
@@ -194,24 +195,18 @@ impl DecodingContext<'_> {
 		parse(s, self, variables_referenced)
 	}
 
-	pub(crate) fn sub_vars_into_attrs<'b, I>(
+	pub(crate) fn write_attrs_into<'b, I>(
 		&self,
 		attrs: I,
-	) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>>
+		elem: &mut quick_xml::events::BytesStart,
+	) -> ClgnDecodingResult<()>
 	where
-		I: IntoIterator<Item = (&'b str, Cow<'b, SimpleValue>)>,
+		I: IntoIterator<Item = (&'b str, &'b SimpleValue)>,
 	{
-		let attrs_iter = attrs.into_iter();
-		let n_attrs = match attrs_iter.size_hint() {
-			(_, Some(upper)) => upper,
-			(lower, _) => lower,
-		};
-		let mut subd_attrs = Vec::with_capacity(n_attrs);
-
 		let mut parsing_errs = Vec::new();
 
-		for (k, orig_val) in attrs_iter {
-			let new_val = match orig_val.as_ref() {
+		for (k, v) in attrs.into_iter() {
+			match v {
 				SimpleValue::Text(text) => {
 					let subd_text = match self.eval_exprs_in_str(text) {
 						Ok(x) => x,
@@ -221,21 +216,27 @@ impl DecodingContext<'_> {
 						}
 					};
 					match subd_text {
-						Cow::Owned(s) => Cow::Owned(SimpleValue::Text(s)),
-						Cow::Borrowed(_orig) => orig_val,
+						Cow::Owned(s) => {
+							elem.push_attribute((k, s.as_ref()));
+						}
+						Cow::Borrowed(s) => {
+							elem.push_attribute((k, s));
+						}
 					}
 				}
-				_wasnt_text => orig_val,
+				_ => {
+					if let Some(s) = v.to_maybe_string() {
+						elem.push_attribute((k, s.as_ref()))
+					}
+				}
 			};
-
-			subd_attrs.push((k, new_val));
 		}
 
-		if !parsing_errs.is_empty() {
+		if parsing_errs.len() > 0 {
 			return Err(parsing_errs.into());
 		}
 
-		Ok(XmlAttrsBorrowed(subd_attrs))
+		Ok(())
 	}
 }
 

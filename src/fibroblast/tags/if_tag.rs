@@ -1,11 +1,12 @@
 use super::{
-	element::{AsNodeGenerator, HasOwnedVars, HasVars},
-	error_tag::Validatable,
-	AnyChildTag, DeTagVariables, DecodingContext, TagVariables,
+	element::HasOwnedVars, error_tag::Validatable, AnyChildTag, DeTagVariables, DecodingContext,
+	TagVariables,
 };
-use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
+use crate::{
+	to_svg::svg_writable::{ClgnDecodingError, SvgWritable},
+	ClgnDecodingResult,
+};
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, slice};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,27 +24,9 @@ pub struct IfTag<'a> {
 	vars: DeTagVariables,
 }
 
-impl HasVars for IfTag<'_> {
-	fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-}
-
 impl HasOwnedVars for IfTag<'_> {
 	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
 		self.vars.as_mut()
-	}
-}
-
-impl<'a> AsNodeGenerator<'a> for IfTag<'a> {
-	fn children(
-		&self,
-		context: &DecodingContext<'a>,
-	) -> ClgnDecodingResult<Cow<'_, [AnyChildTag<'a>]>> {
-		Ok(Cow::Borrowed(match self.child(context)? {
-			Some(child) => slice::from_ref(child),
-			None => &[],
-		}))
 	}
 }
 
@@ -63,10 +46,11 @@ impl<'a> IfTag<'a> {
 		&self,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<Option<&AnyChildTag<'a>>> {
-		Ok(self
-			.should_be_emitted(context)?
-			.then(|| self.true_template.as_ref())
-			.or_else(|| self.false_template.as_deref()))
+		Ok(if self.should_be_emitted(context)? {
+			Some(self.true_template.as_ref())
+		} else {
+			self.false_template.as_deref()
+		})
 	}
 }
 
@@ -82,5 +66,18 @@ impl Validatable for IfTag<'_> {
 			.transpose()?;
 
 		Ok(self)
+	}
+}
+
+impl<'a> SvgWritable<'a> for IfTag<'a> {
+	fn to_svg(
+		&self,
+		context: &DecodingContext<'a>,
+		writer: &mut quick_xml::Writer<impl std::io::Write>,
+	) -> ClgnDecodingResult<()> {
+		if let Some(child) = self.child(context)? {
+			child.to_svg(context, writer)?;
+		}
+		Ok(())
 	}
 }
