@@ -151,7 +151,7 @@ impl<'a> SvgWritable<'a> for ImageTag<'a> {
 
 			write_tag(
 				writer,
-				"img",
+				"image",
 				|elem| {
 					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
 					elem.push_attribute((img_k, img_v.as_ref()));

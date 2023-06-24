@@ -21,12 +21,6 @@ pub enum ErrorTagReason {
 	InvalidObject(serde_json::Map<String, serde_json::Value>),
 }
 
-macro_rules! append_common_tag_fields {
-	 ($($keys:expr),* $(,)?) => {
-		&[$($keys,)* "vars", "attrs"]
-	 };
-}
-
 impl AnyChildTagDiscriminants {
 	fn primary_key(self) -> &'static str {
 		use AnyChildTagDiscriminants::*;
@@ -74,14 +68,14 @@ impl AnyChildTagDiscriminants {
 	fn optional_keys(self) -> &'static [&'static str] {
 		use AnyChildTagDiscriminants::*;
 		match self {
-			Generic => append_common_tag_fields!("children"),
-			Image => append_common_tag_fields!("kind", "children"),
+			Generic => &["vars", "attrs", "children"],
+			Image => &["vars", "attrs", "kind", "children"],
 			Container => &[],
 			NestedSvg => &[],
-			Foreach => append_common_tag_fields!(),
-			If => append_common_tag_fields!("else"),
+			Foreach => &["vars", "attrs"],
+			If => &["vars", "attrs", "else"],
 			Font => &[],
-			Text => &[],
+			Text => &["vars", "is_preescaped"],
 			Error => unreachable!(),
 		}
 	}
@@ -116,7 +110,7 @@ impl fmt::Display for ErrorTagReason {
 
 					write!(
 						f,
-						"The presence of key {key:?} implies that this is {a} `{name}`. "
+						"The presence of key {key:?} implies that this is {a} `{name}` tag. "
 					)?;
 
 					let unexpected_keys = o
