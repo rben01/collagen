@@ -1,6 +1,6 @@
 use super::*;
 use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as VV};
-use std::{path::Path, str::FromStr};
+use std::str::FromStr;
 
 impl<'a> DecodingContext<'a> {
 	pub(crate) fn new_empty() -> Self {
