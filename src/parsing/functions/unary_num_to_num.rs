@@ -1,6 +1,5 @@
 use super::{
-	arity_error,
-	function_impl_utils::{ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use std::f64::consts::PI;
@@ -8,7 +7,7 @@ use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum UnaryNumToNumFunction {
+pub(crate) enum UnaryNumToNumFunction {
 	// Boolean
 	Not,
 	// Numeric

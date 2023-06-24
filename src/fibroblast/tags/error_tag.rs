@@ -53,14 +53,9 @@ impl AnyChildTagDiscriminants {
 	fn required_keys(self) -> &'static [&'static str] {
 		use AnyChildTagDiscriminants::*;
 		match self {
-			Generic => &[],
-			Image => &[],
-			Container => &[],
-			NestedSvg => &[],
 			Foreach => &["do"],
 			If => &["then"],
-			Font => &[],
-			Text => &[],
+			Generic | Image | Container | NestedSvg | Font | Text => &[],
 			Error => unreachable!(),
 		}
 	}
@@ -70,12 +65,10 @@ impl AnyChildTagDiscriminants {
 		match self {
 			Generic => &["vars", "attrs", "children"],
 			Image => &["vars", "attrs", "kind", "children"],
-			Container => &[],
-			NestedSvg => &[],
 			Foreach => &["vars", "attrs"],
 			If => &["vars", "attrs", "else"],
-			Font => &[],
 			Text => &["vars", "is_preescaped"],
+			Container | NestedSvg | Font => &[],
 			Error => unreachable!(),
 		}
 	}
@@ -85,12 +78,12 @@ impl fmt::Display for ErrorTagReason {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			ErrorTagReason::InvalidType(v) => {
-				write!(f, "Each tag must be an object; got: {:?}", v)
+				write!(f, "Each tag must be an object; got: {v:?}")
 			}
 			ErrorTagReason::InvalidObject(o) => {
-				write!(
+				writeln!(
 					f,
-					"The following object did not match any known schema: {}\n",
+					"The following object did not match any known schema: {}",
 					serde_json::to_string(&o).unwrap()
 				)?;
 
@@ -134,14 +127,14 @@ impl fmt::Display for ErrorTagReason {
 							 the right type. "
 						)?;
 					} else {
-						if !missing_keys.is_empty() {
+						if missing_keys.is_empty() {
+							write!(f, "`{name}` has no other required keys. ")?;
+						} else {
 							write!(
 								f,
 								"In addition to {key:?}, keys {required_keys:?} \
 								 are required, but keys {missing_keys:?} were missing. "
 							)?;
-						} else {
-							write!(f, "`{name}` has no other required keys. ")?;
 						}
 
 						if !unexpected_keys.is_empty() {

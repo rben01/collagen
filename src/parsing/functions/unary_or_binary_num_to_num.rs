@@ -1,13 +1,12 @@
 use super::{
-	arity_error,
-	function_impl_utils::{ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Copy, Clone, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum UnaryOrBinaryNumToNumFunction {
+pub(crate) enum UnaryOrBinaryNumToNumFunction {
 	#[strum(serialize = "-")]
 	Sub,
 	Round,

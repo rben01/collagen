@@ -1,4 +1,4 @@
 pub mod decode_dir;
 pub mod decoding_error;
 
-pub use decoding_error::ClgnDecodingResult;
+pub use decoding_error::{ClgnDecodingError, ClgnDecodingResult};

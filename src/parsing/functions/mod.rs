@@ -17,8 +17,9 @@ use self::{
 	unary_string_to_string::UnaryStringToStringFunction, unary_t_to_t::UnaryTToT,
 	variadic_num_to_num::VariadicNumToNumFunction,
 };
-use crate::fibroblast::data_types::{
-	context::functions::function_impl_utils::FallibleFunctionImpl, VariableValue,
+use crate::{
+	fibroblast::data_types::VariableValue,
+	parsing::functions::function_impl_utils::FallibleFunctionImpl,
 };
 use std::str::FromStr;
 
@@ -59,21 +60,6 @@ impl<E> From<FunctionCallSiteError> for FunctionCallError<E> {
 }
 
 type FunctionCallResult<T, E> = Result<T, FunctionCallError<E>>;
-
-// TODO: replace Result<T, E> with Result<!, E> when stabilized
-// (and remove generic T altogether)
-// never_type https://github.com/rust-lang/rust/issues/35121
-fn arity_error<T, Me: Into<&'static str>, E>(
-	func: Me,
-	expected: Arity,
-	actual: Arity,
-) -> FunctionCallResult<T, E> {
-	return Err(FunctionCallError::CallSite(FunctionCallSiteError::Arity {
-		func: func.into(),
-		expected,
-		actual,
-	}));
-}
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
@@ -130,13 +116,13 @@ impl Function {
 		Ok(match self {
 			Constant(f) => f.try_call(args)?.into(),
 			UnaryNumToNum(f) => f.try_call(args)?.into(),
-			UnaryTToT(f) => f.try_call(args)?.into(),
+			UnaryTToT(f) => f.try_call(args)?,
 			UnaryOrBinaryNumToNum(f) => f.try_call(args)?.into(),
 			BinaryNumToNum(f) => f.try_call(args)?.into(),
 			VariadicNumToNum(f) => f.try_call(args)?.into(),
 			UnaryStringToString(f) => f.try_call(args)?.into(),
 			UnaryCollectionToString(f) => f.try_call(args)?.into(),
-			Ternary(f) => f.try_call(args)?.into(),
+			Ternary(f) => f.try_call(args)?,
 		})
 	}
 }

@@ -255,6 +255,7 @@ mod substitution {
 		);
 	}
 
+	#[allow(clippy::too_many_lines)]
 	#[test]
 	fn parse_errors() {
 		use super::{VariableEvaluationError, VariableValue as VV};
@@ -266,7 +267,7 @@ mod substitution {
 		{
 			assert_eq!(
 				context.eval_exprs_in_str(s).unwrap_err(),
-				err.into().into_iter().map(|e| e.into()).collect::<Vec<_>>()
+				err.into().into_iter().collect::<Vec<_>>()
 			);
 		}
 
@@ -425,7 +426,7 @@ mod substitution {
 					.into_iter()
 					.map(|s| VariableEvaluationError::MissingVariable(s.to_owned()))
 					.collect::<Vec<_>>()
-			)
+			);
 		}
 
 		let empty_context = DecodingContext::new_empty();
@@ -474,7 +475,7 @@ mod substitution {
 					.into_iter()
 					.map(|s| VariableEvaluationError::InvalidVariableNameOrExpression(s.to_owned()))
 					.collect::<Vec<_>>()
-			)
+			);
 		}
 
 		let empty_context = DecodingContext::new_empty();
@@ -503,7 +504,7 @@ mod substitution {
 			assert_eq!(
 				context.eval_exprs_in_str(input.as_ref()).err().unwrap(),
 				vars.into()
-			)
+			);
 		}
 
 		let empty_context = DecodingContext::new_empty();

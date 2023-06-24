@@ -47,11 +47,12 @@ fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> 
 fn run_once_log(in_folder: &Path, out_file: &Path) {
 	match run_once_result(in_folder, out_file) {
 		Ok(()) => eprintln!("Success; output to {out_file:?}"),
-		Err(e) => eprintln!("Error while watching {:?}: {:?}", in_folder, e),
+		Err(e) => eprintln!("Error while watching {in_folder:?}: {e:?}"),
 	}
 }
 
 impl Cli {
+	#[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
 	pub fn run(self) -> ClgnDecodingResult<()> {
 		use notify::{event::ModifyKind, EventKind::*};
 
@@ -70,12 +71,12 @@ impl Cli {
 				let in_folder = canonicalize(in_folder)
 					.map_err(|e| ClgnDecodingError::Io(e, in_folder.to_owned()))?;
 				let out_file = canonicalize(out_file)
-					.map_err(|e| ClgnDecodingError::Io(e, in_folder.to_owned()))?;
+					.map_err(|e| ClgnDecodingError::Io(e, in_folder.clone()))?;
 
 				if out_file.starts_with(&in_folder) {
 					return Err(ClgnDecodingError::RecursiveWatch {
-						in_folder: in_folder.to_owned(),
-						out_file: out_file.to_owned(),
+						in_folder,
+						out_file,
 					});
 				}
 			}
@@ -121,13 +122,10 @@ impl Cli {
 				if modified_paths.len() == 1 {
 					eprintln!(
 						"Rerunning on {in_folder:?} due to changes to {:?}",
-						modified_paths.iter().next().unwrap()
-					)
+						modified_paths.first().unwrap()
+					);
 				} else {
-					eprintln!(
-						"Rerunning on {in_folder:?} due to changes to {:?}",
-						modified_paths
-					)
+					eprintln!("Rerunning on {in_folder:?} due to changes to {modified_paths:?}");
 				}
 
 				run_once_log(in_folder, out_file);

@@ -32,7 +32,7 @@ pub(crate) fn pathsep_aware_join(
 
 	let mut p = p.as_ref().to_owned();
 	for part in s.split('/') {
-		p.push(part)
+		p.push(part);
 	}
 	Ok(p)
 }
@@ -57,17 +57,16 @@ mod tests {
 		/// `|` in `s` are replaced with the platform-specific separator (and so they must
 		/// not be a character in any path component's name).
 		#[track_caller]
-		fn test_join(p: impl AsRef<Path>, s: impl AsRef<str>, expected: PlatformPaths) {
+		fn test_join(p: impl AsRef<Path>, s: impl AsRef<str>, expected: &PlatformPaths) {
 			let p = p.as_ref();
 			let s = s.as_ref();
 
 			if p.to_string_lossy().ends_with(&['/', '\\'][..]) {
 				assert!(
 					matches!(expected, PlatformPaths::Different { .. }),
-					"Path {:?} ends with a platform-specific separator and so must have platform-specific expected behavior; got {:?}",
-					p,
-					expected
-				)
+					"Path {p:?} ends with a platform-specific separator and so \
+					 must have platform-specific expected behavior; got {expected:?}"
+				);
 			}
 
 			let platform;
@@ -95,8 +94,8 @@ mod tests {
 
 			assert_eq!(
 				actual, expected,
-				"Platform = {:?}; joined {:?} and {:?}, got {:?}; expected {:?}",
-				platform, p, s, actual, expected
+				"Platform = {platform:?}; joined {p:?} and {s:?}, \
+				 got {actual:?}; expected {expected:?}"
 			);
 		}
 
@@ -117,21 +116,21 @@ mod tests {
 			let s = s.as_ref();
 			let (left, right) = expected;
 
-			test_join(p, s, Same(format!("{}|{}", left, right).as_ref()));
+			test_join(p, s, &Same(format!("{left}|{right}").as_ref()));
 			test_join(
-				format!("{}/", p).as_str(),
+				format!("{p}/").as_str(),
 				s,
-				Different {
-					windows: format!("{}/|{}", left, right).as_ref(),
-					other: format!("{}/{}", left, right).as_ref(),
+				&Different {
+					windows: format!("{left}/|{right}").as_ref(),
+					other: format!("{left}/{right}").as_ref(),
 				},
 			);
 			test_join(
-				format!("{}\\", p).as_str(),
+				format!("{p}\\").as_str(),
 				s,
-				Different {
-					windows: format!("{}|{}", left, right).as_ref(),
-					other: format!("{}\\|{}", left, right).as_ref(),
+				&Different {
+					windows: format!("{left}|{right}").as_ref(),
+					other: format!("{left}\\|{right}").as_ref(),
 				},
 			);
 		}
@@ -140,7 +139,7 @@ mod tests {
 		fn empty_path() {
 			#[track_caller]
 			fn test_it(s: impl AsRef<str>, expected: impl AsRef<str>) {
-				test_join("", s, PlatformPaths::Same(expected.as_ref()));
+				test_join("", s, &PlatformPaths::Same(expected.as_ref()));
 			}
 
 			test_it("", "");
@@ -207,7 +206,7 @@ mod tests {
 			test_join(
 				"/",
 				"",
-				Different {
+				&Different {
 					windows: "/|",
 					other: "/",
 				},
@@ -215,7 +214,7 @@ mod tests {
 			test_join(
 				"\\",
 				"",
-				Different {
+				&Different {
 					windows: "|",
 					other: "\\|",
 				},
@@ -224,7 +223,7 @@ mod tests {
 			test_join(
 				"r//",
 				"",
-				Different {
+				&Different {
 					windows: "r//|",
 					other: "r//",
 				},
@@ -232,7 +231,7 @@ mod tests {
 			test_join(
 				"r/\\",
 				"",
-				Different {
+				&Different {
 					windows: "r/\\",
 					other: "r/\\|",
 				},
@@ -241,7 +240,7 @@ mod tests {
 			test_join(
 				"r\\\\",
 				"",
-				Different {
+				&Different {
 					windows: "r\\\\",
 					other: "r\\\\|",
 				},
@@ -249,7 +248,7 @@ mod tests {
 			test_join(
 				"r\\/",
 				"",
-				Different {
+				&Different {
 					windows: "r\\/|",
 					other: "r\\/",
 				},
@@ -269,10 +268,8 @@ mod tests {
 				let result = pathsep_aware_join(p, s);
 				assert!(
 					matches!(result, Err(ClgnDecodingError::InvalidPath(_))),
-					"Expected an InvalidPath error when joining {:?} and {:?}, but got {:?} instead",
-					p,
-					s,
-					result
+					"Expected an InvalidPath error when joining {p:?} \
+					 and {s:?}, but got {result:?} instead"
 				);
 			}
 

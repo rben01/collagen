@@ -1,13 +1,12 @@
 use super::{
-	arity_error,
-	function_impl_utils::{ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Copy, Clone, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum TernaryAnyFunction {
+pub(crate) enum TernaryAnyFunction {
 	#[strum(serialize = "if")]
 	IfElse,
 }
@@ -41,10 +40,10 @@ impl FallibleFunctionImpl for TernaryAnyFunction {
 					None => return arity_error(self, arity, Arity::Exactly(2)),
 				};
 
-				if pred != 0.0 {
-					if_true
-				} else {
+				if pred == 0.0 {
 					if_false
+				} else {
+					if_true
 				}
 			}
 		})

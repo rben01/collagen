@@ -1,14 +1,14 @@
-use std::borrow::Cow;
-
 use crate::{
 	fibroblast::{
-		data_types::{context::errors::VariableEvaluationError, ConcreteNumber, VariableValue},
+		data_types::{ConcreteNumber, VariableValue},
 		DecodingContext,
 	},
+	parsing::errors::VariableEvaluationError,
 	to_svg::svg_writable::ClgnDecodingError,
 	ClgnDecodingResult,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -100,6 +100,7 @@ impl UnprocessedLoopCollection {
 }
 
 impl LoopCollection {
+	#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 	pub(super) fn len(&self) -> usize {
 		match self {
 			&Self::Range(ReifiedRange {
@@ -118,6 +119,7 @@ impl LoopCollection {
 		}
 	}
 
+	#[allow(clippy::cast_precision_loss)]
 	pub(super) fn get(&self, index: usize) -> Option<Cow<VariableValue>> {
 		match self {
 			&Self::Range(ReifiedRange {

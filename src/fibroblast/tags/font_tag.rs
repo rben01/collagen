@@ -143,17 +143,14 @@ impl<'de> Deserialize<'de> for FontFace {
 				let name = name.ok_or_else(|| de::Error::missing_field("name"))?;
 				let attrs = attrs.unwrap_or_default();
 
-				let ff = match bundled {
-					true => {
-						if path.is_some() {
-							return Err(de::Error::custom("You specified both `bundled = true` and a `path` for your font. These are mutually exclusive options."));
-						}
-						FontFace::Bundled(BundledFontFace { name, attrs })
+				let ff = if bundled {
+					if path.is_some() {
+						return Err(de::Error::custom("You specified both `bundled = true` and a `path` for your font. These are mutually exclusive options."));
 					}
-					false => {
-						let path = path.ok_or_else(|| de::Error::missing_field("path"))?;
-						FontFace::UserProvided(UserProvidedFontFace { name, path, attrs })
-					}
+					FontFace::Bundled(BundledFontFace { name, attrs })
+				} else {
+					let path = path.ok_or_else(|| de::Error::missing_field("path"))?;
+					FontFace::UserProvided(UserProvidedFontFace { name, path, attrs })
 				};
 
 				Ok(ff)
@@ -259,8 +256,7 @@ impl HasOwnedVars for FontTag {
 }
 
 impl FontTag {
-	pub(super) fn get_font_path_attr_pair(
-		&self,
+	fn get_font_path_attr_pair(
 		path: impl AsRef<str>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<String> {
@@ -271,15 +267,13 @@ impl FontTag {
 			std::fs::read(abs_font_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_font_path))?,
 		);
-		let src_str = format!(
-			"url('data:font/woff2;charset=utf-8;base64,{}') format('woff2')",
-			b64_string
-		);
+		let src_str =
+			format!("url('data:font/woff2;charset=utf-8;base64,{b64_string}') format('woff2')");
 
 		Ok(src_str)
 	}
 
-	pub(super) fn font_embed_text(&self, context: &DecodingContext) -> ClgnDecodingResult<String> {
+	fn font_embed_text(&self, context: &DecodingContext) -> ClgnDecodingResult<String> {
 		let mut text = String::from("<style>");
 		for font in &self.fonts {
 			let (mut all_attrs, self_attrs) = match font {
@@ -303,7 +297,7 @@ impl FontTag {
 
 						_ => {
 							return Err(ClgnDecodingError::BundledFontNotFound {
-								font_name: font_family.to_owned(),
+								font_name: font_family.clone(),
 							})
 						}
 					}
@@ -319,7 +313,7 @@ impl FontTag {
 
 					let mut all_attrs =
 						vec![("font-family", CowishFontAttr::BorrowedStr(font_family))];
-					let b64_font = self.get_font_path_attr_pair(path, context)?;
+					let b64_font = Self::get_font_path_attr_pair(path, context)?;
 
 					all_attrs.push(("src", CowishFontAttr::OwnedAttr(FontAttr::String(b64_font))));
 

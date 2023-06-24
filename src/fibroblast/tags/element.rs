@@ -32,7 +32,7 @@ impl<'de> Deserialize<'de> for XmlAttrs {
 			{
 				let mut items = Vec::new();
 				while let Some((k, v)) = map.next_entry()? {
-					items.push((k, v))
+					items.push((k, v));
 				}
 
 				Ok(XmlAttrs(items))
@@ -44,7 +44,7 @@ impl<'de> Deserialize<'de> for XmlAttrs {
 			{
 				let mut items = Vec::new();
 				while let Some((k, v)) = seq.next_element()? {
-					items.push((k, v))
+					items.push((k, v));
 				}
 
 				Ok(XmlAttrs(items))

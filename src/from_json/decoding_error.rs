@@ -8,9 +8,7 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
-use crate::fibroblast::{
-	data_types::context::errors::VariableEvaluationError, tags::ErrorTagReason,
-};
+use crate::{fibroblast::tags::ErrorTagReason, parsing::errors::VariableEvaluationError};
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::{fmt::Display, io, path::PathBuf, str::Utf8Error};
@@ -53,6 +51,7 @@ pub enum ClgnDecodingError {
 }
 
 impl ClgnDecodingError {
+	#[must_use]
 	pub fn exit_code(&self) -> i32 {
 		use ClgnDecodingError::*;
 		match self {
@@ -81,21 +80,17 @@ impl Display for ClgnDecodingError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		use ClgnDecodingError::*;
 		match self {
-			InvalidSchema(reason) => write!(f, "{}", reason),
-			Parsing(e) => write!(f, "Parsing: {:?}", e),
-			Io(e, path) => write!(f, "{:?}: {}", path, e),
-			InvalidPath(p) => write!(f, "Invalid path: {:?}", p),
-			Zip(e) => write!(f, "{:?}", e),
-			JsonDecode(e, path) => write!(f, "{:?}: {}", path, e),
-			JsonEncode(e, path) => write!(f, "{:?}: {}", path, e),
-			Xml(e) => write!(f, "{:?}", e),
-			FolderWatch(e) => write!(f, "{:?}", e),
-			ChannelRecv(e) => write!(f, "{:?}", e),
-			ToSvgString(e) => write!(
-				f,
-				"{:?}; invalid UTF-8 sequence when converting to string",
-				e
-			),
+			InvalidSchema(reason) => write!(f, "{reason}"),
+			Parsing(e) => write!(f, "Parsing: {e:?}"),
+			Io(e, path) => write!(f, "{path:?}: {e}"),
+			InvalidPath(p) => write!(f, "Invalid path: {p:?}"),
+			Zip(e) => write!(f, "{e:?}"),
+			JsonDecode(e, path) => write!(f, "{path:?}: {e}"),
+			JsonEncode(e, path) => write!(f, "{path:?}: {e}"),
+			Xml(e) => write!(f, "{e:?}"),
+			FolderWatch(e) => write!(f, "{e:?}"),
+			ChannelRecv(e) => write!(f, "{e:?}"),
+			ToSvgString(e) => write!(f, "{e:?}; invalid UTF-8 sequence when converting to string"),
 			RecursiveWatch {
 				in_folder,
 				out_file,
@@ -109,14 +104,13 @@ impl Display for ClgnDecodingError {
 				 To fix this, set out_file to a location outside \
 				 of {in_folder:?}.",
 			),
-			InvalidField { msg } => write!(f, "{}", msg),
-			Image { msg } => write!(f, "{}", msg),
-			Foreach { msg } => write!(f, "{}", msg),
-			If { msg } => write!(f, "{}", msg),
+			InvalidField { msg } | Image { msg } | Foreach { msg } | If { msg } => {
+				write!(f, "{msg}")
+			}
 			BundledFontNotFound { font_name } => write!(
 				f,
-				"Requested bundled font '{}' not found; make sure it was bundled when `clgn` was built.",
-				font_name
+				"Requested bundled font '{font_name}' not found; make sure it \
+				 was bundled when `clgn` was built."
 			),
 		}
 	}

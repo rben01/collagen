@@ -46,7 +46,11 @@ pub struct Fibroblast<'a> {
 }
 
 impl Fibroblast<'_> {
-	pub fn to_svg<'a>(
+	/// Convert this Fibroblast to an SVG
+	///
+	/// # Errors
+	/// If any of the errors in [`crate::from_json::ClgnDecodingError`] occurs
+	pub fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {

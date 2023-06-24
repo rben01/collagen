@@ -3,16 +3,19 @@ use super::{
 	VariableValue,
 };
 
-pub(super) fn arity_error<T, E>(
-	name: &'static str,
+// TODO: replace Result<T, E> with Result<!, E> when stabilized
+// (and remove generic T altogether)
+// never_type https://github.com/rust-lang/rust/issues/35121
+pub(super) fn arity_error<T, Me: Into<&'static str>, E>(
+	func: Me,
 	expected: Arity,
 	actual: Arity,
 ) -> FunctionCallResult<T, E> {
-	return Err(FunctionCallError::CallSite(FunctionCallSiteError::Arity {
-		func: name,
+	Err(FunctionCallError::CallSite(FunctionCallSiteError::Arity {
+		func: func.into(),
 		expected,
 		actual,
-	}));
+	}))
 }
 
 pub(super) fn ensure_number<D, E>(

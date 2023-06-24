@@ -1,13 +1,13 @@
 use super::{
-	arity_error, function_impl_utils::FallibleFunctionImpl, Arity, FunctionCallResult,
-	VariableValue,
+	function_impl_utils::{arity_error, FallibleFunctionImpl},
+	Arity, FunctionCallResult, VariableValue,
 };
 use std::f64::{self, consts};
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case", ascii_case_insensitive)]
-pub(in crate::fibroblast::data_types::context) enum ConstantFunction {
+pub(crate) enum ConstantFunction {
 	E,
 	Pi,
 	Nan,

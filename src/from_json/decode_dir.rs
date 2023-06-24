@@ -8,11 +8,22 @@ use serde_json;
 use std::path::{Path, PathBuf};
 
 impl<'a> Fibroblast<'a> {
+	/// Decode the Fibroblast from the given path
+	///
+	/// # Errors
+	///
+	/// If any error occurs whatsoever. See [`ClgnDecodingError`] for possible causes.
 	pub fn from_dir(path: PathBuf) -> ClgnDecodingResult<Self> {
 		let context = DecodingContext::new_at_root(path.clone());
 		Fibroblast::from_dir_with_context(path, context)
 	}
 
+	/// Decode the Fibroblast from the given path with the given context. The context is
+	/// used to evaluate variables in strings and expressions.
+	///
+	/// # Errors
+	///
+	/// If any error occurs whatsoever. See [`ClgnDecodingError`] for possible causes.
 	pub fn from_dir_with_context(
 		path: impl AsRef<Path>,
 		context: DecodingContext<'a>,

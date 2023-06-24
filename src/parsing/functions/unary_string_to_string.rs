@@ -1,12 +1,12 @@
-use super::{function_impl_utils::FallibleFunctionImpl, Arity, FunctionCallResult, VariableValue};
-use crate::fibroblast::data_types::context::functions::{
-	arity_error, function_impl_utils::ensure_string,
+use super::{
+	function_impl_utils::{arity_error, ensure_string, FallibleFunctionImpl},
+	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum UnaryStringToStringFunction {
+pub(crate) enum UnaryStringToStringFunction {
 	Uppercase,
 	Lowercase,
 	Trim,

@@ -15,8 +15,8 @@ impl fmt::Display for VariableValue {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use VariableValue::*;
 		match self {
-			Number(n) => write!(f, "{}", n),
-			String(s) => write!(f, "{}", s),
+			Number(n) => write!(f, "{n}"),
+			String(s) => write!(f, "{s}"),
 		}
 	}
 }
@@ -88,7 +88,7 @@ mod tests {
 		// it doesn't hurt to double check
 		#[track_caller]
 		fn test_text(s: &'static str) {
-			assert_tokens(&VariableValue::String(s.to_owned()), &[Token::String(s)])
+			assert_tokens(&VariableValue::String(s.to_owned()), &[Token::String(s)]);
 		}
 
 		test_text("");

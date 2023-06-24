@@ -140,7 +140,7 @@ impl<'a> ContainerTag<'a> {
 	pub(crate) fn instantiate(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
 		let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
 			&*context.get_root(),
-			self.clgn_path(&context)?,
+			self.clgn_path(context)?,
 		)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {

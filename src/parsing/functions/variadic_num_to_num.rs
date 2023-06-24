@@ -6,7 +6,7 @@ use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum VariadicNumToNumFunction {
+pub(crate) enum VariadicNumToNumFunction {
 	#[strum(serialize = "+")]
 	Add,
 	#[strum(serialize = "*")]
@@ -27,16 +27,15 @@ impl FallibleFunctionImpl for VariadicNumToNumFunction {
 		use VariadicNumToNumFunction::*;
 
 		let mut args = args.into_iter().enumerate();
-		let name = self.into();
 
 		let Some((idx, acc)) = args.next() else {
-			return arity_error(name, Arity::AtLeast(1), Arity::Exactly(0));
+			return arity_error(self, Arity::AtLeast(1), Arity::Exactly(0));
 		};
 
-		let mut acc = ensure_number(name, acc, idx)?;
+		let mut acc = ensure_number(self, acc, idx)?;
 
 		for (idx, x) in args {
-			let x = ensure_number(name, x, idx)?;
+			let x = ensure_number(self, x, idx)?;
 			match self {
 				Add => acc += x,
 				Mul => acc *= x,

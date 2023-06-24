@@ -1,13 +1,12 @@
 use super::{
-	arity_error,
-	function_impl_utils::{ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Copy, Clone, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(in crate::fibroblast::data_types::context) enum BinaryNumToNumFunction {
+pub(crate) enum BinaryNumToNumFunction {
 	#[strum(serialize = "/")]
 	Div,
 	#[strum(serialize = "%")]
@@ -62,7 +61,7 @@ impl FallibleFunctionImpl for BinaryNumToNumFunction {
 			Atan2 => a.atan2(b),
 			Lt => (a < b).into(),
 			Le => (a <= b).into(),
-			Eq => (a == b).into(),
+			Eq => ((a - b).abs() < f64::EPSILON).into(),
 			Gt => (a > b).into(),
 			Ge => (a >= b).into(),
 		})

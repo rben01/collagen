@@ -3,9 +3,11 @@ use std::{borrow::Cow, cell::RefCell};
 use super::{
 	errors::{VariableEvaluationError, VariableSubstitutionResult},
 	functions::Function,
-	DecodingContext,
 };
-use crate::{fibroblast::data_types::VariableValue, utils::Set};
+use crate::{
+	fibroblast::data_types::{DecodingContext, VariableValue},
+	utils::Set,
+};
 use nom::{
 	branch::alt,
 	bytes::complete::is_not,
@@ -174,7 +176,7 @@ impl SExpr<'_> {
 	}
 }
 
-pub(super) fn parse<'a>(
+pub(crate) fn parse<'a>(
 	input: &'a str,
 	context: &DecodingContext,
 	variables_referenced: &Set<String>,
@@ -240,7 +242,7 @@ pub(super) fn parse<'a>(
 		Err(e) => {
 			match e {
 				nom::Err::Error(e) => {
-					parsing_errs.push(VariableEvaluationError::Parsing(e.to_string()))
+					parsing_errs.push(VariableEvaluationError::Parsing(e.to_string()));
 				}
 				_ => unreachable!(),
 			};

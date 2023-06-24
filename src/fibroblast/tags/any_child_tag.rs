@@ -85,7 +85,7 @@ impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		use AnyChildTag::*;
-		Ok(match self {
+		match self {
 			Generic(t) => t.to_svg(writer, context)?,
 			Image(t) => t.to_svg(writer, context)?,
 			Container(t) => t.to_svg(writer, context)?,
@@ -95,6 +95,7 @@ impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
 			Font(t) => t.to_svg(writer, context)?,
 			Text(t) => t.to_svg(writer, context)?,
 			Error(_) => unreachable!(),
-		})
+		};
+		Ok(())
 	}
 }

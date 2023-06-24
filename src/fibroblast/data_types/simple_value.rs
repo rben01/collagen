@@ -172,7 +172,7 @@ mod tests {
 		// it doesn't hurt to double check
 		#[track_caller]
 		fn test_text(s: &'static str) {
-			assert_tokens(&SimpleValue::Text(s.to_owned()), &[Token::String(s)])
+			assert_tokens(&SimpleValue::Text(s.to_owned()), &[Token::String(s)]);
 		}
 
 		test_text("");

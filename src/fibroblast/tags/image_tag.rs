@@ -96,8 +96,7 @@ impl<'a> ImageTag<'a> {
 			None => {
 				let image_path = self.image_path(context)?;
 				let path = Path::new(image_path.as_ref());
-				let kind = path
-					.extension()
+				path.extension()
 					.and_then(|extn| extn.to_str())
 					.map(|s| Cow::Owned(s.to_ascii_lowercase()))
 					.ok_or_else(|| ClgnDecodingError::Image {
@@ -105,8 +104,7 @@ impl<'a> ImageTag<'a> {
 							r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
 							self.image_path
 						),
-					})?;
-				kind
+					})?
 			}
 		})
 	}
@@ -134,7 +132,7 @@ impl<'a> ImageTag<'a> {
 			std::fs::read(abs_image_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_image_path))?,
 		);
-		let src_str = format!("data:image/{};base64,{}", kind, b64_string);
+		let src_str = format!("data:image/{kind};base64,{b64_string}");
 
 		Ok((key, src_str))
 	}

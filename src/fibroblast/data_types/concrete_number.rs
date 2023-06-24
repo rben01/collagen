@@ -58,6 +58,7 @@ pub(crate) enum ConcreteNumber {
 }
 
 impl From<ConcreteNumber> for f64 {
+	#[allow(clippy::cast_precision_loss)]
 	fn from(cn: ConcreteNumber) -> Self {
 		match cn {
 			ConcreteNumber::Int(x) => x as f64,
