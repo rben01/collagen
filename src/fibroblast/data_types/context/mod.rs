@@ -60,17 +60,6 @@ impl DecodingContext<'_> {
 		self.root_path.replace(root)
 	}
 
-	pub(crate) fn with_new_root<T>(
-		&self,
-		new_root: PathBuf,
-		f: impl FnOnce() -> ClgnDecodingResult<T>,
-	) -> ClgnDecodingResult<(T, PathBuf)> {
-		let orig_path = self.replace_root(new_root);
-		let result = f();
-		let new_root = self.replace_root(orig_path);
-		result.map(|t| (t, new_root))
-	}
-
 	pub(crate) fn get_root(&self) -> Ref<PathBuf> {
 		self.root_path.borrow()
 	}

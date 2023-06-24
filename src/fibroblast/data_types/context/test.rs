@@ -163,45 +163,6 @@ mod vars {
 	}
 }
 
-mod root {
-	use super::*;
-
-	#[test]
-	fn with_new() {
-		let context = DecodingContext::new_at_root("root0".into());
-
-		assert_eq!(*context.get_root(), Path::new("root0"));
-
-		context
-			.with_new_root("root1".into(), || {
-				assert_eq!(*context.get_root(), Path::new("root1"));
-
-				context
-					.with_new_root("root2".into(), || {
-						assert_eq!(*context.get_root(), Path::new("root2"));
-						Ok(())
-					})
-					.unwrap();
-
-				assert_eq!(*context.get_root(), Path::new("root1"));
-
-				context
-					.with_new_root("root3".into(), || {
-						assert_eq!(*context.get_root(), Path::new("root3"));
-						Ok(())
-					})
-					.unwrap();
-
-				assert_eq!(*context.get_root(), Path::new("root1"));
-
-				Ok(())
-			})
-			.unwrap();
-
-		assert_eq!(*context.get_root(), Path::new("root0"));
-	}
-}
-
 mod substitution {
 	use super::*;
 
