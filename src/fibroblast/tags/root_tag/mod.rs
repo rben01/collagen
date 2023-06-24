@@ -51,12 +51,13 @@ impl<'a> SvgWritable<'a> for RootTag<'a> {
 				"svg",
 				|elem| {
 					let attrs = self.attrs.as_ref();
-					context.write_attrs_into(attrs.iter(), elem)?;
 
 					let xmlns = "xmlns";
 					if !attrs.iter().any(|(k, _)| k == xmlns) {
 						elem.push_attribute((xmlns, "http://www.w3.org/2000/svg"));
 					}
+
+					context.write_attrs_into(attrs.iter(), elem)?;
 
 					Ok(())
 				},
