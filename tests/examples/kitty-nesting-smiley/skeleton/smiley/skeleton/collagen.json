@@ -32,7 +32,6 @@
 		},
 		{
 			"tag": "text",
-			"text": "{bubble_text}",
 			"attrs": {
 				"x": 250,
 				"y": 97,
@@ -41,7 +40,8 @@
 				"font-family": "Impact",
 				"font-size": 30,
 				"fill": "{text_color}"
-			}
+			},
+			"children": [{ "text": "{bubble_text}" }]
 		}
 	]
 }

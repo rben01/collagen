@@ -1,5 +1,6 @@
 {
 	"vars": { "x": 100, "text": "<><" },
+	"attrs": { "viewBox": "0 0 1000 1000" },
 	"children": [
 		{
 			"vars": { "x": 200 },
@@ -14,7 +15,6 @@
 		},
 		{
 			"tag": "text",
-			"text": "Top {text} {x}",
 			"attrs": {
 				"x": 700,
 				"y": 200,
@@ -25,7 +25,8 @@
 				"stroke": "black",
 				"stroke-width": 2,
 				"weight": 700
-			}
+			},
+			"children": [{ "text": "Top {text} {x}" }]
 		},
 		{
 			"tag": "rect",
@@ -39,7 +40,6 @@
 		},
 		{
 			"tag": "text",
-			"text": "Bottom text",
 			"attrs": {
 				"x": 700,
 				"y": 600,
@@ -50,7 +50,8 @@
 				"stroke": "black",
 				"stroke-width": 2,
 				"weight": 700
-			}
+			},
+			"children": [{ "text": "Bottom text" }]
 		},
 		{
 			"image_path": "./assets/apple-touch-icon.png"

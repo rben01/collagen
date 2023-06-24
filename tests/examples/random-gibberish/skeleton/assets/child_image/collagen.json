@@ -7,7 +7,6 @@
 		},
 		{
 			"tag": "text",
-			"text": "nested!! x={x} y={y}",
 			"attrs": {
 				"x": 100,
 				"y": 300,
@@ -16,7 +15,8 @@
 				"fill": "#66ccff",
 				"stroke": "black",
 				"stroke-width": 3
-			}
+			},
+			"children": [{ "text": "nested!! x={x} y={y}" }]
 		}
 	]
 }

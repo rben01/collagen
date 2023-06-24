@@ -7,8 +7,12 @@
 			"children": [
 				{
 					"tag": "style",
-					"text": "@import url(\"https://my-fonts.pages.dev/Impact/impact.css\");",
-					"should_escape_text": false
+					"children": [
+						{
+							"text": "@import url(\"https://my-fonts.pages.dev/Impact/impact.css\");",
+							"is_preescaped": true
+						}
+					]
 				}
 			]
 		},
@@ -49,8 +53,8 @@
 					],
 					"do": {
 						"tag": "tspan",
-						"text": "{line}",
-						"attrs": { "x": "{x}", "dy": "{(if (= i 0) 0 dy)}" }
+						"attrs": { "x": "{x}", "dy": "{(if (= i 0) 0 dy)}" },
+						"children": [{ "text": "{line}" }]
 					}
 				}
 			]

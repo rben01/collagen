@@ -25,36 +25,36 @@
 			"children": [
 				{
 					"tag": "tspan",
-					"text": "Using SVG-based text,",
 					"attrs": {
 						"x": "{x}",
 						"dy": 0
-					}
+					},
+					"children": [{ "text": "Using SVG-based text," }]
 				},
 
 				{
 					"tag": "tspan",
-					"text": "which is infinitely",
 					"attrs": {
 						"x": "{x}",
 						"dy": "{dy}"
-					}
+					},
+					"children": [{ "text": "which is infinitely" }]
 				},
 				{
 					"tag": "tspan",
-					"text": "zoomable and has",
 					"attrs": {
 						"x": "{x}",
 						"dy": "{dy}"
-					}
+					},
+					"children": [{ "text": "zoomable and has" }]
 				},
 				{
 					"tag": "tspan",
-					"text": "no artifacts",
 					"attrs": {
 						"x": "{x}",
 						"dy": "{dy}"
-					}
+					},
+					"children": [{ "text": "no artifacts" }]
 				}
 			]
 		}
