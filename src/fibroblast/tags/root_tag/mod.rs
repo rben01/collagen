@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RootTag<'a> {
 	#[serde(flatten)]
-	pub(crate) vars: DeTagVariables,
+	vars: DeTagVariables,
 
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
@@ -30,6 +30,10 @@ impl HasOwnedVars for RootTag<'_> {
 }
 
 impl<'a> RootTag<'a> {
+	pub(crate) fn vars(&self) -> &TagVariables {
+		self.vars.as_ref()
+	}
+
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
 		self.attrs.as_ref()
 	}

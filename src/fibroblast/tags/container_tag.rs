@@ -113,22 +113,22 @@ impl<'a> SvgWritable<'a> for ContainerTag<'a> {
 		let fb = self.fibroblast.borrow();
 		let Fibroblast { root, context } = fb.as_ref().unwrap();
 
-		write_tag(
-			writer,
-			"g",
-			|elem| {
-				context.write_attrs_into(root.attrs().iter(), elem)?;
-				Ok(())
-			},
-			|writer| {
-				for child in root.children() {
-					child.to_svg(writer, context)?;
-				}
-				Ok(())
-			},
-		)?;
-
-		Ok(())
+		context.with_new_vars(root.vars(), || {
+			write_tag(
+				writer,
+				"g",
+				|elem| {
+					context.write_attrs_into(root.attrs().iter(), elem)?;
+					Ok(())
+				},
+				|writer| {
+					for child in root.children() {
+						child.to_svg(writer, context)?;
+					}
+					Ok(())
+				},
+			)
+		})
 	}
 }
 
@@ -147,8 +147,9 @@ impl<'a> ContainerTag<'a> {
 			let context = context.clone();
 			context.replace_root(abs_clgn_path.clone());
 			let subroot = Fibroblast::from_dir_with_context(&abs_clgn_path, context)?;
-			*self.fibroblast.borrow_mut() = Some(subroot);
-			*self.resolved_path.borrow_mut() = Some(abs_clgn_path);
+
+			self.fibroblast.replace(Some(subroot));
+			self.resolved_path.replace(Some(abs_clgn_path));
 		};
 
 		Ok(())
