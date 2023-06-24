@@ -42,8 +42,8 @@ impl<'a> RootTag<'a> {
 impl<'a> SvgWritable<'a> for RootTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		context.with_new_vars(self.vars.as_ref(), || {
 			write_tag(
@@ -62,7 +62,7 @@ impl<'a> SvgWritable<'a> for RootTag<'a> {
 				},
 				|writer| {
 					for child in self.children.as_ref() {
-						child.to_svg(context, writer)?;
+						child.to_svg(writer, context)?;
 					}
 
 					Ok(())

@@ -50,6 +50,6 @@ impl Fibroblast<'_> {
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 	) -> ClgnDecodingResult<()> {
-		self.root.to_svg(&self.context, writer)
+		self.root.to_svg(writer, &self.context)
 	}
 }

@@ -35,8 +35,8 @@ impl HasOwnedVars for ForeachTag<'_> {
 impl<'a> SvgWritable<'a> for ForeachTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		let (loops, loop_len) = {
 			let mut loops = Vec::new();
@@ -101,7 +101,7 @@ impl<'a> SvgWritable<'a> for ForeachTag<'a> {
 				insert_var(vars, name, elem);
 			}
 
-			tag.to_svg(context, writer)?;
+			tag.to_svg(writer, context)?;
 		}
 		Ok(())
 	}

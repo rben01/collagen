@@ -1,7 +1,7 @@
 //! For writing the in-memory representation to SVG.
 
-use crate::fibroblast::data_types::DecodingContext;
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
+use crate::{fibroblast::data_types::DecodingContext, XmlEvent};
 use quick_xml::{
 	events::{BytesEnd, BytesStart},
 	Writer as XmlWriter,
@@ -150,8 +150,8 @@ use quick_xml::{
 pub(crate) trait SvgWritable<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut XmlWriter<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()>;
 }
 
@@ -164,10 +164,12 @@ pub(crate) fn write_tag<W: std::io::Write>(
 	let mut elem = BytesStart::new(tag);
 	prepare_tag(&mut elem)?;
 
+	writer.write_event(XmlEvent::Start(elem))?;
+
 	interior_fn(writer)?;
 
 	let end = BytesEnd::new(tag);
-	writer.write_event(quick_xml::events::Event::End(end))?;
+	writer.write_event(XmlEvent::End(end))?;
 
 	Ok(())
 }

@@ -24,8 +24,8 @@ impl HasOwnedVars for TextTag {
 impl<'a> SvgWritable<'a> for TextTag {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		let is_preescaped = self.is_preescaped.unwrap_or(false);
 		let text = context.eval_exprs_in_str(&self.text)?;

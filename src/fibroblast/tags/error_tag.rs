@@ -2,7 +2,8 @@ use crate::ClgnDecodingResult;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strum::IntoEnumIterator;
-use strum_macros::{AsRefStr, EnumIter};
+
+use super::any_child_tag::AnyChildTagDiscriminants;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ErrorTag {
@@ -26,28 +27,19 @@ macro_rules! append_common_tag_fields {
 	 };
 }
 
-#[derive(Clone, Copy, Debug, AsRefStr, EnumIter)]
-enum KnownTag {
-	OtherTag,
-	ForeachTag,
-	IfTag,
-	ContainerTag,
-	ImageTag,
-	NestedSvgTag,
-	FontTag,
-}
-
-impl KnownTag {
+impl AnyChildTagDiscriminants {
 	fn primary_key(self) -> &'static str {
-		use KnownTag::*;
+		use AnyChildTagDiscriminants::*;
 		match self {
-			OtherTag => "tag",
-			ForeachTag => "for_each",
-			IfTag => "if",
-			ContainerTag => "clgn_path",
-			ImageTag => "image_path",
-			NestedSvgTag => "svg_path",
-			FontTag => "fonts",
+			Generic => "tag",
+			Image => "image_path",
+			Container => "clgn_path",
+			NestedSvg => "svg_path",
+			Foreach => "for_each",
+			If => "if",
+			Font => "fonts",
+			Text => "text",
+			Error => unreachable!(),
 		}
 	}
 
@@ -56,36 +48,41 @@ impl KnownTag {
 	}
 
 	fn article(self) -> &'static str {
-		use KnownTag::*;
+		use AnyChildTagDiscriminants::*;
 		match self {
-			OtherTag | IfTag | ImageTag => "an",
-			ForeachTag | ContainerTag | NestedSvgTag | FontTag => "a",
+			Generic | Container | NestedSvg | Foreach | Font | Text => "a",
+			If | Image => "an",
+			Error => unreachable!(),
 		}
 	}
 
 	fn required_keys(self) -> &'static [&'static str] {
-		use KnownTag::*;
+		use AnyChildTagDiscriminants::*;
 		match self {
-			OtherTag => &[],
-			ForeachTag => &["do"],
-			IfTag => &["then"],
-			ContainerTag => &[],
-			ImageTag => &[],
-			NestedSvgTag => &[],
-			FontTag => &[],
+			Generic => &[],
+			Image => &[],
+			Container => &[],
+			NestedSvg => &[],
+			Foreach => &["do"],
+			If => &["then"],
+			Font => &[],
+			Text => &[],
+			Error => unreachable!(),
 		}
 	}
 
 	fn optional_keys(self) -> &'static [&'static str] {
-		use KnownTag::*;
+		use AnyChildTagDiscriminants::*;
 		match self {
-			OtherTag => append_common_tag_fields!("children"),
-			ForeachTag => append_common_tag_fields!(),
-			IfTag => append_common_tag_fields!("else"),
-			ContainerTag => &[],
-			ImageTag => append_common_tag_fields!("kind", "children"),
-			NestedSvgTag => &[],
-			FontTag => append_common_tag_fields!(),
+			Generic => append_common_tag_fields!("children"),
+			Image => append_common_tag_fields!("kind", "children"),
+			Container => &[],
+			NestedSvg => &[],
+			Foreach => append_common_tag_fields!(),
+			If => append_common_tag_fields!("else"),
+			Font => &[],
+			Text => &[],
+			Error => unreachable!(),
 		}
 	}
 }
@@ -103,8 +100,10 @@ impl fmt::Display for ErrorTagReason {
 					serde_json::to_string(&o).unwrap()
 				)?;
 
-				let known_tags_ids_seen = KnownTag::iter()
-					.filter(|k| o.contains_key(k.primary_key()))
+				let known_tags_ids_seen = AnyChildTagDiscriminants::iter()
+					.filter(|k| {
+						*k != AnyChildTagDiscriminants::Error && o.contains_key(k.primary_key())
+					})
 					.collect::<Vec<_>>();
 
 				if known_tags_ids_seen.len() == 1 {
@@ -176,7 +175,7 @@ impl fmt::Display for ErrorTagReason {
 						"Could not infer the tag's type because no \
 						 recognized primary key was found. All tags must have \
 						 exactly one of the following keys: {:?}. ",
-						KnownTag::iter()
+						AnyChildTagDiscriminants::iter()
 							.map(|kt| kt.primary_key())
 							.collect::<Vec<_>>()
 					)?;

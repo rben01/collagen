@@ -72,11 +72,11 @@ impl Validatable for IfTag<'_> {
 impl<'a> SvgWritable<'a> for IfTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		if let Some(child) = self.child(context)? {
-			child.to_svg(context, writer)?;
+			child.to_svg(writer, context)?;
 		}
 		Ok(())
 	}

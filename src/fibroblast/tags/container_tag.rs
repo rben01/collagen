@@ -105,8 +105,8 @@ pub struct ContainerTag<'a> {
 impl<'a> SvgWritable<'a> for ContainerTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		self.instantiate(context)?;
 
@@ -122,7 +122,7 @@ impl<'a> SvgWritable<'a> for ContainerTag<'a> {
 			},
 			|writer| {
 				for child in root.children() {
-					child.to_svg(context, writer)?;
+					child.to_svg(writer, context)?;
 				}
 				Ok(())
 			},

@@ -143,8 +143,8 @@ impl<'a> ImageTag<'a> {
 impl<'a> SvgWritable<'a> for ImageTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		context.with_new_vars(self.vars.as_ref(), || {
 			let (img_k, img_v) = self.get_image_attr_pair(context)?;
@@ -159,7 +159,7 @@ impl<'a> SvgWritable<'a> for ImageTag<'a> {
 				},
 				|writer| {
 					for child in self.children.as_ref() {
-						child.to_svg(context, writer)?;
+						child.to_svg(writer, context)?;
 					}
 					Ok(())
 				},

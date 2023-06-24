@@ -12,6 +12,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use strum_macros::{AsRefStr, EnumDiscriminants, EnumIter};
 
 /// A wrapper around child tags. During deserialization, the type of child tag to
 /// deserialize an object into is determined solely from the object's set of keys.
@@ -26,7 +27,9 @@ use serde_json::Value as JsonValue;
 ///   came bundled with the Collagen executable
 /// - [`OtherTag`]: the most general option; represents any kind of SVG tag that does
 ///   not need any special handling as the above tags do
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, EnumDiscriminants)]
+#[strum_discriminants(vis(pub(crate)))]
+#[strum_discriminants(derive(AsRefStr, EnumIter))]
 #[serde(untagged)]
 pub enum AnyChildTag<'a> {
 	Generic(GenericTag<'a>),
@@ -78,19 +81,19 @@ impl Validatable for AnyChildTag<'_> {
 impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		use AnyChildTag::*;
 		Ok(match self {
-			Generic(t) => t.to_svg(context, writer)?,
-			Image(t) => t.to_svg(context, writer)?,
-			Container(t) => t.to_svg(context, writer)?,
-			NestedSvg(t) => t.to_svg(context, writer)?,
-			Foreach(t) => t.to_svg(context, writer)?,
-			If(t) => t.to_svg(context, writer)?,
-			Font(t) => t.to_svg(context, writer)?,
-			Text(t) => t.to_svg(context, writer)?,
+			Generic(t) => t.to_svg(writer, context)?,
+			Image(t) => t.to_svg(writer, context)?,
+			Container(t) => t.to_svg(writer, context)?,
+			NestedSvg(t) => t.to_svg(writer, context)?,
+			Foreach(t) => t.to_svg(writer, context)?,
+			If(t) => t.to_svg(writer, context)?,
+			Font(t) => t.to_svg(writer, context)?,
+			Text(t) => t.to_svg(writer, context)?,
 			Error(_) => unreachable!(),
 		})
 	}

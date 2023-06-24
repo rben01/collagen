@@ -37,8 +37,8 @@ impl NestedSvgTag {
 impl<'a> SvgWritable<'a> for NestedSvgTag {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		write_tag(
 			writer,

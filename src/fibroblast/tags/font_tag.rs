@@ -366,8 +366,8 @@ impl FontTag {
 impl<'a> SvgWritable<'a> for FontTag {
 	fn to_svg(
 		&self,
-		context: &DecodingContext<'a>,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
 		context.with_new_vars(self.vars.as_ref(), || {
 			write_tag(
