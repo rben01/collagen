@@ -62,7 +62,7 @@
 					"$ref": "#/definitions/IfTag"
 				},
 				{
-					"$ref": "#/definitions/TextTag"
+					"$ref": "#/definitions/TextNode"
 				},
 				{
 					"$ref": "#/definitions/FontTag"
@@ -225,7 +225,7 @@
 			},
 			"required": ["if", "then"]
 		},
-		"TextTag": {
+		"TextNode": {
 			"type": "object",
 			"description": "Some text to be included within a tag.",
 			"properties": {
