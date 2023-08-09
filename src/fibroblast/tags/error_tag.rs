@@ -163,6 +163,7 @@ impl fmt::Display for ErrorTagReason {
 						 recognized primary key was found. All tags must have \
 						 exactly one of the following keys: {:?}. ",
 						AnyChildTagDiscriminants::iter()
+							.filter(|kt| kt != &AnyChildTagDiscriminants::Error)
 							.map(|kt| kt.primary_key())
 							.collect::<Vec<_>>()
 					)?;
