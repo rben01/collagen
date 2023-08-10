@@ -75,9 +75,11 @@ impl<'a> SvgWritable<'a> for IfTag<'a> {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext<'a>,
 	) -> ClgnDecodingResult<()> {
-		if let Some(child) = self.child(context)? {
-			child.to_svg(writer, context)?;
-		}
-		Ok(())
+		context.with_new_vars(self.vars.as_ref(), || {
+			if let Some(child) = self.child(context)? {
+				child.to_svg(writer, context)?;
+			}
+			Ok(())
+		})
 	}
 }
