@@ -17,9 +17,6 @@ pub(super) trait FallibleFunctionImpl: FunctionTrait {
 	where
 		I: IntoIterator<Item = FunctionCallResult<VariableValue, E>>;
 
-	// TODO: replace Result<T, E> with Result<!, E> when stabilized
-	// (and remove generic T altogether)
-	// never_type https://github.com/rust-lang/rust/issues/35121
 	fn arity_error<T, E>(self, expected: Arity, actual: Arity) -> FunctionCallResult<T, E> {
 		Err(FunctionCallError::CallSite(FunctionCallSiteError::Arity {
 			func: self.name(),
