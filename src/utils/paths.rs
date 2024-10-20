@@ -14,7 +14,7 @@ use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult};
 ///    slashes will be replaced.
 /// 2. `s` does not start with `/`.
 ///
-///  Note that absolutely nothing is done to the contents of `p`, as it's merely cloned
+/// Note that absolutely nothing is done to the contents of `p`, as it's merely cloned
 /// and that clone pushed to. Also, very little normalization is done; the only
 /// non-naive thing that happens is that multiple consecutive path separators in `s` are
 /// condensed down to a single one. In particular, neither `.` nor `..` have special

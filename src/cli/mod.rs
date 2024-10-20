@@ -35,7 +35,6 @@ fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<std
 		.truncate(true)
 		.write(true)
 		.open(&out_file)
-		// TODO: replace `unwrap` with `into_ok` when stabilized
 		.map_err(|e| ClgnDecodingError::Io(e, out_file.as_ref().to_owned()))?;
 	Ok(XmlWriter::new(file_writer))
 }
