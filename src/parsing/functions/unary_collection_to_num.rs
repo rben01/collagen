@@ -6,25 +6,25 @@ use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
 #[strum(serialize_all = "kebab-case")]
-pub(crate) enum UnaryCollectionToStringFunction {
+pub(crate) enum UnaryStringToNumFunction {
 	Len,
 	IsEmpty,
 }
 
-impl FunctionTrait for UnaryCollectionToStringFunction {
+impl FunctionTrait for UnaryStringToNumFunction {
 	fn name(self) -> &'static str {
 		self.into()
 	}
 }
 
-impl FallibleFunctionImpl for UnaryCollectionToStringFunction {
+impl FallibleFunctionImpl for UnaryStringToNumFunction {
 	type Output = f64;
 
 	fn try_call<I, E>(self, args: I) -> FunctionCallResult<Self::Output, E>
 	where
 		I: IntoIterator<Item = FunctionCallResult<VariableValue, E>>,
 	{
-		use UnaryCollectionToStringFunction::*;
+		use UnaryStringToNumFunction::*;
 
 		let arity = Arity::Exactly(1);
 		let mut args = args.into_iter();

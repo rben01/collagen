@@ -11,7 +11,7 @@ mod variadic_num_to_num;
 
 use self::{
 	binary_num_to_num::BinaryNumToNumFunction, constants::ConstantFunction,
-	ternary_any::TernaryAnyFunction, unary_collection_to_num::UnaryCollectionToStringFunction,
+	ternary_any::TernaryAnyFunction, unary_collection_to_num::UnaryStringToNumFunction,
 	unary_num_to_num::UnaryNumToNumFunction,
 	unary_or_binary_num_to_num::UnaryOrBinaryNumToNumFunction,
 	unary_string_to_string::UnaryStringToStringFunction, unary_t_to_t::UnaryTToT,
@@ -78,7 +78,7 @@ pub(super) enum Function {
 	BinaryNumToNum(BinaryNumToNumFunction),
 	VariadicNumToNum(VariadicNumToNumFunction),
 	UnaryStringToString(UnaryStringToStringFunction),
-	UnaryCollectionToString(UnaryCollectionToStringFunction),
+	UnaryStringToNum(UnaryStringToNumFunction),
 	Ternary(TernaryAnyFunction),
 }
 
@@ -87,6 +87,7 @@ impl FromStr for Function {
 
 	fn from_str(fn_name: &str) -> Result<Self, Self::Err> {
 		// TODO: can this be simplified?
+		// I assume the optimizer will do the right thing here?
 		fn_name
 			.parse()
 			.map(Self::Constant)
@@ -96,7 +97,7 @@ impl FromStr for Function {
 			.or_else(|_| fn_name.parse().map(Self::BinaryNumToNum))
 			.or_else(|_| fn_name.parse().map(Self::VariadicNumToNum))
 			.or_else(|_| fn_name.parse().map(Self::UnaryStringToString))
-			.or_else(|_| fn_name.parse().map(Self::UnaryCollectionToString))
+			.or_else(|_| fn_name.parse().map(Self::UnaryStringToNum))
 			.or_else(|_| fn_name.parse().map(Self::Ternary))
 			.map_err(|_| fn_name.to_owned())
 	}
@@ -122,7 +123,7 @@ impl Function {
 			BinaryNumToNum(f) => f.try_call(args)?.into(),
 			VariadicNumToNum(f) => f.try_call(args)?.into(),
 			UnaryStringToString(f) => f.try_call(args)?.into(),
-			UnaryCollectionToString(f) => f.try_call(args)?.into(),
+			UnaryStringToNum(f) => f.try_call(args)?.into(),
 			Ternary(f) => f.try_call(args)?,
 		})
 	}
