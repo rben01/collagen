@@ -1,6 +1,5 @@
 use super::*;
-// TODO: rename VV to Vv
-use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as VV};
+use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as Vv};
 use std::str::FromStr;
 
 impl<'a> DecodingContext<'a> {
@@ -53,22 +52,22 @@ mod vars {
 	#[test]
 	fn nonempty() {
 		let xyz_ref = "xyz";
-		let xyz_string = VV::String(CompactString::const_new(xyz_ref));
+		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let context = DecodingContext::new_with_vars(vec![
-			("a", &VV::Number(CN::Int(1))),
-			("b", &VV::Number(CN::UInt(2))),
-			("c", &VV::Number(CN::Float(3.0))),
+			("a", &Vv::Number(CN::Int(1))),
+			("b", &Vv::Number(CN::UInt(2))),
+			("c", &Vv::Number(CN::Float(3.0))),
 			("d", &xyz_string),
 		]);
 
 		assert_eq!(context.vars_map().len(), 4);
 
-		assert_eq!(context.get_var("a"), Some(&VV::Number(CN::Int(1))));
-		assert_eq!(context.get_var("b"), Some(&VV::Number(CN::UInt(2))));
-		assert_eq!(context.get_var("c"), Some(&VV::Number(CN::Float(3.0))));
+		assert_eq!(context.get_var("a"), Some(&Vv::Number(CN::Int(1))));
+		assert_eq!(context.get_var("b"), Some(&Vv::Number(CN::UInt(2))));
+		assert_eq!(context.get_var("c"), Some(&Vv::Number(CN::Float(3.0))));
 		assert_eq!(
 			context.get_var("d"),
-			Some(&VV::String(CompactString::const_new(xyz_ref)))
+			Some(&Vv::String(CompactString::const_new(xyz_ref)))
 		);
 	}
 
@@ -77,9 +76,9 @@ mod vars {
 		let xyz_ref = "xyz";
 
 		// Suffix `_n` denotes depth n of nested scopes
-		let a_val_0 = VV::Number(CN::Int(1));
-		let b_val_0 = VV::Number(CN::UInt(2));
-		let c_val_0 = VV::String(CompactString::const_new(xyz_ref));
+		let a_val_0 = Vv::Number(CN::Int(1));
+		let b_val_0 = Vv::Number(CN::UInt(2));
+		let c_val_0 = Vv::String(CompactString::const_new(xyz_ref));
 		let context =
 			DecodingContext::new_with_vars(vec![("a", &a_val_0), ("b", &b_val_0), ("c", &c_val_0)]);
 
@@ -103,8 +102,8 @@ mod vars {
 		assert_unchanged_0();
 
 		// For the sake of the discerning the outcome of the test, no two values should be equal
-		let a_val_1 = VV::Number(CN::UInt(3));
-		let d_val_1 = VV::String(CompactString::const_new("added_value"));
+		let a_val_1 = Vv::Number(CN::UInt(3));
+		let d_val_1 = Vv::String(CompactString::const_new("added_value"));
 		let nonempty_new_vars = TagVariables(Map::from_iter(vec![
 			(CompactString::const_new("a"), a_val_1.clone()),
 			(CompactString::const_new("d"), d_val_1.clone()),
@@ -130,8 +129,8 @@ mod vars {
 					assert_eq!(context.get_var("c"), Some(&c_val_0));
 				};
 
-				let a_val_2 = VV::String(CompactString::const_new("this is a_val_3"));
-				let c_val_2 = VV::Number(CN::Float(5.5));
+				let a_val_2 = Vv::String(CompactString::const_new("this is a_val_3"));
+				let c_val_2 = Vv::Number(CN::Float(5.5));
 				let nonempty_new_vars_2 = TagVariables(Map::from_iter(vec![
 					(CompactString::const_new("a"), a_val_2.clone()),
 					(CompactString::const_new("b"), b_val_0.clone()),
@@ -180,12 +179,12 @@ mod substitution {
 		assert_eq!(empty_context.eval_exprs_in_str("xyz").unwrap(), "xyz");
 
 		let xyz_ref = "xyz";
-		let xyz_string = VV::String(CompactString::const_new(xyz_ref));
+		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars([
-			("a", &VV::Number(CN::Int(1))),
-			("b", &VV::Number(CN::UInt(2))),
-			("c", &VV::Number(CN::Float(3.0))),
-			("d", &VV::Number(CN::Float(4.5))),
+			("a", &Vv::Number(CN::Int(1))),
+			("b", &Vv::Number(CN::UInt(2))),
+			("c", &Vv::Number(CN::Float(3.0))),
+			("d", &Vv::Number(CN::Float(4.5))),
 			("e", &xyz_string),
 		]);
 		assert_eq!(nonempty_context.eval_exprs_in_str("").unwrap(), "");
@@ -265,7 +264,7 @@ mod substitution {
 	#[allow(clippy::too_many_lines)]
 	#[test]
 	fn parse_errors() {
-		use super::{VariableEvaluationError, VariableValue as VV};
+		use super::{VariableEvaluationError, VariableValue as Vv};
 
 		#[track_caller]
 		fn test<V>(context: &DecodingContext, s: &str, err: V)
@@ -281,11 +280,11 @@ mod substitution {
 		let empty_context = DecodingContext::new_empty();
 
 		let vars = [
-			("a", VV::Number(CN::Int(1))),
-			("b", VV::Number(CN::UInt(2))),
-			("c", VV::String(CompactString::const_new("abc"))),
-			("d", VV::String(CompactString::const_new(r"\"))),
-			("e", VV::String(CompactString::const_new(r"\{}"))),
+			("a", Vv::Number(CN::Int(1))),
+			("b", Vv::Number(CN::UInt(2))),
+			("c", Vv::String(CompactString::const_new("abc"))),
+			("d", Vv::String(CompactString::const_new(r"\"))),
+			("e", Vv::String(CompactString::const_new(r"\{}"))),
 		];
 		let nonempty_context = DecodingContext::new_with_vars(vars.iter().map(|(k, v)| (*k, v)));
 
@@ -443,9 +442,9 @@ mod substitution {
 		test(&empty_context, "a {mv1} b {mv2} c", ["mv1", "mv2"]);
 
 		let xyz_ref = "xyz";
-		let xyz_string = VV::String(CompactString::const_new(xyz_ref));
+		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars(vec![
-			("a", &VV::Number(CN::Int(1))),
+			("a", &Vv::Number(CN::Int(1))),
 			("b", &xyz_string),
 		]);
 
@@ -568,11 +567,11 @@ mod substitution {
 		);
 
 		let xyz_ref = "xyz";
-		let xyz_string = VV::String(CompactString::const_new(xyz_ref));
+		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars(vec![
-			("a", &VV::Number(CN::Int(1))),
-			("b", &VV::Number(CN::UInt(2))),
-			("c", &VV::Number(CN::Float(3.0))),
+			("a", &Vv::Number(CN::Int(1))),
+			("b", &Vv::Number(CN::UInt(2))),
+			("c", &Vv::Number(CN::Float(3.0))),
 			("d", &xyz_string),
 		]);
 
