@@ -1,5 +1,5 @@
+use compact_str::{CompactString, ToCompactString};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use std::borrow::Cow;
 
 use super::concrete_number::{ConcreteNumber, ConcreteNumberVisitor};
 
@@ -10,7 +10,7 @@ use super::concrete_number::{ConcreteNumber, ConcreteNumberVisitor};
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum SimpleValue {
 	Number(ConcreteNumber),
-	Text(String),
+	Text(CompactString),
 	/// The presence of an attribute — usually represented `attr=""`
 	Present,
 	/// The absence of an attribute. How is this different from just ommitting the
@@ -19,22 +19,18 @@ pub(crate) enum SimpleValue {
 	Absent,
 }
 
-impl AsRef<SimpleValue> for SimpleValue {
-	fn as_ref(&self) -> &SimpleValue {
-		self
-	}
-}
-
 impl SimpleValue {
 	/// If anything other than `Absent`, return a stringified verion wrapped in a
 	/// `Some`. If `Absent` then `None`.
-	pub fn to_maybe_string(&self) -> Option<Cow<'_, str>> {
+	pub fn to_maybe_string(&self) -> Option<CompactString> {
 		use SimpleValue::*;
 
+		// the only case that might allocate is the Text case. I'll take my chances and
+		// use a `CompactString` over a `Cow<'_, str>`
 		match self {
-			Number(n) => Some(Cow::Owned(n.to_string())),
-			Text(s) => Some(Cow::Borrowed(s.as_ref())),
-			Present => Some(Cow::Borrowed("")),
+			Number(n) => Some(n.to_compact_string()),
+			Text(s) => Some(s.clone()),
+			Present => Some(CompactString::const_new("")),
 			Absent => None,
 		}
 	}
@@ -109,7 +105,7 @@ impl<'de> Deserialize<'de> for SimpleValue {
 			where
 				E: serde::de::Error,
 			{
-				Ok(SimpleValue::Text(v.to_owned()))
+				Ok(SimpleValue::Text(v.to_compact_string()))
 			}
 
 			/// `true` -> Present, `false` -> Absent
@@ -172,7 +168,10 @@ mod tests {
 		// it doesn't hurt to double check
 		#[track_caller]
 		fn test_text(s: &'static str) {
-			assert_tokens(&SimpleValue::Text(s.to_owned()), &[Token::String(s)]);
+			assert_tokens(
+				&SimpleValue::Text(CompactString::const_new(s)),
+				&[Token::String(s)],
+			);
 		}
 
 		test_text("");

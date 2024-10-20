@@ -87,6 +87,7 @@ impl FromStr for Function {
 	type Err = String;
 
 	fn from_str(fn_name: &str) -> Result<Self, Self::Err> {
+		// TODO: can this be simplified?
 		fn_name
 			.parse()
 			.map(Self::Constant)

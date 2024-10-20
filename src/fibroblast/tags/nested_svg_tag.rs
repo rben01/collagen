@@ -4,6 +4,7 @@ use crate::{
 	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 };
+use compact_str::CompactString;
 use once_cell::sync::Lazy;
 use quick_xml::events::BytesText;
 use regex::{Regex, RegexBuilder};
@@ -22,7 +23,7 @@ static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
 #[serde(deny_unknown_fields)]
 pub struct NestedSvgTag {
 	/// The path to the SVG relative to the folder root
-	svg_path: String,
+	svg_path: CompactString,
 
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,

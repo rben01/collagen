@@ -1,10 +1,11 @@
 use super::collection::UnprocessedLoopCollection;
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoopVariable {
 	#[serde(rename = "variable")]
-	pub(super) name: String,
+	pub(super) name: CompactString,
 	#[serde(rename = "in")]
 	pub(super) loop_collection: UnprocessedLoopCollection,
 }

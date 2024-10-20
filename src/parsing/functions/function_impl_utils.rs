@@ -1,3 +1,5 @@
+use compact_str::CompactString;
+
 use super::{
 	Arity, FunctionCallError, FunctionCallResult, FunctionCallSiteError, FunctionDatumType,
 	VariableValue,
@@ -42,7 +44,11 @@ where
 	})
 }
 
-pub(super) fn ensure_string<T, D, E>(func: T, val: D, idx: usize) -> FunctionCallResult<String, E>
+pub(super) fn ensure_string<T, D, E>(
+	func: T,
+	val: D,
+	idx: usize,
+) -> FunctionCallResult<CompactString, E>
 where
 	T: Into<&'static str>,
 	D: Into<FunctionCallResult<VariableValue, E>>,

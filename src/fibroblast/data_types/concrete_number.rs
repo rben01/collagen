@@ -52,6 +52,7 @@ impl<'de> de::Visitor<'de> for ConcreteNumberVisitor {
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(untagged)]
 pub(crate) enum ConcreteNumber {
+	// TODO: replace all of these with f64
 	Int(i64),
 	UInt(u64),
 	Float(f64),

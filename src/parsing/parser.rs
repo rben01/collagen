@@ -8,6 +8,7 @@ use crate::{
 	fibroblast::data_types::{DecodingContext, VariableValue},
 	utils::Set,
 };
+use compact_str::CompactString;
 use nom::{
 	branch::alt,
 	bytes::complete::is_not,
@@ -131,7 +132,7 @@ impl Arg<'_> {
 	fn eval(
 		&self,
 		context: &'_ DecodingContext<'_>,
-		variables_referenced: &Set<String>,
+		variables_referenced: &Set<CompactString>,
 	) -> VariableSubstitutionResult<VariableValue> {
 		Ok(match self {
 			&Arg::Lit(x) => x.into(),
@@ -139,7 +140,7 @@ impl Arg<'_> {
 			Arg::SExpr(ex) => ex.eval(context, variables_referenced)?,
 			&Arg::Error(e) => {
 				return Err(vec![
-					VariableEvaluationError::InvalidVariableNameOrExpression(e.to_owned()),
+					VariableEvaluationError::InvalidVariableNameOrExpression(e.into()),
 				])
 			}
 		})
@@ -157,7 +158,7 @@ impl SExpr<'_> {
 	fn eval(
 		&self,
 		context: &'_ DecodingContext<'_>,
-		variables_referenced: &Set<String>,
+		variables_referenced: &Set<CompactString>,
 	) -> VariableSubstitutionResult<VariableValue> {
 		let Self { fn_name, args } = self;
 		let fn_name = *fn_name;
@@ -167,7 +168,7 @@ impl SExpr<'_> {
 
 		let Ok(func) = fn_name.parse::<Function>() else {
 			return Err(vec![VariableEvaluationError::UnrecognizedFunctionName(
-				fn_name.to_owned(),
+				fn_name.into(),
 			)]);
 		};
 
@@ -179,7 +180,7 @@ impl SExpr<'_> {
 pub(crate) fn parse<'a>(
 	input: &'a str,
 	context: &DecodingContext,
-	variables_referenced: &Set<String>,
+	variables_referenced: &Set<CompactString>,
 ) -> VariableSubstitutionResult<Cow<'a, str>> {
 	if input.is_empty() {
 		return Ok(input.into());
@@ -202,7 +203,7 @@ pub(crate) fn parse<'a>(
 				}
 				BracedExpr::Error(s) => {
 					parsing_errs.borrow_mut().push(
-						VariableEvaluationError::InvalidVariableNameOrExpression(s.to_owned()),
+						VariableEvaluationError::InvalidVariableNameOrExpression(s.into()),
 					);
 					Cow::Borrowed("")
 				}

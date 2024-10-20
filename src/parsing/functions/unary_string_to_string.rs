@@ -2,6 +2,7 @@ use super::{
 	function_impl_utils::{arity_error, ensure_string, FallibleFunctionImpl},
 	Arity, FunctionCallResult, VariableValue,
 };
+use compact_str::{CompactString, ToCompactString};
 use strum_macros::{EnumString, IntoStaticStr};
 
 #[derive(Clone, Copy, Debug, EnumString, IntoStaticStr)]
@@ -15,7 +16,7 @@ pub(crate) enum UnaryStringToStringFunction {
 }
 
 impl FallibleFunctionImpl for UnaryStringToStringFunction {
-	type Output = String;
+	type Output = CompactString;
 
 	fn try_call<I, E>(self, args: I) -> FunctionCallResult<Self::Output, E>
 	where
@@ -38,9 +39,9 @@ impl FallibleFunctionImpl for UnaryStringToStringFunction {
 		Ok(match self {
 			Uppercase => s.to_uppercase(),
 			Lowercase => s.to_lowercase(),
-			Trim => s.trim().to_owned(),
-			Ltrim => s.trim_start().to_owned(),
-			Rtrim => s.trim_end().to_owned(),
+			Trim => s.trim().to_compact_string(),
+			Ltrim => s.trim_start().to_compact_string(),
+			Rtrim => s.trim_end().to_compact_string(),
 		})
 	}
 }

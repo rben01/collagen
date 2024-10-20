@@ -4,6 +4,7 @@ use crate::{
 	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 };
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, cell::RefCell, path::PathBuf};
 
@@ -93,7 +94,7 @@ use std::{borrow::Cow, cell::RefCell, path::PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerTag<'a> {
-	clgn_path: String,
+	clgn_path: CompactString,
 
 	#[serde(skip)]
 	resolved_path: RefCell<Option<PathBuf>>,

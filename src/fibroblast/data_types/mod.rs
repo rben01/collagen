@@ -13,6 +13,7 @@ use crate::{
 	to_svg::svg_writable::ClgnDecodingResult,
 	utils::{Map, MapEntry, Set},
 };
+use compact_str::{CompactString, ToCompactString};
 pub(crate) use concrete_number::ConcreteNumber;
 pub(crate) use simple_value::SimpleValue;
 use std::{
@@ -128,17 +129,17 @@ impl DecodingContext<'_> {
 	pub(crate) fn eval_variable(
 		&self,
 		var: &str,
-		variables_referenced: &Set<String>,
+		variables_referenced: &Set<CompactString>,
 	) -> VariableSubstitutionResult<VariableValue> {
 		let mut parsing_errs = Vec::new();
 		if variables_referenced.contains(var) {
 			parsing_errs.push(VariableEvaluationError::RecursiveSubstitutionError {
-				variable: var.to_owned(),
+				variable: var.into(),
 			});
 		}
 
 		let Some(value) = self.get_var(var) else {
-			parsing_errs.push(VariableEvaluationError::MissingVariable(var.to_owned()));
+			parsing_errs.push(VariableEvaluationError::MissingVariable(var.into()));
 			return Err(parsing_errs);
 		};
 		Ok(match value {
@@ -149,11 +150,11 @@ impl DecodingContext<'_> {
 				}
 
 				let mut variables_referenced = variables_referenced.clone();
-				variables_referenced.insert(var.to_owned());
+				variables_referenced.insert(var.to_compact_string());
 				match self.eval_exprs_in_str_helper(s, &variables_referenced) {
 					Ok(x) => match x.parse() {
 						Ok(n) => ConcreteNumber::Float(n).into(),
-						Err(_) => x.into_owned().into(),
+						Err(_) => CompactString::from(x).into(),
 					},
 					Err(e) => {
 						parsing_errs.extend(e);
@@ -174,7 +175,7 @@ impl DecodingContext<'_> {
 	pub(crate) fn eval_exprs_in_str_helper<'b>(
 		&self,
 		s: &'b str,
-		variables_referenced: &Set<String>,
+		variables_referenced: &Set<CompactString>,
 	) -> VariableSubstitutionResult<Cow<'b, str>> {
 		parse(s, self, variables_referenced)
 	}

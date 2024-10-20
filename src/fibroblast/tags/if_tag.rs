@@ -6,13 +6,14 @@ use crate::{
 	to_svg::svg_writable::{ClgnDecodingError, SvgWritable},
 	ClgnDecodingResult,
 };
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IfTag<'a> {
 	#[serde(rename = "if")]
-	pub(super) predicate: String,
+	pub(super) predicate: CompactString,
 
 	#[serde(rename = "then")]
 	pub(super) true_template: Box<AnyChildTag<'a>>,

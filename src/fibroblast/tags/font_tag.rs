@@ -6,6 +6,7 @@ use crate::{
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
 };
+use compact_str::{format_compact, CompactString};
 use quick_xml::events::{BytesText, Event};
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};
 use std::borrow::Cow;
@@ -16,7 +17,7 @@ use crate::assets::fonts;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub(crate) enum FontAttr {
-	String(String),
+	String(CompactString),
 	Number(ConcreteNumber),
 }
 
@@ -28,19 +29,19 @@ enum CowishFontAttr<'a> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct UserProvidedFontFace {
-	name: String,
-	path: String,
+	name: CompactString,
+	path: CompactString,
 
 	#[serde(default)]
-	attrs: Map<String, FontAttr>,
+	attrs: Map<CompactString, FontAttr>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct BundledFontFace {
-	name: String,
+	name: CompactString,
 
 	#[serde(default)]
-	attrs: Map<String, FontAttr>,
+	attrs: Map<CompactString, FontAttr>,
 }
 
 #[derive(Debug, Clone)]
@@ -259,7 +260,7 @@ impl FontTag {
 	fn get_font_path_attr_pair(
 		path: impl AsRef<str>,
 		context: &DecodingContext,
-	) -> ClgnDecodingResult<String> {
+	) -> ClgnDecodingResult<CompactString> {
 		let path = path.as_ref();
 		let abs_font_path = crate::utils::paths::pathsep_aware_join(&*context.get_root(), path)?;
 
@@ -267,8 +268,9 @@ impl FontTag {
 			std::fs::read(abs_font_path.as_path())
 				.map_err(|e| ClgnDecodingError::Io(e, abs_font_path))?,
 		);
-		let src_str =
-			format!("url('data:font/woff2;charset=utf-8;base64,{b64_string}') format('woff2')");
+		let src_str = format_compact!(
+			"url('data:font/woff2;charset=utf-8;base64,{b64_string}') format('woff2')"
+		);
 
 		Ok(src_str)
 	}
@@ -297,7 +299,7 @@ impl FontTag {
 
 						_ => {
 							return Err(ClgnDecodingError::BundledFontNotFound {
-								font_name: font_family.clone(),
+								font_name: font_family.to_string(),
 							})
 						}
 					}

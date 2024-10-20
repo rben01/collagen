@@ -2,6 +2,7 @@ use crate::{
 	fibroblast::data_types::{SimpleValue, VariableValue},
 	utils::Map,
 };
+use compact_str::CompactString;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 pub(crate) trait HasOwnedVars {
@@ -10,7 +11,7 @@ pub(crate) trait HasOwnedVars {
 
 /// A type alias for storing XML attribute key-value pairs
 #[derive(Debug, Clone)]
-pub(crate) struct XmlAttrs(pub(crate) Vec<(String, SimpleValue)>);
+pub(crate) struct XmlAttrs(pub(crate) Vec<(CompactString, SimpleValue)>);
 
 impl<'de> Deserialize<'de> for XmlAttrs {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -72,11 +73,11 @@ impl XmlAttrs {
 
 /// Map of `String` -> `VariableValue`
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct TagVariables(pub(crate) Map<String, VariableValue>);
+pub(crate) struct TagVariables(pub(crate) Map<CompactString, VariableValue>);
 
 pub(crate) fn insert_var(
 	into: &mut Option<TagVariables>,
-	key: String,
+	key: CompactString,
 	value: VariableValue,
 ) -> Option<VariableValue> {
 	if let Some(vars) = into {

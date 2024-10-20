@@ -6,6 +6,7 @@ use crate::{
 	to_svg::svg_writable::{write_tag, SvgWritable},
 	ClgnDecodingResult,
 };
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 
 /// `GenericTag` is a generic tag that doesn't need to be handled specially, such as
@@ -26,7 +27,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct GenericTag<'a> {
 	#[serde(rename = "tag")]
-	tag_name: String,
+	tag_name: CompactString,
 
 	#[serde(flatten)]
 	vars: DeTagVariables,

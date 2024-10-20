@@ -1,4 +1,5 @@
 use super::concrete_number::ConcreteNumber;
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt};
 
@@ -8,7 +9,7 @@ use std::{borrow::Cow, fmt};
 #[serde(untagged)]
 pub(crate) enum VariableValue {
 	Number(ConcreteNumber),
-	String(String),
+	String(CompactString),
 }
 
 impl fmt::Display for VariableValue {
@@ -37,8 +38,8 @@ impl<T: Into<ConcreteNumber>> From<T> for VariableValue {
 	}
 }
 
-impl From<String> for VariableValue {
-	fn from(s: String) -> Self {
+impl From<CompactString> for VariableValue {
+	fn from(s: CompactString) -> Self {
 		Self::String(s)
 	}
 }
@@ -88,7 +89,10 @@ mod tests {
 		// it doesn't hurt to double check
 		#[track_caller]
 		fn test_text(s: &'static str) {
-			assert_tokens(&VariableValue::String(s.to_owned()), &[Token::String(s)]);
+			assert_tokens(
+				&VariableValue::String(CompactString::const_new(s)),
+				&[Token::String(s)],
+			);
 		}
 
 		test_text("");

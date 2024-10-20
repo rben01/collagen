@@ -5,6 +5,7 @@ use crate::{
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 	utils::b64_encode,
 };
+use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, path::Path};
 
@@ -56,12 +57,12 @@ use std::{borrow::Cow, path::Path};
 #[serde(deny_unknown_fields)]
 pub struct ImageTag<'a> {
 	/// The path to the image relative to the folder root
-	image_path: String,
+	image_path: CompactString,
 
 	/// The image "kind" (usually synonymous with file extension). If `None`, will be
 	/// set to the file extension of `image_path`
 	#[serde(skip_serializing_if = "Option::is_none")]
-	kind: Option<String>,
+	kind: Option<CompactString>,
 
 	#[serde(flatten)]
 	vars: DeTagVariables,

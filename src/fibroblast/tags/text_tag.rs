@@ -1,12 +1,13 @@
 use super::{element::HasOwnedVars, DeTagVariables, DecodingContext, TagVariables};
 use crate::{impl_trivially_validatable, to_svg::svg_writable::SvgWritable, ClgnDecodingResult};
+use compact_str::CompactString;
 use quick_xml::events::BytesText;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TextTag {
-	text: String,
+	text: CompactString,
 
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	is_preescaped: Option<bool>,
