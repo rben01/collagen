@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_string, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
@@ -9,6 +9,12 @@ use strum_macros::{EnumString, IntoStaticStr};
 pub(crate) enum UnaryCollectionToStringFunction {
 	Len,
 	IsEmpty,
+}
+
+impl FunctionTrait for UnaryCollectionToStringFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
 }
 
 impl FallibleFunctionImpl for UnaryCollectionToStringFunction {
@@ -25,12 +31,12 @@ impl FallibleFunctionImpl for UnaryCollectionToStringFunction {
 
 		let s = match args.next() {
 			// TODO: replace ensure_string with ensure_collection or similar
-			Some(s) => ensure_string(self, s, 0)?,
-			None => return arity_error(self, arity, Arity::Exactly(0)),
+			Some(s) => self.ensure_string(s, 0)?,
+			None => return self.arity_error(arity, Arity::Exactly(0)),
 		};
 
 		if args.next().is_some() {
-			return arity_error(self, arity, Arity::AtLeast(2));
+			return self.arity_error(arity, Arity::AtLeast(2));
 		}
 
 		#[allow(clippy::cast_precision_loss)]

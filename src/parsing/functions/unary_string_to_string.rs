@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_string, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use compact_str::{CompactString, ToCompactString};
@@ -15,6 +15,12 @@ pub(crate) enum UnaryStringToStringFunction {
 	Rtrim,
 }
 
+impl FunctionTrait for UnaryStringToStringFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
+}
+
 impl FallibleFunctionImpl for UnaryStringToStringFunction {
 	type Output = CompactString;
 
@@ -28,12 +34,12 @@ impl FallibleFunctionImpl for UnaryStringToStringFunction {
 		let mut args = args.into_iter();
 
 		let s = match args.next() {
-			Some(s) => ensure_string(self, s, 0)?,
-			None => return arity_error(self, arity, Arity::Exactly(0)),
+			Some(s) => self.ensure_string(s, 0)?,
+			None => return self.arity_error(arity, Arity::Exactly(0)),
 		};
 
 		if args.next().is_some() {
-			return arity_error(self, arity, Arity::AtLeast(2));
+			return self.arity_error(arity, Arity::AtLeast(2));
 		}
 
 		Ok(match self {

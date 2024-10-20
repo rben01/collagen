@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
@@ -9,6 +9,12 @@ use strum_macros::{EnumString, IntoStaticStr};
 pub(crate) enum TernaryAnyFunction {
 	#[strum(serialize = "if")]
 	IfElse,
+}
+
+impl FunctionTrait for TernaryAnyFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
 }
 
 impl FallibleFunctionImpl for TernaryAnyFunction {
@@ -26,18 +32,18 @@ impl FallibleFunctionImpl for TernaryAnyFunction {
 		Ok(match self {
 			IfElse => {
 				let pred = match args.next() {
-					Some(pred) => ensure_number(self, pred, 0)?,
-					None => return arity_error(self, arity, Arity::Exactly(0)),
+					Some(pred) => self.ensure_number(pred, 0)?,
+					None => return self.arity_error(arity, Arity::Exactly(0)),
 				};
 
 				let if_true = match args.next() {
 					Some(pred) => pred?,
-					None => return arity_error(self, arity, Arity::Exactly(1)),
+					None => return self.arity_error(arity, Arity::Exactly(1)),
 				};
 
 				let if_false = match args.next() {
 					Some(pred) => pred?,
-					None => return arity_error(self, arity, Arity::Exactly(2)),
+					None => return self.arity_error(arity, Arity::Exactly(2)),
 				};
 
 				if pred == 0.0 {

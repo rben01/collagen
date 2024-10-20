@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
@@ -17,6 +17,12 @@ pub(crate) enum VariadicNumToNumFunction {
 	Or,
 }
 
+impl FunctionTrait for VariadicNumToNumFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
+}
+
 impl FallibleFunctionImpl for VariadicNumToNumFunction {
 	type Output = f64;
 
@@ -29,13 +35,13 @@ impl FallibleFunctionImpl for VariadicNumToNumFunction {
 		let mut args = args.into_iter().enumerate();
 
 		let Some((idx, acc)) = args.next() else {
-			return arity_error(self, Arity::AtLeast(1), Arity::Exactly(0));
+			return self.arity_error(Arity::AtLeast(1), Arity::Exactly(0));
 		};
 
-		let mut acc = ensure_number(self, acc, idx)?;
+		let mut acc = self.ensure_number(acc, idx)?;
 
 		for (idx, x) in args {
-			let x = ensure_number(self, x, idx)?;
+			let x = self.ensure_number(x, idx)?;
 			match self {
 				Add => acc += x,
 				Mul => acc *= x,

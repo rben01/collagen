@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
@@ -8,6 +8,12 @@ use strum_macros::{EnumString, IntoStaticStr};
 #[strum(serialize_all = "kebab-case")]
 pub(crate) enum UnaryTToT {
 	Print,
+}
+
+impl FunctionTrait for UnaryTToT {
+	fn name(self) -> &'static str {
+		self.into()
+	}
 }
 
 impl FallibleFunctionImpl for UnaryTToT {
@@ -24,11 +30,11 @@ impl FallibleFunctionImpl for UnaryTToT {
 
 		let v = match args.next() {
 			Some(v) => v?,
-			None => return arity_error(self, arity, Arity::Exactly(0)),
+			None => return self.arity_error(arity, Arity::Exactly(0)),
 		};
 
 		if args.next().is_some() {
-			return arity_error(self, arity, Arity::AtLeast(2));
+			return self.arity_error(arity, Arity::AtLeast(2));
 		}
 
 		Ok(match self {

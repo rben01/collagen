@@ -17,14 +17,12 @@ use self::{
 	unary_string_to_string::UnaryStringToStringFunction, unary_t_to_t::UnaryTToT,
 	variadic_num_to_num::VariadicNumToNumFunction,
 };
-use crate::{
-	fibroblast::data_types::VariableValue,
-	parsing::functions::function_impl_utils::FallibleFunctionImpl,
-};
+use crate::fibroblast::data_types::VariableValue;
 use std::str::FromStr;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
+// TODO: replace usize with u8? arity won't exceed 255
 pub enum Arity {
 	Exactly(usize),
 	Between(usize, usize),
@@ -108,6 +106,7 @@ impl Function {
 	where
 		I: IntoIterator<Item = Result<VariableValue, E>>,
 	{
+		use function_impl_utils::FallibleFunctionImpl;
 		use Function::*;
 
 		let args = args

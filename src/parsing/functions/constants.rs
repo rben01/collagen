@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use std::f64::{self, consts};
@@ -14,6 +14,12 @@ pub(crate) enum ConstantFunction {
 	Inf,
 }
 
+impl FunctionTrait for ConstantFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
+}
+
 impl FallibleFunctionImpl for ConstantFunction {
 	type Output = f64;
 
@@ -24,7 +30,7 @@ impl FallibleFunctionImpl for ConstantFunction {
 		use ConstantFunction::*;
 
 		if args.into_iter().next().is_some() {
-			return arity_error(self, Arity::Exactly(0), Arity::AtLeast(1));
+			return self.arity_error(Arity::Exactly(0), Arity::AtLeast(1));
 		}
 
 		Ok(match self {

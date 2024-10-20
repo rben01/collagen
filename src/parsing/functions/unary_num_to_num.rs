@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use std::f64::consts::PI;
@@ -44,6 +44,12 @@ pub(crate) enum UnaryNumToNumFunction {
 	IsInf,
 }
 
+impl FunctionTrait for UnaryNumToNumFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
+}
+
 impl FallibleFunctionImpl for UnaryNumToNumFunction {
 	type Output = f64;
 
@@ -57,14 +63,14 @@ impl FallibleFunctionImpl for UnaryNumToNumFunction {
 		let mut args = args.into_iter();
 
 		let Some(x) = args.next() else {
-			return arity_error(self, arity, Arity::Exactly(0));
+			return self.arity_error(arity, Arity::Exactly(0));
 		};
 
 		if args.next().is_some() {
-			return arity_error(self, arity, Arity::AtLeast(2));
+			return self.arity_error(arity, Arity::AtLeast(2));
 		}
 
-		let x = ensure_number(self, x, 0)?;
+		let x = self.ensure_number(x, 0)?;
 
 		Ok(match self {
 			Not => (x == 0.0).into(),

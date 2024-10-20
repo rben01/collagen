@@ -1,5 +1,5 @@
 use super::{
-	function_impl_utils::{arity_error, ensure_number, FallibleFunctionImpl},
+	function_impl_utils::{FallibleFunctionImpl, FunctionTrait},
 	Arity, FunctionCallResult, VariableValue,
 };
 use strum_macros::{EnumString, IntoStaticStr};
@@ -10,6 +10,12 @@ pub(crate) enum UnaryOrBinaryNumToNumFunction {
 	#[strum(serialize = "-")]
 	Sub,
 	Round,
+}
+
+impl FunctionTrait for UnaryOrBinaryNumToNumFunction {
+	fn name(self) -> &'static str {
+		self.into()
+	}
 }
 
 impl FallibleFunctionImpl for UnaryOrBinaryNumToNumFunction {
@@ -25,15 +31,15 @@ impl FallibleFunctionImpl for UnaryOrBinaryNumToNumFunction {
 		let mut args = args.into_iter().enumerate();
 
 		let a = match args.next() {
-			Some((idx, a)) => ensure_number(self, a, idx)?,
-			None => return arity_error(self, arity, Arity::Exactly(0)),
+			Some((idx, a)) => self.ensure_number(a, idx)?,
+			None => return self.arity_error(arity, Arity::Exactly(0)),
 		};
 
 		let ans = match args.next() {
 			Some((idx, b)) => {
-				let b = ensure_number(self, b, idx)?;
+				let b = self.ensure_number(b, idx)?;
 				if let Some((idx, _)) = args.next() {
-					return arity_error(self, arity, Arity::AtLeast(idx + 1));
+					return self.arity_error(arity, Arity::AtLeast(idx + 1));
 				}
 				match self {
 					Sub => a - b,
