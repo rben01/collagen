@@ -56,14 +56,14 @@ pub use generic_tag::GenericTag;
 pub use if_tag::IfTag;
 pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 
 /// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
 /// `BTreeMap` doesn't allocate until it has at least one element, this really costs
 /// almost nothing
-pub(crate) static EMPTY_VARS: Lazy<TagVariables> = Lazy::new(|| TagVariables(Map::new()));
-pub(crate) static EMPTY_ATTRS: Lazy<XmlAttrs> = Lazy::new(|| XmlAttrs(Vec::new()));
+pub(crate) static EMPTY_VARS: LazyLock<TagVariables> = LazyLock::new(|| TagVariables(Map::new()));
+pub(crate) static EMPTY_ATTRS: LazyLock<XmlAttrs> = LazyLock::new(|| XmlAttrs(Vec::new()));
 
 /// Description: A dictionary whose keys and values will be used to construct the list
 /// of `name="value"` XML attributes. For instance, `{ "tag": "circle", "attrs": { "cx":

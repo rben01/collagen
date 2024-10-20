@@ -130,7 +130,7 @@ impl FromStr for Function {
 			}
 		}
 
-		return Err(fn_name.to_string());
+		Err(fn_name.to_string())
 	}
 }
 

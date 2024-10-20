@@ -8,8 +8,8 @@
 	name = "collagen"
 	readme = "docs/readme-docsrs.md"
 	repository = "https://github.com/rben01/collagen"
-	rust-version = "1.70"
-	version = "0.7.0"
+	rust-version = "1.80"
+	version = "0.8.0"
 
 [dependencies]
 	base64 = "0.22"
@@ -18,7 +18,6 @@
 	nom = "7.1"
 	notify = "6.1"
 	notify-debouncer-full = "0.3"
-	once_cell = "1.20"
 	quick-xml = "0.36"
 	regex = "1.11"
 	serde = { version = "1.0", features = ["derive"] }

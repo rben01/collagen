@@ -5,13 +5,13 @@ use crate::{
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 };
 use compact_str::CompactString;
-use once_cell::sync::Lazy;
 use quick_xml::events::BytesText;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use std::sync::LazyLock;
 
-static XML_HEADER_RE: Lazy<Regex> = Lazy::new(|| {
+static XML_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
 	RegexBuilder::new(r"^\s*<\?xml.*?\?>")
 		.case_insensitive(true)
 		.dot_matches_new_line(true)
