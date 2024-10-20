@@ -59,13 +59,13 @@ impl DecodingContext<'_> {
 		self.root_path.borrow()
 	}
 
-	/// Append the given variables to self (i.e., introduce them as a nested scope),
-	/// call `f()` in this scope. `self` is not mutated.
+	/// Append the given variables to self (i.e., introduce them as a nested scope), call
+	/// `f()` in this scope. `self` is not mutated.
 	///
 	/// > Actually `self` *is* mutated via `RefCell`, but only temporarily -- it is
-	/// modified to create the correct state for `f` to be called in and then it's
-	/// restored to its original state so that it is as if it had never changed at all.
-	/// (It might be regarded as "net non-mutating".)
+	/// > modified to create the correct state for `f` to be called in and then it's
+	/// > restored to its original state so that it is as if it had never changed at all.
+	/// > (It might be regarded as "net non-mutating".)
 	///
 	/// > *CAUTION*: For this reason, this function is almost certainly not thread safe.
 	pub(crate) fn with_new_vars<T, F: FnOnce() -> ClgnDecodingResult<T>>(
@@ -137,10 +137,10 @@ impl DecodingContext<'_> {
 			});
 		}
 
-		let Some(value) =  self.get_var(var) else{
-			    parsing_errs.push(VariableEvaluationError::MissingVariable(var.to_owned()));
-			    return Err(parsing_errs);
-		    };
+		let Some(value) = self.get_var(var) else {
+			parsing_errs.push(VariableEvaluationError::MissingVariable(var.to_owned()));
+			return Err(parsing_errs);
+		};
 		Ok(match value {
 			VariableValue::Number(n) => (*n).into(),
 			VariableValue::String(s) => {

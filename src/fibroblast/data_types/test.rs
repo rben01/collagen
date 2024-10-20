@@ -273,7 +273,7 @@ mod substitution {
 
 		let empty_context = DecodingContext::new_empty();
 
-		let vars = vec![
+		let vars = [
 			("a", VV::Number(CN::Int(1))),
 			("b", VV::Number(CN::UInt(2))),
 			("c", VV::String("abc".to_owned())),

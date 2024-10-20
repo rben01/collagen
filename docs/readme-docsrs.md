@@ -12,8 +12,7 @@
 
 <div class="paragraph">
 
-<span
-class="image"><a href="https://crates.io/crates/collagen" class="image"><img
+<span class="image"><a href="https://crates.io/crates/collagen" class="image"><img
 src="https://img.shields.io/crates/v/collagen" alt="collagen" /></a></span>
 
 </div>
@@ -426,8 +425,7 @@ Collagen to make one.
 
 <div class="paragraph">
 
-<span
-class="image"><img src="https://rben01.github.io/collagen/docs/readme/drake/drake.svg"
+<span class="image"><img src="https://rben01.github.io/collagen/docs/readme/drake/drake.svg"
 width="400" alt="A Drake meme. Top panel" /></span>
 
 </div>
@@ -497,8 +495,8 @@ In watch mode, every time a file in `path/to/collagen` is modified,
 Collagen will attempt to regenerate the output file and will either
 print a generic success message or log the specific error encountered,
 as the case may be. Watch mode will never terminate on its own. As with
-most terminal commands, you can terminate it with <span
-class="kbd">Ctrl-C</span>.
+most terminal commands, you can terminate it with
+<span class="kbd">Ctrl-C</span>.
 
 </div>
 
@@ -518,12 +516,12 @@ examples are available as test cases in `tests/examples`.
 
 <div class="hdlist">
 
-|          |                                                                                                                                                                                                                                                                                   |
-|----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Collagen | The name of this project.                                                                                                                                                                                                                                                         |
-| `clgn`   | The executable that does the conversion to SVG.                                                                                                                                                                                                                                   |
+|  |  |
+|----|----|
+| Collagen | The name of this project. |
+| `clgn` | The executable that does the conversion to SVG. |
 | Skeleton | A folder that is the input to `clgn`. It must contain a `collagen.json` file and any assets specified by `collagen.json`. For instance, if skeleton `` my_skeleton’s `collagen.json `` contains `{ "image_path": "path/to/image" }`, then `my_skeleton/path/to/image` must exist. |
-| Manifest | The `collagen.json` file residing at the top level inside a skeleton.                                                                                                                                                                                                             |
+| Manifest | The `collagen.json` file residing at the top level inside a skeleton. |
 
 </div>
 
@@ -667,14 +665,14 @@ For developers: the tags are listed at
     valid UTF-8 strings using forward slashes (`/`) as the path
     separator. Forward slashes are replaced with the system path
     separator before resolving the path. So `path/to/image` remains
-    unchanged on \\\*nix systems, but becomes `path\to\image` on
-    Windows. This means that in order to be portable, path components
-    should not contain the path separator of any system, even if it is
-    legal on the system on which the skeleton is authored. For instance,
-    filenames with backslashes `\` are legal on Linux, but would pose a
-    problem when decoding on Windows. Generally speaking, if you
-    restrict your file and folder names to use word characters, hyphens,
-    whitespace, and a limited set of punctuation, you should be fine.
+    unchanged on \\nix systems, but becomes `path\to\image` on Windows.
+    This means that in order to be portable, path components should not
+    contain the path separator of any system, even if it is legal on the
+    system on which the skeleton is authored. For instance, filenames
+    with backslashes `\` are legal on Linux, but would pose a problem
+    when decoding on Windows. Generally speaking, if you restrict your
+    file and folder names to use word characters, hyphens, whitespace,
+    and a limited set of punctuation, you should be fine.
 
     <div class="paragraph">
 

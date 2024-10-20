@@ -91,21 +91,20 @@ impl<'a> ImageTag<'a> {
 		&'b self,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<Cow<'b, str>> {
-		Ok(match &self.kind {
-			Some(kind) => Cow::Borrowed(kind),
-			None => {
-				let image_path = self.image_path(context)?;
-				let path = Path::new(image_path.as_ref());
-				path.extension()
-					.and_then(|extn| extn.to_str())
-					.map(|s| Cow::Owned(s.to_ascii_lowercase()))
-					.ok_or_else(|| ClgnDecodingError::Image {
-						msg: format!(
-							r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
-							self.image_path
-						),
-					})?
-			}
+		Ok(if let Some(kind) = &self.kind {
+			Cow::Borrowed(kind)
+		} else {
+			let image_path = self.image_path(context)?;
+			let path = Path::new(image_path.as_ref());
+			path.extension()
+				.and_then(|extn| extn.to_str())
+				.map(|s| Cow::Owned(s.to_ascii_lowercase()))
+				.ok_or_else(|| ClgnDecodingError::Image {
+					msg: format!(
+						r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
+						self.image_path
+					),
+				})?
 		})
 	}
 

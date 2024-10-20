@@ -79,11 +79,10 @@ pub(crate) fn insert_var(
 	key: String,
 	value: VariableValue,
 ) -> Option<VariableValue> {
-	match into {
-		Some(vars) => vars.0.insert(key, value),
-		None => {
-			*into = Some(TagVariables(Map::from_iter([(key, value)])));
-			None
-		}
+	if let Some(vars) = into {
+		vars.0.insert(key, value)
+	} else {
+		*into = Some(TagVariables(Map::from_iter([(key, value)])));
+		None
 	}
 }

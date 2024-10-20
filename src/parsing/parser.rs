@@ -310,7 +310,7 @@ mod test {
 
 	#[test]
 	fn test_parse() {
-		let vars = vec![("a", VariableValue::Number(ConcreteNumber::UInt(1)))];
+		let vars = [("a", VariableValue::Number(ConcreteNumber::UInt(1)))];
 		let context = DecodingContext::new_with_vars(vars.iter().map(|(k, v)| (*k, v)));
 
 		assert_eq!(parse("(+ 1 2)", &context, &Set::new()).unwrap(), "(+ 1 2)");

@@ -41,7 +41,7 @@ fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<std
 }
 
 fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
-	Fibroblast::from_dir(in_folder.clone().into())?.to_svg(&mut create_writer(out_file)?)
+	Fibroblast::from_dir(in_folder.to_path_buf())?.to_svg(&mut create_writer(out_file)?)
 }
 
 fn run_once_log(in_folder: &Path, out_file: &Path) {
@@ -98,7 +98,7 @@ impl Cli {
 			for result in rx {
 				let events = result?;
 				let modified_paths = events
-					.into_iter()
+					.iter()
 					.filter_map(|event| match event.kind {
 						Any
 						| Create(_)
@@ -109,7 +109,7 @@ impl Cli {
 							| ModifyKind::Other,
 						)
 						| Remove(_)
-						| Other => Some(event.paths),
+						| Other => Some(&event.paths),
 						Modify(ModifyKind::Metadata(_)) | Access(_) => None,
 					})
 					.flatten()
