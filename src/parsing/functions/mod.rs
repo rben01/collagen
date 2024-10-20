@@ -24,7 +24,6 @@ type ArgCount = u8;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
-// TODO: replace usize with u8? arity won't exceed 255
 pub enum Arity {
 	Exactly(ArgCount),
 	Between(ArgCount, ArgCount),
