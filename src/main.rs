@@ -1,18 +1,15 @@
 use clap::Parser;
 use collagen::cli;
+use std::process::ExitCode;
 
-// TODO: When Termination API is stabilized, use it
-
-fn main() {
+fn main() -> ExitCode {
 	let app = cli::Cli::parse();
 
-	let result = app.run().map_err(|err| {
-		eprintln!("{}", err);
-		err.exit_code()
-	});
-
-	match result {
-		Ok(_) => {}
-		Err(exit_code) => std::process::exit(exit_code),
+	match app.run() {
+		Ok(_) => ExitCode::SUCCESS,
+		Err(err) => {
+			eprintln!("{err}");
+			err.exit_code()
+		}
 	}
 }

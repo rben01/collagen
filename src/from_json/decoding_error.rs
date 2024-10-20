@@ -11,7 +11,7 @@
 use crate::{fibroblast::tags::ErrorTagReason, parsing::errors::VariableEvaluationError};
 use quick_xml::Error as XmlError;
 use serde_json as json;
-use std::{fmt::Display, io, path::PathBuf, str::Utf8Error};
+use std::{fmt::Display, io, path::PathBuf, process::ExitCode, str::Utf8Error};
 use zip::result::ZipError;
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
@@ -52,9 +52,9 @@ pub enum ClgnDecodingError {
 
 impl ClgnDecodingError {
 	#[must_use]
-	pub fn exit_code(&self) -> i32 {
+	pub fn exit_code(&self) -> ExitCode {
 		use ClgnDecodingError::*;
-		match self {
+		ExitCode::from(match self {
 			InvalidSchema { .. } => 1,
 			Parsing { .. } => 3,
 			JsonDecode { .. } => 4,
@@ -72,7 +72,7 @@ impl ClgnDecodingError {
 			ChannelRecv { .. } => 52,
 			Foreach { .. } => 77,
 			If { .. } => 78,
-		}
+		})
 	}
 }
 
