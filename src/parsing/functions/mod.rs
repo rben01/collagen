@@ -20,14 +20,16 @@ use self::{
 use crate::fibroblast::data_types::VariableValue;
 use std::str::FromStr;
 
+type ArgCount = u8;
+
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 // TODO: replace usize with u8? arity won't exceed 255
 pub enum Arity {
-	Exactly(usize),
-	Between(usize, usize),
-	AtLeast(usize),
-	AtMost(usize),
+	Exactly(ArgCount),
+	Between(ArgCount, ArgCount),
+	AtLeast(ArgCount),
+	AtMost(ArgCount),
 }
 
 #[derive(Debug)]
@@ -40,7 +42,7 @@ pub enum FunctionCallSiteError {
 	},
 	ArgumentType {
 		func: &'static str,
-		position: usize,
+		position: ArgCount,
 		expected: FunctionDatumType,
 		actual: FunctionDatumType,
 	},

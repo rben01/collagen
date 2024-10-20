@@ -1,8 +1,8 @@
 use compact_str::CompactString;
 
 use super::{
-	Arity, FunctionCallError, FunctionCallResult, FunctionCallSiteError, FunctionDatumType,
-	VariableValue,
+	ArgCount, Arity, FunctionCallError, FunctionCallResult, FunctionCallSiteError,
+	FunctionDatumType, VariableValue,
 };
 
 pub(super) trait FunctionTrait: Sized {
@@ -28,7 +28,7 @@ pub(super) trait FallibleFunctionImpl: FunctionTrait {
 		}))
 	}
 
-	fn ensure_number<V, E>(self, val: V, idx: usize) -> FunctionCallResult<f64, E>
+	fn ensure_number<V, E>(self, val: V, idx: ArgCount) -> FunctionCallResult<f64, E>
 	where
 		V: Into<FunctionCallResult<VariableValue, E>>,
 	{
@@ -48,7 +48,7 @@ pub(super) trait FallibleFunctionImpl: FunctionTrait {
 		})
 	}
 
-	fn ensure_string<D, E>(self, val: D, idx: usize) -> FunctionCallResult<CompactString, E>
+	fn ensure_string<D, E>(self, val: D, idx: ArgCount) -> FunctionCallResult<CompactString, E>
 	where
 		D: Into<FunctionCallResult<VariableValue, E>>,
 	{

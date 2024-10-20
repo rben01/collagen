@@ -32,7 +32,7 @@ impl FallibleFunctionImpl for VariadicNumToNumFunction {
 	{
 		use VariadicNumToNumFunction::*;
 
-		let mut args = args.into_iter().enumerate();
+		let mut args = (0..).zip(args);
 
 		let Some((idx, acc)) = args.next() else {
 			return self.arity_error(Arity::AtLeast(1), Arity::Exactly(0));

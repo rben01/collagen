@@ -41,7 +41,7 @@ impl FallibleFunctionImpl for BinaryNumToNumFunction {
 		use BinaryNumToNumFunction::*;
 
 		let arity = Arity::Exactly(2);
-		let mut args = args.into_iter().enumerate();
+		let mut args = (0..).zip(args);
 
 		let a = match args.next() {
 			Some((idx, a)) => self.ensure_number(a, idx)?,
