@@ -9,6 +9,9 @@ mod unary_string_to_string;
 mod unary_t_to_t;
 mod variadic_num_to_num;
 
+use strum::IntoEnumIterator;
+use strum_macros::{EnumDiscriminants, EnumIter};
+
 use self::{
 	binary_num_to_num::BinaryNumToNumFunction, constants::ConstantFunction,
 	ternary_any::TernaryAnyFunction, unary_collection_to_num::UnaryStringToNumFunction,
@@ -69,7 +72,8 @@ pub enum FunctionDatumType {
 	Iterable,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, EnumDiscriminants)]
+#[strum_discriminants(derive(EnumIter))]
 pub(super) enum Function {
 	Constant(ConstantFunction),
 	UnaryNumToNum(UnaryNumToNumFunction),
@@ -86,20 +90,47 @@ impl FromStr for Function {
 	type Err = String;
 
 	fn from_str(fn_name: &str) -> Result<Self, Self::Err> {
-		// TODO: can this be simplified?
-		// I assume the optimizer will do the right thing here?
-		fn_name
-			.parse()
-			.map(Self::Constant)
-			.or_else(|_| fn_name.parse().map(Self::UnaryNumToNum))
-			.or_else(|_| fn_name.parse().map(Self::UnaryTToT))
-			.or_else(|_| fn_name.parse().map(Self::UnaryOrBinaryNumToNum))
-			.or_else(|_| fn_name.parse().map(Self::BinaryNumToNum))
-			.or_else(|_| fn_name.parse().map(Self::VariadicNumToNum))
-			.or_else(|_| fn_name.parse().map(Self::UnaryStringToString))
-			.or_else(|_| fn_name.parse().map(Self::UnaryStringToNum))
-			.or_else(|_| fn_name.parse().map(Self::Ternary))
-			.map_err(|_| fn_name.to_owned())
+		macro_rules! try_parse {
+			($fn_name:expr, $ret_variant:path) => {
+				if let Ok(func) = $fn_name.parse() {
+					return Ok($ret_variant(func));
+				}
+			};
+		}
+
+		for func_type in FunctionDiscriminants::iter() {
+			match func_type {
+				FunctionDiscriminants::Constant => {
+					try_parse!(fn_name, Self::Constant);
+				}
+				FunctionDiscriminants::UnaryNumToNum => {
+					try_parse!(fn_name, Self::UnaryNumToNum);
+				}
+				FunctionDiscriminants::UnaryTToT => {
+					try_parse!(fn_name, Self::UnaryTToT);
+				}
+				FunctionDiscriminants::UnaryOrBinaryNumToNum => {
+					try_parse!(fn_name, Self::UnaryOrBinaryNumToNum);
+				}
+				FunctionDiscriminants::BinaryNumToNum => {
+					try_parse!(fn_name, Self::BinaryNumToNum);
+				}
+				FunctionDiscriminants::VariadicNumToNum => {
+					try_parse!(fn_name, Self::VariadicNumToNum);
+				}
+				FunctionDiscriminants::UnaryStringToString => {
+					try_parse!(fn_name, Self::UnaryStringToString);
+				}
+				FunctionDiscriminants::UnaryStringToNum => {
+					try_parse!(fn_name, Self::UnaryStringToNum);
+				}
+				FunctionDiscriminants::Ternary => {
+					try_parse!(fn_name, Self::Ternary);
+				}
+			}
+		}
+
+		return Err(fn_name.to_string());
 	}
 }
 
