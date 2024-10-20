@@ -1,6 +1,6 @@
 use crate::{
 	fibroblast::{
-		data_types::{ConcreteNumber, VariableValue},
+		data_types::{Number, VariableValue},
 		DecodingContext,
 	},
 	parsing::errors::VariableEvaluationError,
@@ -141,7 +141,7 @@ impl LoopCollection {
 					return None;
 				}
 
-				Some(Cow::Owned(ConcreteNumber::Float(next).into()))
+				Some(Cow::Owned(Number(next).into()))
 			}
 			Self::List(v) => v.get(index).map(Cow::Borrowed),
 		}

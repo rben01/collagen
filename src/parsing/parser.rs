@@ -262,7 +262,7 @@ pub(crate) fn parse<'a>(
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::fibroblast::data_types::ConcreteNumber;
+	use crate::fibroblast::data_types::Number;
 
 	#[test]
 	fn test_brace_expr() {
@@ -311,7 +311,7 @@ mod test {
 
 	#[test]
 	fn test_parse() {
-		let vars = [("a", VariableValue::Number(ConcreteNumber::UInt(1)))];
+		let vars = [("a", VariableValue::Number(Number(1.0)))];
 		let context = DecodingContext::new_with_vars(vars.iter().map(|(k, v)| (*k, v)));
 
 		assert_eq!(parse("(+ 1 2)", &context, &Set::new()).unwrap(), "(+ 1 2)");

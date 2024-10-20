@@ -1,6 +1,6 @@
 use super::{element::HasOwnedVars, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables};
 use crate::{
-	fibroblast::data_types::ConcreteNumber,
+	fibroblast::data_types::Number,
 	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, SvgWritable},
 	utils::{b64_encode, Map},
@@ -18,7 +18,7 @@ use crate::assets::fonts;
 #[serde(untagged)]
 pub(crate) enum FontAttr {
 	String(CompactString),
-	Number(ConcreteNumber),
+	Number(Number),
 }
 
 enum CowishFontAttr<'a> {

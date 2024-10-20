@@ -1,5 +1,5 @@
 use super::*;
-use crate::fibroblast::data_types::{ConcreteNumber as CN, VariableValue as Vv};
+use crate::fibroblast::data_types::{Number, VariableValue as Vv};
 use std::str::FromStr;
 
 impl<'a> DecodingContext<'a> {
@@ -54,17 +54,17 @@ mod vars {
 		let xyz_ref = "xyz";
 		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let context = DecodingContext::new_with_vars(vec![
-			("a", &Vv::Number(CN::Int(1))),
-			("b", &Vv::Number(CN::UInt(2))),
-			("c", &Vv::Number(CN::Float(3.0))),
+			("a", &Vv::Number(Number(1.0))),
+			("b", &Vv::Number(Number(2.0))),
+			("c", &Vv::Number(Number(3.0))),
 			("d", &xyz_string),
 		]);
 
 		assert_eq!(context.vars_map().len(), 4);
 
-		assert_eq!(context.get_var("a"), Some(&Vv::Number(CN::Int(1))));
-		assert_eq!(context.get_var("b"), Some(&Vv::Number(CN::UInt(2))));
-		assert_eq!(context.get_var("c"), Some(&Vv::Number(CN::Float(3.0))));
+		assert_eq!(context.get_var("a"), Some(&Vv::Number(Number(1.0))));
+		assert_eq!(context.get_var("b"), Some(&Vv::Number(Number(2.0))));
+		assert_eq!(context.get_var("c"), Some(&Vv::Number(Number(3.0))));
 		assert_eq!(
 			context.get_var("d"),
 			Some(&Vv::String(CompactString::const_new(xyz_ref)))
@@ -76,8 +76,8 @@ mod vars {
 		let xyz_ref = "xyz";
 
 		// Suffix `_n` denotes depth n of nested scopes
-		let a_val_0 = Vv::Number(CN::Int(1));
-		let b_val_0 = Vv::Number(CN::UInt(2));
+		let a_val_0 = Vv::Number(Number(1.0));
+		let b_val_0 = Vv::Number(Number(2.0));
 		let c_val_0 = Vv::String(CompactString::const_new(xyz_ref));
 		let context =
 			DecodingContext::new_with_vars(vec![("a", &a_val_0), ("b", &b_val_0), ("c", &c_val_0)]);
@@ -102,7 +102,7 @@ mod vars {
 		assert_unchanged_0();
 
 		// For the sake of the discerning the outcome of the test, no two values should be equal
-		let a_val_1 = Vv::Number(CN::UInt(3));
+		let a_val_1 = Vv::Number(Number(3.0));
 		let d_val_1 = Vv::String(CompactString::const_new("added_value"));
 		let nonempty_new_vars = TagVariables(Map::from_iter(vec![
 			(CompactString::const_new("a"), a_val_1.clone()),
@@ -130,7 +130,7 @@ mod vars {
 				};
 
 				let a_val_2 = Vv::String(CompactString::const_new("this is a_val_3"));
-				let c_val_2 = Vv::Number(CN::Float(5.5));
+				let c_val_2 = Vv::Number(Number(5.5));
 				let nonempty_new_vars_2 = TagVariables(Map::from_iter(vec![
 					(CompactString::const_new("a"), a_val_2.clone()),
 					(CompactString::const_new("b"), b_val_0.clone()),
@@ -181,10 +181,10 @@ mod substitution {
 		let xyz_ref = "xyz";
 		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars([
-			("a", &Vv::Number(CN::Int(1))),
-			("b", &Vv::Number(CN::UInt(2))),
-			("c", &Vv::Number(CN::Float(3.0))),
-			("d", &Vv::Number(CN::Float(4.5))),
+			("a", &Vv::Number(Number(1.0))),
+			("b", &Vv::Number(Number(2.0))),
+			("c", &Vv::Number(Number(3.0))),
+			("d", &Vv::Number(Number(4.5))),
 			("e", &xyz_string),
 		]);
 		assert_eq!(nonempty_context.eval_exprs_in_str("").unwrap(), "");
@@ -280,8 +280,8 @@ mod substitution {
 		let empty_context = DecodingContext::new_empty();
 
 		let vars = [
-			("a", Vv::Number(CN::Int(1))),
-			("b", Vv::Number(CN::UInt(2))),
+			("a", Vv::Number(Number(1.0))),
+			("b", Vv::Number(Number(2.0))),
 			("c", Vv::String(CompactString::const_new("abc"))),
 			("d", Vv::String(CompactString::const_new(r"\"))),
 			("e", Vv::String(CompactString::const_new(r"\{}"))),
@@ -444,7 +444,7 @@ mod substitution {
 		let xyz_ref = "xyz";
 		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars(vec![
-			("a", &Vv::Number(CN::Int(1))),
+			("a", &Vv::Number(Number(1.0))),
 			("b", &xyz_string),
 		]);
 
@@ -569,9 +569,9 @@ mod substitution {
 		let xyz_ref = "xyz";
 		let xyz_string = Vv::String(CompactString::const_new(xyz_ref));
 		let nonempty_context = DecodingContext::new_with_vars(vec![
-			("a", &Vv::Number(CN::Int(1))),
-			("b", &Vv::Number(CN::UInt(2))),
-			("c", &Vv::Number(CN::Float(3.0))),
+			("a", &Vv::Number(Number(1.0))),
+			("b", &Vv::Number(Number(2.0))),
+			("c", &Vv::Number(Number(3.0))),
 			("d", &xyz_string),
 		]);
 

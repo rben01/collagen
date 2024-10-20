@@ -1,4 +1,4 @@
-use super::concrete_number::ConcreteNumber;
+use super::concrete_number::Number;
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt};
@@ -8,7 +8,7 @@ use std::{borrow::Cow, fmt};
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(untagged)]
 pub(crate) enum VariableValue {
-	Number(ConcreteNumber),
+	Number(Number),
 	String(CompactString),
 }
 
@@ -32,7 +32,7 @@ impl VariableValue {
 	}
 }
 
-impl<T: Into<ConcreteNumber>> From<T> for VariableValue {
+impl<T: Into<Number>> From<T> for VariableValue {
 	fn from(x: T) -> Self {
 		Self::Number(x.into())
 	}
@@ -51,30 +51,6 @@ mod tests {
 
 	use super::*;
 	use serde_test::{assert_tokens, Token};
-
-	#[test]
-	fn concrete_number() {
-		macro_rules! test {
-			($value:expr, $cn_variant:ident, $tok_variant:ident $(,)?) => {
-				assert_tokens(
-					&VariableValue::Number(ConcreteNumber::$cn_variant($value)),
-					&[Token::$tok_variant($value)],
-				)
-			};
-		}
-
-		// ConcreteNumber
-		test!(-2.5, Float, F64);
-		test!(0.0, Float, F64);
-		test!(2.5, Float, F64);
-
-		test!(0, UInt, U64);
-		test!(1, UInt, U64);
-
-		test!(-1, Int, I64);
-		test!(0, Int, I64);
-		test!(1, Int, I64);
-	}
 
 	#[test]
 	fn text() {

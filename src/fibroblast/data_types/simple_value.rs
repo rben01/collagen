@@ -1,7 +1,7 @@
 use compact_str::{CompactString, ToCompactString};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use super::concrete_number::{ConcreteNumber, ConcreteNumberVisitor};
+use super::concrete_number::{ConcreteNumberVisitor, Number};
 
 /// An enum whose variants represent "simple" (indivisible) values. This owns all of its
 /// values (*maybe* could be replaced with `SimpleValue<'a> { Text(Cow<'a, str>) }` but
@@ -9,7 +9,7 @@ use super::concrete_number::{ConcreteNumber, ConcreteNumberVisitor};
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum SimpleValue {
-	Number(ConcreteNumber),
+	Number(Number),
 	Text(CompactString),
 	/// The presence of an attribute — usually represented `attr=""`
 	Present,
@@ -130,30 +130,6 @@ mod tests {
 
 	use super::*;
 	use serde_test::{assert_tokens, Token};
-
-	#[test]
-	fn concrete_number() {
-		macro_rules! test {
-			($value:expr, $cn_variant:ident, $tok_variant:ident $(,)?) => {
-				assert_tokens(
-					&SimpleValue::Number(ConcreteNumber::$cn_variant($value)),
-					&[Token::$tok_variant($value)],
-				)
-			};
-		}
-
-		// ConcreteNumber
-		test!(-2.5, Float, F64);
-		test!(0.0, Float, F64);
-		test!(2.5, Float, F64);
-
-		test!(0, UInt, U64);
-		test!(1, UInt, U64);
-
-		test!(-1, Int, I64);
-		test!(0, Int, I64);
-		test!(1, Int, I64);
-	}
 
 	#[test]
 	fn text() {

@@ -14,7 +14,7 @@ use crate::{
 	utils::{Map, MapEntry, Set},
 };
 use compact_str::{CompactString, ToCompactString};
-pub(crate) use concrete_number::ConcreteNumber;
+pub(crate) use concrete_number::Number;
 pub(crate) use simple_value::SimpleValue;
 use std::{
 	borrow::Cow,
@@ -153,7 +153,7 @@ impl DecodingContext<'_> {
 				variables_referenced.insert(var.to_compact_string());
 				match self.eval_exprs_in_str_helper(s, &variables_referenced) {
 					Ok(x) => match x.parse() {
-						Ok(n) => ConcreteNumber::Float(n).into(),
+						Ok(n) => Number(n).into(),
 						Err(_) => CompactString::from(x).into(),
 					},
 					Err(e) => {
