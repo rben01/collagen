@@ -2,8 +2,13 @@ use super::{
 	error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
 	DecodingContext, XmlAttrs,
 };
-use crate::to_svg::svg_writable::{prepare_and_write_tag, SvgWritable};
+use crate::{
+	from_json::ClgnDecodingError,
+	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
+};
+use jsonnet::JsonnetVm;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// The document root (`<svg>...<svg>`). A `collagen.json` file is expected to contain a
 /// single object; that object is always implicitly of type `RootTag`. The set of keys
@@ -21,6 +26,42 @@ pub struct RootTag {
 }
 
 impl RootTag {
+	pub(crate) fn new_from_dir_with_jsonnet(path: &Path) -> ClgnDecodingResult<Self> {
+		let manifest_path = path.join("collagen.jsonnet");
+
+		let mut vm = JsonnetVm::new();
+		let json_str = match vm.evaluate_file(path) {
+			Ok(s) => s,
+			Err(err) => {
+				return Err(ClgnDecodingError::JsonnetRead {
+					msg: err.to_string(),
+					path: manifest_path,
+				})
+			}
+		};
+
+		let root = serde_json::from_str::<RootTag>(&json_str)
+			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
+			.validate()?;
+
+		Ok(root)
+	}
+
+	pub(crate) fn new_from_dir_with_pure_json(path: &Path) -> ClgnDecodingResult<Self> {
+		let manifest_path = path.join("collagen.json");
+
+		let rdr = match std::fs::File::open(&manifest_path) {
+			Ok(f) => f,
+			Err(err) => return Err(ClgnDecodingError::Io(err, manifest_path)),
+		};
+
+		let root = serde_json::from_reader::<_, RootTag>(rdr)
+			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
+			.validate()?;
+
+		Ok(root)
+	}
+
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
 		self.attrs.as_ref()
 	}

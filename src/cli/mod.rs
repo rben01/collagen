@@ -40,7 +40,7 @@ fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<std
 }
 
 fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
-	Fibroblast::from_dir(in_folder.to_path_buf())?.to_svg(&mut create_writer(out_file)?)
+	Fibroblast::from_dir(in_folder)?.to_svg(&mut create_writer(out_file)?)
 }
 
 fn run_once_log(in_folder: &Path, out_file: &Path) {

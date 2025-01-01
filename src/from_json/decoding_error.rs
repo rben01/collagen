@@ -10,7 +10,6 @@
 
 use crate::fibroblast::tags::ErrorTagReason;
 use quick_xml::Error as XmlError;
-use serde_json as json;
 use std::{fmt::Display, io, path::PathBuf, process::ExitCode, str::Utf8Error};
 use zip::result::ZipError;
 
@@ -22,8 +21,12 @@ pub enum ClgnDecodingError {
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
 	Zip(ZipError),
-	JsonDecode(json::Error, PathBuf),
-	JsonEncode(json::Error, Option<PathBuf>),
+	JsonnetRead {
+		msg: String,
+		path: PathBuf,
+	},
+	JsonDecode(serde_json::Error, PathBuf),
+	JsonEncode(serde_json::Error, Option<PathBuf>),
 	Xml(XmlError),
 	ToSvgString(Utf8Error),
 	Image {
@@ -55,6 +58,7 @@ impl ClgnDecodingError {
 		use ClgnDecodingError::*;
 		ExitCode::from(match self {
 			InvalidSchema { .. } => 1,
+			JsonnetRead { .. } => 2,
 			JsonDecode { .. } => 4,
 			JsonEncode { .. } => 5,
 			InvalidPath { .. } => 6,
@@ -82,6 +86,10 @@ impl Display for ClgnDecodingError {
 			Io(e, path) => write!(f, "{path:?}: {e}"),
 			InvalidPath(p) => write!(f, "Invalid path: {p:?}"),
 			Zip(e) => write!(f, "{e:?}"),
+			JsonnetRead { msg, path } => write!(
+				f,
+				"failed to read jsonnet file {path:?}; original error: {msg:?}"
+			),
 			JsonDecode(e, path) => write!(f, "{path:?}: {e}"),
 			JsonEncode(e, path) => write!(f, "{path:?}: {e}"),
 			Xml(e) => write!(f, "{e:?}"),
