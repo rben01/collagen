@@ -103,7 +103,7 @@ impl<'a> SvgWritable<'a> for RootTag<'a> {
 // 	}
 // }
 
-impl<'a> RootTag<'a> {
+impl RootTag<'_> {
 	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
 		let children = self.children.children.take();
 		let Some(children) = children else {

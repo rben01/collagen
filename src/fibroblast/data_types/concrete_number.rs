@@ -5,7 +5,7 @@ use serde::{de, Deserialize, Deserializer, Serialize};
 /// Visitor at all.
 pub(super) struct ConcreteNumberVisitor;
 
-impl<'de> de::Visitor<'de> for ConcreteNumberVisitor {
+impl de::Visitor<'_> for ConcreteNumberVisitor {
 	type Value = Number;
 
 	fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

@@ -80,7 +80,7 @@ impl HasOwnedVars for ImageTag<'_> {
 	}
 }
 
-impl<'a> ImageTag<'a> {
+impl ImageTag<'_> {
 	fn image_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
 		Ok(context.eval_exprs_in_str(&self.image_path)?)
 	}

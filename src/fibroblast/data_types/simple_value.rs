@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for SimpleValue {
 	{
 		struct SimpleValueVisitor;
 
-		impl<'de> de::Visitor<'de> for SimpleValueVisitor {
+		impl de::Visitor<'_> for SimpleValueVisitor {
 			type Value = SimpleValue;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
