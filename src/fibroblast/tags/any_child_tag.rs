@@ -1,7 +1,6 @@
 use super::{
-	container_tag::ContainerTag, font_tag::FontTag, foreach_tag::ForeachTag,
-	generic_tag::GenericTag, if_tag::IfTag, image_tag::ImageTag, nested_svg_tag::NestedSvgTag,
-	text_tag::TextTag, ClgnDecodingResult, ErrorTag,
+	container_tag::ContainerTag, font_tag::FontTag, generic_tag::GenericTag, image_tag::ImageTag,
+	nested_svg_tag::NestedSvgTag, text_tag::TextTag, ClgnDecodingResult, ErrorTag,
 };
 use crate::{
 	fibroblast::{
@@ -31,19 +30,17 @@ use strum_macros::{AsRefStr, EnumDiscriminants, EnumIter};
 #[strum_discriminants(vis(pub(crate)))]
 #[strum_discriminants(derive(AsRefStr, EnumIter))]
 #[serde(untagged)]
-pub enum AnyChildTag<'a> {
-	Generic(GenericTag<'a>),
-	Image(ImageTag<'a>),
-	Container(ContainerTag<'a>),
+pub enum AnyChildTag {
+	Generic(GenericTag),
+	Image(ImageTag),
+	Container(ContainerTag),
 	NestedSvg(NestedSvgTag),
-	Foreach(ForeachTag<'a>),
-	If(IfTag<'a>),
 	Font(FontTag),
 	Text(TextTag),
 	Error(ErrorTag),
 }
 
-impl Validatable for AnyChildTag<'_> {
+impl Validatable for AnyChildTag {
 	// The "right" way to do this, of course, is to have two separate enums,
 	// UnvalidatedAnyChildTag and AnyChildTag, which have all the same variants except
 	// for the extra Error(ErrorTag) in UnvalidatedChildTag. And of course then we'd need
@@ -62,8 +59,6 @@ impl Validatable for AnyChildTag<'_> {
 			Image(t) => Image(t.validate()?),
 			Container(t) => Container(t.validate()?),
 			NestedSvg(t) => NestedSvg(t.validate()?),
-			Foreach(t) => Foreach(t.validate()?),
-			If(t) => If(t.validate()?),
 			Font(t) => Font(t.validate()?),
 			Text(t) => Text(t.validate()?),
 			Error(t) => {
@@ -78,11 +73,11 @@ impl Validatable for AnyChildTag<'_> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
+impl SvgWritable for AnyChildTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		use AnyChildTag::*;
 		match self {
@@ -90,8 +85,6 @@ impl<'a> SvgWritable<'a> for AnyChildTag<'a> {
 			Image(t) => t.to_svg(writer, context)?,
 			Container(t) => t.to_svg(writer, context)?,
 			NestedSvg(t) => t.to_svg(writer, context)?,
-			Foreach(t) => t.to_svg(writer, context)?,
-			If(t) => t.to_svg(writer, context)?,
 			Font(t) => t.to_svg(writer, context)?,
 			Text(t) => t.to_svg(writer, context)?,
 			Error(_) => unreachable!(),

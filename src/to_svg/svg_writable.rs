@@ -147,11 +147,11 @@ use quick_xml::{
 // 	}
 // }
 
-pub(crate) trait SvgWritable<'a> {
+pub(crate) trait SvgWritable {
 	fn to_svg(
 		&self,
 		writer: &mut XmlWriter<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()>;
 }
 

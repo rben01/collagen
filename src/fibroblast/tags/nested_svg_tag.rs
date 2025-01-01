@@ -8,7 +8,6 @@ use compact_str::CompactString;
 use quick_xml::events::BytesText;
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::sync::LazyLock;
 
 static XML_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
@@ -29,30 +28,22 @@ pub struct NestedSvgTag {
 	attrs: DeXmlAttrs,
 }
 
-impl NestedSvgTag {
-	fn svg_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
-		Ok(context.eval_exprs_in_str(&self.svg_path)?)
-	}
-}
-
-impl<'a> SvgWritable<'a> for NestedSvgTag {
+impl SvgWritable for NestedSvgTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		write_tag(
 			writer,
 			"g",
 			|elem| {
-				context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
+				self.attrs.as_ref().write_into(elem);
 				Ok(())
 			},
 			|writer| {
-				let abs_svg_path = crate::utils::paths::pathsep_aware_join(
-					&*context.get_root(),
-					self.svg_path(context)?,
-				)?;
+				let abs_svg_path =
+					crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
 
 				let text = std::fs::read_to_string(&abs_svg_path)
 					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
@@ -63,9 +54,7 @@ impl<'a> SvgWritable<'a> for NestedSvgTag {
 
 				Ok(())
 			},
-		)?;
-
-		Ok(())
+		)
 	}
 }
 

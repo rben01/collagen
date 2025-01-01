@@ -1,4 +1,4 @@
-use super::{element::HasOwnedVars, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables};
+use super::{DeXmlAttrs, DecodingContext};
 use crate::{
 	fibroblast::data_types::Number,
 	impl_trivially_validatable,
@@ -6,10 +6,9 @@ use crate::{
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
 };
-use compact_str::{format_compact, CompactString};
+use compact_str::{format_compact, CompactString, ToCompactString};
 use quick_xml::events::{BytesText, Event};
 use serde::{de, ser::SerializeMap, Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[cfg(feature = "_any_bundled_font")]
 use crate::assets::fonts;
@@ -244,16 +243,7 @@ pub struct FontTag {
 	fonts: Vec<FontFace>,
 
 	#[serde(flatten)]
-	vars: DeTagVariables,
-
-	#[serde(flatten)]
 	attrs: DeXmlAttrs,
-}
-
-impl HasOwnedVars for FontTag {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
-		self.vars.as_mut()
-	}
 }
 
 impl FontTag {
@@ -332,21 +322,21 @@ impl FontTag {
 			text.push_str("@font-face{");
 
 			for (k, v) in all_attrs {
-				let new_val = match &v {
-					CowishFontAttr::OwnedAttr(a) => match a {
-						FontAttr::String(text) => context.eval_exprs_in_str(text.as_ref())?,
-						FontAttr::Number(n) => Cow::Owned(n.to_string()),
-					},
-					CowishFontAttr::BorrowedAttr(a) => match *a {
-						FontAttr::String(text) => context.eval_exprs_in_str(text.as_ref())?,
-						FontAttr::Number(n) => Cow::Owned(n.to_string()),
-					},
-					CowishFontAttr::BorrowedStr(text) => context.eval_exprs_in_str(text)?,
-				};
-
 				text.push_str(k);
 				text.push(':');
-				text.push_str(&new_val);
+
+				match &v {
+					CowishFontAttr::OwnedAttr(a) => match a {
+						FontAttr::String(s) => text.push_str(s),
+						FontAttr::Number(n) => text.push_str(&n.to_compact_string()),
+					},
+					CowishFontAttr::BorrowedAttr(a) => match *a {
+						FontAttr::String(s) => text.push_str(&*s),
+						FontAttr::Number(n) => text.push_str(&n.to_compact_string()),
+					},
+					CowishFontAttr::BorrowedStr(s) => text.push_str(s),
+				};
+
 				text.push(';');
 			}
 
@@ -359,28 +349,26 @@ impl FontTag {
 	}
 }
 
-impl<'a> SvgWritable<'a> for FontTag {
+impl SvgWritable for FontTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		context.with_new_vars(self.vars.as_ref(), || {
-			write_tag(
-				writer,
-				"defs",
-				|elem| {
-					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
-					Ok(())
-				},
-				|writer| {
-					writer.write_event(Event::Text(BytesText::from_escaped(
-						self.font_embed_text(context)?,
-					)))?;
-					Ok(())
-				},
-			)
-		})
+		write_tag(
+			writer,
+			"defs",
+			|elem| {
+				self.attrs.as_ref().write_into(elem);
+				Ok(())
+			},
+			|writer| {
+				writer.write_event(Event::Text(BytesText::from_escaped(
+					self.font_embed_text(context)?,
+				)))?;
+				Ok(())
+			},
+		)
 	}
 }
 

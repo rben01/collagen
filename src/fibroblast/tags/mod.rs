@@ -35,34 +35,29 @@ pub(super) mod container_tag;
 pub(crate) mod element;
 pub(super) mod error_tag;
 pub(super) mod font_tag;
-pub(super) mod foreach_tag;
 pub(super) mod generic_tag;
-pub(super) mod if_tag;
 pub(super) mod image_tag;
 pub(super) mod nested_svg_tag;
 pub mod root_tag;
 pub(super) mod text_tag;
 
-use self::element::{TagVariables, XmlAttrs};
+use self::element::XmlAttrs;
 pub(super) use crate::{
-	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult, utils::Map,
+	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
 };
 pub use any_child_tag::AnyChildTag;
 pub use container_tag::ContainerTag;
 pub use error_tag::{ErrorTag, ErrorTagReason};
 pub use font_tag::FontTag;
-pub use foreach_tag::ForeachTag;
 pub use generic_tag::GenericTag;
-pub use if_tag::IfTag;
 pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
-/// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
-/// `BTreeMap` doesn't allocate until it has at least one element, this really costs
-/// almost nothing
-pub(crate) static EMPTY_VARS: LazyLock<TagVariables> = LazyLock::new(|| TagVariables(Map::new()));
+// The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
+// `BTreeMap` doesn't allocate until it has at least one element, this really costs
+// almost nothing
 pub(crate) static EMPTY_ATTRS: LazyLock<XmlAttrs> = LazyLock::new(|| XmlAttrs(Vec::new()));
 
 /// Description: A dictionary whose keys and values will be used to construct the list
@@ -84,50 +79,19 @@ impl AsRef<XmlAttrs> for DeXmlAttrs {
 	}
 }
 
-/// Description: A dictionary mapping variable names to their values. Variables are used
-/// for substitutions in other attributes. For instance, if `vars` is `{ "x": 10, "y":
-/// 20 }` and `text` is `"{x} {y}"`, then `text` will be converted to `10 20` before
-/// inclusion in XML. Also applies to the values in `attrs` and to LISP expressions such
-/// as `"{(+ x y)}"` (which would evaluate to 30 in this case).
-///
-/// As demonstrated above, to indicate that a variable should be substituted into a
-/// string, surround the variable name in curly braces (inspired by [Format Args
-/// Implicit
-/// Identifiers](https://rust-lang.github.io/rfcs/2795-format-args-implicit-identifiers.html),
-/// which enables `"{variable}"` in most macros).
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub(crate) struct DeTagVariables {
-	/// (Optional) A dictionary mapping variable names to their values. None is
-	/// equivalent to no variables.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	vars: Option<TagVariables>,
-}
-
-impl AsRef<TagVariables> for DeTagVariables {
-	fn as_ref(&self) -> &TagVariables {
-		self.vars.as_ref().unwrap_or(&EMPTY_VARS)
-	}
-}
-
-impl AsMut<Option<TagVariables>> for DeTagVariables {
-	fn as_mut(&mut self) -> &mut Option<TagVariables> {
-		&mut self.vars
-	}
-}
-
 /// A list of children of this tag. Each child in the list is an object interpretable as
 /// `AnyChildTag`. For example, the `children` in `{ "tag": "g", "children": [{ "tag":
 /// "rect", "attrs": ... }, { "image_path": ... }] }`
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub(crate) struct DeChildTags<'a> {
+pub(crate) struct DeChildTags {
 	/// (Optional) A dictionary mapping variable names to their values. None is
 	/// equivalent to no variables.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub(crate) children: Option<Vec<AnyChildTag<'a>>>,
+	pub(crate) children: Option<Vec<AnyChildTag>>,
 }
 
-impl<'a> AsRef<[AnyChildTag<'a>]> for DeChildTags<'a> {
-	fn as_ref(&self) -> &[AnyChildTag<'a>] {
+impl<'a> AsRef<[AnyChildTag]> for DeChildTags {
+	fn as_ref(&self) -> &[AnyChildTag] {
 		self.children.as_deref().unwrap_or(&[])
 	}
 }

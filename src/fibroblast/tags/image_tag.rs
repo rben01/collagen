@@ -1,4 +1,4 @@
-use super::{element::HasOwnedVars, DeChildTags, DeTagVariables, DeXmlAttrs, TagVariables};
+use super::{DeChildTags, DeXmlAttrs};
 use crate::{
 	fibroblast::data_types::DecodingContext,
 	impl_validatable_via_children,
@@ -55,7 +55,7 @@ use std::{borrow::Cow, path::Path};
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ImageTag<'a> {
+pub struct ImageTag {
 	/// The path to the image relative to the folder root
 	image_path: CompactString,
 
@@ -65,45 +65,32 @@ pub struct ImageTag<'a> {
 	kind: Option<CompactString>,
 
 	#[serde(flatten)]
-	vars: DeTagVariables,
-
-	#[serde(flatten)]
 	attrs: DeXmlAttrs,
 
 	#[serde(flatten)]
-	children: DeChildTags<'a>,
+	children: DeChildTags,
 }
 
-impl HasOwnedVars for ImageTag<'_> {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
-		self.vars.as_mut()
-	}
-}
-
-impl ImageTag<'_> {
-	fn image_path<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'b, str>> {
-		Ok(context.eval_exprs_in_str(&self.image_path)?)
-	}
-
+impl ImageTag {
 	/// The kind of the image (e.g., `"jpg"`, `"png"`). This corresponds to the `{TYPE}`
 	/// in the data URI `data:image/{TYPE};base64,...`. If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
-	pub(crate) fn kind<'b>(
-		&'b self,
-		context: &DecodingContext,
-	) -> ClgnDecodingResult<Cow<'b, str>> {
-		Ok(if let Some(kind) = &self.kind {
+	pub(crate) fn kind(&self) -> ClgnDecodingResult<Cow<str>> {
+		let Self {
+			image_path, kind, ..
+		} = self;
+
+		Ok(if let Some(kind) = kind {
 			Cow::Borrowed(kind)
 		} else {
-			let image_path = self.image_path(context)?;
-			let path = Path::new(image_path.as_ref());
+			let path = Path::new(image_path);
 			path.extension()
 				.and_then(|extn| extn.to_str())
 				.map(|s| Cow::Owned(s.to_ascii_lowercase()))
 				.ok_or_else(|| ClgnDecodingError::Image {
 					msg: format!(
 						r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
-						self.image_path
+						image_path
 					),
 				})?
 		})
@@ -116,7 +103,7 @@ impl ImageTag<'_> {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<(&'static str, String)> {
 		let key = "href";
-		let kind = self.kind(context)?;
+		let kind = self.kind()?;
 
 		// I'd like to find the "right" way to reduce memory usage here. We're reading a
 		// file into memory and then storing its b64 string also in memory. That's
@@ -124,9 +111,8 @@ impl ImageTag<'_> {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 
-		let image_path = context.eval_exprs_in_str(&self.image_path)?;
 		let abs_image_path =
-			crate::utils::paths::pathsep_aware_join(&*context.get_root(), image_path)?;
+			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.image_path)?;
 
 		let b64_string = b64_encode(
 			std::fs::read(abs_image_path.as_path())
@@ -138,34 +124,32 @@ impl ImageTag<'_> {
 	}
 }
 
-impl<'a> SvgWritable<'a> for ImageTag<'a> {
+impl SvgWritable for ImageTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		context.with_new_vars(self.vars.as_ref(), || {
-			let (img_k, img_v) = self.get_image_attr_pair(context)?;
+		let (img_k, img_v) = self.get_image_attr_pair(context)?;
 
-			write_tag(
-				writer,
-				"image",
-				|elem| {
-					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
-					elem.push_attribute((img_k, img_v.as_ref()));
-					Ok(())
-				},
-				|writer| {
-					for child in self.children.as_ref() {
-						child.to_svg(writer, context)?;
-					}
-					Ok(())
-				},
-			)?;
+		write_tag(
+			writer,
+			"image",
+			|elem| {
+				self.attrs.as_ref().write_into(elem);
+				elem.push_attribute((img_k, img_v.as_ref()));
+				Ok(())
+			},
+			|writer| {
+				for child in self.children.as_ref() {
+					child.to_svg(writer, context)?;
+				}
+				Ok(())
+			},
+		)?;
 
-			Ok(())
-		})
+		Ok(())
 	}
 }
 
-impl_validatable_via_children!(ImageTag<'_>);
+impl_validatable_via_children!(ImageTag);

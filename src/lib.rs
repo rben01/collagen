@@ -9,7 +9,6 @@ pub mod assets;
 pub mod cli;
 pub mod fibroblast;
 pub mod from_json;
-pub(crate) mod parsing;
 pub mod to_svg;
 pub(crate) mod utils;
 

@@ -29,8 +29,6 @@ impl AnyChildTagDiscriminants {
 			Image => "image_path",
 			Container => "clgn_path",
 			NestedSvg => "svg_path",
-			Foreach => "for_each",
-			If => "if",
 			Font => "fonts",
 			Text => "text",
 			Error => unreachable!(),
@@ -44,8 +42,8 @@ impl AnyChildTagDiscriminants {
 	fn article(self) -> &'static str {
 		use AnyChildTagDiscriminants::*;
 		match self {
-			Generic | Container | NestedSvg | Foreach | Font | Text => "a",
-			If | Image => "an",
+			Generic | Container | NestedSvg | Font | Text => "a",
+			Image => "an",
 			Error => unreachable!(),
 		}
 	}
@@ -53,8 +51,6 @@ impl AnyChildTagDiscriminants {
 	fn required_keys(self) -> &'static [&'static str] {
 		use AnyChildTagDiscriminants::*;
 		match self {
-			Foreach => &["do"],
-			If => &["then"],
 			Generic | Image | Container | NestedSvg | Font | Text => &[],
 			Error => unreachable!(),
 		}
@@ -65,8 +61,6 @@ impl AnyChildTagDiscriminants {
 		match self {
 			Generic => &["vars", "attrs", "children"],
 			Image => &["vars", "attrs", "kind", "children"],
-			Foreach => &["vars", "attrs"],
-			If => &["vars", "attrs", "else"],
 			Text => &["vars", "is_preescaped"],
 			Container | NestedSvg | Font => &[],
 			Error => unreachable!(),

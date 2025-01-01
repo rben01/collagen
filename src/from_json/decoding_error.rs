@@ -8,7 +8,7 @@
 //! returning a `ClgnDecodingResult`. (Otherwise we'd have to sprinkle `.map_err`
 //! everywhere.)
 
-use crate::{fibroblast::tags::ErrorTagReason, parsing::errors::VariableEvaluationError};
+use crate::fibroblast::tags::ErrorTagReason;
 use quick_xml::Error as XmlError;
 use serde_json as json;
 use std::{fmt::Display, io, path::PathBuf, process::ExitCode, str::Utf8Error};
@@ -19,7 +19,6 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 #[derive(Debug)]
 pub enum ClgnDecodingError {
 	InvalidSchema(ErrorTagReason),
-	Parsing(Vec<VariableEvaluationError>),
 	Io(io::Error, PathBuf),
 	InvalidPath(PathBuf),
 	Zip(ZipError),
@@ -56,7 +55,6 @@ impl ClgnDecodingError {
 		use ClgnDecodingError::*;
 		ExitCode::from(match self {
 			InvalidSchema { .. } => 1,
-			Parsing { .. } => 3,
 			JsonDecode { .. } => 4,
 			JsonEncode { .. } => 5,
 			InvalidPath { .. } => 6,
@@ -81,7 +79,6 @@ impl Display for ClgnDecodingError {
 		use ClgnDecodingError::*;
 		match self {
 			InvalidSchema(reason) => write!(f, "{reason}"),
-			Parsing(e) => write!(f, "Parsing: {e:?}"),
 			Io(e, path) => write!(f, "{path:?}: {e}"),
 			InvalidPath(p) => write!(f, "Invalid path: {p:?}"),
 			Zip(e) => write!(f, "{e:?}"),
@@ -113,12 +110,6 @@ impl Display for ClgnDecodingError {
 				 was bundled when `clgn` was built."
 			),
 		}
-	}
-}
-
-impl From<Vec<VariableEvaluationError>> for ClgnDecodingError {
-	fn from(errs: Vec<VariableEvaluationError>) -> Self {
-		Self::Parsing(errs)
 	}
 }
 

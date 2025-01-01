@@ -1,13 +1,6 @@
-use crate::{
-	fibroblast::data_types::{SimpleValue, VariableValue},
-	utils::Map,
-};
-use compact_str::CompactString;
+use crate::fibroblast::data_types::SimpleValue;
+use compact_str::{CompactString, ToCompactString};
 use serde::{de::Visitor, Deserialize, Serialize};
-
-pub(crate) trait HasOwnedVars {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables>;
-}
 
 /// A type alias for storing XML attribute key-value pairs
 #[derive(Debug, Clone)]
@@ -69,21 +62,15 @@ impl XmlAttrs {
 	pub(crate) fn iter(&self) -> impl Iterator<Item = (&str, &SimpleValue)> {
 		self.0.iter().map(|(k, v)| (k.as_ref(), v))
 	}
-}
 
-/// Map of `String` -> `VariableValue`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct TagVariables(pub(crate) Map<CompactString, VariableValue>);
-
-pub(crate) fn insert_var(
-	into: &mut Option<TagVariables>,
-	key: CompactString,
-	value: VariableValue,
-) -> Option<VariableValue> {
-	if let Some(vars) = into {
-		vars.0.insert(key, value)
-	} else {
-		*into = Some(TagVariables(Map::from_iter([(key, value)])));
-		None
+	pub(crate) fn write_into(&self, elem: &mut quick_xml::events::BytesStart) {
+		for (k, v) in self.iter() {
+			match v {
+				SimpleValue::Text(text) => elem.push_attribute((k, text.as_str())),
+				SimpleValue::Number(n) => elem.push_attribute((k, n.to_compact_string().as_str())),
+				SimpleValue::Present => elem.push_attribute((k, "")),
+				SimpleValue::Absent => {}
+			};
+		}
 	}
 }

@@ -1,6 +1,4 @@
-use super::{
-	element::HasOwnedVars, DeChildTags, DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables,
-};
+use super::{DeChildTags, DeXmlAttrs, DecodingContext};
 use crate::{
 	impl_validatable_via_children,
 	to_svg::svg_writable::{write_tag, SvgWritable},
@@ -25,50 +23,39 @@ use serde::{Deserialize, Serialize};
 ///     `"tag_name": "rect"`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct GenericTag<'a> {
+pub struct GenericTag {
 	#[serde(rename = "tag")]
 	tag_name: CompactString,
-
-	#[serde(flatten)]
-	vars: DeTagVariables,
 
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
 
 	#[serde(flatten)]
-	children: DeChildTags<'a>,
+	children: DeChildTags,
 }
 
-impl HasOwnedVars for GenericTag<'_> {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
-		self.vars.as_mut()
-	}
-}
-
-impl<'a> SvgWritable<'a> for GenericTag<'a> {
+impl SvgWritable for GenericTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		context.with_new_vars(self.vars.as_ref(), || {
-			write_tag(
-				writer,
-				&self.tag_name,
-				|elem| {
-					context.write_attrs_into(self.attrs.as_ref().iter(), elem)?;
-					Ok(())
-				},
-				|writer| {
-					for child in self.children.as_ref() {
-						child.to_svg(writer, context)?;
-					}
-					Ok(())
-				},
-			)?;
-			Ok(())
-		})
+		write_tag(
+			writer,
+			&self.tag_name,
+			|elem| {
+				self.attrs.as_ref().write_into(elem);
+				Ok(())
+			},
+			|writer| {
+				for child in self.children.as_ref() {
+					child.to_svg(writer, context)?;
+				}
+				Ok(())
+			},
+		)?;
+		Ok(())
 	}
 }
 
-impl_validatable_via_children!(GenericTag<'_>);
+impl_validatable_via_children!(GenericTag);

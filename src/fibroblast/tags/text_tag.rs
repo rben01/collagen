@@ -1,4 +1,4 @@
-use super::{element::HasOwnedVars, DeTagVariables, DecodingContext, TagVariables};
+use super::DecodingContext;
 use crate::{impl_trivially_validatable, to_svg::svg_writable::SvgWritable, ClgnDecodingResult};
 use compact_str::CompactString;
 use quick_xml::events::BytesText;
@@ -11,25 +11,20 @@ pub struct TextTag {
 
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	is_preescaped: Option<bool>,
-
-	#[serde(flatten)]
-	vars: DeTagVariables,
 }
 
-impl HasOwnedVars for TextTag {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
-		self.vars.as_mut()
-	}
-}
-
-impl<'a> SvgWritable<'a> for TextTag {
+impl SvgWritable for TextTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		_context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		let is_preescaped = self.is_preescaped.unwrap_or(false);
-		let text = context.eval_exprs_in_str(&self.text)?;
+		let Self {
+			text,
+			is_preescaped,
+		} = self;
+
+		let is_preescaped = is_preescaped.unwrap_or(false);
 
 		let bt = if is_preescaped {
 			BytesText::from_escaped(text)

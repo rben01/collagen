@@ -1,6 +1,6 @@
 use super::{
-	element::HasOwnedVars, error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags,
-	DeTagVariables, DeXmlAttrs, DecodingContext, TagVariables, XmlAttrs,
+	error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
+	DecodingContext, XmlAttrs,
 };
 use crate::to_svg::svg_writable::{write_tag, SvgWritable};
 use serde::{Deserialize, Serialize};
@@ -12,68 +12,52 @@ use serde::{Deserialize, Serialize};
 ///
 /// `RootTag` accepts only the properties in [`CommonTagFields`](crate::fibroblast::tags::CommonTagFields).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RootTag<'a> {
-	#[serde(flatten)]
-	vars: DeTagVariables,
-
+pub struct RootTag {
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
 
 	#[serde(flatten)]
-	children: DeChildTags<'a>,
+	children: DeChildTags,
 }
 
-impl HasOwnedVars for RootTag<'_> {
-	fn vars_mut(&mut self) -> &mut Option<TagVariables> {
-		self.vars.as_mut()
-	}
-}
-
-impl<'a> RootTag<'a> {
-	pub(crate) fn vars(&self) -> &TagVariables {
-		self.vars.as_ref()
-	}
-
+impl RootTag {
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
 		self.attrs.as_ref()
 	}
 
-	pub(crate) fn children(&self) -> &[AnyChildTag<'a>] {
+	pub(crate) fn children(&self) -> &[AnyChildTag] {
 		self.children.as_ref()
 	}
 }
 
-impl<'a> SvgWritable<'a> for RootTag<'a> {
+impl SvgWritable for RootTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		context.with_new_vars(self.vars.as_ref(), || {
-			write_tag(
-				writer,
-				"svg",
-				|elem| {
-					let attrs = self.attrs.as_ref();
+		write_tag(
+			writer,
+			"svg",
+			|elem| {
+				let attrs = self.attrs.as_ref();
 
-					let xmlns = "xmlns";
-					if !attrs.iter().any(|(k, _)| k == xmlns) {
-						elem.push_attribute((xmlns, "http://www.w3.org/2000/svg"));
-					}
+				let xmlns = "xmlns";
+				if !attrs.iter().any(|(k, _)| k == xmlns) {
+					elem.push_attribute((xmlns, "http://www.w3.org/2000/svg"));
+				}
+				attrs.write_into(elem);
 
-					context.write_attrs_into(attrs.iter(), elem)?;
+				Ok(())
+			},
+			|writer| {
+				for child in self.children.as_ref() {
+					child.to_svg(writer, context)?;
+				}
 
-					Ok(())
-				},
-				|writer| {
-					for child in self.children.as_ref() {
-						child.to_svg(writer, context)?;
-					}
-
-					Ok(())
-				},
-			)
-		})
+				Ok(())
+			},
+		)
 	}
 }
 
@@ -103,7 +87,7 @@ impl<'a> SvgWritable<'a> for RootTag<'a> {
 // 	}
 // }
 
-impl RootTag<'_> {
+impl RootTag {
 	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
 		let children = self.children.children.take();
 		let Some(children) = children else {

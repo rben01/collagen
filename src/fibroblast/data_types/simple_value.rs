@@ -19,23 +19,6 @@ pub(crate) enum SimpleValue {
 	Absent,
 }
 
-impl SimpleValue {
-	/// If anything other than `Absent`, return a stringified verion wrapped in a
-	/// `Some`. If `Absent` then `None`.
-	pub fn to_maybe_string(&self) -> Option<CompactString> {
-		use SimpleValue::*;
-
-		// the only case that might allocate is the Text case. I'll take my chances and
-		// use a `CompactString` over a `Cow<'_, str>`
-		match self {
-			Number(n) => Some(n.to_compact_string()),
-			Text(s) => Some(s.clone()),
-			Present => Some(CompactString::const_new("")),
-			Absent => None,
-		}
-	}
-}
-
 impl Clone for SimpleValue {
 	/// Everything but `Text` is `Copy`; `Text` needs to be cloned
 	fn clone(&self) -> Self {
@@ -73,7 +56,7 @@ impl<'de> Deserialize<'de> for SimpleValue {
 	{
 		struct SimpleValueVisitor;
 
-		impl de::Visitor<'_> for SimpleValueVisitor {
+		impl<'de> de::Visitor<'de> for SimpleValueVisitor {
 			type Value = SimpleValue;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

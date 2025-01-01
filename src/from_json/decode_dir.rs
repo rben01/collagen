@@ -7,7 +7,7 @@ use crate::fibroblast::{data_types::DecodingContext, tags::root_tag::RootTag, Fi
 use serde_json;
 use std::path::{Path, PathBuf};
 
-impl<'a> Fibroblast<'a> {
+impl Fibroblast {
 	/// Decode the Fibroblast from the given path
 	///
 	/// # Errors
@@ -26,7 +26,7 @@ impl<'a> Fibroblast<'a> {
 	/// If any error occurs whatsoever. See [`ClgnDecodingError`] for possible causes.
 	pub fn from_dir_with_context(
 		path: impl AsRef<Path>,
-		context: DecodingContext<'a>,
+		context: DecodingContext,
 	) -> ClgnDecodingResult<Self> {
 		let path = path.as_ref();
 

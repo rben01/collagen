@@ -6,7 +6,7 @@ use crate::{
 };
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, cell::RefCell, path::PathBuf};
+use std::{cell::RefCell, path::PathBuf};
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -93,56 +93,48 @@ use std::{borrow::Cow, cell::RefCell, path::PathBuf};
 /// This specific example is in `tests/examples/simple-nesting`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ContainerTag<'a> {
+pub struct ContainerTag {
 	clgn_path: CompactString,
 
 	#[serde(skip)]
 	resolved_path: RefCell<Option<PathBuf>>,
 
 	#[serde(skip)]
-	fibroblast: RefCell<Option<Fibroblast<'a>>>,
+	fibroblast: RefCell<Option<Fibroblast>>,
 }
 
-impl<'a> SvgWritable<'a> for ContainerTag<'a> {
+impl SvgWritable for ContainerTag {
 	fn to_svg(
 		&self,
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
-		context: &DecodingContext<'a>,
+		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		self.instantiate(context)?;
 
 		let fb = self.fibroblast.borrow();
 		let Fibroblast { root, context } = fb.as_ref().unwrap();
 
-		context.with_new_vars(root.vars(), || {
-			write_tag(
-				writer,
-				"g",
-				|elem| {
-					context.write_attrs_into(root.attrs().iter(), elem)?;
-					Ok(())
-				},
-				|writer| {
-					for child in root.children() {
-						child.to_svg(writer, context)?;
-					}
-					Ok(())
-				},
-			)
-		})
+		write_tag(
+			writer,
+			"g",
+			|elem| {
+				root.attrs().write_into(elem);
+				Ok(())
+			},
+			|writer| {
+				for child in root.children() {
+					child.to_svg(writer, context)?;
+				}
+				Ok(())
+			},
+		)
 	}
 }
 
-impl<'a> ContainerTag<'a> {
-	fn clgn_path(&self, context: &DecodingContext) -> ClgnDecodingResult<Cow<'_, str>> {
-		Ok(context.eval_exprs_in_str(&self.clgn_path)?)
-	}
-
-	pub(crate) fn instantiate(&self, context: &DecodingContext<'a>) -> ClgnDecodingResult<()> {
-		let abs_clgn_path = crate::utils::paths::pathsep_aware_join(
-			&*context.get_root(),
-			self.clgn_path(context)?,
-		)?;
+impl ContainerTag {
+	pub(crate) fn instantiate(&self, context: &DecodingContext) -> ClgnDecodingResult<()> {
+		let abs_clgn_path =
+			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
 			let context = context.clone();
@@ -157,4 +149,4 @@ impl<'a> ContainerTag<'a> {
 	}
 }
 
-impl_trivially_validatable!(ContainerTag<'_>);
+impl_trivially_validatable!(ContainerTag);

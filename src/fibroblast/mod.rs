@@ -40,12 +40,12 @@ use crate::to_svg::svg_writable::SvgWritable;
 /// which deserialization succeeds, so it depends on the order of the variants of
 /// [`AnyChildTag`].
 #[derive(Debug, Clone)]
-pub struct Fibroblast<'a> {
-	pub(crate) root: RootTag<'a>,
-	pub(crate) context: DecodingContext<'a>,
+pub struct Fibroblast {
+	pub(crate) root: RootTag,
+	pub(crate) context: DecodingContext,
 }
 
-impl Fibroblast<'_> {
+impl Fibroblast {
 	/// Convert this Fibroblast to an SVG
 	///
 	/// # Errors
