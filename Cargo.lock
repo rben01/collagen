@@ -235,6 +235,7 @@ dependencies = [
  "base64",
  "clap",
  "compact_str",
+ "jsonnet-rs",
  "nom",
  "notify",
  "notify-debouncer-full",
@@ -445,6 +446,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gcc"
+version = "0.3.55"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -543,6 +550,26 @@ version = "0.1.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48d1dbcbbeb6a7fec7e059840aa538bd62aaccf972c7346c4d9d2059312853d0"
 dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "jsonnet-rs"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dea3859e42541d9ecee82613c105234d2af74e1794c255af2d155d1e7ad57558"
+dependencies = [
+ "jsonnet-sys",
+ "libc",
+]
+
+[[package]]
+name = "jsonnet-sys"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2948bf138e186428476eaea072b4b07ef3cd8e6bcaeab941a65ec783a927e6ef"
+dependencies = [
+ "gcc",
  "libc",
 ]
 
