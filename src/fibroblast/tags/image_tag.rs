@@ -89,8 +89,7 @@ impl ImageTag {
 				.map(|s| Cow::Owned(s.to_ascii_lowercase()))
 				.ok_or_else(|| ClgnDecodingError::Image {
 					msg: format!(
-						r#"Could not deduce the extension from {:?}, and no "kind" was given"#,
-						image_path
+						r#"Could not deduce the extension from {image_path:?}, and no "kind" was given"#,
 					),
 				})?
 		})

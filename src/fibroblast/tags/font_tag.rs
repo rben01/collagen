@@ -331,7 +331,7 @@ impl FontTag {
 						FontAttr::Number(n) => text.push_str(&n.to_compact_string()),
 					},
 					CowishFontAttr::BorrowedAttr(a) => match *a {
-						FontAttr::String(s) => text.push_str(&*s),
+						FontAttr::String(s) => text.push_str(s),
 						FontAttr::Number(n) => text.push_str(&n.to_compact_string()),
 					},
 					CowishFontAttr::BorrowedStr(s) => text.push_str(s),

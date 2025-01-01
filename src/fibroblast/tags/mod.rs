@@ -90,7 +90,7 @@ pub(crate) struct DeChildTags {
 	pub(crate) children: Option<Vec<AnyChildTag>>,
 }
 
-impl<'a> AsRef<[AnyChildTag]> for DeChildTags {
+impl AsRef<[AnyChildTag]> for DeChildTags {
 	fn as_ref(&self) -> &[AnyChildTag] {
 		self.children.as_deref().unwrap_or(&[])
 	}
