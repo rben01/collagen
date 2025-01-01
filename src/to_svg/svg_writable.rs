@@ -1,7 +1,10 @@
 //! For writing the in-memory representation to SVG.
 
 pub(crate) use crate::from_json::decoding_error::{ClgnDecodingError, ClgnDecodingResult};
-use crate::{fibroblast::data_types::DecodingContext, XmlEvent};
+use crate::{
+	fibroblast::{data_types::DecodingContext, tags::element::XmlAttrs},
+	XmlEvent,
+};
 use quick_xml::{
 	events::{BytesEnd, BytesStart},
 	Writer as XmlWriter,
@@ -158,11 +161,20 @@ pub(crate) trait SvgWritable {
 pub(crate) fn write_tag<W: std::io::Write>(
 	writer: &mut quick_xml::Writer<W>,
 	tag: &str,
-	mut prepare_tag: impl FnMut(&mut BytesStart) -> ClgnDecodingResult<()>,
-	mut interior_fn: impl FnMut(&mut quick_xml::Writer<W>) -> ClgnDecodingResult<()>,
+	attrs: &XmlAttrs,
+	interior_fn: impl FnOnce(&mut quick_xml::Writer<W>) -> ClgnDecodingResult<()>,
+) -> ClgnDecodingResult<()> {
+	prepare_and_write_tag(writer, tag, |elem| attrs.write_into(elem), interior_fn)
+}
+
+pub(crate) fn prepare_and_write_tag<W: std::io::Write>(
+	writer: &mut quick_xml::Writer<W>,
+	tag: &str,
+	prepare_fn: impl FnOnce(&mut quick_xml::events::BytesStart),
+	interior_fn: impl FnOnce(&mut quick_xml::Writer<W>) -> ClgnDecodingResult<()>,
 ) -> ClgnDecodingResult<()> {
 	let mut elem = BytesStart::new(tag);
-	prepare_tag(&mut elem)?;
+	prepare_fn(&mut elem);
 
 	writer.write_event(XmlEvent::Start(elem))?;
 

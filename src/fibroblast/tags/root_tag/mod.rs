@@ -2,7 +2,7 @@ use super::{
 	error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
 	DecodingContext, XmlAttrs,
 };
-use crate::to_svg::svg_writable::{write_tag, SvgWritable};
+use crate::to_svg::svg_writable::{prepare_and_write_tag, SvgWritable};
 use serde::{Deserialize, Serialize};
 
 /// The document root (`<svg>...<svg>`). A `collagen.json` file is expected to contain a
@@ -36,7 +36,7 @@ impl SvgWritable for RootTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(
+		prepare_and_write_tag(
 			writer,
 			"svg",
 			|elem| {
@@ -47,8 +47,6 @@ impl SvgWritable for RootTag {
 					elem.push_attribute((xmlns, "http://www.w3.org/2000/svg"));
 				}
 				attrs.write_into(elem);
-
-				Ok(())
 			},
 			|writer| {
 				for child in self.children.as_ref() {
@@ -60,32 +58,6 @@ impl SvgWritable for RootTag {
 		)
 	}
 }
-
-// impl<'a> AsSvgElement<'a> for RootTag<'a> {
-// 	fn tag_name(&self) -> &'static str {
-// 		"svg"
-// 	}
-
-// 	fn attrs<'b>(&'b self, context: &DecodingContext) -> ClgnDecodingResult<XmlAttrsBorrowed<'b>> {
-// 		let mut attrs = context.sub_vars_into_attrs(self.attrs.as_ref().iter())?;
-
-// 		if !attrs.0.iter().any(|(k, _)| *k == "xmlns") {
-// 			attrs.0.push((
-// 				"xmlns",
-// 				Cow::Owned(SimpleValue::Text("http://www.w3.org/2000/svg".to_string())),
-// 			));
-// 		}
-
-// 		Ok(attrs)
-// 	}
-
-// 	fn children<'b>(
-// 		&'b self,
-// 		_: &DecodingContext<'a>,
-// 	) -> ClgnDecodingResult<Cow<'b, [AnyChildTag<'a>]>> {
-// 		Ok(Cow::Borrowed(self.children.as_ref()))
-// 	}
-// }
 
 impl RootTag {
 	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {

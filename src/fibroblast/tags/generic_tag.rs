@@ -40,21 +40,12 @@ impl SvgWritable for GenericTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(
-			writer,
-			&self.tag_name,
-			|elem| {
-				self.attrs.as_ref().write_into(elem);
-				Ok(())
-			},
-			|writer| {
-				for child in self.children.as_ref() {
-					child.to_svg(writer, context)?;
-				}
-				Ok(())
-			},
-		)?;
-		Ok(())
+		write_tag(writer, &self.tag_name, self.attrs.as_ref(), |writer| {
+			for child in self.children.as_ref() {
+				child.to_svg(writer, context)?;
+			}
+			Ok(())
+		})
 	}
 }
 

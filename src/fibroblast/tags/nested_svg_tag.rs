@@ -34,27 +34,19 @@ impl SvgWritable for NestedSvgTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(
-			writer,
-			"g",
-			|elem| {
-				self.attrs.as_ref().write_into(elem);
-				Ok(())
-			},
-			|writer| {
-				let abs_svg_path =
-					crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
+		write_tag(writer, "g", self.attrs.as_ref(), |writer| {
+			let abs_svg_path =
+				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
 
-				let text = std::fs::read_to_string(&abs_svg_path)
-					.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
-				let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
+			let text = std::fs::read_to_string(&abs_svg_path)
+				.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
+			let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
 
-				let bt = BytesText::from_escaped(text);
-				writer.write_event(crate::XmlEvent::Text(bt))?;
+			let bt = BytesText::from_escaped(text);
+			writer.write_event(crate::XmlEvent::Text(bt))?;
 
-				Ok(())
-			},
-		)
+			Ok(())
+		})
 	}
 }
 

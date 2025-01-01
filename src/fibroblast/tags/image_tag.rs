@@ -2,7 +2,9 @@ use super::{DeChildTags, DeXmlAttrs};
 use crate::{
 	fibroblast::data_types::DecodingContext,
 	impl_validatable_via_children,
-	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
+	to_svg::svg_writable::{
+		prepare_and_write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable,
+	},
 	utils::b64_encode,
 };
 use compact_str::CompactString;
@@ -131,13 +133,12 @@ impl SvgWritable for ImageTag {
 	) -> ClgnDecodingResult<()> {
 		let (img_k, img_v) = self.get_image_attr_pair(context)?;
 
-		write_tag(
+		prepare_and_write_tag(
 			writer,
 			"image",
 			|elem| {
 				self.attrs.as_ref().write_into(elem);
 				elem.push_attribute((img_k, img_v.as_ref()));
-				Ok(())
 			},
 			|writer| {
 				for child in self.children.as_ref() {

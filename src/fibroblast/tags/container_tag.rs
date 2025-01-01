@@ -114,20 +114,12 @@ impl SvgWritable for ContainerTag {
 		let fb = self.fibroblast.borrow();
 		let Fibroblast { root, context } = fb.as_ref().unwrap();
 
-		write_tag(
-			writer,
-			"g",
-			|elem| {
-				root.attrs().write_into(elem);
-				Ok(())
-			},
-			|writer| {
-				for child in root.children() {
-					child.to_svg(writer, context)?;
-				}
-				Ok(())
-			},
-		)
+		write_tag(writer, "g", root.attrs(), |writer| {
+			for child in root.children() {
+				child.to_svg(writer, context)?;
+			}
+			Ok(())
+		})
 	}
 }
 

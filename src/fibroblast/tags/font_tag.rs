@@ -355,20 +355,12 @@ impl SvgWritable for FontTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(
-			writer,
-			"defs",
-			|elem| {
-				self.attrs.as_ref().write_into(elem);
-				Ok(())
-			},
-			|writer| {
-				writer.write_event(Event::Text(BytesText::from_escaped(
-					self.font_embed_text(context)?,
-				)))?;
-				Ok(())
-			},
-		)
+		write_tag(writer, "defs", self.attrs.as_ref(), |writer| {
+			writer.write_event(Event::Text(BytesText::from_escaped(
+				self.font_embed_text(context)?,
+			)))?;
+			Ok(())
+		})
 	}
 }
 
