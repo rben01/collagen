@@ -1,7 +1,9 @@
-use super::{DeChildTags, DeXmlAttrs};
+use super::{
+	any_child_tag::AnyChildTagDiscriminants, validation::Validatable, DeChildTags, DeXmlAttrs,
+	Extras, UnvalidatedDeChildTags,
+};
 use crate::{
 	fibroblast::data_types::DecodingContext,
-	impl_validatable_via_children,
 	to_svg::svg_writable::{
 		prepare_and_write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable,
 	},
@@ -55,7 +57,7 @@ use std::{borrow::Cow, path::Path};
 ///     extension of `image_path`. (An error will be raised if this inference is not
 ///     possible, for instance if the image file lacks )
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImageTag {
 	/// The path to the image relative to the folder root
@@ -153,4 +155,42 @@ impl SvgWritable for ImageTag {
 	}
 }
 
-impl_validatable_via_children!(ImageTag);
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct UnvalidatedImageTag {
+	image_path: CompactString,
+
+	#[serde(skip_serializing_if = "Option::is_none")]
+	kind: Option<CompactString>,
+
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
+
+	#[serde(flatten)]
+	children: UnvalidatedDeChildTags,
+
+	#[serde(flatten, default)]
+	extras: Extras,
+}
+
+impl Validatable for UnvalidatedImageTag {
+	type Validated = ImageTag;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		let Self {
+			image_path,
+			kind,
+			attrs,
+			children,
+			extras,
+		} = self;
+
+		extras.ensure_empty(AnyChildTagDiscriminants::Image.name())?;
+
+		Ok(ImageTag {
+			image_path,
+			kind,
+			attrs,
+			children: children.validated()?,
+		})
+	}
+}

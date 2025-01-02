@@ -30,35 +30,60 @@
 //! - [`AnyChildTag`]: An enum wrapping any one of a number of distinct kinds of child
 //!   tags. See its docs for more info.
 
-pub(super) mod any_child_tag;
-pub(super) mod container_tag;
+pub(crate) mod any_child_tag;
+pub(crate) mod container_tag;
 pub(crate) mod element;
-pub(super) mod error_tag;
-pub(super) mod font_tag;
-pub(super) mod generic_tag;
-pub(super) mod image_tag;
-pub(super) mod nested_svg_tag;
+pub(crate) mod font_tag;
+pub(crate) mod generic_tag;
+pub(crate) mod image_tag;
+pub(crate) mod nested_svg_tag;
 pub mod root_tag;
-pub(super) mod text_tag;
+pub(crate) mod text_tag;
+pub(crate) mod validation;
 
 use self::element::XmlAttrs;
+use crate::from_json::decoding_error::InvalidSchemaError;
 pub(super) use crate::{
 	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
 };
 pub use any_child_tag::AnyChildTag;
+use any_child_tag::UnvalidatedAnyChildTag;
 pub use container_tag::ContainerTag;
-pub use error_tag::{ErrorTag, ErrorTagReason};
 pub use font_tag::FontTag;
 pub use generic_tag::GenericTag;
 pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
 use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
+use validation::Validatable;
 
 // The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
 // `BTreeMap` doesn't allocate until it has at least one element, this really costs
 // almost nothing
 pub(crate) static EMPTY_ATTRS: LazyLock<XmlAttrs> = LazyLock::new(|| XmlAttrs(Vec::new()));
+
+/// A catch-all for extra, unexpected keys
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct Extras(serde_json::Map<String, serde_json::Value>);
+
+impl Extras {
+	pub(crate) fn map(&self) -> &serde_json::Map<String, serde_json::Value> {
+		&self.0
+	}
+
+	pub(crate) fn ensure_empty(&self, for_tag: &'static str) -> ClgnDecodingResult<()> {
+		if !self.0.is_empty() {
+			return Err(InvalidSchemaError::unexpected_keys(
+				for_tag,
+				self.0.keys().cloned().collect(),
+			)
+			.into());
+		}
+
+		Ok(())
+	}
+}
 
 /// Description: A dictionary whose keys and values will be used to construct the list
 /// of `name="value"` XML attributes. For instance, `{ "tag": "circle", "attrs": { "cx":
@@ -82,10 +107,8 @@ impl AsRef<XmlAttrs> for DeXmlAttrs {
 /// A list of children of this tag. Each child in the list is an object interpretable as
 /// `AnyChildTag`. For example, the `children` in `{ "tag": "g", "children": [{ "tag":
 /// "rect", "attrs": ... }, { "image_path": ... }] }`
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub(crate) struct DeChildTags {
-	/// (Optional) A dictionary mapping variable names to their values. None is
-	/// equivalent to no variables.
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub(crate) children: Option<Vec<AnyChildTag>>,
 }
@@ -96,13 +119,25 @@ impl AsRef<[AnyChildTag]> for DeChildTags {
 	}
 }
 
-// pub(crate) trait TagLike<'a> {
-// 	fn tag_name(&self) -> Option<&str>;
-// 	fn vars(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<&TagVariables>;
-// 	fn attrs(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<XmlAttrsBorrowed<'a>>;
-// 	fn children(
-// 		&'a self,
-// 		context: &DecodingContext<'a>,
-// 	) -> ClgnDecodingResult<&'a [AnyChildTag<'a>]>;
-// 	fn text(&'a self, context: &DecodingContext<'a>) -> ClgnDecodingResult<Option<BytesText>>;
-// }
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct UnvalidatedDeChildTags {
+	#[serde(default)]
+	pub(crate) children: Option<Vec<UnvalidatedAnyChildTag>>,
+}
+
+impl Validatable for UnvalidatedDeChildTags {
+	type Validated = DeChildTags;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		Ok(DeChildTags {
+			children: self
+				.children
+				.map(|c| {
+					c.into_iter()
+						.map(|child| child.validated())
+						.collect::<ClgnDecodingResult<Vec<_>>>()
+				}) // Option<Result<Vec<T>, E>>
+				.transpose()?,
+		})
+	}
+}

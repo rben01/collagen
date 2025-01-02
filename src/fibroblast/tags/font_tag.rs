@@ -1,7 +1,9 @@
-use super::{DeXmlAttrs, DecodingContext};
+use super::{
+	any_child_tag::AnyChildTagDiscriminants, validation::Validatable, DeXmlAttrs, DecodingContext,
+	Extras,
+};
 use crate::{
 	fibroblast::data_types::Number,
-	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, SvgWritable},
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
@@ -237,7 +239,7 @@ impl<'de> Deserialize<'de> for FontFace {
 ///   "vars": { "foo": "bar" }
 /// }
 /// ```
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct FontTag {
 	fonts: Vec<FontFace>,
@@ -366,4 +368,29 @@ impl SvgWritable for FontTag {
 	}
 }
 
-impl_trivially_validatable!(FontTag);
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct UnvalidatedFontTag {
+	fonts: Vec<FontFace>,
+
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
+
+	#[serde(flatten, default)]
+	extras: Extras,
+}
+
+impl Validatable for UnvalidatedFontTag {
+	type Validated = FontTag;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		let Self {
+			fonts,
+			attrs,
+			extras,
+		} = self;
+
+		extras.ensure_empty(AnyChildTagDiscriminants::Font.name())?;
+
+		Ok(FontTag { fonts, attrs })
+	}
+}

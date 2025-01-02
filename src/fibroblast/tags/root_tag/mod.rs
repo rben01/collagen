@@ -1,6 +1,6 @@
 use super::{
-	error_tag::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
-	DecodingContext, XmlAttrs,
+	validation::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
+	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
 	from_json::ClgnDecodingError,
@@ -14,9 +14,7 @@ use std::path::Path;
 /// single object; that object is always implicitly of type `RootTag`. The set of keys
 /// does not matter — even `{}` is perfectly valid (it will be turned into simply `<svg
 /// xmlns="http://www.w3.org/2000/svg"></svg>`).
-///
-/// `RootTag` accepts only the properties in [`CommonTagFields`](crate::fibroblast::tags::CommonTagFields).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RootTag {
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
@@ -40,12 +38,12 @@ impl RootTag {
 			}
 		};
 
-		let root = serde_json::from_str::<RootTag>(&json_str)
+		let root = serde_json::from_str::<UnvalidatedRootTag>(&json_str)
 			.map_err(|source| ClgnDecodingError::JsonDecode {
 				source,
 				path: manifest_path,
 			})?
-			.validate()?;
+			.validated()?;
 
 		Ok(root)
 	}
@@ -63,12 +61,12 @@ impl RootTag {
 			}
 		};
 
-		let root = serde_json::from_reader::<_, RootTag>(f)
+		let root = serde_json::from_reader::<_, UnvalidatedRootTag>(f)
 			.map_err(|source| ClgnDecodingError::JsonDecode {
 				source,
 				path: manifest_path,
 			})?
-			.validate()?;
+			.validated()?;
 
 		Ok(root)
 	}
@@ -111,21 +109,33 @@ impl SvgWritable for RootTag {
 	}
 }
 
-impl RootTag {
-	pub(crate) fn validate(mut self) -> ClgnDecodingResult<Self> {
-		let children = self.children.children.take();
-		let Some(children) = children else {
-			return Ok(self);
-		};
-		self.children = DeChildTags {
-			children: Some(
-				children
-					.into_iter()
-					.map(|child| child.validate())
-					.collect::<ClgnDecodingResult<Vec<_>>>()?,
-			),
-		};
+#[derive(Debug, Deserialize)]
+struct UnvalidatedRootTag {
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
 
-		Ok(self)
+	#[serde(flatten)]
+	children: UnvalidatedDeChildTags,
+
+	#[serde(flatten, default)]
+	extras: Extras,
+}
+
+impl Validatable for UnvalidatedRootTag {
+	type Validated = RootTag;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		let Self {
+			attrs,
+			children,
+			extras,
+		} = self;
+
+		extras.ensure_empty("svg root")?;
+
+		Ok(RootTag {
+			attrs,
+			children: children.validated()?,
+		})
 	}
 }

@@ -1,7 +1,9 @@
-use super::{ClgnDecodingResult, DecodingContext};
+use super::{
+	any_child_tag::AnyChildTagDiscriminants, validation::Validatable, ClgnDecodingResult,
+	DecodingContext, Extras,
+};
 use crate::{
 	fibroblast::Fibroblast,
-	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 };
 use compact_str::CompactString;
@@ -91,7 +93,7 @@ use std::{cell::RefCell, path::PathBuf};
 /// (The `xmnls="..."` is added automatically if not present in the `collagen.json` file.)
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContainerTag {
 	clgn_path: CompactString,
@@ -138,4 +140,37 @@ impl ContainerTag {
 	}
 }
 
-impl_trivially_validatable!(ContainerTag);
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct UnvalidatedContainerTag {
+	clgn_path: CompactString,
+
+	#[serde(skip)]
+	resolved_path: RefCell<Option<PathBuf>>,
+
+	#[serde(skip)]
+	fibroblast: RefCell<Option<Fibroblast>>,
+
+	#[serde(flatten, default)]
+	extras: Extras,
+}
+
+impl Validatable for UnvalidatedContainerTag {
+	type Validated = ContainerTag;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		let Self {
+			clgn_path,
+			resolved_path,
+			fibroblast,
+			extras,
+		} = self;
+
+		extras.ensure_empty(AnyChildTagDiscriminants::Container.name())?;
+
+		Ok(ContainerTag {
+			clgn_path,
+			resolved_path,
+			fibroblast,
+		})
+	}
+}

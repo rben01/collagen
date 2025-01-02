@@ -1,7 +1,6 @@
-use super::DeXmlAttrs;
+use super::{any_child_tag::AnyChildTagDiscriminants, validation::Validatable, DeXmlAttrs, Extras};
 use crate::{
 	fibroblast::data_types::DecodingContext,
-	impl_trivially_validatable,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 };
 use compact_str::CompactString;
@@ -18,7 +17,7 @@ static XML_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
 		.unwrap()
 });
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct NestedSvgTag {
 	/// The path to the SVG relative to the folder root
@@ -53,4 +52,29 @@ impl SvgWritable for NestedSvgTag {
 	}
 }
 
-impl_trivially_validatable!(NestedSvgTag);
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct UnvalidatedNestedSvgTag {
+	svg_path: CompactString,
+
+	#[serde(flatten)]
+	attrs: DeXmlAttrs,
+
+	#[serde(flatten, default)]
+	extras: Extras,
+}
+
+impl Validatable for UnvalidatedNestedSvgTag {
+	type Validated = NestedSvgTag;
+
+	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+		let Self {
+			svg_path,
+			attrs,
+			extras,
+		} = self;
+
+		extras.ensure_empty(AnyChildTagDiscriminants::NestedSvg.name())?;
+
+		Ok(NestedSvgTag { svg_path, attrs })
+	}
+}
