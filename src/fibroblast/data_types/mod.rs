@@ -5,7 +5,7 @@ mod simple_value;
 
 pub(crate) use concrete_number::Number;
 pub(crate) use simple_value::SimpleValue;
-use std::{cell::RefCell, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{from_json::ClgnDecodingError, ClgnDecodingResult};
 
@@ -15,22 +15,16 @@ use crate::{from_json::ClgnDecodingError, ClgnDecodingResult};
 /// map for performing variable substitution
 #[derive(Debug, Clone)]
 pub struct DecodingContext {
-	pub(crate) root_path: RefCell<PathBuf>,
+	pub(crate) root_path: PathBuf,
 }
 
 impl DecodingContext {
 	pub(crate) fn new(root_path: PathBuf) -> Self {
-		Self {
-			root_path: RefCell::new(root_path),
-		}
+		Self { root_path }
 	}
 
 	pub(crate) fn new_at_root(root_path: PathBuf) -> Self {
 		Self::new(root_path)
-	}
-
-	pub(crate) fn replace_root(&self, root: PathBuf) -> PathBuf {
-		self.root_path.replace(root)
 	}
 
 	/// Like `p.as_ref().join(s.as_ref())` (see
@@ -57,7 +51,7 @@ impl DecodingContext {
 				return Err(ClgnDecodingError::InvalidPath(PathBuf::from(path)));
 			}
 
-			let mut pathbuf = this.root_path.borrow().to_owned();
+			let mut pathbuf = this.root_path.clone();
 			for part in path.split('/') {
 				pathbuf.push(part);
 			}
@@ -306,7 +300,7 @@ mod tests {
 					matches!(result, Err(ClgnDecodingError::InvalidPath(_))),
 					"Expected an InvalidPath error when joining {:?} \
 					 and {s:?}, but got {result:?} instead",
-					c.root_path.borrow()
+					c.root_path
 				);
 			}
 

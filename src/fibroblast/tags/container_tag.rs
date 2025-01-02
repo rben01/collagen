@@ -128,9 +128,7 @@ impl ContainerTag {
 		let abs_clgn_path = context.canonicalize(&self.clgn_path)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
-			let context = context.clone();
-			context.replace_root(abs_clgn_path.clone());
-			let subroot = Fibroblast::from_dir_with_context(&abs_clgn_path, context)?;
+			let subroot = Fibroblast::from_dir(&abs_clgn_path)?;
 
 			self.fibroblast.replace(Some(subroot));
 			self.resolved_path.replace(Some(abs_clgn_path));
