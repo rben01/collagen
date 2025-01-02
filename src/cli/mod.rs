@@ -1,11 +1,11 @@
 //! The command line interface for this app
 
-use crate::{to_svg::svg_writable::ClgnDecodingError, ClgnDecodingResult, Fibroblast};
+use crate::{from_json::decoding_error::ClgnDecodingError, ClgnDecodingResult, Fibroblast};
 use clap::Parser;
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
-use std::{fs::canonicalize, path::Path, time::Duration};
+use std::{fs, path::Path, time::Duration};
 
 #[derive(Parser)]
 #[command(name = "clgn", about = "Collagen: The Collage Generator")]
@@ -28,15 +28,13 @@ pub struct Cli {
 	debounce_ms: u64,
 }
 
-fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<std::fs::File>> {
-	let file_writer = std::fs::OpenOptions::new()
-		.read(false)
-		.create(true)
-		.truncate(true)
-		.write(true)
-		.open(&out_file)
-		.map_err(|e| ClgnDecodingError::Io(e, out_file.as_ref().to_owned()))?;
-	Ok(XmlWriter::new(file_writer))
+fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<fs::File>> {
+	let f = fs::File::create(&out_file).map_err(|source| ClgnDecodingError::IoWrite {
+		source,
+		path: out_file.as_ref().to_owned(),
+	})?;
+
+	Ok(XmlWriter::new(f))
 }
 
 fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
@@ -62,15 +60,21 @@ impl Cli {
 			debounce_ms,
 		} = self;
 
-		let in_folder: &Path = in_folder.as_ref();
-		let out_file: &Path = out_file.as_ref();
+		let in_folder = Path::new(&in_folder);
+		let out_file = Path::new(&out_file);
 
 		if watch {
 			{
-				let in_folder = canonicalize(in_folder)
-					.map_err(|e| ClgnDecodingError::Io(e, in_folder.to_owned()))?;
-				let out_file = canonicalize(out_file)
-					.map_err(|e| ClgnDecodingError::Io(e, in_folder.clone()))?;
+				let in_folder =
+					fs::canonicalize(in_folder).map_err(|source| ClgnDecodingError::IoOther {
+						source,
+						path: in_folder.to_path_buf(),
+					})?;
+				let out_file =
+					fs::canonicalize(out_file).map_err(|source| ClgnDecodingError::IoOther {
+						source,
+						path: in_folder.clone(),
+					})?;
 
 				if out_file.starts_with(&in_folder) {
 					return Err(ClgnDecodingError::RecursiveWatch {

@@ -25,9 +25,7 @@ impl DecodingContext {
 			root_path: RefCell::new(root_path),
 		}
 	}
-}
 
-impl DecodingContext {
 	pub(crate) fn new_at_root(root_path: PathBuf) -> Self {
 		Self::new(root_path)
 	}

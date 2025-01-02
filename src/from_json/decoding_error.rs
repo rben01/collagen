@@ -10,46 +10,73 @@
 
 use crate::fibroblast::tags::ErrorTagReason;
 use quick_xml::Error as XmlError;
-use std::{fmt::Display, io, path::PathBuf, process::ExitCode, str::Utf8Error};
+use std::{io, path::PathBuf, process::ExitCode, str::Utf8Error};
+use thiserror::Error;
 use zip::result::ZipError;
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ClgnDecodingError {
-	InvalidSchema(ErrorTagReason),
-	Io(io::Error, PathBuf),
+	#[error("Invalid schema: {}", .0)]
+	InvalidSchema(#[from] ErrorTagReason),
+
+	#[error("IO error reading from {path:?} ({source})")]
+	IoRead { source: io::Error, path: PathBuf },
+
+	#[error("IO error writing to {path:?} ({source})")]
+	IoWrite { source: io::Error, path: PathBuf },
+
+	#[error("IO error (neither reading nor writing) handling {path:?} ({source})")]
+	IoOther { source: io::Error, path: PathBuf },
+
+	#[error("paths may not begin with a '/'; got {:?}", .0)]
 	InvalidPath(PathBuf),
-	Zip(ZipError),
-	JsonnetRead {
-		msg: String,
+
+	#[error("error reading {path:?} ({source})")]
+	Zip { source: ZipError, path: PathBuf },
+
+	#[error("error reading {path:?} as jsonnet ({msg})")]
+	JsonnetRead { msg: String, path: PathBuf },
+
+	#[error("error reading {path:?} as json ({source})")]
+	JsonDecode {
+		source: serde_json::Error,
 		path: PathBuf,
 	},
-	JsonDecode(serde_json::Error, PathBuf),
-	JsonEncode(serde_json::Error, Option<PathBuf>),
-	Xml(XmlError),
-	ToSvgString(Utf8Error),
-	Image {
-		msg: String,
+
+	#[error("error writing {path:?} as json ({source})")]
+	JsonEncode {
+		source: serde_json::Error,
+		path: Option<PathBuf>,
 	},
-	Foreach {
-		msg: String,
-	},
-	If {
-		msg: String,
-	},
-	InvalidField {
-		msg: String,
-	},
-	BundledFontNotFound {
-		font_name: String,
-	},
+
+	#[error("XML error: {}", .0)]
+	Xml(#[from] XmlError),
+
+	#[error("error encoding XML as UTF-8: {}", .0)]
+	ToSvgString(#[from] Utf8Error),
+
+	#[error("error reading image: {msg}")]
+	Image { msg: String },
+
+	#[error("could not find bundled font {font_name:?}")]
+	BundledFontNotFound { font_name: String },
+
+	#[error("error watching folder: {:?}", .0)]
 	FolderWatch(Vec<notify::Error>),
+
+	#[error(
+		"Refusing to run in --watch mode. \
+		 out_file {out_file:?} is a descendent of in_folder \
+		 {in_folder:?}, which would lead to an infinite loop. \
+		 To fix this, set out_file to a location outside \
+		 of {in_folder:?}."
+	)]
 	RecursiveWatch {
 		in_folder: PathBuf,
 		out_file: PathBuf,
 	},
-	ChannelRecv(std::sync::mpsc::RecvError),
 }
 
 impl ClgnDecodingError {
@@ -62,97 +89,28 @@ impl ClgnDecodingError {
 			JsonDecode { .. } => 4,
 			JsonEncode { .. } => 5,
 			InvalidPath { .. } => 6,
-			Io { .. } => 7,
-			Image { .. } => 8,
+			IoRead { .. } => 7,
+			IoWrite { .. } => 8,
+			IoOther { .. } => 9,
+			Image { .. } => 14,
 			Xml { .. } => 15,
 			ToSvgString { .. } => 19,
 			BundledFontNotFound { .. } => 22,
-			InvalidField { .. } => 27,
 			Zip { .. } => 33,
 			FolderWatch { .. } => 49,
 			RecursiveWatch { .. } => 50,
-			ChannelRecv { .. } => 52,
-			Foreach { .. } => 77,
-			If { .. } => 78,
 		})
 	}
 }
 
-impl Display for ClgnDecodingError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		use ClgnDecodingError::*;
-		match self {
-			InvalidSchema(reason) => write!(f, "{reason}"),
-			Io(e, path) => write!(f, "{path:?}: {e}"),
-			InvalidPath(p) => write!(f, "Invalid path: {p:?}"),
-			Zip(e) => write!(f, "{e:?}"),
-			JsonnetRead { msg, path } => write!(
-				f,
-				"failed to read jsonnet file {path:?}; original error: {msg:?}"
-			),
-			JsonDecode(e, path) => write!(f, "{path:?}: {e}"),
-			JsonEncode(e, path) => write!(f, "{path:?}: {e}"),
-			Xml(e) => write!(f, "{e:?}"),
-			FolderWatch(e) => write!(f, "{e:?}"),
-			ChannelRecv(e) => write!(f, "{e:?}"),
-			ToSvgString(e) => write!(f, "{e:?}; invalid UTF-8 sequence when converting to string"),
-			RecursiveWatch {
-				in_folder,
-				out_file,
-			} => write!(
-				f,
-				"Refusing to run in --watch mode. \
-				 out_file {out_file:?} is a descendent of in_folder \
-				 {in_folder:?}, which would lead to an infinite loop: \
-				 every time out_file were modified, it would kick off another \
-				 run of Collagen, which would modify out_file, ad infinitum. \
-				 To fix this, set out_file to a location outside \
-				 of {in_folder:?}.",
-			),
-			InvalidField { msg } | Image { msg } | Foreach { msg } | If { msg } => {
-				write!(f, "{msg}")
-			}
-			BundledFontNotFound { font_name } => write!(
-				f,
-				"Requested bundled font '{font_name}' not found; make sure it \
-				 was bundled when `clgn` was built."
-			),
-		}
-	}
-}
-
-impl From<Utf8Error> for ClgnDecodingError {
-	fn from(err: Utf8Error) -> Self {
-		Self::ToSvgString(err)
-	}
-}
-
-impl From<ZipError> for ClgnDecodingError {
-	fn from(err: ZipError) -> Self {
-		Self::Zip(err)
-	}
-}
-
-impl From<XmlError> for ClgnDecodingError {
-	fn from(err: XmlError) -> Self {
-		Self::Xml(err)
-	}
-}
-
 impl From<notify::Error> for ClgnDecodingError {
-	fn from(err: notify::Error) -> Self {
-		Self::FolderWatch(vec![err])
+	fn from(value: notify::Error) -> Self {
+		Self::FolderWatch(vec![value])
 	}
 }
 
 impl From<Vec<notify::Error>> for ClgnDecodingError {
-	fn from(err: Vec<notify::Error>) -> Self {
-		Self::FolderWatch(err)
-	}
-}
-
-impl From<std::sync::mpsc::RecvError> for ClgnDecodingError {
-	fn from(err: std::sync::mpsc::RecvError) -> Self {
-		Self::ChannelRecv(err)
+	fn from(value: Vec<notify::Error>) -> Self {
+		Self::FolderWatch(value)
 	}
 }

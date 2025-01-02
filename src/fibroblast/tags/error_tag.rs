@@ -21,6 +21,8 @@ pub enum ErrorTagReason {
 	InvalidObject(serde_json::Map<String, serde_json::Value>),
 }
 
+impl std::error::Error for ErrorTagReason {}
+
 impl AnyChildTagDiscriminants {
 	fn primary_key(self) -> &'static str {
 		use AnyChildTagDiscriminants::*;

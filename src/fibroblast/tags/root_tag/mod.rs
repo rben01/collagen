@@ -41,7 +41,10 @@ impl RootTag {
 		};
 
 		let root = serde_json::from_str::<RootTag>(&json_str)
-			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
+			.map_err(|source| ClgnDecodingError::JsonDecode {
+				source,
+				path: manifest_path,
+			})?
 			.validate()?;
 
 		Ok(root)
@@ -50,13 +53,21 @@ impl RootTag {
 	pub(crate) fn new_from_dir_with_pure_json(path: &Path) -> ClgnDecodingResult<Self> {
 		let manifest_path = path.join("collagen.json");
 
-		let rdr = match std::fs::File::open(&manifest_path) {
+		let f = match std::fs::File::open(&manifest_path) {
 			Ok(f) => f,
-			Err(err) => return Err(ClgnDecodingError::Io(err, manifest_path)),
+			Err(source) => {
+				return Err(ClgnDecodingError::IoRead {
+					source,
+					path: manifest_path,
+				})
+			}
 		};
 
-		let root = serde_json::from_reader::<_, RootTag>(rdr)
-			.map_err(|e| ClgnDecodingError::JsonDecode(e, manifest_path))?
+		let root = serde_json::from_reader::<_, RootTag>(f)
+			.map_err(|source| ClgnDecodingError::JsonDecode {
+				source,
+				path: manifest_path,
+			})?
 			.validate()?;
 
 		Ok(root)

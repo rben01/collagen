@@ -38,8 +38,12 @@ impl SvgWritable for NestedSvgTag {
 			let abs_svg_path =
 				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
 
-			let text = std::fs::read_to_string(&abs_svg_path)
-				.map_err(|err| ClgnDecodingError::Io(err, abs_svg_path))?;
+			let text = std::fs::read_to_string(&abs_svg_path).map_err(|source| {
+				ClgnDecodingError::IoRead {
+					source,
+					path: abs_svg_path,
+				}
+			})?;
 			let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
 
 			let bt = BytesText::from_escaped(text);

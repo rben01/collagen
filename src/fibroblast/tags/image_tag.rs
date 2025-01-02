@@ -115,10 +115,12 @@ impl ImageTag {
 		let abs_image_path =
 			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.image_path)?;
 
-		let b64_string = b64_encode(
-			std::fs::read(abs_image_path.as_path())
-				.map_err(|e| ClgnDecodingError::Io(e, abs_image_path))?,
-		);
+		let b64_string = b64_encode(std::fs::read(abs_image_path.as_path()).map_err(|source| {
+			ClgnDecodingError::IoRead {
+				source,
+				path: abs_image_path,
+			}
+		})?);
 		let src_str = format!("data:image/{kind};base64,{b64_string}");
 
 		Ok((key, src_str))
