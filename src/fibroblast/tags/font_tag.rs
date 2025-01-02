@@ -252,7 +252,7 @@ impl FontTag {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<CompactString> {
 		let path = path.as_ref();
-		let abs_font_path = crate::utils::paths::pathsep_aware_join(&*context.get_root(), path)?;
+		let abs_font_path = context.canonicalize(path)?;
 
 		let b64_string = b64_encode(std::fs::read(abs_font_path.as_path()).map_err(|source| {
 			ClgnDecodingError::IoRead {

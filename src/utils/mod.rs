@@ -1,4 +1,3 @@
-pub(crate) mod paths;
 use base64::Engine;
 
 pub(crate) use std::collections::{BTreeMap as Map, BTreeSet as Set};

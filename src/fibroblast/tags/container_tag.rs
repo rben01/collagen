@@ -125,8 +125,7 @@ impl SvgWritable for ContainerTag {
 
 impl ContainerTag {
 	pub(crate) fn instantiate(&self, context: &DecodingContext) -> ClgnDecodingResult<()> {
-		let abs_clgn_path =
-			crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.clgn_path)?;
+		let abs_clgn_path = context.canonicalize(&self.clgn_path)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
 			let context = context.clone();

@@ -35,8 +35,7 @@ impl SvgWritable for NestedSvgTag {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		write_tag(writer, "g", self.attrs.as_ref(), |writer| {
-			let abs_svg_path =
-				crate::utils::paths::pathsep_aware_join(&*context.get_root(), &self.svg_path)?;
+			let abs_svg_path = context.canonicalize(&self.svg_path)?;
 
 			let text = std::fs::read_to_string(&abs_svg_path).map_err(|source| {
 				ClgnDecodingError::IoRead {
