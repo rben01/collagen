@@ -12,20 +12,20 @@ impl de::Visitor<'_> for ConcreteNumberVisitor {
 		formatter.write_str("a number")
 	}
 
-	fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+	fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
 	where
 		E: serde::de::Error,
 	{
 		#[allow(clippy::cast_precision_loss)]
-		Ok(Number(v as f64))
+		Ok(Number(f64::from(v)))
 	}
 
-	fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+	fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
 	where
 		E: serde::de::Error,
 	{
 		#[allow(clippy::cast_precision_loss)]
-		Ok(Number(v as f64))
+		Ok(Number(f64::from(v)))
 	}
 
 	fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>

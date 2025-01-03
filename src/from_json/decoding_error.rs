@@ -292,7 +292,7 @@ impl fmt::Display for InvalidSchemaError {
 						f,
 						"Could not infer the tag's type because no recognized \
 						 primary key was found. All tags except the root must have \
-						 exactly one of the following keys: {:?}.",
+						 exactly one of the following keys: {:?}. ",
 						AnyChildTagDiscriminants::iter()
 							.map(|kt| kt.primary_key())
 							.collect::<Vec<_>>()
