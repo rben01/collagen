@@ -94,15 +94,20 @@ use std::{cell::RefCell, path::PathBuf};
 ///
 /// This specific example is in `tests/examples/simple-nesting`.
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct ContainerTag {
-	clgn_path: CompactString,
+	#[serde(flatten)]
+	inner: Inner,
 
 	#[serde(skip)]
 	resolved_path: RefCell<Option<PathBuf>>,
 
 	#[serde(skip)]
 	fibroblast: RefCell<Option<Fibroblast>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
+	clgn_path: CompactString,
 }
 
 impl SvgWritable for ContainerTag {
@@ -127,7 +132,7 @@ impl SvgWritable for ContainerTag {
 
 impl ContainerTag {
 	pub(crate) fn instantiate(&self, context: &DecodingContext) -> ClgnDecodingResult<()> {
-		let abs_clgn_path = context.canonicalize(&self.clgn_path)?;
+		let abs_clgn_path = context.canonicalize(&self.inner.clgn_path)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
 			let subroot = Fibroblast::from_dir(&abs_clgn_path)?;
@@ -142,13 +147,8 @@ impl ContainerTag {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct UnvalidatedContainerTag {
-	clgn_path: CompactString,
-
-	#[serde(skip)]
-	resolved_path: RefCell<Option<PathBuf>>,
-
-	#[serde(skip)]
-	fibroblast: RefCell<Option<Fibroblast>>,
+	#[serde(flatten)]
+	inner: Inner,
 
 	#[serde(flatten, default)]
 	extras: Extras,
@@ -159,18 +159,16 @@ impl Validatable for UnvalidatedContainerTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			clgn_path,
-			resolved_path,
-			fibroblast,
+			inner: Inner { clgn_path },
 			extras,
 		} = self;
 
 		extras.ensure_empty(AnyChildTagDiscriminants::Container.name())?;
 
 		Ok(ContainerTag {
-			clgn_path,
-			resolved_path,
-			fibroblast,
+			inner: Inner { clgn_path },
+			resolved_path: RefCell::default(),
+			fibroblast: RefCell::default(),
 		})
 	}
 }

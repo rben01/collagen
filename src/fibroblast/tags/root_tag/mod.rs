@@ -17,10 +17,14 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize)]
 pub struct RootTag {
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
-	#[serde(flatten)]
 	children: DeChildTags,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
+	attrs: DeXmlAttrs,
 }
 
 impl RootTag {
@@ -72,7 +76,7 @@ impl RootTag {
 	}
 
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
-		self.attrs.as_ref()
+		self.inner.attrs.as_ref()
 	}
 
 	pub(crate) fn children(&self) -> &[AnyChildTag] {
@@ -90,7 +94,7 @@ impl SvgWritable for RootTag {
 			writer,
 			"svg",
 			|elem| {
-				let attrs = self.attrs.as_ref();
+				let attrs = self.inner.attrs.as_ref();
 
 				let xmlns = "xmlns";
 				if !attrs.iter().any(|(k, _)| k == xmlns) {
@@ -110,11 +114,10 @@ impl SvgWritable for RootTag {
 }
 
 #[derive(Debug, Deserialize)]
-struct UnvalidatedRootTag {
+pub struct UnvalidatedRootTag {
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
-	#[serde(flatten)]
 	children: UnvalidatedDeChildTags,
 
 	#[serde(flatten, default)]
@@ -126,7 +129,7 @@ impl Validatable for UnvalidatedRootTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			attrs,
+			inner: Inner { attrs },
 			children,
 			extras,
 		} = self;
@@ -134,7 +137,7 @@ impl Validatable for UnvalidatedRootTag {
 		extras.ensure_empty("svg root")?;
 
 		Ok(RootTag {
-			attrs,
+			inner: Inner { attrs },
 			children: children.validated()?,
 		})
 	}

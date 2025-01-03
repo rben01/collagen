@@ -24,16 +24,19 @@ use serde::{Deserialize, Serialize};
 ///   - Description: The tag's name. For instance, to make a `<rect>` tag, use
 ///     `"tag_name": "rect"`.
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct GenericTag {
+	#[serde(flatten)]
+	inner: Inner,
+
+	children: DeChildTags,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
 	#[serde(rename = "tag")]
 	tag_name: CompactString,
 
-	#[serde(flatten)]
 	attrs: DeXmlAttrs,
-
-	#[serde(flatten)]
-	children: DeChildTags,
 }
 
 impl SvgWritable for GenericTag {
@@ -42,8 +45,12 @@ impl SvgWritable for GenericTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(writer, &self.tag_name, self.attrs.as_ref(), |writer| {
-			for child in self.children.as_ref() {
+		let Self {
+			inner: Inner { tag_name, attrs },
+			children,
+		} = self;
+		write_tag(writer, tag_name, attrs.as_ref(), |writer| {
+			for child in children.as_ref() {
 				child.to_svg(writer, context)?;
 			}
 			Ok(())
@@ -51,18 +58,14 @@ impl SvgWritable for GenericTag {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct UnvalidatedGenericTag {
-	#[serde(rename = "tag")]
-	tag_name: CompactString,
-
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
-	#[serde(flatten)]
 	children: UnvalidatedDeChildTags,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 
@@ -71,8 +74,7 @@ impl Validatable for UnvalidatedGenericTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			tag_name,
-			attrs,
+			inner: Inner { tag_name, attrs },
 			children,
 			extras,
 		} = self;
@@ -80,8 +82,7 @@ impl Validatable for UnvalidatedGenericTag {
 		extras.ensure_empty(AnyChildTagDiscriminants::Generic.name())?;
 
 		Ok(GenericTag {
-			tag_name,
-			attrs,
+			inner: Inner { tag_name, attrs },
 			children: children.validated()?,
 		})
 	}

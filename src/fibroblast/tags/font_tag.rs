@@ -3,7 +3,6 @@ use super::{
 	Extras,
 };
 use crate::{
-	fibroblast::data_types::Number,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, SvgWritable},
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
@@ -19,7 +18,7 @@ use crate::assets::fonts;
 #[serde(untagged)]
 pub(crate) enum FontAttr {
 	String(CompactString),
-	Number(Number),
+	Number(serde_json::Number),
 }
 
 enum CowishFontAttr<'a> {
@@ -240,8 +239,13 @@ impl<'de> Deserialize<'de> for FontFace {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct FontTag {
+	#[serde(flatten)]
+	inner: Inner,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
 	fonts: Vec<FontFace>,
 
 	#[serde(flatten)]
@@ -271,7 +275,7 @@ impl FontTag {
 
 	fn font_embed_text(&self, context: &DecodingContext) -> ClgnDecodingResult<String> {
 		let mut text = String::from("<style>");
-		for font in &self.fonts {
+		for font in &self.inner.fonts {
 			let (mut all_attrs, self_attrs) = match font {
 				#[cfg_attr(
 					not(feature = "_any_bundled_font"),
@@ -359,7 +363,7 @@ impl SvgWritable for FontTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(writer, "defs", self.attrs.as_ref(), |writer| {
+		write_tag(writer, "defs", self.inner.attrs.as_ref(), |writer| {
 			writer.write_event(Event::Text(BytesText::from_escaped(
 				self.font_embed_text(context)?,
 			)))?;
@@ -370,10 +374,8 @@ impl SvgWritable for FontTag {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct UnvalidatedFontTag {
-	fonts: Vec<FontFace>,
-
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
 	#[serde(flatten, default)]
 	extras: Extras,
@@ -384,13 +386,14 @@ impl Validatable for UnvalidatedFontTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			fonts,
-			attrs,
+			inner: Inner { fonts, attrs },
 			extras,
 		} = self;
 
 		extras.ensure_empty(AnyChildTagDiscriminants::Font.name())?;
 
-		Ok(FontTag { fonts, attrs })
+		Ok(FontTag {
+			inner: Inner { fonts, attrs },
+		})
 	}
 }

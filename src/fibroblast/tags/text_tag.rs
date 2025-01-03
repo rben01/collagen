@@ -2,11 +2,16 @@ use super::{any_child_tag::AnyChildTagDiscriminants, DecodingContext, Extras, Va
 use crate::{to_svg::svg_writable::SvgWritable, ClgnDecodingResult};
 use compact_str::{CompactString, ToCompactString};
 use quick_xml::events::BytesText;
-use serde::{de, Serialize};
+use serde::{de, Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct TextTag {
+	#[serde(flatten)]
+	inner: Inner,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
 	text: CompactString,
 
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -20,8 +25,10 @@ impl SvgWritable for TextTag {
 		_context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		let Self {
-			text,
-			is_preescaped,
+			inner: Inner {
+				text,
+				is_preescaped,
+			},
 		} = self;
 
 		let is_preescaped = is_preescaped.unwrap_or(false);
@@ -40,10 +47,8 @@ impl SvgWritable for TextTag {
 
 #[derive(Debug, Serialize)]
 pub(crate) struct UnvalidatedTextTag {
-	text: CompactString,
-
-	#[serde(default, skip_serializing_if = "Option::is_none")]
-	is_preescaped: Option<bool>,
+	#[serde(flatten)]
+	inner: Inner,
 
 	#[serde(flatten, default)]
 	extras: Extras,
@@ -68,8 +73,10 @@ impl<'de> de::Deserialize<'de> for UnvalidatedTextTag {
 				E: de::Error,
 			{
 				Ok(UnvalidatedTextTag {
-					text: v.to_compact_string(),
-					is_preescaped: None,
+					inner: Inner {
+						text: v.to_compact_string(),
+						is_preescaped: None,
+					},
 					extras: Extras(serde_json::Map::new()),
 				})
 			}
@@ -107,8 +114,10 @@ impl<'de> de::Deserialize<'de> for UnvalidatedTextTag {
 					is_preescaped.ok_or_else(|| de::Error::missing_field("is_preescaped"))?;
 
 				Ok(UnvalidatedTextTag {
-					text,
-					is_preescaped,
+					inner: Inner {
+						text,
+						is_preescaped,
+					},
 					extras: Extras(extras),
 				})
 			}
@@ -123,16 +132,20 @@ impl Validatable for UnvalidatedTextTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			text,
-			is_preescaped,
+			inner: Inner {
+				text,
+				is_preescaped,
+			},
 			extras,
 		} = self;
 
 		extras.ensure_empty(AnyChildTagDiscriminants::Text.name())?;
 
 		Ok(TextTag {
-			text,
-			is_preescaped,
+			inner: Inner {
+				text,
+				is_preescaped,
+			},
 		})
 	}
 }

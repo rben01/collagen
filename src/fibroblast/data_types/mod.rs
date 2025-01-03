@@ -1,9 +1,7 @@
 //! Contains the data types used for the in-memory representation of a `Fibroblast`.
 
-mod concrete_number;
 mod simple_value;
 
-pub(crate) use concrete_number::Number;
 pub(crate) use simple_value::SimpleValue;
 use std::path::PathBuf;
 

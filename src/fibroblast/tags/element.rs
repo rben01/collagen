@@ -68,8 +68,8 @@ impl XmlAttrs {
 			match v {
 				SimpleValue::Text(text) => elem.push_attribute((k, text.as_str())),
 				SimpleValue::Number(n) => elem.push_attribute((k, n.to_compact_string().as_str())),
-				SimpleValue::Present => elem.push_attribute((k, "")),
-				SimpleValue::Absent => {}
+				SimpleValue::IsPresent(true) => elem.push_attribute((k, "")),
+				SimpleValue::IsPresent(false) => {}
 			};
 		}
 	}

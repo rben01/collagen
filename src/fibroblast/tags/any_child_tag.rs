@@ -41,7 +41,7 @@ pub enum AnyChildTag {
 	Text(TextTag),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(untagged)]
 pub(crate) enum UnvalidatedAnyChildTag {
 	Generic(UnvalidatedGenericTag),

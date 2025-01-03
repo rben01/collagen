@@ -18,8 +18,13 @@ static XML_HEADER_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct NestedSvgTag {
+	#[serde(flatten)]
+	inner: Inner,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
 	/// The path to the SVG relative to the folder root
 	svg_path: CompactString,
 
@@ -33,8 +38,12 @@ impl SvgWritable for NestedSvgTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
-		write_tag(writer, "g", self.attrs.as_ref(), |writer| {
-			let abs_svg_path = context.canonicalize(&self.svg_path)?;
+		let Self {
+			inner: Inner { svg_path, attrs },
+		} = self;
+
+		write_tag(writer, "g", attrs.as_ref(), |writer| {
+			let abs_svg_path = context.canonicalize(svg_path)?;
 
 			let text = std::fs::read_to_string(&abs_svg_path).map_err(|source| {
 				ClgnDecodingError::IoRead {
@@ -54,10 +63,8 @@ impl SvgWritable for NestedSvgTag {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct UnvalidatedNestedSvgTag {
-	svg_path: CompactString,
-
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
 	#[serde(flatten, default)]
 	extras: Extras,
@@ -68,13 +75,14 @@ impl Validatable for UnvalidatedNestedSvgTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			svg_path,
-			attrs,
+			inner: Inner { svg_path, attrs },
 			extras,
 		} = self;
 
 		extras.ensure_empty(AnyChildTagDiscriminants::NestedSvg.name())?;
 
-		Ok(NestedSvgTag { svg_path, attrs })
+		Ok(NestedSvgTag {
+			inner: Inner { svg_path, attrs },
+		})
 	}
 }

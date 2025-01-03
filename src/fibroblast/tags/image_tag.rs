@@ -58,8 +58,16 @@ use std::{borrow::Cow, path::Path};
 ///     possible, for instance if the image file lacks )
 /// - Other: `ImageTag` accepts all properties in [`CommonTagFields`].
 #[derive(Debug, Clone, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct ImageTag {
+	#[serde(flatten)]
+	inner: Inner,
+
+	#[serde(flatten)]
+	children: DeChildTags,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Inner {
 	/// The path to the image relative to the folder root
 	image_path: CompactString,
 
@@ -70,9 +78,6 @@ pub struct ImageTag {
 
 	#[serde(flatten)]
 	attrs: DeXmlAttrs,
-
-	#[serde(flatten)]
-	children: DeChildTags,
 }
 
 impl ImageTag {
@@ -80,9 +85,11 @@ impl ImageTag {
 	/// in the data URI `data:image/{TYPE};base64,...`. If `self.kind.is_none()`, the
 	/// `kind` will be inferred from the (lowercased) file extension of `image_path`.
 	pub(crate) fn kind(&self) -> ClgnDecodingResult<Cow<str>> {
-		let Self {
-			image_path, kind, ..
-		} = self;
+		let Inner {
+			image_path,
+			kind,
+			attrs: _,
+		} = &self.inner;
 
 		Ok(if let Some(kind) = kind {
 			Cow::Borrowed(kind)
@@ -114,7 +121,7 @@ impl ImageTag {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 
-		let abs_image_path = context.canonicalize(&self.image_path)?;
+		let abs_image_path = context.canonicalize(&self.inner.image_path)?;
 
 		let b64_string = b64_encode(std::fs::read(abs_image_path.as_path()).map_err(|source| {
 			ClgnDecodingError::IoRead {
@@ -134,17 +141,26 @@ impl SvgWritable for ImageTag {
 		writer: &mut quick_xml::Writer<impl std::io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
+		let Self {
+			inner: Inner {
+				attrs,
+				image_path: _,
+				kind: _,
+			},
+			children,
+		} = self;
+
 		let (img_k, img_v) = self.get_image_attr_pair(context)?;
 
 		prepare_and_write_tag(
 			writer,
 			"image",
 			|elem| {
-				self.attrs.as_ref().write_into(elem);
+				attrs.as_ref().write_into(elem);
 				elem.push_attribute((img_k, img_v.as_ref()));
 			},
 			|writer| {
-				for child in self.children.as_ref() {
+				for child in children.as_ref() {
 					child.to_svg(writer, context)?;
 				}
 				Ok(())
@@ -155,15 +171,10 @@ impl SvgWritable for ImageTag {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub(crate) struct UnvalidatedImageTag {
-	image_path: CompactString,
-
-	#[serde(skip_serializing_if = "Option::is_none")]
-	kind: Option<CompactString>,
-
 	#[serde(flatten)]
-	attrs: DeXmlAttrs,
+	inner: Inner,
 
 	#[serde(flatten)]
 	children: UnvalidatedDeChildTags,
@@ -177,9 +188,11 @@ impl Validatable for UnvalidatedImageTag {
 
 	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
 		let Self {
-			image_path,
-			kind,
-			attrs,
+			inner: Inner {
+				image_path,
+				kind,
+				attrs,
+			},
 			children,
 			extras,
 		} = self;
@@ -187,9 +200,11 @@ impl Validatable for UnvalidatedImageTag {
 		extras.ensure_empty(AnyChildTagDiscriminants::Image.name())?;
 
 		Ok(ImageTag {
-			image_path,
-			kind,
-			attrs,
+			inner: Inner {
+				image_path,
+				kind,
+				attrs,
+			},
 			children: children.validated()?,
 		})
 	}

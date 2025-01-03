@@ -91,10 +91,11 @@ impl Extras {
 /// Variable substitution and LISP evaluation are performed on the values in `attrs`
 /// using `vars`.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct DeXmlAttrs {
 	/// (Optional) A dictionary of name="value" XML attributes. None is equivalent to no
 	/// attributes.
-	#[serde(default, skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	attrs: Option<XmlAttrs>,
 }
 
@@ -107,9 +108,10 @@ impl AsRef<XmlAttrs> for DeXmlAttrs {
 /// A list of children of this tag. Each child in the list is an object interpretable as
 /// `AnyChildTag`. For example, the `children` in `{ "tag": "g", "children": [{ "tag":
 /// "rect", "attrs": ... }, { "image_path": ... }] }`
-#[derive(Debug, Default, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
 pub(crate) struct DeChildTags {
-	#[serde(default, skip_serializing_if = "Option::is_none")]
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub(crate) children: Option<Vec<AnyChildTag>>,
 }
 
@@ -119,9 +121,9 @@ impl AsRef<[AnyChildTag]> for DeChildTags {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
+#[serde(transparent)]
 pub(crate) struct UnvalidatedDeChildTags {
-	#[serde(default)]
 	pub(crate) children: Option<Vec<UnvalidatedAnyChildTag>>,
 }
 

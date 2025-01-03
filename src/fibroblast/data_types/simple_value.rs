@@ -1,110 +1,30 @@
-use compact_str::{CompactString, ToCompactString};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use compact_str::CompactString;
+use serde::{Deserialize, Serialize};
 
-use super::concrete_number::{ConcreteNumberVisitor, Number};
-
-/// An enum whose variants represent "simple" (indivisible) values. This owns all of its
-/// values (*maybe* could be replaced with `SimpleValue<'a> { Text(Cow<'a, str>) }` but
-/// almost certainly not worth the cost of the refactor)
-#[derive(Debug)]
+/// An enum whose variants represent "simple" (indivisible) values: number, text, or
+/// bool. Bool represents the presence (`attr=""`) or absence (nothing) of an attribute.
+//
+// (*maybe* could be replaced with `SimpleValue<'a> { Text(Cow<'a, str>) }` but
+// almost certainly not worth the cost of the refactor)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 #[cfg_attr(test, derive(PartialEq))]
 pub(crate) enum SimpleValue {
-	Number(Number),
+	Number(serde_json::Number),
 	Text(CompactString),
-	/// The presence of an attribute — usually represented `attr=""`
-	Present,
-	/// The absence of an attribute. How is this different from just ommitting the
-	/// attribute altogether? Having an explicit option to drop attribtues may come in
-	/// handy if we end up wanting to explicitly opt out of an attribute
-	Absent,
+	/// The presence of an attribute — usually represented `attr=""` if true, or nothing
+	/// (the explicit absence of an element) if false
+	IsPresent(bool),
 }
 
-impl Clone for SimpleValue {
-	/// Everything but `Text` is `Copy`; `Text` needs to be cloned
-	fn clone(&self) -> Self {
-		use SimpleValue::*;
-
-		match self {
-			Text(s) => Text(s.clone()),
-			Number(x) => Number(*x),
-			Present => Present,
-			Absent => Absent,
-		}
-	}
-}
-
-impl Serialize for SimpleValue {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: Serializer,
-	{
-		use self::SimpleValue::*;
-
-		match self {
-			Number(n) => n.serialize(serializer),
-			Text(s) => serializer.serialize_str(s),
-			Present => serializer.serialize_bool(true),
-			Absent => serializer.serialize_bool(false),
-		}
-	}
-}
-
-impl<'de> Deserialize<'de> for SimpleValue {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: Deserializer<'de>,
-	{
-		struct SimpleValueVisitor;
-
-		impl de::Visitor<'_> for SimpleValueVisitor {
-			type Value = SimpleValue;
-
-			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-				formatter.write_str("a string, a number, or a bool")
-			}
-
-			fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				ConcreteNumberVisitor.visit_i64(v).map(SimpleValue::Number)
-			}
-
-			fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				ConcreteNumberVisitor.visit_u64(v).map(SimpleValue::Number)
-			}
-
-			fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				ConcreteNumberVisitor.visit_f64(v).map(SimpleValue::Number)
-			}
-
-			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				Ok(SimpleValue::Text(v.to_compact_string()))
-			}
-
-			/// `true` -> Present, `false` -> Absent
-			fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				Ok(if v {
-					SimpleValue::Present
-				} else {
-					SimpleValue::Absent
-				})
-			}
-		}
-
-		deserializer.deserialize_any(SimpleValueVisitor)
+impl SimpleValue {
+	/// Convert a JSON-reprentible f64 (ie neither NaN nor infinite) to this
+	///
+	/// Panics on NaN or inf, but since we only ever get our floats from JSON in
+	/// the first place, that won't be a problem in practice.
+	#[allow(dead_code)]
+	pub(crate) fn from_json_f64(x: f64) -> Self {
+		Self::Number(serde_json::Number::from_f64(x).unwrap())
 	}
 }
 
@@ -153,7 +73,7 @@ mod tests {
 	#[test]
 	fn bool() {
 		// Present/absent
-		assert_tokens(&SimpleValue::Present, &[Token::Bool(true)]);
-		assert_tokens(&SimpleValue::Absent, &[Token::Bool(false)]);
+		assert_tokens(&SimpleValue::IsPresent(true), &[Token::Bool(true)]);
+		assert_tokens(&SimpleValue::IsPresent(false), &[Token::Bool(false)]);
 	}
 }
