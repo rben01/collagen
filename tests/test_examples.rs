@@ -15,13 +15,21 @@ fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl
 
 	let out_bytes = std::fs::read(out_path).unwrap();
 
-	assert!(
+	if fibroblast_bytes != out_bytes {
+		let f = tempfile::NamedTempFile::new().unwrap();
+		let path = f.path().to_owned();
+
+		std::fs::write(&path, fibroblast_bytes).unwrap();
+		std::mem::forget(f); // don't delete file after test runs and program exits
+
 		// not assert_eq because on failure, the debug representations are long and useless
-		fibroblast_bytes == out_bytes,
-		"Collagen generated from input did not match expected output. Input path: {:?}. Output path: {:?}.",
-		clgn_path,
-		out_path
-	);
+		panic!(
+			"Collagen generated from input did not match expected output. \
+			 Input (actual) path: {clgn_path:?}. \
+			 Output (expected) path: {out_path:?}. \
+			 Generated output written to {path:?}",
+		);
+	}
 }
 
 macro_rules! test_input_output {

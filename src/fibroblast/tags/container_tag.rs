@@ -150,7 +150,7 @@ pub(crate) struct UnvalidatedContainerTag {
 	#[serde(flatten)]
 	inner: Inner,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 

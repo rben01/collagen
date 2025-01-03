@@ -50,7 +50,7 @@ pub(crate) struct UnvalidatedTextTag {
 	#[serde(flatten)]
 	inner: Inner,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 

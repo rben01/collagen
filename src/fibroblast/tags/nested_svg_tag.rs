@@ -66,7 +66,7 @@ pub(crate) struct UnvalidatedNestedSvgTag {
 	#[serde(flatten)]
 	inner: Inner,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 

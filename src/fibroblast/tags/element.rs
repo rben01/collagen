@@ -63,8 +63,11 @@ impl XmlAttrs {
 		self.0.iter().map(|(k, v)| (k.as_ref(), v))
 	}
 
-	pub(crate) fn write_into(&self, elem: &mut quick_xml::events::BytesStart) {
-		for (k, v) in self.iter() {
+	fn write_into_impl<'a>(
+		items: impl IntoIterator<Item = (&'a str, &'a SimpleValue)>,
+		elem: &mut quick_xml::events::BytesStart,
+	) {
+		for (k, v) in items {
 			match v {
 				SimpleValue::Text(text) => elem.push_attribute((k, text.as_str())),
 				SimpleValue::Number(n) => elem.push_attribute((k, n.to_compact_string().as_str())),
@@ -72,5 +75,20 @@ impl XmlAttrs {
 				SimpleValue::IsPresent(false) => {}
 			};
 		}
+	}
+
+	#[cfg(not(test))]
+	pub(crate) fn write_into(&self, elem: &mut quick_xml::events::BytesStart) {
+		Self::write_into_impl(self.iter(), elem);
+	}
+
+	// during testing, we sort the attributes so that the order is deterministic (instead
+	// of depending on random hash state)
+	#[cfg(test)]
+	pub(crate) fn write_into(&self, elem: &mut quick_xml::events::BytesStart) {
+		let mut items = self.iter().collect::<Vec<_>>();
+		items.sort_by_key(|(k, _)| *k);
+
+		Self::write_into_impl(items, elem);
 	}
 }

@@ -377,7 +377,7 @@ pub(crate) struct UnvalidatedFontTag {
 	#[serde(flatten)]
 	inner: Inner,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 

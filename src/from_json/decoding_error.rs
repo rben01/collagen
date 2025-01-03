@@ -20,7 +20,10 @@ pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug, Error)]
 pub enum ClgnDecodingError {
-	#[error("Invalid schema: for {}", .0)]
+	#[error("missing manifest file; must provide either collagen.jsonnet or collagen.json")]
+	MissingManifest,
+
+	#[error("invalid schema: for {}", .0)]
 	InvalidSchema(#[from] InvalidSchemaError),
 
 	#[error("IO error reading from {path:?} ({source})")]
@@ -38,11 +41,22 @@ pub enum ClgnDecodingError {
 	#[error("error reading {path:?} ({source})")]
 	Zip { source: ZipError, path: PathBuf },
 
+	#[error("DEBUG: missing jsonnet file. this is not supposed to appear to end users; please file a bug!")]
+	MissingJsonnetFile,
+
 	#[error("error reading {path:?} as jsonnet ({msg})")]
 	JsonnetRead { msg: String, path: PathBuf },
 
-	#[error("error reading {path:?} as json ({source})")]
-	JsonDecode {
+	#[error("failed to convert json at {path:?} to a tag ({source})")]
+	JsonDecodeFile {
+		source: serde_json::Error,
+		path: PathBuf,
+	},
+
+	#[error(
+		"after expanding jsonnet at {path:?} to json, failed to convert json to a tag ({source})"
+	)]
+	JsonDecodeJsonnet {
 		source: serde_json::Error,
 		path: PathBuf,
 	},
@@ -87,20 +101,26 @@ impl ClgnDecodingError {
 		use ClgnDecodingError::*;
 		ExitCode::from(match self {
 			InvalidSchema { .. } => 1,
-			JsonnetRead { .. } => 2,
-			JsonDecode { .. } => 4,
-			JsonEncode { .. } => 5,
-			InvalidPath { .. } => 6,
-			IoRead { .. } => 7,
-			IoWrite { .. } => 8,
-			IoOther { .. } => 9,
-			Image { .. } => 14,
-			Xml { .. } => 15,
-			ToSvgString { .. } => 19,
-			BundledFontNotFound { .. } => 22,
-			Zip { .. } => 33,
-			FolderWatch { .. } => 49,
-			RecursiveWatch { .. } => 50,
+			JsonnetRead { .. } => 3,
+			JsonDecodeFile { .. } => 4,
+			JsonDecodeJsonnet { .. } => 5,
+			JsonEncode { .. } => 6,
+			MissingManifest => 9,
+			InvalidPath { .. } => 10,
+			IoRead { .. } => 11,
+			IoWrite { .. } => 12,
+			IoOther { .. } => 13,
+			Image { .. } => 20,
+			Xml { .. } => 30,
+			ToSvgString { .. } => 40,
+			BundledFontNotFound { .. } => 50,
+			Zip { .. } => 101,
+			FolderWatch { .. } => 102,
+			RecursiveWatch { .. } => 103,
+			MissingJsonnetFile => {
+				eprintln!("DEBUG: we should not have gotten here. please file a bug!");
+				199
+			}
 		})
 	}
 }

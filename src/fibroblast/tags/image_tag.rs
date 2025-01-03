@@ -76,7 +76,6 @@ struct Inner {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	kind: Option<CompactString>,
 
-	#[serde(flatten)]
 	attrs: DeXmlAttrs,
 }
 
@@ -176,10 +175,9 @@ pub(crate) struct UnvalidatedImageTag {
 	#[serde(flatten)]
 	inner: Inner,
 
-	#[serde(flatten)]
 	children: UnvalidatedDeChildTags,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 

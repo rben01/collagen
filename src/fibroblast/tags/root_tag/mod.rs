@@ -32,7 +32,7 @@ impl RootTag {
 		let manifest_path = path.join("collagen.jsonnet");
 
 		let mut vm = JsonnetVm::new();
-		let json_str = match vm.evaluate_file(path) {
+		let json_str = match vm.evaluate_file(&manifest_path) {
 			Ok(s) => s,
 			Err(err) => {
 				return Err(ClgnDecodingError::JsonnetRead {
@@ -43,7 +43,7 @@ impl RootTag {
 		};
 
 		let root = serde_json::from_str::<UnvalidatedRootTag>(&json_str)
-			.map_err(|source| ClgnDecodingError::JsonDecode {
+			.map_err(|source| ClgnDecodingError::JsonDecodeJsonnet {
 				source,
 				path: manifest_path,
 			})?
@@ -66,7 +66,7 @@ impl RootTag {
 		};
 
 		let root = serde_json::from_reader::<_, UnvalidatedRootTag>(f)
-			.map_err(|source| ClgnDecodingError::JsonDecode {
+			.map_err(|source| ClgnDecodingError::JsonDecodeFile {
 				source,
 				path: manifest_path,
 			})?
@@ -120,7 +120,7 @@ pub struct UnvalidatedRootTag {
 
 	children: UnvalidatedDeChildTags,
 
-	#[serde(flatten, default)]
+	#[serde(flatten)]
 	extras: Extras,
 }
 
