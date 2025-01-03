@@ -247,8 +247,6 @@ pub struct FontTag {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Inner {
 	fonts: Vec<FontFace>,
-
-	#[serde(flatten)]
 	attrs: DeXmlAttrs,
 }
 
