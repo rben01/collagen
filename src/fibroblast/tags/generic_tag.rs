@@ -3,6 +3,7 @@ use super::{
 	DecodingContext, Extras, UnvalidatedDeChildTags,
 };
 use crate::{
+	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 	ClgnDecodingResult,
 };
@@ -72,18 +73,20 @@ pub(crate) struct UnvalidatedGenericTag {
 impl Validatable for UnvalidatedGenericTag {
 	type Validated = GenericTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner { tag_name, attrs },
 			children,
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::Generic.name())?;
+		if let Err(err) = extras.ensure_empty(AnyChildTagDiscriminants::Generic.name()) {
+			errors.push(err);
+		}
 
 		Ok(GenericTag {
 			inner: Inner { tag_name, attrs },
-			children: children.validated()?,
+			children: children.into_validated(errors)?,
 		})
 	}
 }

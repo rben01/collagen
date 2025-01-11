@@ -23,8 +23,8 @@ pub enum ClgnDecodingError {
 	#[error("missing manifest file; must provide either collagen.jsonnet or collagen.json")]
 	MissingManifest,
 
-	#[error("invalid schema: for {}", .0)]
-	InvalidSchema(#[from] InvalidSchemaError),
+	#[error("invalid schema: {}", .0)]
+	InvalidSchema(#[from] InvalidSchemaErrorList),
 
 	#[error("IO error reading from {path:?} ({source})")]
 	IoRead { source: io::Error, path: PathBuf },
@@ -159,6 +159,37 @@ impl InvalidSchemaError {
 }
 
 impl std::error::Error for InvalidSchemaError {}
+
+#[derive(Debug, Default)]
+pub struct InvalidSchemaErrorList(pub(crate) Vec<InvalidSchemaError>);
+
+impl InvalidSchemaErrorList {
+	pub(crate) fn new() -> Self {
+		Self::default()
+	}
+
+	pub(crate) fn push(&mut self, err: InvalidSchemaError) {
+		self.0.push(err);
+	}
+
+	pub(crate) fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+}
+
+impl fmt::Display for InvalidSchemaErrorList {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		for (i, error) in self.0.iter().enumerate() {
+			if i > 0 {
+				writeln!(f)?;
+			}
+			write!(f, "{error}")?;
+		}
+		Ok(())
+	}
+}
+
+impl std::error::Error for InvalidSchemaErrorList {}
 
 impl AnyChildTagDiscriminants {
 	pub(crate) fn primary_key(self) -> &'static str {

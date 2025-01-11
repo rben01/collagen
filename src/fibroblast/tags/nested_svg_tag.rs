@@ -1,6 +1,7 @@
 use super::{any_child_tag::AnyChildTagDiscriminants, validation::Validatable, DeXmlAttrs, Extras};
 use crate::{
 	fibroblast::data_types::DecodingContext,
+	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable},
 };
 use compact_str::CompactString;
@@ -73,16 +74,22 @@ pub(crate) struct UnvalidatedNestedSvgTag {
 impl Validatable for UnvalidatedNestedSvgTag {
 	type Validated = NestedSvgTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner { svg_path, attrs },
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::NestedSvg.name())?;
+		if let Err(e) = extras.ensure_empty(AnyChildTagDiscriminants::NestedSvg.name()) {
+			errors.push(e);
+		}
 
-		Ok(NestedSvgTag {
-			inner: Inner { svg_path, attrs },
-		})
+		if errors.is_empty() {
+			Ok(NestedSvgTag {
+				inner: Inner { svg_path, attrs },
+			})
+		} else {
+			Err(())
+		}
 	}
 }

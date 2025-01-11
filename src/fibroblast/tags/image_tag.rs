@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
 	fibroblast::data_types::DecodingContext,
+	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{
 		prepare_and_write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable,
 	},
@@ -184,7 +185,7 @@ pub(crate) struct UnvalidatedImageTag {
 impl Validatable for UnvalidatedImageTag {
 	type Validated = ImageTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner {
 				image_path,
@@ -195,7 +196,9 @@ impl Validatable for UnvalidatedImageTag {
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::Image.name())?;
+		if let Err(err) = extras.ensure_empty(AnyChildTagDiscriminants::Image.name()) {
+			errors.push(err);
+		}
 
 		Ok(ImageTag {
 			inner: Inner {
@@ -203,7 +206,7 @@ impl Validatable for UnvalidatedImageTag {
 				kind,
 				attrs,
 			},
-			children: children.validated()?,
+			children: children.into_validated(errors)?,
 		})
 	}
 }

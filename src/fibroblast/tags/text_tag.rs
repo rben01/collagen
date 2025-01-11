@@ -1,5 +1,8 @@
 use super::{any_child_tag::AnyChildTagDiscriminants, DecodingContext, Extras, Validatable};
-use crate::{to_svg::svg_writable::SvgWritable, ClgnDecodingResult};
+use crate::{
+	from_json::decoding_error::InvalidSchemaErrorList, to_svg::svg_writable::SvgWritable,
+	ClgnDecodingResult,
+};
 use compact_str::{CompactString, ToCompactString};
 use quick_xml::events::BytesText;
 use serde::{de, Deserialize, Serialize};
@@ -130,7 +133,7 @@ impl<'de> de::Deserialize<'de> for UnvalidatedTextTag {
 impl Validatable for UnvalidatedTextTag {
 	type Validated = TextTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner {
 				text,
@@ -139,13 +142,19 @@ impl Validatable for UnvalidatedTextTag {
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::Text.name())?;
+		if let Err(e) = extras.ensure_empty(AnyChildTagDiscriminants::Text.name()) {
+			errors.push(e);
+		}
 
-		Ok(TextTag {
-			inner: Inner {
-				text,
-				is_preescaped,
-			},
-		})
+		if errors.is_empty() {
+			Ok(TextTag {
+				inner: Inner {
+					text,
+					is_preescaped,
+				},
+			})
+		} else {
+			Err(())
+		}
 	}
 }

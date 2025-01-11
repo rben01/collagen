@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{
 	fibroblast::Fibroblast,
+	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 };
 use compact_str::CompactString;
@@ -157,18 +158,24 @@ pub(crate) struct UnvalidatedContainerTag {
 impl Validatable for UnvalidatedContainerTag {
 	type Validated = ContainerTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner { clgn_path },
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::Container.name())?;
+		if let Err(e) = extras.ensure_empty(AnyChildTagDiscriminants::Container.name()) {
+			errors.push(e);
+		}
 
-		Ok(ContainerTag {
-			inner: Inner { clgn_path },
-			resolved_path: RefCell::default(),
-			fibroblast: RefCell::default(),
-		})
+		if errors.is_empty() {
+			Ok(ContainerTag {
+				inner: Inner { clgn_path },
+				resolved_path: RefCell::default(),
+				fibroblast: RefCell::default(),
+			})
+		} else {
+			Err(())
+		}
 	}
 }

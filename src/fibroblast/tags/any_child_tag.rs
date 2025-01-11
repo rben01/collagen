@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
 	fibroblast::{data_types::DecodingContext, tags::validation::Validatable},
-	from_json::decoding_error::InvalidSchemaError,
+	from_json::decoding_error::{InvalidSchemaError, InvalidSchemaErrorList},
 	to_svg::svg_writable::SvgWritable,
 };
 use serde::{Deserialize, Serialize};
@@ -56,21 +56,25 @@ pub(crate) enum UnvalidatedAnyChildTag {
 impl Validatable for UnvalidatedAnyChildTag {
 	type Validated = AnyChildTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated>
-	where
-		Self: Sized,
-	{
-		Ok(match self {
-			UnvalidatedAnyChildTag::Generic(t) => AnyChildTag::Generic(t.validated()?),
-			UnvalidatedAnyChildTag::Image(t) => AnyChildTag::Image(t.validated()?),
-			UnvalidatedAnyChildTag::Container(t) => AnyChildTag::Container(t.validated()?),
-			UnvalidatedAnyChildTag::NestedSvg(t) => AnyChildTag::NestedSvg(t.validated()?),
-			UnvalidatedAnyChildTag::Font(t) => AnyChildTag::Font(t.validated()?),
-			UnvalidatedAnyChildTag::Text(t) => AnyChildTag::Text(t.validated()?),
-			UnvalidatedAnyChildTag::Err(o) => {
-				return Err(InvalidSchemaError::InvalidObject(o).into())
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
+		match self {
+			UnvalidatedAnyChildTag::Generic(t) => {
+				t.into_validated(errors).map(AnyChildTag::Generic)
 			}
-		})
+			UnvalidatedAnyChildTag::Image(t) => t.into_validated(errors).map(AnyChildTag::Image),
+			UnvalidatedAnyChildTag::Container(t) => {
+				t.into_validated(errors).map(AnyChildTag::Container)
+			}
+			UnvalidatedAnyChildTag::NestedSvg(t) => {
+				t.into_validated(errors).map(AnyChildTag::NestedSvg)
+			}
+			UnvalidatedAnyChildTag::Font(t) => t.into_validated(errors).map(AnyChildTag::Font),
+			UnvalidatedAnyChildTag::Text(t) => t.into_validated(errors).map(AnyChildTag::Text),
+			UnvalidatedAnyChildTag::Err(o) => {
+				errors.push(InvalidSchemaError::InvalidObject(o));
+				Err(())
+			}
+		}
 	}
 }
 

@@ -42,7 +42,7 @@ pub(crate) mod text_tag;
 pub(crate) mod validation;
 
 use self::element::XmlAttrs;
-use crate::from_json::decoding_error::InvalidSchemaError;
+use crate::from_json::decoding_error::{InvalidSchemaError, InvalidSchemaErrorList};
 pub(super) use crate::{
 	fibroblast::data_types::DecodingContext, to_svg::svg_writable::ClgnDecodingResult,
 };
@@ -72,13 +72,12 @@ impl Extras {
 		&self.0
 	}
 
-	pub(crate) fn ensure_empty(&self, for_tag: &'static str) -> ClgnDecodingResult<()> {
+	pub(crate) fn ensure_empty(&self, for_tag: &'static str) -> Result<(), InvalidSchemaError> {
 		if !self.0.is_empty() {
 			return Err(InvalidSchemaError::unexpected_keys(
 				for_tag,
 				self.0.keys().cloned().collect(),
-			)
-			.into());
+			));
 		}
 
 		Ok(())
@@ -130,14 +129,14 @@ pub(crate) struct UnvalidatedDeChildTags {
 impl Validatable for UnvalidatedDeChildTags {
 	type Validated = DeChildTags;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<DeChildTags, ()> {
 		Ok(DeChildTags {
 			children: self
 				.children
 				.map(|c| {
 					c.into_iter()
-						.map(|child| child.validated())
-						.collect::<ClgnDecodingResult<Vec<_>>>()
+						.map(|child| child.into_validated(errors))
+						.collect::<Result<Vec<_>, _>>()
 				}) // Option<Result<Vec<T>, E>>
 				.transpose()?,
 		})

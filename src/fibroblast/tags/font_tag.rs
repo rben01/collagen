@@ -3,6 +3,7 @@ use super::{
 	Extras,
 };
 use crate::{
+	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, ClgnDecodingError, SvgWritable},
 	utils::{b64_encode, Map},
 	ClgnDecodingResult,
@@ -382,16 +383,22 @@ pub(crate) struct UnvalidatedFontTag {
 impl Validatable for UnvalidatedFontTag {
 	type Validated = FontTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner { fonts, attrs },
 			extras,
 		} = self;
 
-		extras.ensure_empty(AnyChildTagDiscriminants::Font.name())?;
+		if let Err(e) = extras.ensure_empty(AnyChildTagDiscriminants::Font.name()) {
+			errors.push(e);
+		}
 
-		Ok(FontTag {
-			inner: Inner { fonts, attrs },
-		})
+		if errors.is_empty() {
+			Ok(FontTag {
+				inner: Inner { fonts, attrs },
+			})
+		} else {
+			Err(())
+		}
 	}
 }

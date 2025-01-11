@@ -3,7 +3,7 @@ use super::{
 	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
-	from_json::ClgnDecodingError,
+	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
 	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
 };
 use jsonnet::JsonnetVm;
@@ -42,14 +42,14 @@ impl RootTag {
 			}
 		};
 
-		let root = serde_json::from_str::<UnvalidatedRootTag>(&json_str)
+		let mut errors = InvalidSchemaErrorList::new();
+		serde_json::from_str::<UnvalidatedRootTag>(&json_str)
 			.map_err(|source| ClgnDecodingError::JsonDecodeJsonnet {
 				source,
 				path: manifest_path,
 			})?
-			.validated()?;
-
-		Ok(root)
+			.into_validated(&mut errors)
+			.map_err(|()| errors.into())
 	}
 
 	pub(crate) fn new_from_dir_with_pure_json(path: &Path) -> ClgnDecodingResult<Self> {
@@ -65,14 +65,14 @@ impl RootTag {
 			}
 		};
 
-		let root = serde_json::from_reader::<_, UnvalidatedRootTag>(f)
+		let mut errors = InvalidSchemaErrorList::new();
+		serde_json::from_reader::<_, UnvalidatedRootTag>(f)
 			.map_err(|source| ClgnDecodingError::JsonDecodeFile {
 				source,
 				path: manifest_path,
 			})?
-			.validated()?;
-
-		Ok(root)
+			.into_validated(&mut errors)
+			.map_err(|()| errors.into())
 	}
 
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
@@ -127,18 +127,20 @@ pub struct UnvalidatedRootTag {
 impl Validatable for UnvalidatedRootTag {
 	type Validated = RootTag;
 
-	fn validated(self) -> ClgnDecodingResult<Self::Validated> {
+	fn into_validated(self, errors: &mut InvalidSchemaErrorList) -> Result<Self::Validated, ()> {
 		let Self {
 			inner: Inner { attrs },
 			children,
 			extras,
 		} = self;
 
-		extras.ensure_empty("svg root")?;
+		if let Err(err) = extras.ensure_empty("svg root") {
+			errors.push(err);
+		}
 
 		Ok(RootTag {
 			inner: Inner { attrs },
-			children: children.validated()?,
+			children: children.into_validated(errors)?,
 		})
 	}
 }
