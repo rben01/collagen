@@ -1,5 +1,4 @@
-local vars = import '../../shared/shared.libjsonnet';
-local y = 'this_is_y';
+local vars = (import '../../shared/shared.libjsonnet') + { y: 'this_is_y' };
 
 {
   attrs: { x: 200 },
@@ -18,7 +17,7 @@ local y = 'this_is_y';
         stroke: 'black',
         'stroke-width': 3,
       },
-      children: [{ text: 'nested!! x=%(x)d y=%(y)s' % { x: vars.x, y: y } }],
+      children: 'nested!! x=%(x)d y=%(y)s' % vars,
     },
   ],
 }

@@ -126,10 +126,31 @@ impl AsRef<[AnyChildTag]> for DeChildTags {
 	}
 }
 
+// Exists to take either a list of children or a sole child (which is wrapped in a
+// one-element list) without writing deserialization code by hand
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum UnvalidatedDeChildTagsWrapper {
+	One(UnvalidatedAnyChildTag),
+	Multiple(Vec<UnvalidatedAnyChildTag>),
+}
+
 #[derive(Debug, Deserialize)]
-#[serde(transparent)]
+#[serde(from = "Option<UnvalidatedDeChildTagsWrapper>")]
 pub(crate) struct UnvalidatedDeChildTags {
+	#[serde(default)]
 	pub(crate) children: Option<Vec<UnvalidatedAnyChildTag>>,
+}
+
+impl From<Option<UnvalidatedDeChildTagsWrapper>> for UnvalidatedDeChildTags {
+	fn from(children: Option<UnvalidatedDeChildTagsWrapper>) -> Self {
+		Self {
+			children: children.map(|children| match children {
+				UnvalidatedDeChildTagsWrapper::One(one) => vec![one],
+				UnvalidatedDeChildTagsWrapper::Multiple(multiple) => multiple,
+			}),
+		}
+	}
 }
 
 impl Validatable for UnvalidatedDeChildTags {
