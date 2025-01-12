@@ -16,7 +16,7 @@ fn test_clgn_against_existing_output(clgn_path: impl AsRef<Path>, out_path: impl
 	let out_bytes = std::fs::read(out_path).unwrap();
 
 	if fibroblast_bytes != out_bytes {
-		let f = tempfile::NamedTempFile::new().unwrap();
+		let f = tempfile::NamedTempFile::with_suffix(".svg").unwrap();
 		let path = f.path().to_owned();
 
 		std::fs::write(&path, fibroblast_bytes).unwrap();
@@ -117,11 +117,8 @@ mod examples {
 		smiley_with_speech_bubble,
 		"./tests/examples/kitty-nesting-smiley/skeleton/smiley"
 	);
-	test_input_output!(
-		kitty_with_nested_smiley,
-		"./tests/examples/kitty-nesting-smiley"
-	);
-	test_input_output!(hodgepodge, "./tests/examples/random-gibberish");
+	test_input_output!(kitty_nested_smiley, "./tests/examples/kitty-nesting-smiley");
+	test_input_output!(random_gibberish, "./tests/examples/random-gibberish");
 	test_input_output!(
 		simple_nesting, "./tests/examples/simple-nesting", "A" => "out.svg"
 	);

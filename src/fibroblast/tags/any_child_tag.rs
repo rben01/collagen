@@ -71,7 +71,7 @@ impl Validatable for UnvalidatedAnyChildTag {
 			UnvalidatedAnyChildTag::Font(t) => t.into_validated(errors).map(AnyChildTag::Font),
 			UnvalidatedAnyChildTag::Text(t) => t.into_validated(errors).map(AnyChildTag::Text),
 			UnvalidatedAnyChildTag::Err(o) => {
-				errors.push(InvalidSchemaError::InvalidObject(o));
+				errors.push(InvalidSchemaError::UnrecognizedObject(o));
 				Err(())
 			}
 		}

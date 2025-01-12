@@ -54,7 +54,7 @@ pub use generic_tag::GenericTag;
 pub use image_tag::ImageTag;
 pub use nested_svg_tag::NestedSvgTag;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
+use std::{fmt, sync::LazyLock};
 use validation::Validatable;
 
 // The `BTreeMap` equivalent of `&[]`, which sadly only exists for `Vec`. Since
@@ -63,9 +63,15 @@ use validation::Validatable;
 pub(crate) static EMPTY_ATTRS: LazyLock<XmlAttrs> = LazyLock::new(|| XmlAttrs(Vec::new()));
 
 /// A catch-all for extra, unexpected keys
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Extras(serde_json::Map<String, serde_json::Value>);
+
+impl fmt::Debug for Extras {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{:?}", self.0)
+	}
+}
 
 impl Extras {
 	pub(crate) fn map(&self) -> &serde_json::Map<String, serde_json::Value> {

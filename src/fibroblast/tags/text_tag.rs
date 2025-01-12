@@ -34,9 +34,7 @@ impl SvgWritable for TextTag {
 			},
 		} = self;
 
-		let is_preescaped = is_preescaped.unwrap_or(false);
-
-		let bt = if is_preescaped {
+		let bt = if is_preescaped == &Some(true) {
 			BytesText::from_escaped(text)
 		} else {
 			BytesText::new(text.as_ref())
@@ -113,8 +111,6 @@ impl<'de> de::Deserialize<'de> for UnvalidatedTextTag {
 				}
 
 				let text = text.ok_or_else(|| de::Error::missing_field("text"))?;
-				let is_preescaped =
-					is_preescaped.ok_or_else(|| de::Error::missing_field("is_preescaped"))?;
 
 				Ok(UnvalidatedTextTag {
 					inner: Inner {

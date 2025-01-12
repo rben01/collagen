@@ -149,7 +149,7 @@ pub enum InvalidSchemaError {
 		keys: Vec<String>,
 	},
 	/// An object not matching any known schema was passed
-	InvalidObject(Extras),
+	UnrecognizedObject(Extras),
 }
 
 impl InvalidSchemaError {
@@ -243,7 +243,7 @@ impl fmt::Display for InvalidSchemaError {
 			InvalidSchemaError::UnexpectedKeys { tag_name, keys } => {
 				write!(f, "unexpected keys for tag {tag_name:?}: {keys:?}")
 			}
-			InvalidSchemaError::InvalidObject(o) => {
+			InvalidSchemaError::UnrecognizedObject(o) => {
 				writeln!(
 					f,
 					"The following object did not match any known schema: {}",
