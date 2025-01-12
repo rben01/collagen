@@ -14,6 +14,8 @@
 
 <span class="image"><a href="https://crates.io/crates/collagen" class="image"><img
 src="https://img.shields.io/crates/v/collagen" alt="collagen" /></a></span>
+<span class="image"><a href="https://docs.rs/collagen/latest/collagen/" class="image"><img
+src="https://img.shields.io/docsrs/collagen" alt="collagen" /></a></span>
 
 </div>
 
