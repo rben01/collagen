@@ -7,6 +7,7 @@ use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
 use std::{
 	fs,
+	io::BufWriter,
 	path::{Path, PathBuf},
 	time::Duration,
 };
@@ -53,16 +54,18 @@ pub struct Cli {
 	#[arg(short = 'i', long = "input")]
 	input: PathBuf,
 
-	/// The path to save the resulting SVG to
+	/// The path to save the resulting SVG to; if equal to '-', output will instead go to
+	/// stdout
 	#[arg(short = 'o', long = "out-file")]
 	out_file: PathBuf,
 
-	/// The format to save the resulting SVG to; currently only `json` and `jsonnet` are
-	/// supported
+	/// The format of the manifest file; if not specified, it will be inferred from the
+	/// input
 	#[arg(short = 'f', long = "format")]
 	format: Option<ManifestFormat>,
 
-	/// Whether to watch the skeleton folder and re-run on any changes
+	/// If specified, enter watch mode, re-running on any changes inside the skeleton
+	/// folder
 	#[arg(long)]
 	watch: bool,
 
@@ -72,7 +75,9 @@ pub struct Cli {
 	debounce_ms: u64,
 }
 
-fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<fs::File>> {
+fn create_file_writer(
+	out_file: impl AsRef<Path>,
+) -> ClgnDecodingResult<XmlWriter<impl std::io::Write>> {
 	let f = fs::File::create(&out_file).map_err(|source| ClgnDecodingError::IoWrite {
 		source,
 		path: out_file.as_ref().to_owned(),
@@ -81,12 +86,20 @@ fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<fs:
 	Ok(XmlWriter::new(f))
 }
 
+fn create_stdout_writer() -> XmlWriter<impl std::io::Write> {
+	XmlWriter::new(BufWriter::new(std::io::stdout()))
+}
+
 fn run_once_result(
 	input: ProvidedInput,
 	out_file: &Path,
 	format: Option<ManifestFormat>,
 ) -> ClgnDecodingResult<()> {
-	Fibroblast::from_dir(input, format)?.to_svg(&mut create_writer(out_file)?)
+	if out_file == Path::new("-") {
+		Fibroblast::from_dir(input, format)?.to_svg(&mut create_stdout_writer())
+	} else {
+		Fibroblast::from_dir(input, format)?.to_svg(&mut create_file_writer(out_file)?)
+	}
 }
 
 fn run_once_log(input: ProvidedInput, out_file: &Path, format: Option<ManifestFormat>) {
