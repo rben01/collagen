@@ -13,13 +13,13 @@
 :examples-dir: tests/examples
 :example-01-dir: {examples-dir}/kitty-nesting-smiley/skeleton/smiley
 :example-02-dir: {examples-dir}/kitty-nesting-smiley
-:example-drake-01-dir: {examples-dir}/drake-user-specified-font
+:example-drake-01-dir: {examples-dir}/drake-user-specified-font-loop
 :example-drake-02-dir: {examples-dir}/drake-no-font
 
 == Introduction
 
 Collagen is a program that takes as input a folder containing zero or more image files
-(`.jpeg`, `.png`, etc.) and a JSON manifest file describing the layout of these images
+(`.jpeg`, `.png`, etc.) and a JSON or https://jsonnet.org[Jsonnet] manifest file describing the layout of these images
 along with SVG components such as shapes and text, and produces as output a single SVG
 file with all assets embedded.
 
@@ -31,9 +31,14 @@ This allows a user to combine several graphics into a single file that can be di
 
 == Using Collagen
 
-The input to Collagen is a folder containing at the very least a `collagen.json` manifest file describing the layout of the resulting SVG.
+The input to Collagen is a folder containing at the very least a `collagen.json` or `collagen.jsonnet` manifest file describing the layout of the resulting SVG.
 If the manifest specifies any image files (by their path relative to the folder), then those image files must also be present at the expected path in the folder.
 An input folder satisfying these criteria will be referred to as a _skeleton_.
+
+If `collagen.jsonnet` is provided, it is first expanded into JSON, then evaluated as if it were a `collagen.json` file.
+While `collagen.json` is supported, even the least bit of complexity will quickly become overwhelming, in which case you should switch from JSON to Jsonnet.
+Jsonnet was designed to look like JSON (and, when evaluated, produces JSON) while supporting common programmatic features such as variables, functions, string interpolation, and array concatenation and object merging.
+These features make building the desired SVG a breeze.
 
 === A Basic Example
 
@@ -43,7 +48,7 @@ Suppose you have the following simple skeleton at directory `example-01`:
 [source,text]
 ----
 example-01
-├── collagen.json
+├── collagen.jsonnet
 └── images
     └── smiley.jpg
 ----
@@ -52,87 +57,81 @@ Where link:{example-01-dir}/skeleton/images/smiley.jpg[`images/smiley.jpg`^] is 
 
 image::{example-01-dir}/skeleton/images/smiley.jpg[width=200px]
 
-And where link:{example-01-dir}/skeleton/collagen.json[`collagen.json`^] contains the following:
+And where link:{example-01-dir}/skeleton/collagen.jsonnet[`collagen.jsonnet`^] contains the following:
 
-[source,json,indent=0,tabsize=2]
+[source,jsonnet,indent=0,tabsize=2]
 ----
+local bubble_text = 'Collagen!!'; <1>
+local nose_color = '#f00';
+local text_color = '#000';
+
 {
-  "vars": { <1>
-    "bubble_text": "Collagen!!",
-    "nose_color": "#f00",
-    "text_color": "#000"
-  },
-  "attrs": { "viewBox": "0 0 500 400" },
-  "children": [
+  attrs: { viewBox: '0 0 500 400' },
+  children: [
     {
-      "image_path": "images/smiley.jpg", <2>
-      "attrs": { "transform": "translate(0 100) scale(1.3)" }
+      image_path: 'images/smiley.jpg', <2>
+      attrs: { transform: 'translate(0 100) scale(1.3)' },
     },
     {
-      "tag": "circle", <3>
-      "attrs": {
-        "cx": 123,
-        "cy": 240,
-        "r": 15,
-        "fill": "{nose_color}",
-        "stroke": "#000",
-        "stroke-width": 3
-      }
+      tag: 'circle', <3>
+      attrs: {
+        cx: 123,
+        cy: 240,
+        r: 15,
+        fill: nose_color,
+        stroke: '#000',
+        'stroke-width': 3,
+      },
     },
     {
-      "tag": "path",
-      "attrs": {
-        "d": "M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z",
-        "stroke": "#000",
-        "stroke-width": 3,
-        "fill": "#fff"
-      }
+      tag: 'path',
+      attrs: {
+        d: 'M 230 140 L 265 120 A 100 40 0 1 0 235 110 Z',
+        stroke: '#000',
+        'stroke-width': 3,
+        fill: '#fff',
+      },
     },
     {
-      "tag": "text",
-      "text": "{bubble_text}", <4>
-      "attrs": {
-        "x": 250,
-        "y": 97,
-        "text-anchor": "start",
-        "dominant-baseline": "top",
-        "font-family": "Impact",
-        "font-size": 30,
-        "fill": "{text_color}"
-      }
-    }
-  ]
+      tag: 'text',
+      attrs: {
+        x: 250,
+        y: 97,
+        'text-anchor': 'start',
+        'dominant-baseline': 'top',
+        'font-family': 'Impact',
+        'font-size': 30,
+        fill: text_color,
+      },
+      children: [bubble_text], <4>
+    },
+  ],
 }
 ----
-<1> A dictionary of variables. In `text` and `attrs` values, variables enclosed in curly brackets will have their value substituted.
-For example, if `vars` contains values for `dx` and `dy`, then a translation could be applied with `"transform": "translate({dx} {dy})"`.
-If a child's `vars` doesn't contain a variable that the child needs the value of, the variable's value will be looked up by walking up the list of ancestors until the root is reached (i.e., variable scopes are nested).
+<1> Some variable declarations we'll make use of later.
 <2> To include an image, just give its relative path.
 <3> Most other tags are specified with the `tag` field, which contains the name of the SVG tag to use.
-<4> If a tag has a `text` field, the given text will be the content of the tag, as in `<text>your text here</text>`.
+<4> A string like `'Collagen!!'` gets turned into a text node: in SVG, `<text>Collagen!!</text>`.
 
-Then, running the following command:footnote:[
-	At some point `cargo run --` will be replaced with an actual standalone executable `clgn`.
-]
+Then, running the following command:
 
 [source,bash]
 ----
-cargo run -- -i example-01 -o example-01.svg
+clgn -i example-01 -o example-01.svg
 ----
 
 Will produce the following file, link:{example-01-dir}/out.svg[`examples-01.svg`^]:
 
 image::{example-01-dir}/out.svg[width=500]
 
-If you zoom in, you'll see the smiley face's pixels.
-But because the nose and speech bubble are SVG elements (i.e., vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
+If you zoom in, you'll see the smiley face's pixels — this is unavoidable, as the original smiley was just a jpeg.
+But because the nose and speech bubble are SVG elements (i.e. vector graphics, not raster) they look nice and smooth and crisp even when zoomed in.
 That's the whole point!
 Perfectly precise vector graphics can coexist alongside raster graphics.
-(This simple example shows just one image, but of course we could include arbitrarily many by simply adding more children of the form `{"image_path": <path>}`.)
 
 === A More Complicated Example
 
-As we've seen, we can include raster images in skeletons; it would be silly if we couldn't also include other skeletons!
+As we've seen, we can include raster images in skeletons; it would be silly if we couldn't also include other skeletons.
 Nested skeletons can be included by adding a child of the form `{"clgn_path": <path>}`.
 (Whereas a standalone skeleton gets turned into a `<svg>` tag, a nested skeleton will reside in a `<g>` tag.)
 Let's include the above skeleton in another (and just for fun, let's add a photo of a kitten (link:https://commons.wikimedia.org/w/index.php?title=File:Cute_grey_kitten.jpg&oldid=479136954[source^]) too, because why not):
@@ -140,9 +139,9 @@ Let's include the above skeleton in another (and just for fun, let's add a photo
 [source,text]
 ----
 example-02
-├── collagen.json
+├── collagen.jsonnet
 ├── example-01
-│   ├── collagen.json
+│   ├── collagen.jsonnet
 │   └── images
 │       └── smiley.jpg
 └── kitty.jpg
@@ -150,42 +149,42 @@ example-02
 
 Where link:{example-02-dir}/skeleton/collagen.json[`example-02/collagen.json`^] is below:
 
-[source,json,indent=0,tabsize=2]
+[source,jsonnet,indent=0,tabsize=2]
 ----
 {
-  "attrs": { "viewBox": "0 0 300 250" },
-  "children": [
+  attrs: { viewBox: '0 0 300 250' },
+  children: [
     {
-      "tag": "rect",
-      "attrs": {
-        "x": "10",
-        "y": "10",
-        "width": "275",
-        "height": "225",
-        "fill": "#ddd",
-        "stroke": "#00f",
-        "stroke-width": "10",
-        "stroke-dasharray": "10 10"
-      }
+      tag: 'rect',
+      attrs: {
+        x: '10',
+        y: '10',
+        width: '275',
+        height: '225',
+        fill: '#ddd',
+        stroke: '#00f',
+        'stroke-width': '10',
+        'stroke-dasharray': '10 10',
+      },
     },
     {
-      "tag": "g",
-      "attrs": { "transform": "translate(50 25) scale(.5)" },
-      "children": [
+      tag: 'g',
+      attrs: { transform: 'translate(50 25) scale(.5)' },
+      children: [
         {
-          "clgn_path": "./example-01"
-        }
-      ]
+          clgn_path: './smiley/skeleton',
+        },
+      ],
     },
     {
-      "image_path": "./kitty.jpg",
-      "attrs": { "transform": "translate(180 150) scale(.15)" }
-    }
-  ]
+      image_path: './kitty.jpg',
+      attrs: { transform: 'translate(180 150) scale(.15)' },
+    },
+  ],
 }
 ----
 
-Here's link:{example-02-dir}/out.svg[the result^] when you run `cargo run \-- -i example-02 -o example-02.svg`:
+Here's link:{example-02-dir}/out.svg[the result^] when you run `clgn -i example-02 -o example-02.svg`:
 
 image::{example-02-dir}/out.svg[width=600]
 
@@ -196,168 +195,59 @@ The only difference is that the path to a skeleton child is given by the key `cl
 
 A format that makes it easy to place text on images?
 Sounds like it would be perfect for memes.
+But it's not a meme unless it uses the “Impact” font.
 
-.link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.json`^]
-[source,json,indent=0,tabsize=2]
+.link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.jsonnet`^]
+[source,jsonnet,indent=0,tabsize=2]
 ----
 {
-	"attrs": { "viewBox": "0 0 800 650" },
-	"children": [
-		{
-			"fonts": [
-				{
-					"name": "Impact",
-					"path": "./impact.woff2" <1>
-				}
-			]
-		},
-		{
-			"image_path": "./drake-small.jpg",
-			"attrs": {
-				"width": 800
-			}
-		},
-		{
-			"vars": {
-				"x": 550,
-				"dy": 50
-			},
-			"tag": "text",
-			"attrs": {
-				"font-family": "Impact", <2>
-				"font-size": 50,
-				"color": "black",
-				"text-anchor": "middle",
-				"vertical-align": "top",
-				"x": "{x}",
-				"y": 420
-			},
-			"children": [
-				{
-					"tag": "tspan",
-					"text": "Using SVG-based text,",
-					"attrs": {
-						"x": "{x}",
-						"dy": 0
-					}
-				},
-
-				{
-					"tag": "tspan",
-					"text": "which is infinitely",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				},
-				{
-					"tag": "tspan",
-					"text": "zoomable and has",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				},
-				{
-					"tag": "tspan",
-					"text": "no artifacts",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				}
-			]
-		}
-	]
+  attrs: {
+    viewBox: "0 0 800 650",
+  },
+  children: [
+    {
+      fonts: [
+        {
+          name: "Impact",
+          path: "./impact.woff2", <1>
+        },
+      ],
+    },
+    {
+      image_path: "./drake-small.jpg",
+      attrs: {
+        width: 800,
+      },
+    },
+    {
+      local x = 550,
+      local dy = 50,
+      tag: "text",
+      attrs: {
+        "font-family": "Impact",
+        "font-size": 50,
+        color: "black",
+        "text-anchor": "middle",
+        "vertical-align": "top",
+        x: x,
+        y: 420,
+      },
+      children: [
+        {
+          tag: "tspan",
+          attrs: {
+            x: x,
+            dy: if i == 0 then 0 else dy, <3>
+          },
+          children: ["Using SVG-based text,", "which is infinitely", "zoomable and has", "no artifacts"][i], <4>
+        }
+        for i in std.range(0, 3) <2>
+      ],
+    },
+  ],
 }
 ----
-<1> Hmm, why might we need the path to a `woff2` file?
-<2> It's not a meme unless it uses the link:https://en.wikipedia.org/wiki/Impact_(typeface)[Impact font^].
-But what if our device doesn't have Impact on it?
-(iPhones don’t, for instance.)
-
-link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.json`^] produces the following meme:
-
-image::{example-drake-01-dir}/out.svg[width=600]
-
-If you're on a device that doesn’t include the link:https://en.wikipedia.org/wiki/Impact_(typeface)[Impact font^] (which includes iPhones, for one), you might wonder what magic occurred that made the bottom pane's font show up correctly — as Impact and not, say, Times New Roman.
-After all, if the specified `font-face` is not available — and Impact is not available on iPhones — the browser will fall back to another font.
-So, for maximum portability, Collagen allows _embedding_ fonts in SVGs — that's how we got Impact to show up on devices that don't have the font natively.
-Of course, if you stick to web-safe fonts or you _know_ that the recipient has all the fonts you want to use, then you can just refer to the fonts by name and they'll show up correctly.
-But if you want to use fonts that aren't on the receiving device, then you can still get a portable file by embedding the font in the SVG.
-
-For reference, here's the file above but without the font embedded.
-
-.link:{example-drake-02-dir}/skeleton/collagen.json[`example-04/collagen.json`^]
-[source,json,indent=0,tabsize=2]
-----
-{
-	"attrs": { "viewBox": "0 0 800 650" },
-	"children": [ <1>
-		{
-			"image_path": "./drake-small.jpg",
-			"attrs": {
-				"width": 800
-			}
-		},
-		{
-			"vars": {
-				"x": 550,
-				"dy": 50
-			},
-			"tag": "text",
-			"attrs": {
-				"font-family": "Impact",
-				"font-size": 50,
-				"color": "black",
-				"text-anchor": "middle",
-				"vertical-align": "top",
-				"x": "{x}",
-				"y": 420
-			},
-			"children": [
-				{
-					"tag": "tspan",
-					"text": "Using SVG-based text,",
-					"attrs": {
-						"x": "{x}",
-						"dy": 0
-					}
-				},
-
-				{
-					"tag": "tspan",
-					"text": "which is infinitely",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				},
-				{
-					"tag": "tspan",
-					"text": "zoomable and has",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				},
-				{
-					"tag": "tspan",
-					"text": "no artifacts",
-					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
-					}
-				}
-			]
-		}
-	]
-}
-----
-<1> This time, we didn't embed Impact.
-
-Now, if you view the result in a desktop browser, it should look the same as above, but on a mobile device the font in the bottom pane might be Times New Roman (or some other fallback font) instead of Impact.
-
-image::{example-drake-02-dir}/out.svg[width=600]
-
-So it's nice to be able to embed fonts (although it's not great for the resulting file size…).
+<1> We can include a path to the font file to embed it directly in the SVG.
+<2> We can use list comprehensions...
+<3> And use the variable in conditional statements...
+<4> And as a list index (0-indexed).

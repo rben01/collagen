@@ -128,6 +128,10 @@ mod examples {
 		"./tests/examples/drake-user-specified-font"
 	);
 	test_input_output!(
+		drake_user_specified_font_loop,
+		"./tests/examples/drake-user-specified-font-loop"
+	);
+	test_input_output!(
 		drake_bundled_font,
 		"./tests/examples/drake-bundled-font",
 		pass_if: cfg(feature ="font_impact"),
