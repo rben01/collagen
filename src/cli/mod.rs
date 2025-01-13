@@ -1,22 +1,66 @@
 //! The command line interface for this app
 
 use crate::{from_json::decoding_error::ClgnDecodingError, ClgnDecodingResult, Fibroblast};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
-use std::{fs, path::Path, time::Duration};
+use std::{
+	fs,
+	path::{Path, PathBuf},
+	time::Duration,
+};
+
+#[derive(Debug, Copy, Clone, ValueEnum)]
+pub enum ManifestFormat {
+	Json,
+	Jsonnet,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ProvidedInput<'a> {
+	File { file: &'a Path, parent: &'a Path },
+	Folder(&'a Path),
+}
+
+impl<'a> ProvidedInput<'a> {
+	pub(crate) fn new(canonicalized_path: &'a Path) -> Self {
+		let path = canonicalized_path;
+		if path.is_dir() {
+			Self::Folder(path)
+		} else {
+			Self::File {
+				file: path,
+				parent: path
+					.parent()
+					.unwrap_or_else(|| panic!("could not get parent of {path:?}")),
+			}
+		}
+	}
+
+	pub(crate) fn folder(&self) -> &Path {
+		match self {
+			ProvidedInput::File { parent, file: _ } => parent,
+			ProvidedInput::Folder(p) => p,
+		}
+	}
+}
 
 #[derive(Parser)]
 #[command(name = "clgn", about = "Collagen: The Collage Generator")]
 pub struct Cli {
 	/// The path to the input skeleton folder
-	#[arg(short = 'i', long = "in-folder")]
-	in_folder: String,
+	#[arg(short = 'i', long = "input")]
+	input: PathBuf,
 
 	/// The path to save the resulting SVG to
 	#[arg(short = 'o', long = "out-file")]
-	out_file: String,
+	out_file: PathBuf,
+
+	/// The format to save the resulting SVG to; currently only `json` and `jsonnet` are
+	/// supported
+	#[arg(short = 'f', long = "format")]
+	format: Option<ManifestFormat>,
 
 	/// Whether to watch the skeleton folder and re-run on any changes
 	#[arg(long)]
@@ -37,14 +81,18 @@ fn create_writer(out_file: impl AsRef<Path>) -> ClgnDecodingResult<XmlWriter<fs:
 	Ok(XmlWriter::new(f))
 }
 
-fn run_once_result(in_folder: &Path, out_file: &Path) -> ClgnDecodingResult<()> {
-	Fibroblast::from_dir(in_folder)?.to_svg(&mut create_writer(out_file)?)
+fn run_once_result(
+	input: ProvidedInput,
+	out_file: &Path,
+	format: Option<ManifestFormat>,
+) -> ClgnDecodingResult<()> {
+	Fibroblast::from_dir(input, format)?.to_svg(&mut create_writer(out_file)?)
 }
 
-fn run_once_log(in_folder: &Path, out_file: &Path) {
-	match run_once_result(in_folder, out_file) {
+fn run_once_log(input: ProvidedInput, out_file: &Path, format: Option<ManifestFormat>) {
+	match run_once_result(input, out_file, format) {
 		Ok(()) => eprintln!("Success; output to {out_file:?}"),
-		Err(e) => eprintln!("Error while watching {in_folder:?}: {e:?}"),
+		Err(e) => eprintln!("Error while watching {:?}: {e:?}", input.folder()),
 	}
 }
 
@@ -54,37 +102,43 @@ impl Cli {
 		use notify::{event::ModifyKind, EventKind::*};
 
 		let Self {
-			in_folder,
+			input,
 			out_file,
+			format,
 			watch,
 			debounce_ms,
 		} = self;
 
-		let in_folder = Path::new(&in_folder);
-		let out_file = Path::new(&out_file);
+		let input = match fs::canonicalize(&input) {
+			Ok(p) => p,
+			Err(source) => {
+				return Err(ClgnDecodingError::IoOther {
+					source,
+					path: input,
+				});
+			}
+		};
+
+		let input = ProvidedInput::new(&input);
+		let in_folder = input.folder();
 
 		if watch {
 			{
-				let in_folder =
-					fs::canonicalize(in_folder).map_err(|source| ClgnDecodingError::IoOther {
-						source,
-						path: in_folder.to_path_buf(),
-					})?;
 				let out_file =
-					fs::canonicalize(out_file).map_err(|source| ClgnDecodingError::IoOther {
+					fs::canonicalize(&out_file).map_err(|source| ClgnDecodingError::IoOther {
 						source,
-						path: in_folder.clone(),
+						path: in_folder.to_owned(),
 					})?;
 
-				if out_file.starts_with(&in_folder) {
+				if out_file.starts_with(in_folder) {
 					return Err(ClgnDecodingError::RecursiveWatch {
-						in_folder,
-						out_file,
+						in_folder: in_folder.to_owned(),
+						out_file: out_file.clone(),
 					});
 				}
 			}
 
-			run_once_log(in_folder, out_file);
+			run_once_log(input, &out_file, format);
 
 			let (tx, rx) = std::sync::mpsc::channel();
 
@@ -124,17 +178,17 @@ impl Cli {
 
 				if modified_paths.len() == 1 {
 					eprintln!(
-						"Rerunning on {in_folder:?} due to changes to {:?}",
+						"Rerunning on {input:?} due to changes to {:?}",
 						modified_paths.first().unwrap()
 					);
 				} else {
-					eprintln!("Rerunning on {in_folder:?} due to changes to {modified_paths:?}");
+					eprintln!("Rerunning on {input:?} due to changes to {modified_paths:?}");
 				}
 
-				run_once_log(in_folder, out_file);
+				run_once_log(input, &out_file, format);
 			}
 		} else {
-			run_once_result(in_folder, out_file)?;
+			run_once_result(input, &out_file, format)?;
 		}
 
 		Ok(())

@@ -3,6 +3,7 @@ use super::{
 	DecodingContext, Extras,
 };
 use crate::{
+	cli::ProvidedInput,
 	fibroblast::Fibroblast,
 	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, SvgWritable},
@@ -136,7 +137,7 @@ impl ContainerTag {
 		let abs_clgn_path = context.canonicalize(&self.inner.clgn_path)?;
 
 		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
-			let subroot = Fibroblast::from_dir(&abs_clgn_path)?;
+			let subroot = Fibroblast::from_dir(ProvidedInput::new(&abs_clgn_path), None)?;
 
 			self.fibroblast.replace(Some(subroot));
 			self.resolved_path.replace(Some(abs_clgn_path));

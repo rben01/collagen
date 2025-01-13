@@ -3,12 +3,12 @@ use super::{
 	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
+	cli::ProvidedInput,
 	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
 	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
 };
 use jsonnet::JsonnetVm;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 
 /// The document root (`<svg>...<svg>`). A `collagen.json` file is expected to contain a
 /// single object; that object is always implicitly of type `RootTag`. The set of keys
@@ -28,16 +28,19 @@ struct Inner {
 }
 
 impl RootTag {
-	pub(crate) fn new_from_dir_with_jsonnet(path: &Path) -> ClgnDecodingResult<Self> {
-		let manifest_path = path.join("collagen.jsonnet");
+	pub(crate) fn new_from_dir_with_jsonnet(input: ProvidedInput) -> ClgnDecodingResult<Self> {
+		let manifest_path = match input {
+			ProvidedInput::File { file, parent: _ } => file,
+			ProvidedInput::Folder(folder) => &folder.join("collagen.jsonnet"),
+		};
 
 		let mut vm = JsonnetVm::new();
-		let json_str = match vm.evaluate_file(&manifest_path) {
+		let json_str = match vm.evaluate_file(manifest_path) {
 			Ok(s) => s,
 			Err(err) => {
 				return Err(ClgnDecodingError::JsonnetRead {
 					msg: err.to_string(),
-					path: manifest_path,
+					path: manifest_path.to_owned(),
 				})
 			}
 		};
@@ -46,21 +49,24 @@ impl RootTag {
 		serde_json::from_str::<UnvalidatedRootTag>(&json_str)
 			.map_err(|source| ClgnDecodingError::JsonDecodeJsonnet {
 				source,
-				path: manifest_path,
+				path: manifest_path.to_owned(),
 			})?
 			.into_validated(&mut errors)
 			.map_err(|()| errors.into())
 	}
 
-	pub(crate) fn new_from_dir_with_pure_json(path: &Path) -> ClgnDecodingResult<Self> {
-		let manifest_path = path.join("collagen.json");
+	pub(crate) fn new_from_dir_with_pure_json(input: ProvidedInput) -> ClgnDecodingResult<Self> {
+		let manifest_path = match input {
+			ProvidedInput::File { file, parent: _ } => file,
+			ProvidedInput::Folder(folder) => &folder.join("collagen.json"),
+		};
 
-		let f = match std::fs::File::open(&manifest_path) {
+		let f = match std::fs::File::open(manifest_path) {
 			Ok(f) => f,
 			Err(source) => {
 				return Err(ClgnDecodingError::IoRead {
 					source,
-					path: manifest_path,
+					path: manifest_path.to_owned(),
 				})
 			}
 		};
@@ -69,7 +75,7 @@ impl RootTag {
 		serde_json::from_reader::<_, UnvalidatedRootTag>(f)
 			.map_err(|source| ClgnDecodingError::JsonDecodeFile {
 				source,
-				path: manifest_path,
+				path: manifest_path.to_owned(),
 			})?
 			.into_validated(&mut errors)
 			.map_err(|()| errors.into())
