@@ -4,6 +4,7 @@
 	documentation = "https://docs.rs/collagen"
 	edition = "2021"
 	keywords = ["image", "graphics", "multimedia", "svg"]
+	license = "MIT"
 	license-file = "LICENSE"
 	name = "collagen"
 	readme = "docs/readme-docsrs.md"

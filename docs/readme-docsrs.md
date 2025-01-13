@@ -12,10 +12,26 @@
 
 <div class="paragraph">
 
+<span class="image"><a href="https://github.com/rben01/collagen" class="image"><img
+src="https://img.shields.io/badge/rben01-collagen-_?logo=github"
+alt="github" /></a></span>
+<span class="image"><a href="https://github.com/rben01/collagen/actions?query=branch%3Amain"
+class="image"><img
+src="https://img.shields.io/github/actions/workflow/status/rben01/collagen/rust.yml?branch=main&amp;logo=github"
+alt="build" /></a></span>
+<span class="image"><a href="https://github.com/rben01/collagen/blob/main/LICENSE"
+class="image"><img src="https://img.shields.io/crates/l/collagen"
+alt="license" /></a></span>
 <span class="image"><a href="https://crates.io/crates/collagen" class="image"><img
-src="https://img.shields.io/crates/v/collagen" alt="collagen" /></a></span>
+src="https://img.shields.io/crates/v/collagen.svg?logo=rust"
+alt="crates.io" /></a></span>
 <span class="image"><a href="https://docs.rs/collagen/latest/collagen/" class="image"><img
-src="https://img.shields.io/docsrs/collagen" alt="collagen" /></a></span>
+src="https://img.shields.io/badge/docs.rs-collagen-1F80C0?logo=docs.rs"
+alt="docs.rs" /></a></span>
+<span class="image"><a href="https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html"
+class="image"><img
+src="https://img.shields.io/crates/msrv/collagen.svg?logo=rust&amp;color=FFC833"
+alt="msrv" /></a></span>
 
 </div>
 
@@ -27,9 +43,10 @@ Table of Contents
 
 </div>
 
+- [Quick Start](#quick-start)
+- [Introduction](#introduction)
 - [Rationale](#rationale)
 - [Using Collagen](#using-collagen)
-  - [Quick Start](#quick-start)
   - [Definitions](#definitions)
   - [In-Depth Description](#in-depth-description)
   - [Basic Schema](#basic-schema)
@@ -37,33 +54,150 @@ Table of Contents
 
 </div>
 
+</div>
+
+</div>
+
+<div class="sect1">
+
+## Quick Start
+
+<div class="sectionbody">
+
+<div class="paragraph">
+
+Install Collagen with `cargo install collagen`. This will install the
+executable `clgn`.
+
+</div>
+
+<div class="paragraph">
+
+Once installed, if you have a manifest file at path
+`path/to/folder/collagen.jsonnet` (keep reading to learn what goes in
+this manifest), you can run the following command:
+
+</div>
+
+<div class="listingblock">
+
+<div class="content">
+
+``` highlight
+clgn -i path/to/folder -o output-file.svg
+```
+
+</div>
+
+</div>
+
+<div class="paragraph">
+
+To continuously monitor the input folder and re-run on any changes, you
+can run Collagen in watch mode:
+
+</div>
+
+<div class="listingblock">
+
+<div class="content">
+
+``` highlight
+clgn -i path/to/folder -o output-file.svg --watch
+```
+
+</div>
+
+</div>
+
+<div class="paragraph">
+
+In watch mode, every time a file in `path/to/folder` is modified,
+Collagen will attempt to regenerate the output file and will either
+print a generic success message or log the specific error encountered,
+as the case may be. Watch mode will never terminate on its own. As with
+most terminal commands, you can terminate it with
+<span class="kbd">Ctrl-C</span>.
+
+</div>
+
+<div class="paragraph">
+
+[This doc](https://rben01.github.io/collagen) has several examples that
+can serve as a good starting point for creating a manifest. More
+examples are available as test cases in `tests/examples`.
+
+</div>
+
+</div>
+
+</div>
+
+<div class="sect1">
+
+## Introduction
+
+<div class="sectionbody">
+
 <div class="paragraph">
 
 ***Collagen*** — from “collage” and “generate” (and because
 [collagen](https://en.wikipedia.org/wiki/Collagen) is the protein that
 holds your body together; `s/protein/tool/;s/body/images/`) — is a
-program that takes as input a folder containing a JSON manifest file
-that describes the layout of any number of SVG elements (`<rect>`,
-`<line>`, `<g>`, etc.), image files (JPEG, PNG, etc.), other SVGs, and
-other Collagen folders, and produces as output a single SVG file with
-any external assets embedded. That is, it converts a textual description
-of an SVG and any provided assets into a single portable SVG file.
+program that takes as input a folder containing a JSON or
+[Jsonnet](https://jsonnet.org/) manifest file that describes the layout
+of any number of SVG elements (`<rect>`, `<line>`, `<g>`, etc.), image
+files (JPEG, PNG, etc.), other SVGs, and other Collagen folders, and
+produces as output a single SVG file with any external assets embedded.
+That is, it converts a textual description of an SVG and any provided
+assets into a single portable SVG file.
 
 </div>
 
 <div class="paragraph">
 
-In addition to mapping the manifest directly into SVG, Collagen supports
-a number of features that make creating graphics more convenient for the
-author, such as variable assignment and interpolation into SVG
-attributes, a LISP-like language to evaluate mathematical expressions
-inside strings, “if” tags to conditionally generate elements, and
-“for-each” tags to generate sequences of elements. For instance, the
-following manifest will create a rainbow pinwheel.
+JSON is mapped to SVG in a more or less one-to-one fashion, with a few
+conveniences thrown in (such as automatically base64-encoding images).
+For more programmatic conveniences, it is recommended to use Jsonnet,
+which supports the following:
 
 </div>
 
-`collagen.json`
+<div class="ulist">
+
+- Variables
+
+- Arithmetic
+
+- List and object comprehensions (i.e. `for`-loops)
+
+- Conditional logic
+
+- Functions, including
+
+  <div class="ulist">
+
+  - The ability to define and call functions
+
+  - A large standard library of built-in functions
+
+  </div>
+
+- String interpolation
+
+- Imports for code sharing across multiple files
+
+- List and object concatenation/merging
+
+</div>
+
+<div class="paragraph">
+
+For instance, the following manifest will create a rainbow pinwheel.
+
+</div>
+
+`collagen.jsonnet`
 
 <div class="content">
 
@@ -72,42 +206,41 @@ following manifest will create a rainbow pinwheel.
 <div class="content">
 
 ``` highlight
+local width = 400;
+local height = width;
+local n_spokes = 16;
+local cx = width / 2;
+local cy = height / 2;
+local spoke_length = width * 0.75;
+// this calls a stdlib function (pi is not built in yet)
+local pi = std.acos(-1);
+
 {
-    "$schema": "https://rben01.github.io/collagen/schemas/schema.json",
-    "vars": {
-        "width": 100,
-        "height": "{width}",
-        "n-spokes": 16,
-        "cx": "{(/ width 2)}",
-        "cy": "{(/ height 2)}",
-        "spoke-length": "{(* width 0.75)}"
-    },
-    "attrs": {
-        "viewBox": "0 0 {width} {height}"
-    },
-    "children": [
-        {
-            "for_each": {
-                "variable": "i",
-                "in": { "start": 0, "end": "{n-spokes}" }
-            },
-            "do": {
-                "tag": "line",
-                "vars": {
-                    "theta": "{(* (/ i n-spokes) (pi))}",
-                    "dx": "{(* (/ spoke-length 2) (cos theta))}",
-                    "dy": "{(* (/ spoke-length 2) (sin theta))}"
-                },
-                "attrs": {
-                    "x1": "{(+ cx dx)}",
-                    "x2": "{(- cx dx)}",
-                    "y1": "{(+ cy dy)}",
-                    "y2": "{(- cy dy)}",
-                    "stroke": "hsl({(* (/ i n-spokes) 360)}, 100%, 50%)"
-                }
-            }
-        }
-    ]
+  attrs: {
+    // string interpolation
+    viewBox: "0 0 %d %d" % [width, height],
+  },
+  children: [
+    {
+      local t = i / n_spokes,
+      local theta = t * pi,
+      local dx = (spoke_length / 2) * std.cos(theta),
+      local dy = (spoke_length / 2) * std.sin(theta),
+
+      tag: "line",
+      attrs: {
+        x1: cx + dx,
+        x2: cx - dx,
+        y1: cy + dy,
+        y2: cy - dy,
+        // we can also build strings by adding them together
+        stroke: "hsl(" + std.toString(360 * t) + ", 100%, 50%)",
+        "stroke-width": 5,
+        "stroke-linecap": "round",
+      },
+    }
+    for i in std.range(0, n_spokes - 1)
+  ],
 }
 ```
 
@@ -138,10 +271,8 @@ width="300" alt="A rainbow pinwheel" /></span>
 <div class="paragraph">
 
 Creating and editing images is hard. Most of the difficulty is due to
-lack of programmatic facilities offered by image editing programs. (I
-must caveat this by admitting I have not used every graphics editing
-program on the market. But the ones I have tried fall short.) Collagen
-aims to fill this gap in the following ways:
+lack of programmatic facilities offered by image editing programs.
+Collagen aims to fill this gap in the following ways:
 
 </div>
 
@@ -149,11 +280,12 @@ aims to fill this gap in the following ways:
 
 1.  Plain text is portable and trivially editable. When editing an image
     is done by editing a text file, the only barrier to entry is knowing
-    JSON, knowing the schema used by Collagen, and knowing the catalog
-    of SVG elements. In addition, a folder containing a text file and
-    some images is simple to share: just zip it and send it along.
-    Finally, Collagen is nondestructive; all assets used in the final
-    image are available in their original form right in that folder.
+    the format (JSON or Jsonnet), knowing the schema used by Collagen,
+    and knowing the catalog of SVG elements. In addition, a folder
+    containing a text file and some images is simple to share: just zip
+    it and send it along. Finally, Collagen is nondestructive; all
+    assets used in the final image are available in their original form
+    right in that folder.
 
 2.  While most image editing programs support “guides” and “snapping”
     that allow graphical elements to be precisely positioned relative to
@@ -162,10 +294,11 @@ aims to fill this gap in the following ways:
     an arrow pointing from a given corner of a rectangle to a fixed
     point cannot be made to have its tail always lie on that corner
     while leaving its head stationary. Variables solve this problem by
-    letting the author use the same variable(s) to specify the position
-    of both the rectangle’s corner and the arrowhead. More generally,
-    variables support the problem of keeping several values in sync
-    without having to edit multiple hard-coded values.
+    letting the author use the same variables, and perhaps a little
+    arithmetic, to specify the position of both the rectangle’s corner
+    and the arrowhead. More generally, variables support the problem of
+    keeping several values in sync without having to edit multiple
+    hard-coded values.
 
 3.  Image editing programs output a single image file which is of one of
     the well-known image types (JPEG, PNG, etc). Different image formats
@@ -306,19 +439,20 @@ aims to fill this gap in the following ways:
     quality nor the increase in file size that arise when using the
     wrong image format. (Collagen achieves this by simply
     base64-encoding the source images and embedding them directly into
-    the SVG.)
+    the SVG.) So you could, for instance, add vector shapes and text on
+    top of an raster image without rasterizing them.
 
     </div>
 
 4.  Creating several similar elements by hand is annoying, and keeping
-    them in sync is even worse. Collagen provides a `for_each` tag to
-    programmatically create arbitrary numbers of elements, and the
-    children elements can make use of the loop variable to control their
-    behavior. We saw this above in the pinwheel, which used the loop
-    variable `i` to set the angle and color of each spoke. The `for`
-    loop itself had access to the `n-spokes` variable set at the
-    beginning of the file, which goes back to point 2: variables make
-    things easy.
+    them in sync is even worse. Jsonnet supports “list comprehension”,
+    aka `for` loops, to programmatically create arbitrary numbers of
+    elements, and the children elements can make use of the loop
+    variable to control their behavior. We saw this above in the
+    pinwheel, which used the loop variable `i` to set the angle and
+    color of each spoke. The `for` loop itself had access to the
+    `n-spokes` variable set at the beginning of the file, which goes
+    back to point 2: variables make things easy.
 
 5.  Why SVG at all? Why not some other output image format?
 
@@ -327,8 +461,8 @@ aims to fill this gap in the following ways:
     - SVGs can indeed store vector graphics and the different kinds of
       raster images alongside each other.
 
-    - SVGs are widely compatible, as they’re supported by nearly every
-      browser.
+    - SVGs are supported by nearly every browser and are widely
+      supported in general.
 
     - SVGs are "just" a tree of nodes with some attributes, so they’re
       simple to implement.
@@ -357,65 +491,59 @@ Collagen to make one.
 <div class="content">
 
 ``` highlight
+local width = 800;
+
 {
-    "$schema": "https://rben01.github.io/collagen/schemas/schema.json",
-    "vars": { "width": 800 },
-    "attrs": { "viewBox": "0 0 {width} 650" },
-    "children": [
+  vars: { width: 800 },
+  attrs: { viewBox: "0 0 %d 650" % width },
+  children: [
+    {
+      tag: "defs",
+      children: [
         {
-            "tag": "defs",
-            "children": [
-                {
-                    "tag": "style",
-                    "text": "@import url(\"https://my-fonts.pages.dev/Impact/impact.css\");",
-                    "should_escape_text": false
-                }
-            ]
+          tag: "style",
+          children: {
+            text: '@import url("https://my-fonts.pages.dev/Impact/impact.css");',
+            is_preescaped: true,
+          },
         },
+      ],
+    },
+    {
+      image_path: "./drake-small.jpg",
+      attrs: {
+        width: width,
+      },
+    },
+    {
+      local x = 550,
+      local dy = 50,
+
+      tag: "text",
+      attrs: {
+        "font-family": "Impact",
+        "font-size": 50,
+        color: "black",
+        "text-anchor": "middle",
+        "vertical-align": "top",
+        x: x,
+        y: 420,
+      },
+      children2: [
         {
-            "image_path": "./drake-small.jpg",
-            "attrs": {
-                "width": "{width}"
-            }
-        },
-        {
-            "vars": {
-                "x": 550,
-                "dy": 50
-            },
-            "tag": "text",
-            "attrs": {
-                "font-family": "Impact",
-                "font-size": 50,
-                "color": "black",
-                "text-anchor": "middle",
-                "vertical-align": "top",
-                "x": "{x}",
-                "y": 420
-            },
-            "children": [
-                {
-                    "for_each": [
-                        { "variable": "i", "in": { "start": 0, "end": 4 } },
-                        {
-                            "variable": "line",
-                            "in": [
-                                "Using SVG-based text,",
-                                "which is infinitely",
-                                "zoomable and has",
-                                "no artifacts"
-                            ]
-                        }
-                    ],
-                    "do": {
-                        "tag": "tspan",
-                        "text": "{line}",
-                        "attrs": { "x": "{x}", "dy": "{(if (= i 0) 0 dy)}" }
-                    }
-                }
-            ]
+          tag: "tspan",
+          text: [
+            "Using SVG-based text,",
+            "which is infinitely",
+            "zoomable and has",
+            "no artifacts",
+          ][i],
+          attrs: { x: x, dy: if i == 0 then 0 else dy },
         }
-    ]
+        for i in std.range(0, 3)
+      ],
+    },
+  ],
 }
 ```
 
@@ -444,76 +572,6 @@ width="400" alt="A Drake meme. Top panel" /></span>
 
 <div class="sect2">
 
-### Quick Start
-
-<div class="paragraph">
-
-Install Collagen with `cargo install collagen`. This will install the
-executable `clgn`.
-
-</div>
-
-<div class="paragraph">
-
-Once installed, if you have a manifest file at path
-`path/to/collagen/manifest.json`, you can run the following command:
-
-</div>
-
-<div class="listingblock">
-
-<div class="content">
-
-``` highlight
-clgn -i path/to/collagen -o output-file.svg
-```
-
-</div>
-
-</div>
-
-<div class="paragraph">
-
-To continuously monitor the input folder and re-run on any changes, you
-can run Collagen in watch mode:
-
-</div>
-
-<div class="listingblock">
-
-<div class="content">
-
-``` highlight
-clgn -i path/to/collagen -o output-file.svg --watch
-```
-
-</div>
-
-</div>
-
-<div class="paragraph">
-
-In watch mode, every time a file in `path/to/collagen` is modified,
-Collagen will attempt to regenerate the output file and will either
-print a generic success message or log the specific error encountered,
-as the case may be. Watch mode will never terminate on its own. As with
-most terminal commands, you can terminate it with
-<span class="kbd">Ctrl-C</span>.
-
-</div>
-
-<div class="paragraph">
-
-[This doc](https://rben01.github.io/collagen) has several examples that
-can serve as a good starting point for creating a manifest. More
-examples are available as test cases in `tests/examples`.
-
-</div>
-
-</div>
-
-<div class="sect2">
-
 ### Definitions
 
 <div class="hdlist">
@@ -522,8 +580,8 @@ examples are available as test cases in `tests/examples`.
 |----|----|
 | Collagen | The name of this project. |
 | `clgn` | The executable that does the conversion to SVG. |
-| Skeleton | A folder that is the input to `clgn`. It must contain a `collagen.json` file and any assets specified by `collagen.json`. For instance, if skeleton `` my_skeleton’s `collagen.json `` contains `{ "image_path": "path/to/image" }`, then `my_skeleton/path/to/image` must exist. |
-| Manifest | The `collagen.json` file residing at the top level inside a skeleton. |
+| Manifest | The `collagen.json` or `collagen.jsonnet` file residing at the top level inside a skeleton. If both exist, `collagen.jsonnet` is preferred. |
+| Skeleton | A folder that is the input to `clgn`. It must contain a manifest file and any assets specified therein. For instance, if skeleton `` my_skeleton’s manifest contains `{ "image_path": "path/to/image" } ``, then `my_skeleton/path/to/image` must exist. |
 
 </div>
 
@@ -536,13 +594,14 @@ examples are available as test cases in `tests/examples`.
 <div class="paragraph">
 
 The input to Collagen is a folder containing, at the bare minimum, a
-*manifest* file named `collagen.json`. Such a folder will be referred to
-as a *skeleton*. A manifest file is more or less a JSON-ified version of
-an SVG (which is itself XML), with some facilities to make common
-operations, such as for loops and including an image by path, more
-ergonomic. For instance, without Collagen, in order to embed an image of
-yours in an SVG, you would have to base64-encode it and construct that
-image tag manually, which would look something like this:
+*manifest* file named `collagen.json` or `collagen.jsonnet`. Such a
+folder will be referred to as a *skeleton*. A manifest file is more or
+less a JSON-ified version of an SVG (which is itself XML), with some
+facilities to make common operations, such as for loops and including an
+image by path, more ergonomic. For instance, without Collagen, in order
+to embed an image of yours in an SVG, you would have to base64-encode it
+and construct that image tag manually, which would look something like
+this:
 
 </div>
 
@@ -596,20 +655,16 @@ In order to produce an SVG from JSON, Collagen must know how to convert
 an object representing a tag into an actual SVG tag, including
 performing any additional work (such as base64-encoding an image).
 Collagen identifies the type of an object it deserializes simply by the
-keys it contains. For instance, the presence of the `"for_each"`
-property tells Collagen that this tag is a `for` loop tag, while the
-`"image_path"` property tells Collagen that this tag is an `<image>` tag
-with an associated image file to embed. To avoid ambiguities, it is an
-error for an object to contain unexpected keys.
+keys it contains. For instance, the presence of the `"image_path"`
+property tells Collagen that this tag is an `<image>` tag with an
+associated image file to embed. To avoid ambiguities, it is an error for
+an object to contain unexpected keys.
 
 </div>
 
 <div class="paragraph">
 
-For users: add
-`"$schema": "https://rben01.github.io/collagen/schemas/schema.json"` to
-the top-level object of your manifest to get validation and suggestions.
-For developers: the tags are listed at
+Tags are listed at
 [docs.rs/collagen](https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html).
 
 </div>
@@ -646,15 +701,12 @@ For developers: the tags are listed at
 
     <div class="paragraph">
 
-    In contrast, Collagen lets you include data (such as lists to loop
-    over) directly in the manifest and runs via single executable with
-    no runtime to speak of. It also lets you write your image in a
-    single file (`collagen.json`) instead of two (the template file and
-    the “real code” that creates the output.) In addition, with
-    Collagen, there is no syntax to learn, per se; you simply write
-    JSON. If you reference Collagen’s [JSON
-    schema](https://rben01.github.io/collagen/schemas/schema.json),
-    writing a Collagen manifest becomes pretty simple and convenient.
+    In contrast, Collagen lets you include data directly in the manifest
+    and runs via single executable with no runtime to speak of. It also
+    lets you write your image in a single file (the manifest) instead of
+    two (the template file and the “real code” that creates the output.)
+    In addition, with Collagen, there is no syntax to learn, per se; you
+    simply write JSON or Jsonnet.
 
     </div>
 
@@ -667,7 +719,7 @@ For developers: the tags are listed at
     valid UTF-8 strings using forward slashes (`/`) as the path
     separator. Forward slashes are replaced with the system path
     separator before resolving the path. So `path/to/image` remains
-    unchanged on \\nix systems, but becomes `path\to\image` on Windows.
+    unchanged on \*nix systems, but becomes `path\to\image` on Windows.
     This means that in order to be portable, path components should not
     contain the path separator of any system, even if it is legal on the
     system on which the skeleton is authored. For instance, filenames
