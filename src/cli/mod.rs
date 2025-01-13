@@ -122,16 +122,6 @@ impl Cli {
 			debounce_ms,
 		} = self;
 
-		let input = match fs::canonicalize(&input) {
-			Ok(p) => p,
-			Err(source) => {
-				return Err(ClgnDecodingError::IoOther {
-					source,
-					path: input,
-				});
-			}
-		};
-
 		let input = ProvidedInput::new(&input);
 		let in_folder = input.folder();
 
@@ -143,7 +133,13 @@ impl Cli {
 						path: in_folder.to_owned(),
 					})?;
 
-				if out_file.starts_with(in_folder) {
+				let in_folder_canon =
+					fs::canonicalize(in_folder).map_err(|source| ClgnDecodingError::IoOther {
+						source,
+						path: in_folder.to_owned(),
+					})?;
+
+				if out_file.starts_with(in_folder_canon) {
 					return Err(ClgnDecodingError::RecursiveWatch {
 						in_folder: in_folder.to_owned(),
 						out_file: out_file.clone(),
