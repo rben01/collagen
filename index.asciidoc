@@ -147,7 +147,7 @@ example-02
 └── kitty.jpg
 ----
 
-Where link:{example-02-dir}/skeleton/collagen.json[`example-02/collagen.json`^] is below:
+Where link:{example-02-dir}/skeleton/collagen.jsonnet[`example-02/collagen.jsonnet`^] is below:
 
 [source,jsonnet,indent=0,tabsize=2]
 ----
@@ -197,7 +197,7 @@ A format that makes it easy to place text on images?
 Sounds like it would be perfect for memes.
 But it's not a meme unless it uses the “Impact” font.
 
-.link:{example-drake-01-dir}/skeleton/collagen.json[`example-03/collagen.jsonnet`^]
+.link:{example-drake-01-dir}/skeleton/collagen.jsonnet[`example-03/collagen.jsonnet`^]
 [source,jsonnet,indent=0,tabsize=2]
 ----
 {
