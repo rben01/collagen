@@ -482,7 +482,7 @@ Collagen to make one.
 
 </div>
 
-`collagen.json`
+`collagen.jsonnet`
 
 <div class="content">
 
@@ -494,7 +494,6 @@ Collagen to make one.
 local width = 800;
 
 {
-  vars: { width: 800 },
   attrs: { viewBox: "0 0 %d 650" % width },
   children: [
     {
@@ -529,16 +528,16 @@ local width = 800;
         x: x,
         y: 420,
       },
-      children2: [
+      children: [
         {
           tag: "tspan",
-          text: [
+          attrs: { x: x, dy: if i == 0 then 0 else dy },
+          children: [
             "Using SVG-based text,",
             "which is infinitely",
             "zoomable and has",
             "no artifacts",
           ][i],
-          attrs: { x: x, dy: if i == 0 then 0 else dy },
         }
         for i in std.range(0, 3)
       ],
