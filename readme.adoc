@@ -76,7 +76,8 @@ local n_spokes = 16;
 local cx = width / 2;
 local cy = height / 2;
 local spoke_length = width * 0.75;
-// this calls a stdlib function (pi is not built in yet)
+// this calls a stdlib function
+// (pi is not built in yet; see https://github.com/google/jsonnet/pull/1187)
 local pi = std.acos(-1);
 
 {
