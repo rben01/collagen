@@ -9,7 +9,7 @@
 	readme = "docs/readme-docsrs.md"
 	repository = "https://github.com/rben01/collagen"
 	rust-version = "1.80"
-	version = "0.9.2"
+	version = "0.9.3"
 
 [dependencies]
 	base64 = "0.22"
