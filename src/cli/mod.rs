@@ -2,15 +2,40 @@
 
 use crate::{from_json::decoding_error::ClgnDecodingError, ClgnDecodingResult, Fibroblast};
 use clap::{Parser, ValueEnum};
+use core::fmt;
 use notify::{RecursiveMode, Watcher};
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
 use std::{
 	fs,
-	io::BufWriter,
+	io::{BufWriter, Write},
 	path::{Path, PathBuf},
 	time::Duration,
 };
+
+struct Outfile<'a>(&'a Path);
+
+impl Outfile<'_> {
+	fn is_stdout(&self) -> bool {
+		self.0 == Path::new("-")
+	}
+}
+
+impl AsRef<Path> for Outfile<'_> {
+	fn as_ref(&self) -> &Path {
+		self.0
+	}
+}
+
+impl fmt::Display for Outfile<'_> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		if self.is_stdout() {
+			write!(f, "<stdout>")
+		} else {
+			write!(f, "{:?}", self.0)
+		}
+	}
+}
 
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum ManifestFormat {
@@ -86,25 +111,38 @@ fn create_file_writer(
 	Ok(XmlWriter::new(f))
 }
 
-fn create_stdout_writer() -> XmlWriter<impl std::io::Write> {
+/// The `BufWriter` must be flushed after writing to this writer
+fn create_stdout_writer() -> XmlWriter<BufWriter<std::io::Stdout>> {
 	XmlWriter::new(BufWriter::new(std::io::stdout()))
 }
 
 fn run_once_result(
 	input: ProvidedInput,
-	out_file: &Path,
+	out_file: &Outfile,
 	format: Option<ManifestFormat>,
 ) -> ClgnDecodingResult<()> {
-	if out_file == Path::new("-") {
-		Fibroblast::from_dir(input, format)?.to_svg(&mut create_stdout_writer())
+	if out_file.is_stdout() {
+		let err_mapper = |source| ClgnDecodingError::IoWrite {
+			source,
+			path: "-".into(),
+		};
+
+		let mut writer = create_stdout_writer();
+		Fibroblast::from_dir(input, format)?.to_svg(&mut writer)?;
+
+		let mut stdout_buf = writer.into_inner();
+		writeln!(stdout_buf).map_err(err_mapper)?;
+		stdout_buf.flush().map_err(err_mapper)?;
+
+		Ok(())
 	} else {
 		Fibroblast::from_dir(input, format)?.to_svg(&mut create_file_writer(out_file)?)
 	}
 }
 
-fn run_once_log(input: ProvidedInput, out_file: &Path, format: Option<ManifestFormat>) {
+fn run_once_log(input: ProvidedInput, out_file: &Outfile, format: Option<ManifestFormat>) {
 	match run_once_result(input, out_file, format) {
-		Ok(()) => eprintln!("Success; output to {out_file:?}"),
+		Ok(()) => eprintln!("Success; output to {out_file}"),
 		Err(e) => eprintln!("Error while watching {:?}: {e:?}", input.folder()),
 	}
 }
@@ -122,16 +160,23 @@ impl Cli {
 			debounce_ms,
 		} = self;
 
+		let out_file = Outfile(&out_file);
+
 		let input = ProvidedInput::new(&input);
 		let in_folder = input.folder();
 
 		if watch {
-			{
-				let out_file =
-					fs::canonicalize(&out_file).map_err(|source| ClgnDecodingError::IoOther {
+			'check_recursive_watch: {
+				if out_file.is_stdout() {
+					break 'check_recursive_watch;
+				}
+
+				let out_file = &fs::canonicalize(out_file.0.parent().unwrap_or(Path::new(".")))
+					.map_err(|source| ClgnDecodingError::IoOther {
 						source,
 						path: in_folder.to_owned(),
-					})?;
+					})?
+					.join(out_file.0.file_name().unwrap());
 
 				let in_folder_canon =
 					fs::canonicalize(in_folder).map_err(|source| ClgnDecodingError::IoOther {
