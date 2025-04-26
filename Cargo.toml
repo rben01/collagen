@@ -25,7 +25,7 @@
 	strum = "0.26"
 	strum_macros = "0.26"
 	thiserror = "2.0"
-	zip = "2.2"
+	zip = "2.6.1"
 
 [dev-dependencies]
 	tempfile = "3.13"
