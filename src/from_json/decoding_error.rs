@@ -35,6 +35,9 @@ pub enum ClgnDecodingError {
 	#[error("IO error (neither reading nor writing) handling {path:?} ({source})")]
 	IoOther { source: io::Error, path: PathBuf },
 
+	#[error("parent folder of {path:?} does not exist ({source})")]
+	FolderDoesNotExist { source: io::Error, path: PathBuf },
+
 	#[error("paths may not begin with a '/'; got {:?}", .0)]
 	InvalidPath(PathBuf),
 
@@ -110,6 +113,7 @@ impl ClgnDecodingError {
 			IoRead { .. } => 11,
 			IoWrite { .. } => 12,
 			IoOther { .. } => 13,
+			FolderDoesNotExist { .. } => 17,
 			Image { .. } => 20,
 			Xml { .. } => 30,
 			ToSvgString { .. } => 40,

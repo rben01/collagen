@@ -16,8 +16,10 @@ use std::{
 struct Outfile<'a>(&'a Path);
 
 impl Outfile<'_> {
+	const STDOUT: &'static str = "-";
+
 	fn is_stdout(&self) -> bool {
-		self.0 == Path::new("-")
+		self.0 == Path::new(Self::STDOUT)
 	}
 }
 
@@ -100,13 +102,17 @@ pub struct Cli {
 	debounce_ms: u64,
 }
 
+fn map_io_error(path: impl AsRef<Path>) -> impl FnOnce(std::io::Error) -> ClgnDecodingError {
+	move |source| ClgnDecodingError::IoWrite {
+		source,
+		path: path.as_ref().to_owned(),
+	}
+}
+
 fn create_file_writer(
 	out_file: impl AsRef<Path>,
 ) -> ClgnDecodingResult<XmlWriter<impl std::io::Write>> {
-	let f = fs::File::create(&out_file).map_err(|source| ClgnDecodingError::IoWrite {
-		source,
-		path: out_file.as_ref().to_owned(),
-	})?;
+	let f = fs::File::create(&out_file).map_err(map_io_error(out_file.as_ref()))?;
 
 	Ok(XmlWriter::new(f))
 }
@@ -122,17 +128,12 @@ fn run_once_result(
 	format: Option<ManifestFormat>,
 ) -> ClgnDecodingResult<()> {
 	if out_file.is_stdout() {
-		let err_mapper = |source| ClgnDecodingError::IoWrite {
-			source,
-			path: "-".into(),
-		};
-
 		let mut writer = create_stdout_writer();
 		Fibroblast::from_dir(input, format)?.to_svg(&mut writer)?;
 
 		let mut stdout_buf = writer.into_inner();
-		writeln!(stdout_buf).map_err(err_mapper)?;
-		stdout_buf.flush().map_err(err_mapper)?;
+		writeln!(stdout_buf).map_err(map_io_error(Outfile::STDOUT))?;
+		stdout_buf.flush().map_err(map_io_error(Outfile::STDOUT))?;
 
 		Ok(())
 	} else {
@@ -172,17 +173,18 @@ impl Cli {
 				}
 
 				let out_file = &fs::canonicalize(out_file.0.parent().unwrap_or(Path::new(".")))
-					.map_err(|source| ClgnDecodingError::IoOther {
+					.map_err(|source| ClgnDecodingError::FolderDoesNotExist {
 						source,
 						path: in_folder.to_owned(),
 					})?
 					.join(out_file.0.file_name().unwrap());
 
-				let in_folder_canon =
-					fs::canonicalize(in_folder).map_err(|source| ClgnDecodingError::IoOther {
+				let in_folder_canon = fs::canonicalize(in_folder).map_err(|source| {
+					ClgnDecodingError::FolderDoesNotExist {
 						source,
 						path: in_folder.to_owned(),
-					})?;
+					}
+				})?;
 
 				if out_file.starts_with(in_folder_canon) {
 					return Err(ClgnDecodingError::RecursiveWatch {
