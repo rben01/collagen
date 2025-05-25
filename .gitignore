@@ -2,3 +2,4 @@
 /target
 .vscode/settings.json
 spellright.dict
+node_modules
