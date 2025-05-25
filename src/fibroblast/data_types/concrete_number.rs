@@ -16,7 +16,6 @@ impl de::Visitor<'_> for ConcreteNumberVisitor {
 	where
 		E: serde::de::Error,
 	{
-		#[allow(clippy::cast_precision_loss)]
 		Ok(Number(f64::from(v)))
 	}
 
@@ -24,7 +23,6 @@ impl de::Visitor<'_> for ConcreteNumberVisitor {
 	where
 		E: serde::de::Error,
 	{
-		#[allow(clippy::cast_precision_loss)]
 		Ok(Number(f64::from(v)))
 	}
 
