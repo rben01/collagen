@@ -176,12 +176,16 @@ pub(crate) fn prepare_and_write_tag<W: std::io::Write>(
 	let mut elem = BytesStart::new(tag);
 	prepare_fn(&mut elem);
 
-	writer.write_event(XmlEvent::Start(elem))?;
+	writer
+		.write_event(XmlEvent::Start(elem))
+		.map_err(|error| ClgnDecodingError::Xml(error.into()))?;
 
 	interior_fn(writer)?;
 
 	let end = BytesEnd::new(tag);
-	writer.write_event(XmlEvent::End(end))?;
+	writer
+		.write_event(XmlEvent::End(end))
+		.map_err(|error| ClgnDecodingError::Xml(error.into()))?;
 
 	Ok(())
 }

@@ -363,9 +363,11 @@ impl SvgWritable for FontTag {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		write_tag(writer, "defs", self.inner.attrs.as_ref(), |writer| {
-			writer.write_event(Event::Text(BytesText::from_escaped(
-				self.font_embed_text(context)?,
-			)))?;
+			writer
+				.write_event(Event::Text(BytesText::from_escaped(
+					self.font_embed_text(context)?,
+				)))
+				.map_err(|error| ClgnDecodingError::Xml(error.into()))?;
 			Ok(())
 		})
 	}

@@ -13,7 +13,7 @@ use crate::{
 	to_svg::svg_writable::SvgWritable,
 };
 use serde::{Deserialize, Serialize};
-use strum_macros::{AsRefStr, EnumDiscriminants, EnumIter, IntoStaticStr};
+use strum::{AsRefStr, EnumDiscriminants, EnumIter, IntoStaticStr};
 
 /// A wrapper around child tags. During deserialization, the type of child tag to
 /// deserialize an object into is determined solely from the object's set of keys.

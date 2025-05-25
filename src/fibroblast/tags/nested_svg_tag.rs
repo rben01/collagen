@@ -55,7 +55,9 @@ impl SvgWritable for NestedSvgTag {
 			let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
 
 			let bt = BytesText::from_escaped(text);
-			writer.write_event(crate::XmlEvent::Text(bt))?;
+			writer
+				.write_event(crate::XmlEvent::Text(bt))
+				.map_err(|error| ClgnDecodingError::Xml(error.into()))?;
 
 			Ok(())
 		})

@@ -1,6 +1,7 @@
 use super::{any_child_tag::AnyChildTagDiscriminants, DecodingContext, Extras, Validatable};
 use crate::{
-	from_json::decoding_error::InvalidSchemaErrorList, to_svg::svg_writable::SvgWritable,
+	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
+	to_svg::svg_writable::SvgWritable,
 	ClgnDecodingResult,
 };
 use compact_str::{CompactString, ToCompactString};
@@ -40,7 +41,9 @@ impl SvgWritable for TextTag {
 			BytesText::new(text.as_ref())
 		};
 
-		writer.write_event(crate::XmlEvent::Text(bt))?;
+		writer
+			.write_event(crate::XmlEvent::Text(bt))
+			.map_err(|error| ClgnDecodingError::Xml(error.into()))?;
 
 		Ok(())
 	}

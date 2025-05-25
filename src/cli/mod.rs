@@ -3,7 +3,7 @@
 use crate::{from_json::decoding_error::ClgnDecodingError, ClgnDecodingResult, Fibroblast};
 use clap::{Parser, ValueEnum};
 use core::fmt;
-use notify::{RecursiveMode, Watcher};
+use notify::RecursiveMode;
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
 use std::{
@@ -210,9 +210,7 @@ impl Cli {
 				tx,
 			)?;
 
-			debouncer
-				.watcher()
-				.watch(Path::new(&in_folder), RecursiveMode::Recursive)?;
+			debouncer.watch(Path::new(&in_folder), RecursiveMode::Recursive)?;
 
 			for result in rx {
 				let events = result?;
