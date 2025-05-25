@@ -106,7 +106,7 @@ impl ImageTag {
 		})
 	}
 
-	/// Get the key-value pair (as a tuple) that makes the image actually work! (E.g.,
+	/// Get the key-value pair (as a tuple) that makes the image actually work. (E.g.,
 	/// the tuple `("href", "data:image/jpeg;base64,...")`)
 	pub(super) fn get_image_attr_pair(
 		&self,

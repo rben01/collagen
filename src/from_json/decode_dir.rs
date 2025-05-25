@@ -14,23 +14,19 @@ impl Fibroblast {
 	/// # Errors
 	///
 	/// If any error occurs whatsoever. See [`ClgnDecodingError`] for possible causes.
-	pub fn from_dir(
-		input: ProvidedInput,
-		format: Option<ManifestFormat>,
-	) -> ClgnDecodingResult<Self> {
-		let context = DecodingContext::new_at_root(input.folder().to_owned());
+	pub fn new(input: &ProvidedInput, format: Option<ManifestFormat>) -> ClgnDecodingResult<Self> {
+		let context = DecodingContext::from(input.clone());
 
 		let root = match format {
-			Some(ManifestFormat::Json) => RootTag::new_from_dir_with_pure_json(input)?,
-			Some(ManifestFormat::Jsonnet) => RootTag::new_from_dir_with_jsonnet(input)?,
+			Some(format) => RootTag::new(input, format)?,
 			None => {
-				match RootTag::new_from_dir_with_jsonnet(input) {
+				match RootTag::new(input, ManifestFormat::Jsonnet) {
 					Ok(root) => root,
 					Err(ClgnDecodingError::JsonnetRead { msg, path: _ })
 						if msg.ends_with("No such file or directory") =>
 					{
 						// continue on and try json
-						RootTag::new_from_dir_with_pure_json(input)?
+						RootTag::new(input, ManifestFormat::Json)?
 					}
 					Err(err) => return Err(err),
 				}

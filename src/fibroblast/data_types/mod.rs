@@ -3,28 +3,43 @@
 mod simple_value;
 
 pub(crate) use simple_value::SimpleValue;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use crate::{from_json::ClgnDecodingError, ClgnDecodingResult};
+use crate::{
+	cli::{InMemoryFs, ProvidedInput},
+	from_json::ClgnDecodingError,
+	ClgnDecodingResult,
+};
 
 /// A context in which something can be decoded
 ///
 /// Consists of the root path (for resolving relative paths) and a variable key-value
 /// map for performing variable substitution
 #[derive(Debug, Clone)]
-pub struct DecodingContext {
-	pub(crate) root_path: PathBuf,
+pub enum DecodingContext {
+	RootPath(PathBuf),
+	InMemoryFs(InMemoryFs),
 }
 
 impl DecodingContext {
-	pub(crate) fn new(root_path: PathBuf) -> Self {
-		Self { root_path }
+	fn root(&self) -> &Path {
+		match self {
+			DecodingContext::RootPath(p) => p,
+			DecodingContext::InMemoryFs(fs) => &fs.root_path,
+		}
 	}
+}
 
-	pub(crate) fn new_at_root(root_path: PathBuf) -> Self {
-		Self::new(root_path)
+impl From<ProvidedInput<'_>> for DecodingContext {
+	fn from(value: ProvidedInput) -> Self {
+		match value {
+			ProvidedInput::DiskBackedFs(fs) => DecodingContext::RootPath(fs.folder().to_owned()),
+			ProvidedInput::InMemoryFs(fs) => DecodingContext::InMemoryFs(fs),
+		}
 	}
+}
 
+impl DecodingContext {
 	/// Like `p.as_ref().join(s.as_ref())` (see
 	/// [`std::path::PathBuf::join()`](https://doc.rust-lang.org/std/path/struct.PathBuf.html#method.join)),
 	/// except that this converts forward slashes in `s` to platform-specific the path
@@ -49,7 +64,7 @@ impl DecodingContext {
 				return Err(ClgnDecodingError::InvalidPath(PathBuf::from(path)));
 			}
 
-			let mut pathbuf = this.root_path.clone();
+			let mut pathbuf = this.root().to_owned();
 			for part in path.split('/') {
 				pathbuf.push(part);
 			}
@@ -66,6 +81,8 @@ mod tests {
 	use std::path::{Path, PathBuf};
 
 	mod ok {
+		use crate::cli::DiskBackedFs;
+
 		use super::*;
 
 		#[allow(dead_code)]
@@ -85,7 +102,8 @@ mod tests {
 				);
 			}
 
-			let context = DecodingContext::new(p.to_owned());
+			let context =
+				DecodingContext::from(ProvidedInput::DiskBackedFs(DiskBackedFs::Folder(p)));
 
 			let platform;
 			let path_sep;
@@ -287,6 +305,8 @@ mod tests {
 	}
 
 	mod errors {
+		use crate::cli::DiskBackedFs;
+
 		use super::*;
 
 		#[test]
@@ -298,12 +318,14 @@ mod tests {
 					matches!(result, Err(ClgnDecodingError::InvalidPath(_))),
 					"Expected an InvalidPath error when joining {:?} \
 					 and {s:?}, but got {result:?} instead",
-					c.root_path
+					c.root()
 				);
 			}
 
 			// The logic is pretty simple; `p` is ignored until `s` is verified
-			let context = DecodingContext::new(PathBuf::from(""));
+			let context = DecodingContext::from(ProvidedInput::DiskBackedFs(
+				DiskBackedFs::new_folder_unchecked(Path::new("")),
+			));
 			assert_err(&context, "/");
 			assert_err(&context, "/a");
 		}

@@ -3,14 +3,14 @@ use super::{
 	DecodingContext, Extras,
 };
 use crate::{
-	cli::ProvidedInput,
+	cli::{DiskBackedFs, InMemoryFs, ProvidedInput},
 	fibroblast::Fibroblast,
 	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 };
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, path::PathBuf};
+use std::{cell::RefCell, rc::Rc};
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -101,9 +101,6 @@ pub struct ContainerTag {
 	inner: Inner,
 
 	#[serde(skip)]
-	resolved_path: RefCell<Option<PathBuf>>,
-
-	#[serde(skip)]
 	fibroblast: RefCell<Option<Fibroblast>>,
 }
 
@@ -121,7 +118,7 @@ impl SvgWritable for ContainerTag {
 		self.instantiate(context)?;
 
 		let fb = self.fibroblast.borrow();
-		let Fibroblast { root, context } = fb.as_ref().unwrap();
+		let Fibroblast { root, context } = fb.as_ref().unwrap(); // instantiated above
 
 		write_tag(writer, "g", root.attrs(), |writer| {
 			for child in root.children() {
@@ -136,12 +133,19 @@ impl ContainerTag {
 	pub(crate) fn instantiate(&self, context: &DecodingContext) -> ClgnDecodingResult<()> {
 		let abs_clgn_path = context.canonicalize(&self.inner.clgn_path)?;
 
-		if self.resolved_path.borrow().as_ref() != Some(&abs_clgn_path) {
-			let subroot = Fibroblast::from_dir(ProvidedInput::new(&abs_clgn_path), None)?;
-
-			self.fibroblast.replace(Some(subroot));
-			self.resolved_path.replace(Some(abs_clgn_path));
+		let new_input = match context {
+			DecodingContext::RootPath(_) => {
+				ProvidedInput::DiskBackedFs(DiskBackedFs::new(&abs_clgn_path))
+			}
+			DecodingContext::InMemoryFs(fs) => ProvidedInput::InMemoryFs(InMemoryFs {
+				root_path: abs_clgn_path,
+				content: Rc::clone(&fs.content),
+			}),
 		};
+
+		let subroot = Fibroblast::new(&new_input, None)?;
+
+		self.fibroblast.replace(Some(subroot));
 
 		Ok(())
 	}
@@ -172,7 +176,6 @@ impl Validatable for UnvalidatedContainerTag {
 		if errors.is_empty() {
 			Ok(ContainerTag {
 				inner: Inner { clgn_path },
-				resolved_path: RefCell::default(),
 				fibroblast: RefCell::default(),
 			})
 		} else {

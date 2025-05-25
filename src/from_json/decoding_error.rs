@@ -14,7 +14,10 @@ use strum::IntoEnumIterator;
 use thiserror::Error;
 use zip::result::ZipError;
 
-use crate::fibroblast::tags::{any_child_tag::AnyChildTagDiscriminants, Extras};
+use crate::{
+	cli::Slice,
+	fibroblast::tags::{any_child_tag::AnyChildTagDiscriminants, Extras},
+};
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
@@ -70,6 +73,9 @@ pub enum ClgnDecodingError {
 		path: Option<PathBuf>,
 	},
 
+	#[error("malformed in-memory filesystem of {len} bytes: {slice:?}")]
+	InMemoryFs { slice: Slice, len: usize },
+
 	#[error("XML error: {}", .0)]
 	Xml(#[from] XmlError),
 
@@ -114,6 +120,7 @@ impl ClgnDecodingError {
 			IoWrite { .. } => 12,
 			IoOther { .. } => 13,
 			FolderDoesNotExist { .. } => 17,
+			InMemoryFs { .. } => 19,
 			Image { .. } => 20,
 			Xml { .. } => 30,
 			ToSvgString { .. } => 40,

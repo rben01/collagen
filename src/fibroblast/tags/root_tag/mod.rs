@@ -1,9 +1,11 @@
+use std::{fs, io, path::Path, rc::Rc};
+
 use super::{
 	validation::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
 	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
-	cli::ProvidedInput,
+	cli::{DiskBackedFs, InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
 	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
 	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
 };
@@ -27,20 +29,27 @@ struct Inner {
 	attrs: DeXmlAttrs,
 }
 
-impl RootTag {
-	pub(crate) fn new_from_dir_with_jsonnet(input: ProvidedInput) -> ClgnDecodingResult<Self> {
-		let manifest_path = match input {
-			ProvidedInput::File { file, parent: _ } => file,
-			ProvidedInput::Folder(folder) => &folder.join("collagen.jsonnet"),
+#[derive(Clone, Copy)]
+enum Input<'a> {
+	Str { content: &'a str, path: &'a Path },
+	Path(&'a Path),
+}
+
+impl Input<'_> {
+	fn evaluate_as_jsonnet(self) -> ClgnDecodingResult<RootTag> {
+		let mut vm = JsonnetVm::new();
+
+		let (eval_result, path) = match self {
+			Input::Str { content, path } => (vm.evaluate_snippet(path, content), path),
+			Input::Path(path) => (vm.evaluate_file(path), path),
 		};
 
-		let mut vm = JsonnetVm::new();
-		let json_str = match vm.evaluate_file(manifest_path) {
+		let json_str = match eval_result {
 			Ok(s) => s,
 			Err(err) => {
 				return Err(ClgnDecodingError::JsonnetRead {
 					msg: err.to_string(),
-					path: manifest_path.to_owned(),
+					path: path.to_owned(),
 				})
 			}
 		};
@@ -49,36 +58,99 @@ impl RootTag {
 		serde_json::from_str::<UnvalidatedRootTag>(&json_str)
 			.map_err(|source| ClgnDecodingError::JsonDecodeJsonnet {
 				source,
-				path: manifest_path.to_owned(),
+				path: path.to_owned(),
 			})?
 			.into_validated(&mut errors)
 			.map_err(|()| errors.into())
 	}
 
-	pub(crate) fn new_from_dir_with_pure_json(input: ProvidedInput) -> ClgnDecodingResult<Self> {
-		let manifest_path = match input {
-			ProvidedInput::File { file, parent: _ } => file,
-			ProvidedInput::Folder(folder) => &folder.join("collagen.json"),
-		};
-
-		let f = match std::fs::File::open(manifest_path) {
-			Ok(f) => f,
-			Err(source) => {
-				return Err(ClgnDecodingError::IoRead {
+	fn evaluate_as_pure_json(self) -> ClgnDecodingResult<RootTag> {
+		fn evaluate_reader(r: impl io::Read, path: &Path) -> ClgnDecodingResult<RootTag> {
+			let mut errors = InvalidSchemaErrorList::new();
+			serde_json::from_reader::<_, UnvalidatedRootTag>(r)
+				.map_err(|source| ClgnDecodingError::JsonDecodeFile {
 					source,
-					path: manifest_path.to_owned(),
-				})
-			}
+					path: path.to_owned(),
+				})?
+				.into_validated(&mut errors)
+				.map_err(|()| errors.into())
+		}
+
+		match self {
+			Input::Str { content, path } => evaluate_reader(io::Cursor::new(content), path),
+			Input::Path(path) => evaluate_reader(
+				fs::File::open(path).map_err(|source| ClgnDecodingError::IoRead {
+					source,
+					path: path.to_owned(),
+				})?,
+				path,
+			),
+		}
+	}
+}
+
+impl RootTag {
+	fn new_from_in_memory_fs(
+		input: &InMemoryFs,
+		format: ManifestFormat,
+	) -> ClgnDecodingResult<Self> {
+		let InMemoryFs {
+			root_path: _,
+			content,
+		} = input;
+
+		let InMemoryFsContent { bytes, slices } = &*Rc::clone(content);
+
+		let slice @ Slice { start, offset } = *slices
+			.get(format.manifest_path())
+			.ok_or(ClgnDecodingError::MissingJsonnetFile)?;
+
+		let manifest_bytes =
+			bytes
+				.get(start..start + offset)
+				.ok_or(ClgnDecodingError::InMemoryFs {
+					slice,
+					len: bytes.len(),
+				})?;
+
+		let path_str = format!("file '{}' in {input}", format.manifest_filename());
+
+		let manifest_str =
+			std::str::from_utf8(manifest_bytes).map_err(|_| ClgnDecodingError::InMemoryFs {
+				slice,
+				len: bytes.len(),
+			})?;
+
+		let input = Input::Str {
+			content: manifest_str,
+			path: Path::new(&path_str),
 		};
 
-		let mut errors = InvalidSchemaErrorList::new();
-		serde_json::from_reader::<_, UnvalidatedRootTag>(f)
-			.map_err(|source| ClgnDecodingError::JsonDecodeFile {
-				source,
-				path: manifest_path.to_owned(),
-			})?
-			.into_validated(&mut errors)
-			.map_err(|()| errors.into())
+		match format {
+			ManifestFormat::Json => input.evaluate_as_pure_json(),
+			ManifestFormat::Jsonnet => input.evaluate_as_jsonnet(),
+		}
+	}
+
+	fn new_from_disk(input: &DiskBackedFs, format: ManifestFormat) -> ClgnDecodingResult<Self> {
+		let manifest_path = match input {
+			DiskBackedFs::File { file, parent: _ } => *file,
+			DiskBackedFs::Folder(folder) => &folder.join(format.manifest_filename()),
+		};
+
+		let input = Input::Path(manifest_path);
+
+		match format {
+			ManifestFormat::Json => input.evaluate_as_pure_json(),
+			ManifestFormat::Jsonnet => input.evaluate_as_jsonnet(),
+		}
+	}
+
+	pub(crate) fn new(input: &ProvidedInput, format: ManifestFormat) -> ClgnDecodingResult<Self> {
+		match input {
+			ProvidedInput::DiskBackedFs(fs) => Self::new_from_disk(fs, format),
+			ProvidedInput::InMemoryFs(fs) => Self::new_from_in_memory_fs(fs, format),
+		}
 	}
 
 	pub(crate) fn attrs(&self) -> &XmlAttrs {
@@ -93,7 +165,7 @@ impl RootTag {
 impl SvgWritable for RootTag {
 	fn to_svg(
 		&self,
-		writer: &mut quick_xml::Writer<impl std::io::Write>,
+		writer: &mut quick_xml::Writer<impl io::Write>,
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<()> {
 		prepare_and_write_tag(

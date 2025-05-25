@@ -7,9 +7,13 @@ use notify::RecursiveMode;
 use notify_debouncer_full::new_debouncer;
 use quick_xml::Writer as XmlWriter;
 use std::{
+	borrow::Cow,
+	collections::HashMap,
+	fmt::Display,
 	fs,
 	io::{BufWriter, Write},
 	path::{Path, PathBuf},
+	rc::Rc,
 	time::Duration,
 };
 
@@ -45,14 +49,60 @@ pub enum ManifestFormat {
 	Jsonnet,
 }
 
+impl ManifestFormat {
+	pub(crate) fn manifest_filename(self) -> &'static str {
+		match self {
+			ManifestFormat::Json => "collagen.json",
+			ManifestFormat::Jsonnet => "collagen.jsonnet",
+		}
+	}
+
+	pub(crate) fn manifest_path(self) -> &'static Path {
+		Path::new(self.manifest_filename())
+	}
+}
+
 #[derive(Debug, Copy, Clone)]
-pub enum ProvidedInput<'a> {
+pub struct Slice {
+	pub(crate) start: usize,
+	pub(crate) offset: usize,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct InMemoryFsContent {
+	pub(crate) bytes: Vec<u8>,
+	// map of paths to slices in the byte vector
+	pub(crate) slices: HashMap<PathBuf, Slice>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InMemoryFs {
+	pub(crate) root_path: PathBuf,
+	pub(crate) content: Rc<InMemoryFsContent>,
+}
+
+impl Display for InMemoryFs {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(
+			f,
+			"in-memory FS with root {:?}, containing {} paths and {} bytes",
+			self.root_path,
+			self.content.slices.len(),
+			self.content.bytes.len()
+		)
+	}
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum DiskBackedFs<'a> {
 	File { file: &'a Path, parent: &'a Path },
 	Folder(&'a Path),
 }
 
-impl<'a> ProvidedInput<'a> {
-	pub(crate) fn new(canonicalized_path: &'a Path) -> Self {
+impl<'a> DiskBackedFs<'a> {
+	#[allow(clippy::missing_panics_doc)]
+	#[must_use]
+	pub fn new(canonicalized_path: &'a Path) -> Self {
 		let path = canonicalized_path;
 		if path.is_dir() {
 			Self::Folder(path)
@@ -66,10 +116,30 @@ impl<'a> ProvidedInput<'a> {
 		}
 	}
 
+	#[cfg(test)]
+	pub(crate) fn new_folder_unchecked(path: &'a Path) -> Self {
+		Self::Folder(path)
+	}
+
 	pub(crate) fn folder(&self) -> &Path {
 		match self {
-			ProvidedInput::File { parent, file: _ } => parent,
-			ProvidedInput::Folder(p) => p,
+			Self::File { parent, file: _ } => parent,
+			Self::Folder(p) => p,
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub enum ProvidedInput<'a> {
+	DiskBackedFs(DiskBackedFs<'a>),
+	InMemoryFs(InMemoryFs),
+}
+
+impl ProvidedInput<'_> {
+	fn name(&self) -> Cow<'_, Path> {
+		match self {
+			ProvidedInput::DiskBackedFs(fs) => Cow::Borrowed(fs.folder()),
+			ProvidedInput::InMemoryFs(fs) => Cow::Owned(PathBuf::from(fs.to_string())),
 		}
 	}
 }
@@ -123,28 +193,29 @@ fn create_stdout_writer() -> XmlWriter<BufWriter<std::io::Stdout>> {
 }
 
 fn run_once_result(
-	input: ProvidedInput,
+	input: &ProvidedInput,
 	out_file: &Outfile,
 	format: Option<ManifestFormat>,
 ) -> ClgnDecodingResult<()> {
 	if out_file.is_stdout() {
 		let mut writer = create_stdout_writer();
-		Fibroblast::from_dir(input, format)?.to_svg(&mut writer)?;
+		Fibroblast::new(input, format)?.to_svg(&mut writer)?;
 
 		let mut stdout_buf = writer.into_inner();
-		writeln!(stdout_buf).map_err(map_io_error(Outfile::STDOUT))?;
-		stdout_buf.flush().map_err(map_io_error(Outfile::STDOUT))?;
+		writeln!(stdout_buf)
+			.and_then(|()| stdout_buf.flush())
+			.map_err(map_io_error(Outfile::STDOUT))?;
 
 		Ok(())
 	} else {
-		Fibroblast::from_dir(input, format)?.to_svg(&mut create_file_writer(out_file)?)
+		Fibroblast::new(input, format)?.to_svg(&mut create_file_writer(out_file)?)
 	}
 }
 
-fn run_once_log(input: ProvidedInput, out_file: &Outfile, format: Option<ManifestFormat>) {
+fn run_once_log(input: &ProvidedInput, out_file: &Outfile, format: Option<ManifestFormat>) {
 	match run_once_result(input, out_file, format) {
 		Ok(()) => eprintln!("Success; output to {out_file}"),
-		Err(e) => eprintln!("Error while watching {:?}: {e:?}", input.folder()),
+		Err(e) => eprintln!("Error while watching {:?}: {e:?}", input.name()),
 	}
 }
 
@@ -163,8 +234,9 @@ impl Cli {
 
 		let out_file = Outfile(&out_file);
 
-		let input = ProvidedInput::new(&input);
-		let in_folder = input.folder();
+		let fs = DiskBackedFs::new(&input);
+		let in_folder = fs.folder();
+		let input = ProvidedInput::DiskBackedFs(fs);
 
 		if watch {
 			'check_recursive_watch: {
@@ -200,7 +272,7 @@ impl Cli {
 				}
 			}
 
-			run_once_log(input, &out_file, format);
+			run_once_log(&input, &out_file, format);
 
 			let (tx, rx) = std::sync::mpsc::channel();
 
@@ -238,17 +310,17 @@ impl Cli {
 
 				if modified_paths.len() == 1 {
 					eprintln!(
-						"Rerunning on {input:?} due to changes to {:?}",
+						"Rerunning on {fs:?} due to changes to {:?}",
 						modified_paths.first().unwrap()
 					);
 				} else {
-					eprintln!("Rerunning on {input:?} due to changes to {modified_paths:?}");
+					eprintln!("Rerunning on {fs:?} due to changes to {modified_paths:?}");
 				}
 
-				run_once_log(input, &out_file, format);
+				run_once_log(&input, &out_file, format);
 			}
 		} else {
-			run_once_result(input, &out_file, format)?;
+			run_once_result(&input, &out_file, format)?;
 		}
 
 		Ok(())
