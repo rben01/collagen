@@ -172,7 +172,13 @@ impl Cli {
 					break 'check_recursive_watch;
 				}
 
-				let out_file = &fs::canonicalize(out_file.0.parent().unwrap_or(Path::new(".")))
+				let out_file_parent = match out_file.0.parent() {
+					Some(p) if p != Path::new("") => p,
+					// None or Some("")
+					_ => Path::new("."),
+				};
+
+				let out_file = &fs::canonicalize(out_file_parent)
 					.map_err(|source| ClgnDecodingError::FolderDoesNotExist {
 						source,
 						path: in_folder.to_owned(),
