@@ -28,6 +28,10 @@ impl Fibroblast {
 						// continue on and try json
 						RootTag::new(input, ManifestFormat::Json)?
 					}
+					Err(ClgnDecodingError::MissingJsonnetFile) => {
+						// continue on and try json
+						RootTag::new(input, ManifestFormat::Json)?
+					}
 					Err(err) => return Err(err),
 				}
 			}

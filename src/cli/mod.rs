@@ -65,12 +65,12 @@ impl ManifestFormat {
 #[derive(Debug, Copy, Clone)]
 pub struct Slice {
 	pub(crate) start: usize,
-	pub(crate) offset: usize,
+	pub(crate) len: usize,
 }
 
 impl From<Slice> for std::ops::Range<usize> {
 	fn from(slice: Slice) -> Self {
-		slice.start..slice.start + slice.offset
+		slice.start..slice.start + slice.len
 	}
 }
 

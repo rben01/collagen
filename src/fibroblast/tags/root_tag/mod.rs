@@ -94,20 +94,19 @@ impl RootTag {
 		input: &InMemoryFs,
 		format: ManifestFormat,
 	) -> ClgnDecodingResult<Self> {
-		let InMemoryFs {
-			root_path: _,
-			content,
-		} = input;
+		let InMemoryFs { root_path, content } = input;
 
 		let InMemoryFsContent { bytes, slices } = &*Rc::clone(content);
 
-		let slice @ Slice { start, offset } = *slices
-			.get(format.manifest_path())
+		eprintln!("{:?} {format:?}", &root_path.join(format.manifest_path()));
+
+		let slice @ Slice { start, len } = *slices
+			.get(&root_path.join(format.manifest_path()))
 			.ok_or(ClgnDecodingError::MissingJsonnetFile)?;
 
 		let manifest_bytes =
 			bytes
-				.get(start..start + offset)
+				.get(start..start + len)
 				.ok_or(ClgnDecodingError::MalformedInMemoryFs {
 					slice,
 					len: bytes.len(),
@@ -221,5 +220,84 @@ impl Validatable for UnvalidatedRootTag {
 			inner: Inner { attrs },
 			children: children.into_validated(errors)?,
 		})
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::collections::HashMap;
+
+	use super::*;
+
+	#[test]
+	fn test_root_tag_serialization() {
+		let root_json = r#"{
+			"attrs": {
+				"width": "100"
+			},
+			"children": [
+				{
+					"clgn_path": "path/to/container"
+				}
+			]
+		}"#
+		.as_bytes();
+
+		let container_json = r#"{
+			"children": [
+				{ "image_path": "image.png" }
+			]
+		}"#
+		.as_bytes();
+
+		let image_bytes = &[
+			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG header
+			0x00, 0x01,
+		];
+
+		let mut bytes = Vec::new();
+		bytes.extend_from_slice(root_json);
+		bytes.extend_from_slice(container_json);
+		bytes.extend_from_slice(image_bytes);
+
+		let mut slices = HashMap::new();
+		let start = 0;
+		let len = root_json.len();
+
+		slices.insert("collagen.json".into(), Slice { start, len });
+
+		let start = start + len;
+		let len = container_json.len();
+
+		slices.insert(
+			"path/to/container/collagen.json".into(),
+			Slice { start, len },
+		);
+
+		let start = start + len;
+		let len = image_bytes.len();
+
+		slices.insert("path/to/container/image.png".into(), Slice { start, len });
+
+		let in_memory_db = InMemoryFs {
+			root_path: Path::new("").to_owned(),
+			content: Rc::new(InMemoryFsContent { bytes, slices }),
+		};
+		let input = ProvidedInput::InMemoryFs(in_memory_db);
+
+		let tag = RootTag::new(&input, ManifestFormat::Json).unwrap();
+
+		let mut writer = quick_xml::Writer::new(Vec::new());
+		let context = DecodingContext::from(input);
+
+		tag.to_svg(&mut writer, &context).unwrap();
+
+		let output = String::from_utf8(writer.into_inner()).unwrap();
+
+		// Since we only have one attribute and one tag, this is deterministic
+		assert_eq!(
+			output,
+			r#"<svg xmlns="http://www.w3.org/2000/svg" width="100"><g><image href="data:image/png;base64,iVBORw0KGgoAAQ"></image></g></svg>"#
+		);
 	}
 }
