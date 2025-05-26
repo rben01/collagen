@@ -68,6 +68,12 @@ pub struct Slice {
 	pub(crate) offset: usize,
 }
 
+impl From<Slice> for std::ops::Range<usize> {
+	fn from(slice: Slice) -> Self {
+		slice.start..slice.start + slice.offset
+	}
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct InMemoryFsContent {
 	pub(crate) bytes: Vec<u8>,
@@ -90,6 +96,24 @@ impl Display for InMemoryFs {
 			self.content.slices.len(),
 			self.content.bytes.len()
 		)
+	}
+}
+
+impl InMemoryFs {
+	pub(crate) fn load(&self, path: impl AsRef<Path>) -> ClgnDecodingResult<&[u8]> {
+		let path = path.as_ref();
+		let InMemoryFsContent { bytes, slices } = &*self.content;
+		let slice = *slices
+			.get(path)
+			.ok_or_else(|| ClgnDecodingError::InMemoryFsMissingPath {
+				path: path.to_owned(),
+			})?;
+		bytes.get(std::ops::Range::from(slice)).ok_or({
+			ClgnDecodingError::MalformedInMemoryFs {
+				slice,
+				len: bytes.len(),
+			}
+		})
 	}
 }
 

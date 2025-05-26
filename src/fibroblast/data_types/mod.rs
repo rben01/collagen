@@ -3,7 +3,10 @@
 mod simple_value;
 
 pub(crate) use simple_value::SimpleValue;
-use std::path::{Path, PathBuf};
+use std::{
+	borrow::Cow,
+	path::{Path, PathBuf},
+};
 
 use crate::{
 	cli::{InMemoryFs, ProvidedInput},
@@ -72,6 +75,30 @@ impl DecodingContext {
 		}
 
 		inner(self, path.as_ref())
+	}
+
+	pub(crate) fn fetch_resource(
+		&self,
+		path: impl AsRef<str>,
+	) -> ClgnDecodingResult<(Cow<[u8]>, PathBuf)> {
+		let pathbuf = self.canonicalize(path.as_ref())?;
+
+		let bytes = match self {
+			DecodingContext::RootPath(_) => match std::fs::read(&pathbuf) {
+				Ok(bytes) => Cow::Owned(bytes),
+				Err(source) => {
+					// cannot map_err because it would require moving pathbuf
+					return Err(ClgnDecodingError::IoRead {
+						source,
+						path: pathbuf,
+					});
+				}
+			},
+
+			DecodingContext::InMemoryFs(fs) => Cow::Borrowed(fs.load(&pathbuf)?),
+		};
+
+		Ok((bytes, pathbuf))
 	}
 }
 

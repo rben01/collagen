@@ -257,14 +257,9 @@ impl FontTag {
 		context: &DecodingContext,
 	) -> ClgnDecodingResult<CompactString> {
 		let path = path.as_ref();
-		let abs_font_path = context.canonicalize(path)?;
+		let (font_bytes, _) = context.fetch_resource(path)?;
 
-		let b64_string = b64_encode(std::fs::read(abs_font_path.as_path()).map_err(|source| {
-			ClgnDecodingError::IoRead {
-				source,
-				path: abs_font_path,
-			}
-		})?);
+		let b64_string = b64_encode(font_bytes);
 		let src_str = format_compact!(
 			"url('data:font/woff2;charset=utf-8;base64,{b64_string}') format('woff2')"
 		);

@@ -108,18 +108,19 @@ impl RootTag {
 		let manifest_bytes =
 			bytes
 				.get(start..start + offset)
-				.ok_or(ClgnDecodingError::InMemoryFs {
+				.ok_or(ClgnDecodingError::MalformedInMemoryFs {
 					slice,
 					len: bytes.len(),
 				})?;
 
 		let path_str = format!("file '{}' in {input}", format.manifest_filename());
 
-		let manifest_str =
-			std::str::from_utf8(manifest_bytes).map_err(|_| ClgnDecodingError::InMemoryFs {
+		let manifest_str = std::str::from_utf8(manifest_bytes).map_err(|_| {
+			ClgnDecodingError::MalformedInMemoryFs {
 				slice,
 				len: bytes.len(),
-			})?;
+			}
+		})?;
 
 		let input = Input::Str {
 			content: manifest_str,

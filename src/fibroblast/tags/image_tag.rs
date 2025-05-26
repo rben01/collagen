@@ -121,14 +121,9 @@ impl ImageTag {
 		// to the output SVG. An intermediate step would be to stream the file into the
 		// b64 encoder, getting memory usage down to O(1*n).
 
-		let abs_image_path = context.canonicalize(&self.inner.image_path)?;
+		let (img_bytes, _) = context.fetch_resource(&self.inner.image_path)?;
 
-		let b64_string = b64_encode(std::fs::read(abs_image_path.as_path()).map_err(|source| {
-			ClgnDecodingError::IoRead {
-				source,
-				path: abs_image_path,
-			}
-		})?);
+		let b64_string = b64_encode(img_bytes);
 		let src_str = format!("data:image/{kind};base64,{b64_string}");
 
 		Ok((key, src_str))

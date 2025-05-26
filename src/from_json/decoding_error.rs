@@ -74,7 +74,10 @@ pub enum ClgnDecodingError {
 	},
 
 	#[error("malformed in-memory filesystem of {len} bytes: {slice:?}")]
-	InMemoryFs { slice: Slice, len: usize },
+	MalformedInMemoryFs { slice: Slice, len: usize },
+
+	#[error("missing path {path:?} in in-memory filesystem")]
+	InMemoryFsMissingPath { path: PathBuf },
 
 	#[error("XML error: {}", .0)]
 	Xml(#[from] XmlError),
@@ -120,7 +123,8 @@ impl ClgnDecodingError {
 			IoWrite { .. } => 12,
 			IoOther { .. } => 13,
 			FolderDoesNotExist { .. } => 17,
-			InMemoryFs { .. } => 19,
+			MalformedInMemoryFs { .. } => 18,
+			InMemoryFsMissingPath { .. } => 19,
 			Image { .. } => 20,
 			Xml { .. } => 30,
 			ToSvgString { .. } => 40,

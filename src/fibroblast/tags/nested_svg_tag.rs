@@ -44,15 +44,10 @@ impl SvgWritable for NestedSvgTag {
 		} = self;
 
 		write_tag(writer, "g", attrs.as_ref(), |writer| {
-			let abs_svg_path = context.canonicalize(svg_path)?;
+			let (svg_bytes, _) = context.fetch_resource(svg_path)?;
+			let text = std::str::from_utf8(&svg_bytes).map_err(ClgnDecodingError::ToSvgString)?;
 
-			let text = std::fs::read_to_string(&abs_svg_path).map_err(|source| {
-				ClgnDecodingError::IoRead {
-					source,
-					path: abs_svg_path,
-				}
-			})?;
-			let text = XML_HEADER_RE.replace(&text, "").trim().to_owned();
+			let text = XML_HEADER_RE.replace(text, "").trim().to_owned();
 
 			let bt = BytesText::from_escaped(text);
 			writer
