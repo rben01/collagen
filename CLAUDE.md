@@ -10,7 +10,17 @@ Collagen is a Rust-based CLI tool that generates SVG collages from JSON/Jsonnet 
 - Svelte web frontend in the `svelte/` directory
 - Comprehensive test suite with visual examples
 
+### Project rationale
+
+- Refer to @readme.adoc for a rationale of why this project is useful — what problems it
+  attempts to solve and what use cases exist. This may help to come up with additional
+  features or drive UI development.
+
 ## Common Commands
+
+- Try to use absolute paths for commands instead of relative paths, as when you use
+  relative paths you tend to get lost (since you don't know which directory you're
+  currently in).
 
 ### Building and Testing
 
@@ -100,18 +110,16 @@ The codebase supports both disk-backed and in-memory file systems for testing. T
 - Each test case has a `skeleton/` folder with manifest and assets, plus `out.svg` for comparison
 - Tests verify that generated SVG exactly matches expected output
 
-### Watch Mode
-
-The CLI supports file watching with debouncing. It monitors the input directory for changes and regenerates output automatically.
-
 ### Manifest Formats
 
 - JSON: `collagen.json`
 - Jsonnet: `collagen.jsonnet` (preferred if both exist)
-- Jsonnet provides variables, functions, loops, and imports for complex layouts
+  - Jsonnet provides variables, functions, loops, and imports for complex layouts, which
+    makes it more flexible than JSON
 
 ### Code Style
 
 - Uses hard tabs (configured in `rustfmt.toml`)
 - Clippy pedantic warnings enabled with specific allows
 - Imports organized at crate level (`imports_granularity = "Crate"`)
+- Use descriptive variable and function names
