@@ -98,8 +98,6 @@ impl RootTag {
 
 		let InMemoryFsContent { bytes, slices } = &*Rc::clone(content);
 
-		eprintln!("{:?} {format:?}", &root_path.join(format.manifest_path()));
-
 		let slice @ Slice { start, len } = *slices
 			.get(&root_path.join(format.manifest_path()))
 			.ok_or(ClgnDecodingError::MissingJsonnetFile)?;
