@@ -4,7 +4,7 @@
 
 use super::{decoding_error::ClgnDecodingResult, ClgnDecodingError};
 use crate::{
-	cli::{ManifestFormat, ProvidedInput},
+	filesystem::{ManifestFormat, ProvidedInput},
 	fibroblast::{data_types::DecodingContext, tags::root_tag::RootTag, Fibroblast},
 };
 

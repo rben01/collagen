@@ -2,15 +2,20 @@ use super::{
 	any_child_tag::AnyChildTagDiscriminants, validation::Validatable, ClgnDecodingResult,
 	DecodingContext, Extras,
 };
+#[cfg(not(feature = "cli"))]
+use crate::from_json::ClgnDecodingError;
 use crate::{
-	cli::{DiskBackedFs, InMemoryFs, ProvidedInput},
 	fibroblast::Fibroblast,
+	filesystem::{InMemoryFs, ProvidedInput},
 	from_json::decoding_error::InvalidSchemaErrorList,
 	to_svg::svg_writable::{write_tag, SvgWritable},
 };
+
+#[cfg(feature = "cli")]
+use crate::filesystem::DiskBackedFs;
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, marker::PhantomData, rc::Rc};
 
 /// `ContainerTag` allows the nesting of skeletons in other skeletons. If (valid)
 ///  skeletons A and B exist, and you wish to include B as is in A, just use a container
@@ -134,13 +139,21 @@ impl ContainerTag {
 		let abs_clgn_path = context.canonicalize(&self.inner.clgn_path)?;
 
 		let new_input = match context {
+			#[cfg(feature = "cli")]
+			DecodingContext::RootPath(_) => ProvidedInput::DiskBackedFs(DiskBackedFs::new(&abs_clgn_path)),
+			#[cfg(not(feature = "cli"))]
 			DecodingContext::RootPath(_) => {
-				ProvidedInput::DiskBackedFs(DiskBackedFs::new(&abs_clgn_path))
+				return Err(ClgnDecodingError::InvalidSchema(
+					crate::from_json::decoding_error::InvalidSchemaErrorList::default(),
+				));
 			}
-			DecodingContext::InMemoryFs(fs) => ProvidedInput::InMemoryFs(InMemoryFs {
-				root_path: abs_clgn_path,
-				content: Rc::clone(&fs.content),
-			}),
+			DecodingContext::InMemoryFs(fs) => ProvidedInput::InMemoryFs(
+				InMemoryFs {
+					root_path: abs_clgn_path,
+					content: Rc::clone(&fs.content),
+				},
+				PhantomData,
+			),
 		};
 
 		let subroot = Fibroblast::new(&new_input, None)?;

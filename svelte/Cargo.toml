@@ -1,0 +1,10 @@
+[package]
+	edition = "2021"
+	name = "collagen-wasm"
+	version = "0.1.0"
+
+[lib]
+	crate-type = ["cdylib"]
+
+[dependencies]
+	collagen = { path = "..", default-features = false, features = ["wasm"] }

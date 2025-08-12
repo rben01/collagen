@@ -92,7 +92,7 @@ impl SvgWritable for AnyChildTag {
 			NestedSvg(t) => t.to_svg(writer, context)?,
 			Font(t) => t.to_svg(writer, context)?,
 			Text(t) => t.to_svg(writer, context)?,
-		};
+		}
 		Ok(())
 	}
 }

@@ -337,7 +337,7 @@ impl FontTag {
 						FontAttr::Number(n) => text.push_str(&n.to_compact_string()),
 					},
 					CowishFontAttr::BorrowedStr(s) => text.push_str(s),
-				};
+				}
 
 				text.push(';');
 			}

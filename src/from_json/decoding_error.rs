@@ -11,17 +11,21 @@
 use quick_xml::Error as XmlError;
 use std::{fmt, io, path::PathBuf, process::ExitCode, str::Utf8Error};
 use strum::IntoEnumIterator;
+#[cfg(feature = "wasm")]
+use strum::IntoStaticStr;
 use thiserror::Error;
+#[cfg(feature = "zip")]
 use zip::result::ZipError;
 
 use crate::{
-	cli::Slice,
 	fibroblast::tags::{any_child_tag::AnyChildTagDiscriminants, Extras},
+	filesystem::Slice,
 };
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
 
 #[derive(Debug, Error)]
+#[cfg_attr(feature = "wasm", derive(IntoStaticStr))]
 pub enum ClgnDecodingError {
 	#[error("missing manifest file; must provide either collagen.jsonnet or collagen.json")]
 	MissingManifest,
@@ -44,6 +48,7 @@ pub enum ClgnDecodingError {
 	#[error("paths may not begin with a '/'; got {:?}", .0)]
 	InvalidPath(PathBuf),
 
+	#[cfg(feature = "zip")]
 	#[error("error reading {path:?} ({source})")]
 	Zip { source: ZipError, path: PathBuf },
 
@@ -91,9 +96,11 @@ pub enum ClgnDecodingError {
 	#[error("could not find bundled font {font_name:?}")]
 	BundledFontNotFound { font_name: String },
 
+	#[cfg(feature = "cli")]
 	#[error("error watching folder: {:?}", .0)]
 	FolderWatch(Vec<notify::Error>),
 
+	#[cfg(feature = "cli")]
 	#[error(
 		"Refusing to run in --watch mode. \
 		 out_file {out_file:?} is a descendent of in_folder \
@@ -129,8 +136,11 @@ impl ClgnDecodingError {
 			Xml { .. } => 30,
 			ToSvgString { .. } => 40,
 			BundledFontNotFound { .. } => 50,
+			#[cfg(feature = "zip")]
 			Zip { .. } => 101,
+			#[cfg(feature = "cli")]
 			FolderWatch { .. } => 102,
+			#[cfg(feature = "cli")]
 			RecursiveWatch { .. } => 103,
 			MissingJsonnetFile => {
 				eprintln!("DEBUG: we should not have gotten here. please file a bug!");
@@ -140,12 +150,14 @@ impl ClgnDecodingError {
 	}
 }
 
+#[cfg(feature = "cli")]
 impl From<notify::Error> for ClgnDecodingError {
 	fn from(value: notify::Error) -> Self {
 		Self::FolderWatch(vec![value])
 	}
 }
 
+#[cfg(feature = "cli")]
 impl From<Vec<notify::Error>> for ClgnDecodingError {
 	fn from(value: Vec<notify::Error>) -> Self {
 		Self::FolderWatch(value)

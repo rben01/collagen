@@ -1,6 +1,8 @@
 use base64::Engine;
 
-pub(crate) use std::collections::{BTreeMap as Map, BTreeSet as Set};
+pub(crate) use std::collections::BTreeMap as Map;
+#[cfg(feature = "cli")]
+pub(crate) use std::collections::BTreeSet as Set;
 
 pub(crate) fn b64_encode(s: impl AsRef<[u8]>) -> String {
 	let engine = base64::engine::general_purpose::STANDARD_NO_PAD;

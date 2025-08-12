@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-	cli::{InMemoryFs, ProvidedInput},
+	filesystem::{InMemoryFs, ProvidedInput},
 	from_json::ClgnDecodingError,
 	ClgnDecodingResult,
 };
@@ -36,8 +36,9 @@ impl DecodingContext {
 impl From<ProvidedInput<'_>> for DecodingContext {
 	fn from(value: ProvidedInput) -> Self {
 		match value {
+			#[cfg(feature = "cli")]
 			ProvidedInput::DiskBackedFs(fs) => DecodingContext::RootPath(fs.folder().to_owned()),
-			ProvidedInput::InMemoryFs(fs) => DecodingContext::InMemoryFs(fs),
+			ProvidedInput::InMemoryFs(fs, _) => DecodingContext::InMemoryFs(fs),
 		}
 	}
 }
@@ -84,6 +85,7 @@ impl DecodingContext {
 		let pathbuf = self.canonicalize(path.as_ref())?;
 
 		let bytes = match self {
+			#[cfg(feature = "cli")]
 			DecodingContext::RootPath(_) => match std::fs::read(&pathbuf) {
 				Ok(bytes) => Cow::Owned(bytes),
 				Err(source) => {
@@ -96,19 +98,30 @@ impl DecodingContext {
 			},
 
 			DecodingContext::InMemoryFs(fs) => Cow::Borrowed(fs.load(&pathbuf)?),
+
+			#[cfg(not(feature = "cli"))]
+			DecodingContext::RootPath(_) => {
+				return Err(ClgnDecodingError::IoRead {
+					source: std::io::Error::new(
+						std::io::ErrorKind::Unsupported,
+						"RootPath not supported in WASM build",
+					),
+					path: pathbuf,
+				});
+			}
 		};
 
 		Ok((bytes, pathbuf))
 	}
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "cli"))]
 mod tests {
 	use super::*;
 	use std::path::{Path, PathBuf};
 
 	mod ok {
-		use crate::cli::DiskBackedFs;
+		use crate::filesystem::DiskBackedFs;
 
 		use super::*;
 
@@ -332,7 +345,7 @@ mod tests {
 	}
 
 	mod errors {
-		use crate::cli::DiskBackedFs;
+		use crate::filesystem::DiskBackedFs;
 
 		use super::*;
 

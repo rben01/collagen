@@ -1,14 +1,18 @@
-use std::{fs, io, path::Path, rc::Rc};
+use std::{fs, io, path::Path};
 
 use super::{
 	validation::Validatable, AnyChildTag, ClgnDecodingResult, DeChildTags, DeXmlAttrs,
 	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
-	cli::{DiskBackedFs, InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
+	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
 	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
 	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
 };
+
+#[cfg(feature = "cli")]
+use crate::filesystem::DiskBackedFs;
+#[cfg(feature = "jsonnet")]
 use jsonnet::JsonnetVm;
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +40,7 @@ enum Input<'a> {
 }
 
 impl Input<'_> {
+	#[cfg(feature = "jsonnet")]
 	fn evaluate_as_jsonnet(self) -> ClgnDecodingResult<RootTag> {
 		let mut vm = JsonnetVm::new();
 
@@ -62,6 +67,18 @@ impl Input<'_> {
 			})?
 			.into_validated(&mut errors)
 			.map_err(|()| errors.into())
+	}
+
+	#[cfg(not(feature = "jsonnet"))]
+	fn evaluate_as_jsonnet(self) -> ClgnDecodingResult<RootTag> {
+		let path = match self {
+			Input::Str { path, .. } => path,
+			Input::Path(path) => path,
+		};
+		Err(ClgnDecodingError::JsonnetRead {
+			msg: "Jsonnet support not compiled in".to_string(),
+			path: path.to_owned(),
+		})
 	}
 
 	fn evaluate_as_pure_json(self) -> ClgnDecodingResult<RootTag> {
@@ -96,7 +113,7 @@ impl RootTag {
 	) -> ClgnDecodingResult<Self> {
 		let InMemoryFs { root_path, content } = input;
 
-		let InMemoryFsContent { bytes, slices } = &*Rc::clone(content);
+		let InMemoryFsContent { bytes, slices } = &**content;
 
 		let slice @ Slice { start, len } = *slices
 			.get(&root_path.join(format.manifest_path()))
@@ -130,6 +147,7 @@ impl RootTag {
 		}
 	}
 
+	#[cfg(feature = "cli")]
 	fn new_from_disk(input: &DiskBackedFs, format: ManifestFormat) -> ClgnDecodingResult<Self> {
 		let manifest_path = match input {
 			DiskBackedFs::File { file, parent: _ } => *file,
@@ -146,8 +164,9 @@ impl RootTag {
 
 	pub(crate) fn new(input: &ProvidedInput, format: ManifestFormat) -> ClgnDecodingResult<Self> {
 		match input {
+			#[cfg(feature = "cli")]
 			ProvidedInput::DiskBackedFs(fs) => Self::new_from_disk(fs, format),
-			ProvidedInput::InMemoryFs(fs) => Self::new_from_in_memory_fs(fs, format),
+			ProvidedInput::InMemoryFs(fs, _) => Self::new_from_in_memory_fs(fs, format),
 		}
 	}
 
@@ -279,9 +298,9 @@ mod tests {
 
 		let in_memory_db = InMemoryFs {
 			root_path: Path::new("").to_owned(),
-			content: Rc::new(InMemoryFsContent { bytes, slices }),
+			content: std::rc::Rc::new(InMemoryFsContent { bytes, slices }),
 		};
-		let input = ProvidedInput::InMemoryFs(in_memory_db);
+		let input = ProvidedInput::InMemoryFs(in_memory_db, std::marker::PhantomData);
 
 		let tag = RootTag::new(&input, ManifestFormat::Json).unwrap();
 

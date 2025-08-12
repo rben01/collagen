@@ -73,7 +73,7 @@ impl XmlAttrs {
 				SimpleValue::Number(n) => elem.push_attribute((k, n.to_compact_string().as_str())),
 				SimpleValue::IsPresent(true) => elem.push_attribute((k, "")),
 				SimpleValue::IsPresent(false) => {}
-			};
+			}
 		}
 	}
 

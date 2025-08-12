@@ -1,5 +1,5 @@
 use collagen::{
-	cli::{DiskBackedFs, ProvidedInput},
+	filesystem::{DiskBackedFs, ProvidedInput},
 	Fibroblast,
 };
 use quick_xml::Writer as XmlWriter;

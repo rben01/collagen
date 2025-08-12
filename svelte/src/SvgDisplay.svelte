@@ -1,0 +1,244 @@
+<script>
+	export let svg;
+	
+	let showRawSvg = false;
+	let scale = 1;
+	let panX = 0;
+	let panY = 0;
+	let isDragging = false;
+	let lastMouseX = 0;
+	let lastMouseY = 0;
+	let svgContainer;
+	
+	function toggleRawSvg() {
+		showRawSvg = !showRawSvg;
+	}
+	
+	function downloadSvg() {
+		const blob = new Blob([svg], { type: 'image/svg+xml' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'collagen-output.svg';
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+	}
+	
+	function resetView() {
+		scale = 1;
+		panX = 0;
+		panY = 0;
+	}
+	
+	function zoomIn() {
+		scale = Math.min(scale * 1.2, 5);
+	}
+	
+	function zoomOut() {
+		scale = Math.max(scale / 1.2, 0.1);
+	}
+	
+	function handleWheel(event) {
+		event.preventDefault();
+		const delta = event.deltaY > 0 ? 0.9 : 1.1;
+		scale = Math.max(0.1, Math.min(5, scale * delta));
+	}
+	
+	function handleMouseDown(event) {
+		isDragging = true;
+		lastMouseX = event.clientX;
+		lastMouseY = event.clientY;
+		svgContainer.style.cursor = 'grabbing';
+	}
+	
+	function handleMouseMove(event) {
+		if (!isDragging) return;
+		
+		const deltaX = event.clientX - lastMouseX;
+		const deltaY = event.clientY - lastMouseY;
+		
+		panX += deltaX;
+		panY += deltaY;
+		
+		lastMouseX = event.clientX;
+		lastMouseY = event.clientY;
+	}
+	
+	function handleMouseUp() {
+		isDragging = false;
+		if (svgContainer) {
+			svgContainer.style.cursor = 'grab';
+		}
+	}
+	
+	function copyToClipboard() {
+		navigator.clipboard.writeText(svg).then(() => {
+			// Could add a toast notification here
+			console.log('SVG copied to clipboard');
+		}).catch(err => {
+			console.error('Failed to copy SVG to clipboard:', err);
+		});
+	}
+</script>
+
+<svelte:window on:mousemove={handleMouseMove} on:mouseup={handleMouseUp} />
+
+<div class="svg-display">
+	<div class="controls">
+		<div class="control-group">
+			<button on:click={zoomIn} title="Zoom In">🔍+</button>
+			<button on:click={zoomOut} title="Zoom Out">🔍−</button>
+			<button on:click={resetView} title="Reset View">🎯</button>
+			<span class="zoom-level">{Math.round(scale * 100)}%</span>
+		</div>
+		
+		<div class="control-group">
+			<button on:click={toggleRawSvg} class:active={showRawSvg}>
+				{showRawSvg ? 'Show Preview' : 'Show SVG Code'}
+			</button>
+			<button on:click={copyToClipboard} title="Copy SVG to Clipboard">📋</button>
+			<button on:click={downloadSvg} title="Download SVG">💾</button>
+		</div>
+	</div>
+	
+	{#if showRawSvg}
+		<div class="raw-svg">
+			<pre><code>{svg}</code></pre>
+		</div>
+	{:else}
+		<div 
+			class="svg-container"
+			bind:this={svgContainer}
+			on:wheel={handleWheel}
+			on:mousedown={handleMouseDown}
+			style="cursor: grab;"
+		>
+			<div 
+				class="svg-content"
+				style="transform: translate({panX}px, {panY}px) scale({scale});"
+			>
+				{@html svg}
+			</div>
+		</div>
+	{/if}
+</div>
+
+<style>
+	.svg-display {
+		border: 1px solid #e5e7eb;
+		border-radius: 0.5em;
+		overflow: hidden;
+		background: white;
+	}
+	
+	.controls {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1em;
+		background: #f9fafb;
+		border-bottom: 1px solid #e5e7eb;
+		flex-wrap: wrap;
+		gap: 1em;
+	}
+	
+	.control-group {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+	
+	.controls button {
+		background: #ffffff;
+		border: 1px solid #d1d5db;
+		padding: 0.5em 0.75em;
+		border-radius: 0.375em;
+		cursor: pointer;
+		font-size: 0.875em;
+		transition: all 0.2s;
+	}
+	
+	.controls button:hover {
+		background: #f3f4f6;
+		border-color: #9ca3af;
+	}
+	
+	.controls button.active {
+		background: #2563eb;
+		border-color: #2563eb;
+		color: white;
+	}
+	
+	.zoom-level {
+		font-family: monospace;
+		font-size: 0.875em;
+		color: #6b7280;
+		min-width: 3em;
+		text-align: center;
+	}
+	
+	.svg-container {
+		height: 500px;
+		overflow: hidden;
+		position: relative;
+		background: 
+			radial-gradient(circle, #e5e7eb 1px, transparent 1px);
+		background-size: 20px 20px;
+		background-position: 0 0, 10px 10px;
+	}
+	
+	.svg-content {
+		transform-origin: center;
+		transition: transform 0.1s ease-out;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100%;
+		padding: 2em;
+	}
+	
+	.svg-content :global(svg) {
+		max-width: 100%;
+		max-height: 100%;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+		border-radius: 0.25em;
+		background: white;
+	}
+	
+	.raw-svg {
+		max-height: 500px;
+		overflow: auto;
+		background: #f8f9fa;
+	}
+	
+	.raw-svg pre {
+		margin: 0;
+		padding: 1em;
+		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		font-size: 0.875em;
+		line-height: 1.5;
+		white-space: pre-wrap;
+		word-wrap: break-word;
+	}
+	
+	.raw-svg code {
+		color: #374151;
+	}
+	
+	@media (max-width: 640px) {
+		.controls {
+			flex-direction: column;
+			align-items: stretch;
+		}
+		
+		.control-group {
+			justify-content: center;
+		}
+		
+		.svg-container {
+			height: 300px;
+		}
+	}
+</style>
