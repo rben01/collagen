@@ -12,9 +12,15 @@
 		event.preventDefault();
 		dragOver = false;
 		
-		if (disabled) return;
+		console.log("📥 Drop event received");
+		
+		if (disabled) {
+			console.log("❌ Drop ignored - component disabled");
+			return;
+		}
 		
 		const items = event.dataTransfer.items;
+		console.log("📁 Items in drop:", items.length);
 		processFiles(items);
 	}
 	
@@ -40,28 +46,43 @@
 	}
 	
 	async function processFiles(items) {
+		console.log("🔄 Processing files...");
 		const fileData = {};
 		let rootFolderName = null;
 		
-		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
-			if (item.kind === 'file') {
-				const entry = item.webkitGetAsEntry();
-				if (entry) {
-					// Capture root folder name from first directory entry
-					if (entry.isDirectory && rootFolderName === null) {
-						rootFolderName = entry.name;
+		try {
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				console.log(`📋 Item ${i}: kind=${item.kind}, type=${item.type}`);
+				if (item.kind === 'file') {
+					const entry = item.webkitGetAsEntry();
+					if (entry) {
+						console.log(`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`);
+						// Capture root folder name from first directory entry
+						if (entry.isDirectory && rootFolderName === null) {
+							rootFolderName = entry.name;
+							console.log("📁 Root folder detected:", rootFolderName);
+						}
+						await processEntry(entry, '', fileData, rootFolderName);
 					}
-					await processEntry(entry, '', fileData, rootFolderName);
 				}
 			}
+			
+			console.log("📊 Raw file data keys:", Object.keys(fileData));
+			console.log("📂 Root folder name:", rootFolderName);
+			
+			// Strip root folder prefix from all paths if we detected one
+			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName);
+			
+			console.log("✨ Cleaned file data keys:", Object.keys(cleanedFileData));
+			
+			files = cleanedFileData;
+			dispatch('files-uploaded', { files: cleanedFileData, folderName: rootFolderName });
+		} catch (error) {
+			console.error("❌ Error processing files:", error);
+			// You might want to dispatch an error event here
+			// dispatch('error', { message: error.message });
 		}
-		
-		// Strip root folder prefix from all paths if we detected one
-		const cleanedFileData = stripFolderPrefix(fileData, rootFolderName);
-		
-		files = cleanedFileData;
-		dispatch('files-uploaded', { files: cleanedFileData, folderName: rootFolderName });
 	}
 	
 	function processFileList(fileList) {
@@ -91,22 +112,52 @@
 	}
 	
 	function processEntry(entry, path, fileData, rootFolderName = null) {
-		return new Promise((resolve) => {
+		return new Promise((resolve, reject) => {
+			const timeout = setTimeout(() => {
+				console.error("⏰ Timeout processing entry:", entry.name);
+				reject(new Error(`Timeout processing entry: ${entry.name}`));
+			}, 30000); // 30 second timeout
+			
 			if (entry.isFile) {
+				console.log(`📄 Processing file: ${entry.name}`);
 				entry.file((file) => {
 					const fullPath = path ? `${path}/${entry.name}` : entry.name;
+					console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
 					fileData[fullPath] = file;
+					clearTimeout(timeout);
 					resolve();
+				}, (error) => {
+					console.error(`❌ Error reading file ${entry.name}:`, error);
+					clearTimeout(timeout);
+					reject(error);
 				});
 			} else if (entry.isDirectory) {
+				console.log(`📁 Processing directory: ${entry.name}`);
 				const reader = entry.createReader();
 				reader.readEntries((entries) => {
+					console.log(`📋 Directory ${entry.name} has ${entries.length} entries`);
 					const promises = entries.map(childEntry => {
 						const childPath = path ? `${path}/${entry.name}` : entry.name;
 						return processEntry(childEntry, childPath, fileData, rootFolderName);
 					});
-					Promise.all(promises).then(() => resolve());
+					Promise.all(promises).then(() => {
+						console.log(`✅ Directory processed: ${entry.name}`);
+						clearTimeout(timeout);
+						resolve();
+					}).catch((error) => {
+						console.error(`❌ Error processing directory ${entry.name}:`, error);
+						clearTimeout(timeout);
+						reject(error);
+					});
+				}, (error) => {
+					console.error(`❌ Error reading directory ${entry.name}:`, error);
+					clearTimeout(timeout);
+					reject(error);
 				});
+			} else {
+				console.log(`⚠️ Unknown entry type: ${entry.name}`);
+				clearTimeout(timeout);
+				resolve();
 			}
 		});
 	}

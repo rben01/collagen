@@ -184,56 +184,162 @@
 	}
 
 	async function handleFilesUploaded(event) {
+		console.log("🔄 Starting file processing...");
 		const { files, folderName } = event.detail;
+		console.log("📁 Files received:", Object.keys(files).length, "files");
+
 		filesData = files;
 		svgOutput = null;
 		error = null;
 
 		if (!wasm || !sjsonnet) {
 			error = "Modules not loaded yet";
+			console.log("❌ Modules not loaded");
 			return;
 		}
 
 		try {
 			loading = true;
+			console.log("🚀 Starting processing pipeline...");
+
+			// Validate file sizes before processing
+			console.log("📊 Validating file sizes...");
+			const MAX_SINGLE_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+			const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
+			let totalSize = 0;
+
+			for (const [path, file] of Object.entries(files)) {
+				const fileSize = file.size;
+				totalSize += fileSize;
+				console.log(`📄 File: ${path} (${(fileSize / 1024).toFixed(1)}KB)`);
+
+				if (fileSize > MAX_SINGLE_FILE_SIZE) {
+					error = `File '${path}' is too large (${(fileSize / (1024 * 1024)).toFixed(1)}MB). Maximum file size is ${(MAX_SINGLE_FILE_SIZE / (1024 * 1024)).toFixed(1)}MB. Try using smaller images.`;
+					console.log("❌ File too large:", path);
+					loading = false;
+					return;
+				}
+			}
+
+			if (totalSize > MAX_TOTAL_SIZE) {
+				error = `Total file size is too large (${(totalSize / (1024 * 1024)).toFixed(1)}MB). Maximum total size is ${(MAX_TOTAL_SIZE / (1024 * 1024)).toFixed(1)}MB. Try uploading fewer files or using smaller images.`;
+				console.log(
+					"❌ Total size too large:",
+					(totalSize / (1024 * 1024)).toFixed(1),
+					"MB",
+				);
+				loading = false;
+				return;
+			}
+
+			console.log(
+				"✅ File size validation passed. Total:",
+				(totalSize / 1024).toFixed(1),
+				"KB",
+			);
 
 			// Convert FileList to Map for WASM
+			console.log("🗺️ Converting files to Map...");
 			const fileMap = new Map();
 			for (const [path, file] of Object.entries(files)) {
 				// Ensure all paths have a leading slash (treat user folder as root)
 				const normalizedPath = path.startsWith("/") ? path : "/" + path;
 				fileMap.set(normalizedPath, file);
 			}
+			console.log("✅ File Map created with", fileMap.size, "entries");
 
-			// Create in-memory filesystem
-			const fsHandle = await wasm.createInMemoryFs(fileMap);
-			console.log(
-				`Created in-memory filesystem with ${fsHandle.getFileCount()} files` +
-					(folderName ? ` from folder "${folderName}"` : ""),
-			);
-
-			// Check for manifest and handle jsonnet compilation
-			const manifestType = await processManifest(fileMap);
+			// Check for manifest and handle jsonnet compilation first
+			console.log("🔍 Processing manifest...");
+			const manifestType = await processManifest(fileMap, folderName);
 			if (manifestType === "none") {
 				error =
 					"No manifest file found. Please include collagen.json or collagen.jsonnet";
+				console.log("❌ No manifest found");
+				loading = false;
 				return;
 			}
+			console.log("✅ Manifest processed, type:", manifestType);
 
-			console.log({ fileMap });
+			console.log("📋 Final fileMap:", Array.from(fileMap.keys()));
 
-			// Recreate filesystem after potential jsonnet compilation
-			const finalFsHandle = await wasm.createInMemoryFs(fileMap, folderName);
+			// Create in-memory filesystem after manifest processing (when fileMap is finalized)
+			console.log("💾 Creating in-memory filesystem...");
+			const fsHandle = await wasm.createInMemoryFs(fileMap);
+			console.log(
+				"✅ In-memory filesystem created with",
+				fsHandle.getFileCount(),
+				"files",
+			);
 
-			// Generate SVG (always using JSON now)
-			const svg = wasm.generateSvg(finalFsHandle, "json");
+			// Generate SVG
+			console.log("🎨 Generating SVG...");
+			const svg = wasm.generateSvg(fsHandle, "json");
 			svgOutput = svg;
-			console.log("Generated SVG successfully");
+			console.log("✅ SVG generated successfully! Length:", svg.length);
+			console.log(
+				"🎯 Setting svgOutput, current value:",
+				svgOutput ? svgOutput.substring(0, 100) + "..." : "null",
+			);
+			console.log("🎯 Loading state before finally:", loading);
 		} catch (err) {
 			console.error("Error processing files:", err);
-			error = "Error processing files: " + err.message;
+
+			// Provide better error messages with specific guidance
+			let errorMessage = "Error processing files: " + err.message;
+
+			// Detect common error types and provide specific guidance
+			if (err.message && typeof err.message === "string") {
+				const msg = err.message.toLowerCase();
+
+				if (msg.includes("out of bounds memory access") || msg.includes("memory")) {
+					errorMessage =
+						"❌ Memory limit exceeded. This usually happens with large images or too many files.\n\n" +
+						"💡 Try these solutions:\n" +
+						"• Use smaller images (compress them before uploading)\n" +
+						"• Upload fewer files at once\n" +
+						"• Reduce image resolution\n" +
+						"• Use JPEG instead of PNG for photos\n\n" +
+						"Technical details: " +
+						err.message;
+				} else if (msg.includes("createinmemoryfs")) {
+					errorMessage =
+						"❌ Failed to load files into memory.\n\n" +
+						"💡 This often means your files are too large. Try:\n" +
+						"• Using smaller images\n" +
+						"• Uploading fewer files\n" +
+						"• Compressing images before upload\n\n" +
+						"Technical details: " +
+						err.message;
+				} else if (msg.includes("generatesvg")) {
+					errorMessage =
+						"❌ Failed to generate SVG output.\n\n" +
+						"💡 This can happen when processing large images. Try:\n" +
+						"• Using smaller images\n" +
+						"• Reducing the number of images in your manifest\n" +
+						"• Simplifying your SVG layout\n\n" +
+						"Technical details: " +
+						err.message;
+				} else if (msg.includes("jsonnet")) {
+					errorMessage =
+						"❌ Jsonnet compilation failed.\n\n" +
+						"💡 Check your jsonnet syntax:\n" +
+						"• Verify all imports exist\n" +
+						"• Check for syntax errors\n" +
+						"• Ensure all referenced files are included\n\n" +
+						"Technical details: " +
+						err.message;
+				}
+			}
+
+			error = errorMessage;
 		} finally {
 			loading = false;
+			console.log("🏁 Finally block executed, loading set to false");
+			console.log(
+				"🎯 Final svgOutput state:",
+				svgOutput ? "has content" : "null/empty",
+			);
+			console.log("🎯 Final error state:", error || "no error");
 		}
 	}
 
@@ -271,10 +377,77 @@
 
 	{#if filesData}
 		<div class="files-info">
-			<h3>Uploaded Files ({Object.keys(filesData).length})</h3>
+			<h3>Uploaded Files ({Object.keys(filesData || {}).length})</h3>
+
+			<!-- File size summary and warnings -->
+			{#each [(() => {
+					try {
+						if (!filesData || typeof filesData !== "object") {
+							return { totalSize: 0, warnings: [] };
+						}
+
+						const files = Object.entries(filesData);
+						const totalSize = files.reduce((sum, [, file]) => {
+							// Ensure file exists and has size property
+							return sum + (file && typeof file.size === "number" ? file.size : 0);
+						}, 0);
+
+						const largeFiles = files.filter(([, file]) => {
+							return file && typeof file.size === "number" && file.size > 5 * 1024 * 1024;
+						}); // > 5MB
+
+						const warnings = [];
+
+						if (totalSize > 25 * 1024 * 1024) {
+							// > 25MB warning
+							warnings.push( { type: "warning", message: `Total size: ${(totalSize / (1024 * 1024)).toFixed(1)}MB. Large uploads may fail due to memory limits.` }, );
+						}
+
+						if (largeFiles.length > 0) {
+							warnings.push( { type: "info", message: `${largeFiles.length} large file(s) detected. Consider compressing images for better performance.` }, );
+						}
+
+						return { totalSize, warnings };
+					} catch (e) {
+						console.error("Error calculating file summary:", e);
+						return { totalSize: 0, warnings: [] };
+					}
+				})()] as fileSummary}
+				<div class="file-summary">
+					<span class="total-size">
+						Total: {(fileSummary.totalSize / (1024 * 1024)).toFixed(1)}MB
+					</span>
+
+					{#each fileSummary.warnings as warning}
+						<div class="file-warning {warning.type}">
+							{#if warning.type === "warning"}⚠️{:else}💡{/if}
+							{warning.message}
+						</div>
+					{/each}
+				</div>
+			{/each}
+
 			<ul>
-				{#each Object.keys(filesData) as path}
-					<li>{path}</li>
+				{#each Object.entries(filesData || {}) as [path, file]}
+					<li class="file-item">
+						<span class="file-path">{path}</span>
+						<span class="file-size">
+							{#if file && typeof file.size === "number"}
+								{#if file.size > 1024 * 1024}
+									{(file.size / (1024 * 1024)).toFixed(1)}MB
+								{:else if file.size > 1024}
+									{(file.size / 1024).toFixed(0)}KB
+								{:else}
+									{file.size}B
+								{/if}
+								{#if file.size > 10 * 1024 * 1024}
+									<span class="size-warning">⚠️</span>
+								{/if}
+							{:else}
+								Unknown size
+							{/if}
+						</span>
+					</li>
 				{/each}
 			</ul>
 		</div>
@@ -342,17 +515,77 @@
 		color: #374151;
 	}
 
+	.file-summary {
+		margin-bottom: 1em;
+		padding: 0.75em;
+		background: #ffffff;
+		border-radius: 0.375em;
+		border: 1px solid #d1d5db;
+	}
+
+	.total-size {
+		font-weight: 600;
+		color: #374151;
+		font-size: 0.9em;
+	}
+
+	.file-warning {
+		margin-top: 0.5em;
+		padding: 0.5em;
+		border-radius: 0.25em;
+		font-size: 0.85em;
+		line-height: 1.4;
+	}
+
+	.file-warning.warning {
+		background: #fef3c7;
+		border: 1px solid #f59e0b;
+		color: #92400e;
+	}
+
+	.file-warning.info {
+		background: #dbeafe;
+		border: 1px solid #3b82f6;
+		color: #1e40af;
+	}
+
 	.files-info ul {
 		list-style-type: none;
 		padding: 0;
 		margin: 0;
 	}
 
-	.files-info li {
-		padding: 0.25em 0;
+	.file-item {
+		padding: 0.375em 0;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.file-item:last-child {
+		border-bottom: none;
+	}
+
+	.file-path {
 		color: #6b7280;
 		font-family: monospace;
 		font-size: 0.9em;
+		flex: 1;
+	}
+
+	.file-size {
+		color: #9ca3af;
+		font-size: 0.8em;
+		font-weight: 500;
+		display: flex;
+		align-items: center;
+		gap: 0.25em;
+	}
+
+	.size-warning {
+		color: #f59e0b;
+		font-size: 1.1em;
 	}
 
 	.svg-section {
