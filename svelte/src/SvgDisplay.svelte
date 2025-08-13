@@ -9,11 +9,27 @@
 	let lastMouseX = 0;
 	let lastMouseY = 0;
 	let svgContainer;
+	let toasts = [];
 	
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
 	}
 	
+	function showToast(message, type = 'success') {
+		const id = Date.now();
+		const toast = { id, message, type };
+		toasts = [...toasts, toast];
+		
+		// Auto-remove after 3 seconds
+		setTimeout(() => {
+			toasts = toasts.filter(t => t.id !== id);
+		}, 3000);
+	}
+	
+	function removeToast(id) {
+		toasts = toasts.filter(t => t.id !== id);
+	}
+
 	function downloadSvg() {
 		const blob = new Blob([svg], { type: 'image/svg+xml' });
 		const url = URL.createObjectURL(blob);
@@ -24,6 +40,7 @@
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
+		showToast('SVG downloaded successfully!');
 	}
 	
 	function resetView() {
@@ -75,10 +92,10 @@
 	
 	function copyToClipboard() {
 		navigator.clipboard.writeText(svg).then(() => {
-			// Could add a toast notification here
-			console.log('SVG copied to clipboard');
+			showToast('SVG copied to clipboard!');
 		}).catch(err => {
 			console.error('Failed to copy SVG to clipboard:', err);
+			showToast('Failed to copy SVG to clipboard', 'error');
 		});
 	}
 </script>
@@ -86,6 +103,16 @@
 <svelte:window on:mousemove={handleMouseMove} on:mouseup={handleMouseUp} />
 
 <div class="svg-display">
+	<!-- Toast notifications -->
+	<div class="toast-container">
+		{#each toasts as toast (toast.id)}
+			<div class="toast toast-{toast.type}" role="alert">
+				<span>{toast.message}</span>
+				<button class="toast-close" on:click={() => removeToast(toast.id)}>&times;</button>
+			</div>
+		{/each}
+	</div>
+
 	<div class="controls">
 		<div class="control-group">
 			<button on:click={zoomIn} title="Zoom In">🔍+</button>
@@ -131,6 +158,76 @@
 		border-radius: 0.5em;
 		overflow: hidden;
 		background: white;
+		position: relative;
+	}
+
+	.toast-container {
+		position: absolute;
+		top: 1em;
+		right: 1em;
+		z-index: 1000;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+		pointer-events: none;
+	}
+
+	.toast {
+		background: white;
+		border: 1px solid #d1d5db;
+		border-radius: 0.375em;
+		padding: 0.75em 1em;
+		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75em;
+		min-width: 200px;
+		max-width: 300px;
+		font-size: 0.875em;
+		pointer-events: auto;
+		animation: toast-slide-in 0.3s ease-out;
+	}
+
+	.toast-success {
+		border-color: #10b981;
+		background: #ecfdf5;
+		color: #065f46;
+	}
+
+	.toast-error {
+		border-color: #ef4444;
+		background: #fef2f2;
+		color: #991b1b;
+	}
+
+	.toast-close {
+		background: none;
+		border: none;
+		cursor: pointer;
+		font-size: 1.2em;
+		line-height: 1;
+		padding: 0;
+		margin: 0;
+		color: inherit;
+		opacity: 0.6;
+		transition: opacity 0.2s;
+		flex-shrink: 0;
+	}
+
+	.toast-close:hover {
+		opacity: 1;
+	}
+
+	@keyframes toast-slide-in {
+		from {
+			transform: translateX(100%);
+			opacity: 0;
+		}
+		to {
+			transform: translateX(0);
+			opacity: 1;
+		}
 	}
 	
 	.controls {
