@@ -57,6 +57,8 @@ npm run build
 npm run start
 ```
 
+**Note for testing**: When testing whether the frontend will build correctly (especially WASM compilation), use `npm run build` instead of `npm run dev`. This avoids waiting for the dev server to launch and then timeout, making testing much faster.
+
 ### Running Collagen
 
 ```bash

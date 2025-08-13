@@ -16,10 +16,6 @@
 			}
 		},
 		{
-			"vars": {
-				"x": 550,
-				"dy": 50
-			},
 			"tag": "text",
 			"attrs": {
 				"font-family": "Impact",
@@ -27,14 +23,14 @@
 				"color": "black",
 				"text-anchor": "middle",
 				"vertical-align": "top",
-				"x": "{x}",
+				"x": 550,
 				"y": 420
 			},
 			"children": [
 				{
 					"tag": "tspan",
 					"attrs": {
-						"x": "{x}",
+						"x": 550,
 						"dy": 0
 					},
 					"children": [{ "text": "Using SVG-based text," }]
@@ -43,24 +39,24 @@
 				{
 					"tag": "tspan",
 					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
+						"x": 550,
+						"dy": 50
 					},
 					"children": [{ "text": "which is infinitely" }]
 				},
 				{
 					"tag": "tspan",
 					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
+						"x": 550,
+						"dy": 50
 					},
 					"children": [{ "text": "zoomable and has" }]
 				},
 				{
 					"tag": "tspan",
 					"attrs": {
-						"x": "{x}",
-						"dy": "{dy}"
+						"x": 550,
+						"dy": 50
 					},
 					"children": [{ "text": "no artifacts" }]
 				}

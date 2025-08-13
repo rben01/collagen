@@ -111,13 +111,13 @@ impl RootTag {
 		input: &InMemoryFs,
 		format: ManifestFormat,
 	) -> ClgnDecodingResult<Self> {
-		let InMemoryFs { root_path, content } = input;
+		let InMemoryFs { content } = input;
 
 		let InMemoryFsContent { bytes, slices } = &**content;
 
 		let slice @ Slice { start, len } = *slices
-			.get(&root_path.join(format.manifest_path()))
-			.ok_or(ClgnDecodingError::MissingJsonnetFile)?;
+			.get(format.manifest_path())
+			.ok_or(ClgnDecodingError::MissingManifest)?;
 
 		let manifest_bytes =
 			bytes
@@ -143,6 +143,7 @@ impl RootTag {
 
 		match format {
 			ManifestFormat::Json => input.evaluate_as_pure_json(),
+			#[cfg(feature = "jsonnet")]
 			ManifestFormat::Jsonnet => input.evaluate_as_jsonnet(),
 		}
 	}
@@ -158,6 +159,7 @@ impl RootTag {
 
 		match format {
 			ManifestFormat::Json => input.evaluate_as_pure_json(),
+			#[cfg(feature = "jsonnet")]
 			ManifestFormat::Jsonnet => input.evaluate_as_jsonnet(),
 		}
 	}
@@ -297,7 +299,6 @@ mod tests {
 		slices.insert("path/to/container/image.png".into(), Slice { start, len });
 
 		let in_memory_db = InMemoryFs {
-			root_path: Path::new("").to_owned(),
 			content: std::rc::Rc::new(InMemoryFsContent { bytes, slices }),
 		};
 		let input = ProvidedInput::InMemoryFs(in_memory_db, std::marker::PhantomData);

@@ -28,7 +28,7 @@ impl DecodingContext {
 	fn root(&self) -> &Path {
 		match self {
 			DecodingContext::RootPath(p) => p,
-			DecodingContext::InMemoryFs(fs) => &fs.root_path,
+			DecodingContext::InMemoryFs(_) => Path::new("/"),
 		}
 	}
 }

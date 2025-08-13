@@ -4,8 +4,8 @@
 
 use super::{decoding_error::ClgnDecodingResult, ClgnDecodingError};
 use crate::{
-	filesystem::{ManifestFormat, ProvidedInput},
 	fibroblast::{data_types::DecodingContext, tags::root_tag::RootTag, Fibroblast},
+	filesystem::{ManifestFormat, ProvidedInput},
 };
 
 impl Fibroblast {
@@ -20,19 +20,26 @@ impl Fibroblast {
 		let root = match format {
 			Some(format) => RootTag::new(input, format)?,
 			None => {
-				match RootTag::new(input, ManifestFormat::Jsonnet) {
-					Ok(root) => root,
-					Err(ClgnDecodingError::JsonnetRead { msg, path: _ })
-						if msg.ends_with("No such file or directory") =>
+				if cfg!(feature = "jsonnet") {
+					match RootTag::new(input, ManifestFormat::Jsonnet) {
+						Ok(root) => root,
+						Err(ClgnDecodingError::JsonnetRead { msg, path: _ })
+							if msg.ends_with("No such file or directory") =>
+						{
+							// continue on and try json
+							RootTag::new(input, ManifestFormat::Json)?
+						}
+						Err(ClgnDecodingError::MissingJsonnetFile) => {
+							// continue on and try json
+							RootTag::new(input, ManifestFormat::Json)?
+						}
+						Err(err) => return Err(err),
+					}
+				} else {
 					{
-						// continue on and try json
+						// In WASM builds without jsonnet, only try JSON
 						RootTag::new(input, ManifestFormat::Json)?
 					}
-					Err(ClgnDecodingError::MissingJsonnetFile) => {
-						// continue on and try json
-						RootTag::new(input, ManifestFormat::Json)?
-					}
-					Err(err) => return Err(err),
 				}
 			}
 		};

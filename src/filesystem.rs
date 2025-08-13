@@ -6,6 +6,7 @@
 use crate::from_json::{ClgnDecodingError, ClgnDecodingResult};
 use std::{
 	collections::HashMap,
+	ffi::OsString,
 	fmt::Display,
 	path::{Path, PathBuf},
 	rc::Rc,
@@ -19,14 +20,18 @@ use clap::ValueEnum;
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 pub enum ManifestFormat {
 	Json,
+	#[cfg(feature = "jsonnet")]
 	Jsonnet,
 }
 
 impl ManifestFormat {
 	pub(crate) fn manifest_filename(self) -> &'static str {
+		// leading slashes are for the wasm build, and don't affect the disk-based fs
+		// workings
 		match self {
-			ManifestFormat::Json => "collagen.json",
-			ManifestFormat::Jsonnet => "collagen.jsonnet",
+			ManifestFormat::Json => "/collagen.json",
+			#[cfg(feature = "jsonnet")]
+			ManifestFormat::Jsonnet => "/collagen.jsonnet",
 		}
 	}
 
@@ -59,7 +64,6 @@ pub(crate) struct InMemoryFsContent {
 /// In-memory filesystem implementation
 #[derive(Debug, Clone)]
 pub struct InMemoryFs {
-	pub(crate) root_path: PathBuf,
 	pub(crate) content: Rc<InMemoryFsContent>,
 }
 
@@ -67,23 +71,64 @@ impl Display for InMemoryFs {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
-			"in-memory FS with root {:?}, containing {} paths and {} bytes",
-			self.root_path,
-			self.content.slices.len(),
-			self.content.bytes.len()
+			"in-memory FS of {} bytes containing the following paths: {:?}",
+			self.content.bytes.len(),
+			self.content.slices.keys()
 		)
+	}
+}
+
+/// Canonicalize a path using only string operations, no filesystem access
+/// This resolves relative path components like "./" and "../"
+/// All paths are treated as relative to "/" (root)
+fn canonicalize_path(path: impl AsRef<Path>) -> PathBuf {
+	let mut components = Vec::new();
+
+	// Split path into components, filtering out empty ones
+	for component in path
+		.as_ref()
+		.components()
+		.filter(|c| !c.as_os_str().is_empty())
+	{
+		// `Path::components()` already does most of the canonicalization work for us --
+		// the only thing it doesn't do is handle "." and ".."
+		match component.as_os_str().to_str() {
+			Some(".") => {}
+			Some("..") => {
+				// Parent directory - pop if possible (nothing happens if empty, i.e.
+				// already at root)
+				components.pop();
+			}
+			_ => {
+				// Regular component - add to path
+				components.push(component);
+			}
+		}
+	}
+
+	if components.is_empty() {
+		PathBuf::from("/")
+	} else {
+		let mut path_os_str = OsString::with_capacity(path.as_ref().as_os_str().len());
+		for component in components {
+			path_os_str.push("/");
+			path_os_str.push(component);
+		}
+		PathBuf::from(path_os_str)
 	}
 }
 
 impl InMemoryFs {
 	pub(crate) fn load(&self, path: impl AsRef<Path>) -> ClgnDecodingResult<&[u8]> {
-		let path = path.as_ref();
+		// Canonicalize the path using pure string operations (no filesystem access)
+		let canonical_path = canonicalize_path(&path);
+
 		let InMemoryFsContent { bytes, slices } = &*self.content;
-		let slice = *slices
-			.get(path)
-			.ok_or_else(|| ClgnDecodingError::InMemoryFsMissingPath {
-				path: path.to_owned(),
-			})?;
+		let slice = *slices.get(&canonical_path).ok_or_else(|| {
+			ClgnDecodingError::InMemoryFsMissingPath {
+				path: canonical_path.clone(),
+			}
+		})?;
 		bytes.get(std::ops::Range::from(slice)).ok_or({
 			ClgnDecodingError::MalformedInMemoryFs {
 				slice,

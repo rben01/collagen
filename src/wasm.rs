@@ -8,11 +8,11 @@ use crate::{
 	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
 	from_json::ClgnDecodingError,
 };
-use js_sys::{Array, JsString, Map, Uint8Array};
+use js_sys::{Array, Map, Uint8Array};
+use std::marker::PhantomData;
 use std::{collections::HashMap, path::PathBuf, rc::Rc};
-use std::{marker::PhantomData, str::FromStr};
 use wasm_bindgen::prelude::*;
-use web_sys::{console::log, File};
+use web_sys::File;
 
 // Initialize panic hook for better error messages in the browser
 #[wasm_bindgen(start)]
@@ -69,10 +69,7 @@ type WasmResult<T> = Result<T, CollagenError>;
 ///   `[string, File]`
 /// - When the `File` cannot be read
 #[wasm_bindgen(js_name = "createInMemoryFs")]
-pub async fn create_in_memory_fs(
-	files_map: Map,
-	folder_name: Option<String>,
-) -> WasmResult<InMemoryFsHandle> {
+pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle> {
 	let mut bytes = Vec::new();
 	let mut slices = HashMap::new();
 
@@ -113,18 +110,8 @@ pub async fn create_in_memory_fs(
 
 	let content = InMemoryFsContent { bytes, slices };
 	let in_memory_fs = InMemoryFs {
-		root_path: PathBuf::from(""),
 		content: Rc::new(content),
 	};
-
-	// Log folder context if provided
-	if let Some(ref name) = folder_name {
-		log(&Array::from_iter([JsString::from_str(&format!(
-			"Created in-memory filesystem from folder: {}",
-			name
-		))
-		.unwrap()]));
-	}
 
 	Ok(InMemoryFsHandle { fs: in_memory_fs })
 }
@@ -138,19 +125,28 @@ pub struct InMemoryFsHandle {
 /// Generate SVG from an in-memory filesystem
 ///
 /// # Errors
-/// When the format string is provided but not `json` or `jsonnet`
+/// When the format string is provided but not supported (WASM builds only support JSON)
 #[wasm_bindgen(js_name = "generateSvg")]
 #[allow(clippy::needless_pass_by_value)]
 pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> WasmResult<String> {
 	let manifest_format = match format.as_deref() {
 		Some("json") => Some(ManifestFormat::Json),
+		#[cfg(feature = "jsonnet")]
 		Some("jsonnet") => Some(ManifestFormat::Jsonnet),
 		None => None,
 		Some(other) => {
+			let supported_formats = if cfg!(feature = "jsonnet") {
+				"json or jsonnet"
+			} else {
+				"json only (jsonnet not available in WASM builds)"
+			};
+
 			return Err(CollagenError {
-				message: format!("Unsupported manifest format: {other}"),
+				message: format!(
+					"Unsupported manifest format: {other}. Supported formats: {supported_formats}"
+				),
 				error_type: "InvalidFormat",
-			})
+			});
 		}
 	};
 
@@ -173,17 +169,24 @@ pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> Was
 /// Validate a manifest string
 ///
 /// # Errors
-/// If the format string is not one of `json` or `jsonnet`
+/// If the format string is not supported (WASM builds only support JSON)
 #[wasm_bindgen(js_name = "validateManifest")]
 pub fn validate_manifest(content: &str, format: &str) -> WasmResult<bool> {
 	let manifest_format = match format {
 		"json" => ManifestFormat::Json,
+		#[cfg(feature = "jsonnet")]
 		"jsonnet" => ManifestFormat::Jsonnet,
 		_ => {
+			#[cfg(feature = "jsonnet")]
+			let supported_formats = "json or jsonnet";
+			#[cfg(not(feature = "jsonnet"))]
+			let supported_formats = "json only (jsonnet not available in WASM builds)";
 			return Err(CollagenError {
-				message: format!("Unsupported manifest format: {format}"),
+				message: format!(
+					"Unsupported manifest format: {format}. Supported formats: {supported_formats}"
+				),
 				error_type: "InvalidFormat",
-			})
+			});
 		}
 	};
 
@@ -204,7 +207,6 @@ pub fn validate_manifest(content: &str, format: &str) -> WasmResult<bool> {
 	};
 
 	let fs = InMemoryFs {
-		root_path: PathBuf::from(""),
 		content: Rc::new(content_obj),
 	};
 
@@ -223,6 +225,7 @@ pub fn validate_manifest(content: &str, format: &str) -> WasmResult<bool> {
 pub fn get_supported_formats() -> Array {
 	let formats = Array::new();
 	formats.push(&JsValue::from_str("json"));
+	#[cfg(feature = "jsonnet")]
 	formats.push(&JsValue::from_str("jsonnet"));
 	formats
 }
@@ -255,20 +258,19 @@ impl InMemoryFsHandle {
 	#[wasm_bindgen(js_name = "hasManifest")]
 	#[must_use]
 	pub fn has_manifest(&self) -> String {
-		log(&Array::from_iter([JsString::from_str(&format!(
-			"{:?}",
-			(&self.fs.content, &self.fs.root_path)
-		))
-		.unwrap()]));
+		#[cfg(feature = "jsonnet")]
 		let has_jsonnet = self
 			.fs
 			.content
 			.slices
 			.contains_key(&PathBuf::from("collagen.jsonnet"));
 
+		#[cfg(feature = "jsonnet")]
 		if has_jsonnet {
-			"jsonnet".to_owned()
-		} else {
+			return "jsonnet".to_owned();
+		}
+
+		{
 			let has_json = self
 				.fs
 				.content

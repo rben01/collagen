@@ -149,7 +149,6 @@ impl ContainerTag {
 			}
 			DecodingContext::InMemoryFs(fs) => ProvidedInput::InMemoryFs(
 				InMemoryFs {
-					root_path: abs_clgn_path,
 					content: Rc::clone(&fs.content),
 				},
 				PhantomData,
