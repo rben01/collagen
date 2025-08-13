@@ -253,9 +253,9 @@ impl AnyChildTagDiscriminants {
 	fn optional_keys(self) -> &'static [&'static str] {
 		use AnyChildTagDiscriminants::*;
 		match self {
-			Generic => &["vars", "attrs", "children"],
-			Image => &["vars", "attrs", "kind", "children"],
-			Text => &["vars", "is_preescaped"],
+			Generic => &["attrs", "children"],
+			Image => &["attrs", "kind", "children"],
+			Text => &["is_preescaped"],
 			Container | NestedSvg | Font => &[],
 		}
 	}

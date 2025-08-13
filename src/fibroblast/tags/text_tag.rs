@@ -89,26 +89,34 @@ impl<'de> de::Deserialize<'de> for UnvalidatedTextTag {
 			where
 				A: de::MapAccess<'v>,
 			{
+				#[derive(Deserialize)]
+				#[serde(rename_all = "snake_case")]
+				enum Field {
+					Text,
+					IsPreescaped,
+					Other(CompactString),
+				}
+
 				let mut text = None;
 				let mut is_preescaped = None;
 				let mut extras = serde_json::Map::new();
 
 				while let Some(key) = map.next_key()? {
 					match key {
-						"text" => {
+						Field::Text => {
 							if text.is_some() {
 								return Err(de::Error::duplicate_field("text"));
 							}
 							text = Some(map.next_value()?);
 						}
-						"is_preescaped" => {
+						Field::IsPreescaped => {
 							if is_preescaped.is_some() {
 								return Err(de::Error::duplicate_field("is_preescaped"));
 							}
 							is_preescaped = Some(map.next_value()?);
 						}
-						_ => {
-							extras.insert(key.to_owned(), map.next_value()?);
+						Field::Other(key) => {
+							extras.insert(key.to_string(), map.next_value()?);
 						}
 					}
 				}
