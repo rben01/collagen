@@ -57,6 +57,9 @@
 		"console_error_panic_hook",
 	]
 
+[profile.release]
+	lto = true
+
 [[bin]]
 	name = "clgn"
 	path = "src/main.rs"

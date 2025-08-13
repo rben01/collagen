@@ -7,10 +7,9 @@
 	crate-type = ["cdylib"]
 
 [dependencies]
-	collagen = { path = "..", default-features = false, features = [
-		"wasm",
-	] }
+	collagen = { path = "..", default-features = false, features = ["wasm"] }
 
 
 [profile.release]
+	lto = true
 	opt-level = "z"

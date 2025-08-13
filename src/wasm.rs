@@ -16,7 +16,7 @@ use std::{
 	rc::Rc,
 };
 use wasm_bindgen::prelude::*;
-use web_sys::File;
+use web_sys::{console::log, File};
 
 // Initialize panic hook for better error messages in the browser
 #[wasm_bindgen(start)]
@@ -83,10 +83,10 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 
 	let mut total_size = 0usize;
 
-	// Convert JS Map to Vec of entries for iteration
-	let entries = Array::from(&files_map);
-
-	for entry in entries.iter() {
+	for entry in files_map.entries() {
+		// TODO: don't unwrap here
+		let entry = entry.unwrap();
+		let entry = js_sys::Array::from(&entry);
 		let entry = Array::from(&entry);
 		let path_str = entry.get(0).as_string().ok_or_else(|| CollagenError {
 			message: "Invalid file path in map".to_string(),
@@ -253,6 +253,10 @@ pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> Was
 	let mut svg_bytes = Vec::new();
 	let mut writer = quick_xml::Writer::new(&mut svg_bytes);
 
+	log(&js_sys::Array::from_iter([JsValue::from_str(&format!(
+		"{fibroblast:?}"
+	))]));
+
 	fibroblast.to_svg(&mut writer).map_err(|e| {
 		let error_msg = format!("{e}");
 		if error_msg.contains("allocation")
@@ -271,6 +275,10 @@ pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> Was
 			CollagenError::from(e)
 		}
 	})?;
+
+	log(&js_sys::Array::from_iter([JsValue::from_str(&format!(
+		"{svg_bytes:?}"
+	))]));
 
 	String::from_utf8(svg_bytes).map_err(|_| CollagenError {
 		message: "Generated SVG contains invalid UTF-8".to_string(),
