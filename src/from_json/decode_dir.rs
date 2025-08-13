@@ -20,7 +20,8 @@ impl Fibroblast {
 		let root = match format {
 			Some(format) => RootTag::new(input, format)?,
 			None => {
-				if cfg!(feature = "jsonnet") {
+				#[cfg(feature = "jsonnet")]
+				{
 					match RootTag::new(input, ManifestFormat::Jsonnet) {
 						Ok(root) => root,
 						Err(ClgnDecodingError::JsonnetRead { msg, path: _ })
@@ -35,11 +36,11 @@ impl Fibroblast {
 						}
 						Err(err) => return Err(err),
 					}
-				} else {
-					{
-						// In WASM builds without jsonnet, only try JSON
-						RootTag::new(input, ManifestFormat::Json)?
-					}
+				}
+				#[cfg(not(feature = "jsonnet"))]
+				{
+					// In WASM builds without jsonnet, only try JSON
+					RootTag::new(input, ManifestFormat::Json)?
 				}
 			}
 		};
