@@ -250,7 +250,7 @@ pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> Was
 	})?;
 
 	// Generate SVG - if this fails due to memory, WASM will trap
-	let mut svg_bytes = Vec::new();
+	let mut svg_bytes = Vec::with_capacity(fs_handle.get_total_size());
 	let mut writer = quick_xml::Writer::new(&mut svg_bytes);
 
 	log(&js_sys::Array::from_iter([JsValue::from_str(&format!(
