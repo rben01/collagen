@@ -40,25 +40,10 @@ impl ManifestFormat {
 	}
 }
 
-/// A slice reference into a byte vector
-#[derive(Debug, Copy, Clone)]
-pub struct Slice {
-	pub(crate) start: usize,
-	pub(crate) len: usize,
-}
-
-impl From<Slice> for std::ops::Range<usize> {
-	fn from(slice: Slice) -> Self {
-		slice.start..slice.start + slice.len
-	}
-}
-
 /// Content of an in-memory filesystem
 #[derive(Debug, Clone)]
 pub(crate) struct InMemoryFsContent {
-	pub(crate) bytes: Vec<u8>,
-	// map of paths to slices in the byte vector
-	pub(crate) slices: HashMap<PathBuf, Slice>,
+	pub(crate) files: HashMap<PathBuf, Vec<u8>>,
 }
 
 /// In-memory filesystem implementation
@@ -72,8 +57,12 @@ impl Display for InMemoryFs {
 		write!(
 			f,
 			"in-memory FS of {} bytes containing the following paths: {:?}",
-			self.content.bytes.len(),
-			self.content.slices.keys()
+			self.content
+				.files
+				.values()
+				.map(|file| file.len())
+				.sum::<usize>(),
+			self.content.files.keys()
 		)
 	}
 }
@@ -123,18 +112,14 @@ impl InMemoryFs {
 		// Canonicalize the path using pure string operations (no filesystem access)
 		let canonical_path = canonicalize_path(&path);
 
-		let InMemoryFsContent { bytes, slices } = &*self.content;
-		let slice = *slices.get(&canonical_path).ok_or_else(|| {
-			ClgnDecodingError::InMemoryFsMissingPath {
-				path: canonical_path.clone(),
-			}
-		})?;
-		bytes.get(std::ops::Range::from(slice)).ok_or({
-			ClgnDecodingError::MalformedInMemoryFs {
-				slice,
-				len: bytes.len(),
-			}
-		})
+		let InMemoryFsContent { files } = &*self.content;
+		let bytes =
+			files
+				.get(&canonical_path)
+				.ok_or_else(|| ClgnDecodingError::InMemoryFsMissingPath {
+					path: canonical_path.clone(),
+				})?;
+		Ok(bytes)
 	}
 }
 

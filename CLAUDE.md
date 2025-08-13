@@ -145,7 +145,6 @@ The WASM module exposes these key functions (defined in `src/wasm.rs`):
 
 - `createInMemoryFs(files_map)` - Converts uploaded files to in-memory filesystem
 - `generateSvg(fs_handle, format)` - Processes manifest and generates SVG output
-- `validateManifest(content, format)` - Validates JSON/Jsonnet manifest syntax
 - `getSupportedFormats()` - Returns supported manifest formats
 
 #### Data Flow

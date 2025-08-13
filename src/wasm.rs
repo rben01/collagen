@@ -5,12 +5,16 @@
 
 use crate::{
 	fibroblast::Fibroblast,
-	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
+	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput},
 	from_json::ClgnDecodingError,
 };
 use js_sys::{Array, Map, Uint8Array};
-use std::marker::PhantomData;
-use std::{collections::HashMap, path::PathBuf, rc::Rc};
+use std::{
+	collections::HashMap,
+	marker::PhantomData,
+	path::{Path, PathBuf},
+	rc::Rc,
+};
 use wasm_bindgen::prelude::*;
 use web_sys::File;
 
@@ -74,8 +78,9 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 	// Check memory constraints before processing
 	const MAX_TOTAL_SIZE: usize = 50 * 1024 * 1024; // 50MB limit
 	const MAX_SINGLE_FILE_SIZE: usize = 20 * 1024 * 1024; // 20MB per file
-	let mut bytes = Vec::new();
-	let mut slices = HashMap::new();
+
+	let mut files = HashMap::new();
+
 	let mut total_size = 0usize;
 
 	// Convert JS Map to Vec of entries for iteration
@@ -101,7 +106,9 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 		if file_size > MAX_SINGLE_FILE_SIZE {
 			return Err(CollagenError {
 				message: format!(
-					"File '{}' is too large ({:.1}KB). Maximum file size is {:.1}KB. Try using smaller images or reducing file count.",
+					"File {:?} is too large ({:.1}KB). \
+					 Maximum file size is {:.1}KB. \
+					 Try using smaller images or reducing file count.",
 					path_str,
 					file_size / 1024,
 					MAX_SINGLE_FILE_SIZE / 1024
@@ -133,7 +140,8 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 				if error_msg.contains("memory") || error_msg.contains("allocation") {
 					CollagenError {
 						message: format!(
-							"Memory allocation failed while reading '{}' ({:.1}KB). Try uploading fewer or smaller files.",
+							"Memory allocation failed while reading {:?} ({:.1}KB).
+							 Try uploading fewer or smaller files.",
 							path_str,
 							file_size / 1024
 						),
@@ -149,17 +157,20 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 
 		let uint8_array = Uint8Array::new(&array_buffer);
 
-		// Convert to Vec - if this fails, the WASM module will trap
-		// which is better than trying to catch panics
+		// Convert to Vec - if this fails, the WASM module will trap which is better than
+		// trying to catch panics
+		//
+		// TODO: not a fan of allocating twice here (once for the Uint8Array, once for the
+		// Vec) -- any solution?
 		let file_bytes = uint8_array.to_vec();
 
 		// Check if we have enough space for this file
-		if bytes.len() + file_bytes.len() > MAX_TOTAL_SIZE {
+		if total_size + file_bytes.len() > MAX_TOTAL_SIZE {
 			return Err(CollagenError {
 				message: format!(
 					"Memory allocation would exceed total limit while processing {:?}. Current: {:.1}KB, Adding: {:.1}KB, Maximum: {:.1}KB. Try uploading fewer or smaller files.",
 					path_str,
-					bytes.len() / 1024,
+					total_size / 1024,
 					file_bytes.len() / 1024,
 					MAX_TOTAL_SIZE / 1024,
 				),
@@ -168,18 +179,14 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 		}
 
 		// Store slice information
-		let start = bytes.len();
-		let len = file_bytes.len();
-		slices.insert(PathBuf::from(path_str), Slice { start, len });
+		files.insert(PathBuf::from(path_str), file_bytes);
 
 		// Append to bytes - if this fails due to memory, WASM will trap
-		bytes.extend_from_slice(&file_bytes);
 		total_size += file_size;
 	}
 
-	let content = InMemoryFsContent { bytes, slices };
 	let in_memory_fs = InMemoryFs {
-		content: Rc::new(content),
+		content: Rc::new(InMemoryFsContent { files }),
 	};
 
 	Ok(InMemoryFsHandle { fs: in_memory_fs })
@@ -271,59 +278,6 @@ pub fn generate_svg(fs_handle: &InMemoryFsHandle, format: Option<String>) -> Was
 	})
 }
 
-/// Validate a manifest string
-///
-/// # Errors
-/// If the format string is not supported (WASM builds only support JSON)
-#[wasm_bindgen(js_name = "validateManifest")]
-pub fn validate_manifest(content: &str, format: &str) -> WasmResult<bool> {
-	let manifest_format = match format {
-		"json" => ManifestFormat::Json,
-		#[cfg(feature = "jsonnet")]
-		"jsonnet" => ManifestFormat::Jsonnet,
-		_ => {
-			#[cfg(feature = "jsonnet")]
-			let supported_formats = "json or jsonnet";
-			#[cfg(not(feature = "jsonnet"))]
-			let supported_formats = "json only (jsonnet not available in WASM builds)";
-			return Err(CollagenError {
-				message: format!(
-					"Unsupported manifest format: {format}. Supported formats: {supported_formats}"
-				),
-				error_type: "InvalidFormat",
-			});
-		}
-	};
-
-	// Create a minimal in-memory filesystem with just the manifest
-	let manifest_bytes = content.as_bytes();
-	let mut slices = HashMap::new();
-	slices.insert(
-		PathBuf::from(manifest_format.manifest_filename()),
-		Slice {
-			start: 0,
-			len: manifest_bytes.len(),
-		},
-	);
-
-	let content_obj = InMemoryFsContent {
-		bytes: manifest_bytes.to_vec(),
-		slices,
-	};
-
-	let fs = InMemoryFs {
-		content: Rc::new(content_obj),
-	};
-
-	let input = ProvidedInput::InMemoryFs(fs, PhantomData);
-
-	// Try to parse the manifest
-	match Fibroblast::new(&input, Some(manifest_format)) {
-		Ok(_) => Ok(true),
-		Err(_) => Ok(false),
-	}
-}
-
 /// Get a list of supported manifest formats
 #[wasm_bindgen(js_name = "getSupportedFormats")]
 #[must_use]
@@ -341,20 +295,20 @@ impl InMemoryFsHandle {
 	#[wasm_bindgen(js_name = "getFileCount")]
 	#[must_use]
 	pub fn get_file_count(&self) -> usize {
-		self.fs.content.slices.len()
+		self.fs.content.files.len()
 	}
 
 	#[wasm_bindgen(js_name = "getTotalSize")]
 	#[must_use]
 	pub fn get_total_size(&self) -> usize {
-		self.fs.content.bytes.len()
+		self.fs.content.files.values().map(|f| f.len()).sum()
 	}
 
 	#[wasm_bindgen(js_name = "getFilePaths")]
 	#[must_use]
 	pub fn get_file_paths(&self) -> Array {
 		let paths = Array::new();
-		for path in self.fs.content.slices.keys() {
+		for path in self.fs.content.files.keys() {
 			paths.push(&JsValue::from_str(&path.to_string_lossy()));
 		}
 		paths
@@ -367,8 +321,8 @@ impl InMemoryFsHandle {
 		let has_jsonnet = self
 			.fs
 			.content
-			.slices
-			.contains_key(&PathBuf::from("collagen.jsonnet"));
+			.files
+			.contains_key(Path::new("collagen.jsonnet"));
 
 		#[cfg(feature = "jsonnet")]
 		if has_jsonnet {
@@ -379,8 +333,8 @@ impl InMemoryFsHandle {
 			let has_json = self
 				.fs
 				.content
-				.slices
-				.contains_key(&PathBuf::from("collagen.json"));
+				.files
+				.contains_key(Path::new("collagen.json"));
 			if has_json {
 				"json".to_owned()
 			} else {

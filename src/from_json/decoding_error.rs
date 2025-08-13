@@ -19,7 +19,7 @@ use zip::result::ZipError;
 
 use crate::{
 	fibroblast::tags::{any_child_tag::AnyChildTagDiscriminants, Extras},
-	filesystem::Slice,
+	filesystem::InMemoryFs,
 };
 
 pub type ClgnDecodingResult<T> = Result<T, ClgnDecodingError>;
@@ -78,8 +78,8 @@ pub enum ClgnDecodingError {
 		path: Option<PathBuf>,
 	},
 
-	#[error("malformed in-memory filesystem of {len} bytes: {slice:?}")]
-	MalformedInMemoryFs { slice: Slice, len: usize },
+	#[error("malformed in-memory filesystem {fs}")]
+	MalformedInMemoryFs { fs: InMemoryFs },
 
 	#[error("missing path {path:?} in in-memory filesystem")]
 	InMemoryFsMissingPath { path: PathBuf },

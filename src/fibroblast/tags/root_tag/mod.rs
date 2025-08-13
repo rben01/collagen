@@ -5,7 +5,7 @@ use super::{
 	DecodingContext, Extras, UnvalidatedDeChildTags, XmlAttrs,
 };
 use crate::{
-	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput, Slice},
+	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput},
 	from_json::{decoding_error::InvalidSchemaErrorList, ClgnDecodingError},
 	to_svg::svg_writable::{prepare_and_write_tag, SvgWritable},
 };
@@ -113,28 +113,16 @@ impl RootTag {
 	) -> ClgnDecodingResult<Self> {
 		let InMemoryFs { content } = input;
 
-		let InMemoryFsContent { bytes, slices } = &**content;
+		let InMemoryFsContent { files } = &**content;
 
-		let slice @ Slice { start, len } = *slices
+		let manifest_bytes = files
 			.get(format.manifest_path())
 			.ok_or(ClgnDecodingError::MissingManifest)?;
 
-		let manifest_bytes =
-			bytes
-				.get(start..start + len)
-				.ok_or(ClgnDecodingError::MalformedInMemoryFs {
-					slice,
-					len: bytes.len(),
-				})?;
+		let path_str = format!("file {:?} in {input}", format.manifest_filename());
 
-		let path_str = format!("file '{}' in {input}", format.manifest_filename());
-
-		let manifest_str = std::str::from_utf8(manifest_bytes).map_err(|_| {
-			ClgnDecodingError::MalformedInMemoryFs {
-				slice,
-				len: bytes.len(),
-			}
-		})?;
+		let manifest_str = std::str::from_utf8(manifest_bytes)
+			.map_err(|_| ClgnDecodingError::MalformedInMemoryFs { fs: input.clone() })?;
 
 		let input = Input::Str {
 			content: manifest_str,
@@ -260,46 +248,32 @@ mod tests {
 				}
 			]
 		}"#
-		.as_bytes();
+		.as_bytes()
+		.to_owned();
 
 		let container_json = r#"{
 			"children": [
 				{ "image_path": "image.png" }
 			]
 		}"#
-		.as_bytes();
+		.as_bytes()
+		.to_owned();
 
-		let image_bytes = &[
+		let image_bytes = vec![
 			0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG header
 			0x00, 0x01,
 		];
 
-		let mut bytes = Vec::new();
-		bytes.extend_from_slice(root_json);
-		bytes.extend_from_slice(container_json);
-		bytes.extend_from_slice(image_bytes);
+		let mut files = HashMap::new();
 
-		let mut slices = HashMap::new();
-		let start = 0;
-		let len = root_json.len();
+		files.insert("collagen.json".into(), root_json);
 
-		slices.insert("collagen.json".into(), Slice { start, len });
+		files.insert("path/to/container/collagen.json".into(), container_json);
 
-		let start = start + len;
-		let len = container_json.len();
-
-		slices.insert(
-			"path/to/container/collagen.json".into(),
-			Slice { start, len },
-		);
-
-		let start = start + len;
-		let len = image_bytes.len();
-
-		slices.insert("path/to/container/image.png".into(), Slice { start, len });
+		files.insert("path/to/container/image.png".into(), image_bytes);
 
 		let in_memory_db = InMemoryFs {
-			content: std::rc::Rc::new(InMemoryFsContent { bytes, slices }),
+			content: std::rc::Rc::new(InMemoryFsContent { files }),
 		};
 		let input = ProvidedInput::InMemoryFs(in_memory_db, std::marker::PhantomData);
 
