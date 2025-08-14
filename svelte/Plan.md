@@ -1,63 +1,49 @@
-# Analysis and Fix Plan for WASM Memory Access Errors
+# WASM Stack Overflow Fix Plan
 
-## Root Cause Analysis
+## Root Cause Identified: Serde Untagged Recursion
 
-The "Out of bounds memory access" errors are likely caused by memory management issues in the WASM interface, particularly when handling large files or many files. Here are the key issues:
+**Problem**: `#[serde(untagged)]` on `AnyChildTag` enum causes deep recursion during deserialization of nested structures, hitting WASM's ~64KB stack limit.
 
-### 1. **Memory Pressure During File Processing**
+**Call Stack**: JSON → `Vec<AnyChildTag>` → `#[serde(untagged)]` tries each variant → `ContainerTag` loads nested skeleton → more `AnyChildTag`s → Stack overflow
 
-- **Issue**: Large images are base64-encoded in memory (line 126 in image_tag.rs), creating 2x memory usage
-- **Evidence**: Comment in code mentions "O(2\*n)" memory usage for image processing
-- **Impact**: With multiple large images, this quickly exhausts WASM's limited memory space
+## Phase 1: Increase WASM Stack Size (Quick Fix)
 
-### 2. **Inefficient File Transfer to WASM**
+1. **Add WASM stack size configuration** - Increase from 64KB to 1MB+ via:
+   - Add `RUSTFLAGS="-C link-arg=--stack-size=1048576"` for WASM builds
+   - Configure wasm-bindgen/rollup-plugin-rust with larger stack
+   - Test with complex nested manifests
 
-- **Issue**: Files are converted to base64 in JavaScript, then back to bytes in Rust
-- **Evidence**: `createInMemoryFs` function processes entire file contents at once
-- **Impact**: Doubles memory usage during transfer phase
+## Phase 2: Optimize Serde Untagged (Better Fix)
 
-### 3. **Missing Memory Bounds Checks**
+1. **Replace untagged with tagged deserialization** - Use discriminant field instead of trying all variants
+2. **Add explicit type hints** - Use `"tag_type": "image"` etc. to avoid variant guessing
+3. **Implement custom deserializer** - Control recursion depth manually
 
-- **Issue**: Unsafe memory access when WASM module runs out of heap space
-- **Evidence**: Generic "out of bounds" errors without specific error handling
-- **Impact**: Crashes instead of graceful error handling
+## Phase 3: Recursive Structure Limits (Safety Net)
 
-### 4. **Duplicate Filesystem Creation**
+1. **Add nesting depth limits** - Prevent infinite/excessive recursion
+2. **Implement iterative deserialization** - Convert recursive calls to iterative where possible
+3. **Add early stack checking** - Detect approaching stack limits in WASM
 
-- **Issue**: In `App.svelte` line 226, filesystem is recreated after jsonnet compilation
-- **Evidence**: `createInMemoryFs` called twice for same file set
-- **Impact**: Temporary memory spike during duplicate processing
+## Testing Priority
 
-## Proposed Solutions
+Focus on Phase 1 first - it's the quickest path to resolution and should fix most cases immediately.
 
-### Phase 1: Memory Management Improvements
+---
 
-1. **Add memory monitoring and limits** to WASM module
-2. **Implement streaming file processing** instead of loading all files at once
-3. **Add proper error handling** for memory exhaustion scenarios
-4. **Fix duplicate filesystem creation** bug
+# Previous Analysis: Memory Management Fixes ✅ COMPLETED
 
-### Phase 2: File Size Optimizations
+## Root Cause Analysis (Previous)
 
-1. **Add file size validation** before processing
-2. **Add progressive loading** for large file sets
-3. **Optimize base64 encoding** to reduce memory usage
-4. **Preserve original image quality** (no compression)
+The "Out of bounds memory access" errors were initially thought to be memory pressure issues, but further investigation revealed they are actually **stack overflow** issues during serde deserialization.
 
-### Phase 3: User Experience Improvements
+### Previous Issues Addressed:
 
-1. **Add progress indicators** for large file processing
-2. **Implement better error messages** with specific memory guidance
-3. **Add file size warnings** in the UI
-4. **Provide troubleshooting tips** for memory issues
+1. **File Object Lifecycle** - Fixed premature garbage collection
+2. **Memory Allocator** - Replaced problematic `wee_alloc` with default allocator
+3. **Corruption Detection** - Added WASM handle validation and recovery UI
 
-## Implementation Priority
-
-- **High**: Fix duplicate filesystem creation and add memory error handling
-- **Medium**: Add file size limits and validation
-- **Low**: Implement streaming optimizations and progressive loading
-
-The plan focuses on immediate fixes for the memory access errors while laying groundwork for better large file handling, ensuring user's original images are always preserved without any quality loss.
+### Previous Solutions Implemented:
 
 ## Implementation Status
 
