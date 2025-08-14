@@ -29,14 +29,20 @@ impl ManifestFormat {
 		// leading slashes are for the wasm build, and don't affect the disk-based fs
 		// workings
 		match self {
+			ManifestFormat::Json => "collagen.json",
+			#[cfg(feature = "jsonnet")]
+			ManifestFormat::Jsonnet => "collagen.jsonnet",
+		}
+	}
+
+	pub(crate) fn manifest_filename_absolute(self) -> &'static str {
+		// leading slashes are for the wasm build, and don't affect the disk-based fs
+		// workings
+		match self {
 			ManifestFormat::Json => "/collagen.json",
 			#[cfg(feature = "jsonnet")]
 			ManifestFormat::Jsonnet => "/collagen.jsonnet",
 		}
-	}
-
-	pub(crate) fn manifest_path(self) -> &'static Path {
-		Path::new(self.manifest_filename())
 	}
 }
 

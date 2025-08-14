@@ -116,17 +116,17 @@ impl RootTag {
 		let InMemoryFsContent { files } = &**content;
 
 		let manifest_bytes = files
-			.get(format.manifest_path())
+			.get(Path::new(format.manifest_filename_absolute()))
 			.ok_or(ClgnDecodingError::MissingManifest)?;
 
-		let path_str = format!("file {:?} in {input}", format.manifest_filename());
+		let path_str = format.manifest_filename();
 
 		let manifest_str = std::str::from_utf8(manifest_bytes)
 			.map_err(|_| ClgnDecodingError::MalformedInMemoryFs { fs: input.clone() })?;
 
 		let input = Input::Str {
 			content: manifest_str,
-			path: Path::new(&path_str),
+			path: Path::new(path_str),
 		};
 
 		match format {
