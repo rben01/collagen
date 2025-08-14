@@ -8,7 +8,7 @@ use crate::{
 	to_svg::svg_writable::{
 		prepare_and_write_tag, ClgnDecodingError, ClgnDecodingResult, SvgWritable,
 	},
-	utils::b64_encode,
+	utils::b64_encode_streaming,
 };
 use compact_str::CompactString;
 use serde::{Deserialize, Serialize};
@@ -115,18 +115,47 @@ impl ImageTag {
 		let key = "href";
 		let kind = self.kind()?;
 
-		// I'd like to find the "right" way to reduce memory usage here. We're reading a
-		// file into memory and then storing its b64 string also in memory. That's
-		// O(2*n). Ideally none of this would reside in memory, and we'd stream directly
-		// to the output SVG. An intermediate step would be to stream the file into the
-		// b64 encoder, getting memory usage down to O(1*n).
-
+		// Optimized: Use streaming base64 encoding to reduce peak memory usage
+		// by avoiding double allocation (file bytes + base64 string)
 		let (img_bytes, _) = context.fetch_resource(&self.inner.image_path)?;
 
-		let b64_string = b64_encode(img_bytes);
-		let src_str = format!("data:image/{kind};base64,{b64_string}");
+		// Stream base64 encode directly to a buffer to reduce memory usage
+		let data_uri_prefix = format!("data:image/{kind};base64,");
+		let mut src_buffer = Vec::with_capacity(data_uri_prefix.len() + (img_bytes.len() * 4 / 3) + 4);
+		
+		// Write the prefix
+		src_buffer.extend_from_slice(data_uri_prefix.as_bytes());
+		
+		// Stream base64 encode the image data directly to the buffer
+		b64_encode_streaming(&img_bytes, &mut src_buffer)
+			.map_err(|e| ClgnDecodingError::Image { msg: format!("Failed to encode image to base64: {e:?}") })?;
+		
+		let src_str = String::from_utf8(src_buffer)
+			.map_err(|_| ClgnDecodingError::Image { msg: "Failed to create UTF-8 string from base64 data".to_string() })?;
 
 		Ok((key, src_str))
+	}
+
+	/// Write the image data URI directly to a writer using streaming base64 encoding
+	/// to reduce memory usage. Returns the attribute key.
+	pub(super) fn write_image_attr_streaming<W: std::io::Write>(
+		&self,
+		writer: &mut W,
+		context: &DecodingContext,
+	) -> ClgnDecodingResult<&'static str> {
+		let key = "href";
+		let kind = self.kind()?;
+
+		// Write the data URI prefix
+		write!(writer, "data:image/{kind};base64,")
+			.map_err(|e| ClgnDecodingError::Image { msg: format!("Failed to write image prefix: {e:?}") })?;
+
+		// Stream the base64 encoded image data directly to the writer
+		let (img_bytes, _) = context.fetch_resource(&self.inner.image_path)?;
+		b64_encode_streaming(&img_bytes, writer)
+			.map_err(|e| ClgnDecodingError::Image { msg: format!("Failed to stream base64 data: {e:?}") })?;
+
+		Ok(key)
 	}
 }
 

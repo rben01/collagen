@@ -8,7 +8,7 @@ use crate::{
 	filesystem::{InMemoryFs, InMemoryFsContent, ManifestFormat, ProvidedInput},
 	from_json::ClgnDecodingError,
 };
-use js_sys::{Array, Map, Uint8Array};
+use js_sys::{Array, Function, Map, Uint8Array};
 use std::{
 	collections::HashMap,
 	marker::PhantomData,
@@ -22,6 +22,60 @@ use web_sys::{console::log, File};
 #[wasm_bindgen(start)]
 pub fn init() {
 	console_error_panic_hook::set_once();
+}
+
+/// Streaming writer that calls JavaScript callback for each chunk
+struct StreamingWriter {
+	callback: Function,
+	buffer: Vec<u8>,
+	chunk_size: usize,
+}
+
+impl StreamingWriter {
+	fn new(callback: Function) -> Self {
+		Self {
+			callback,
+			buffer: Vec::with_capacity(8192), // 8KB buffer
+			chunk_size: 4096,                 // 4KB chunks
+		}
+	}
+
+	fn flush(&mut self) -> Result<(), std::io::Error> {
+		if !self.buffer.is_empty() {
+			let chunk = String::from_utf8_lossy(&self.buffer);
+			let js_chunk = JsValue::from_str(&chunk);
+
+			if self.callback.call1(&JsValue::NULL, &js_chunk).is_err() {
+				return Err(std::io::Error::other("JavaScript callback failed"));
+			}
+
+			self.buffer.clear();
+		}
+		Ok(())
+	}
+}
+
+impl std::io::Write for StreamingWriter {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.buffer.extend_from_slice(buf);
+
+		// Flush buffer if it's getting large
+		if self.buffer.len() >= self.chunk_size {
+			self.flush()?;
+		}
+
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		self.flush()
+	}
+}
+
+impl Drop for StreamingWriter {
+	fn drop(&mut self) {
+		let _ = self.flush();
+	}
 }
 
 /// JavaScript-compatible error type for Collagen operations
@@ -155,14 +209,18 @@ pub async fn create_in_memory_fs(files_map: Map) -> WasmResult<InMemoryFsHandle>
 				}
 			})?;
 
+		// Optimized: Create Vec directly with correct capacity to avoid reallocation
 		let uint8_array = Uint8Array::new(&array_buffer);
+		let array_length = uint8_array.length() as usize;
 
-		// Convert to Vec - if this fails, the WASM module will trap which is better than
-		// trying to catch panics
-		//
-		// TODO: not a fan of allocating twice here (once for the Uint8Array, once for the
-		// Vec) -- any solution?
-		let file_bytes = uint8_array.to_vec();
+		// Pre-allocate Vec with exact capacity to avoid reallocation during copy
+		let mut file_bytes = vec![0; array_length];
+
+		// Copy directly into the pre-allocated Vec buffer
+		uint8_array.copy_to(&mut file_bytes);
+
+		// Clear the uint8_array reference to potentially free JS memory earlier
+		drop(uint8_array);
 
 		// Check if we have enough space for this file
 		if total_size + file_bytes.len() > MAX_TOTAL_SIZE {
@@ -198,7 +256,99 @@ pub struct InMemoryFsHandle {
 	fs: InMemoryFs,
 }
 
-/// Generate SVG from an in-memory filesystem
+/// Generate SVG from an in-memory filesystem using streaming (lower memory usage)
+///
+/// # Parameters
+/// - `fs_handle`: Handle to the in-memory filesystem
+/// - `format`: Optional format specification
+/// - `callback`: JavaScript function that will be called with each chunk of SVG data
+///
+/// # Errors
+/// When the format string is provided but not supported (WASM builds only support JSON)
+#[wasm_bindgen(js_name = "generateSvgStreaming")]
+#[allow(clippy::needless_pass_by_value)]
+pub fn generate_svg_streaming(
+	fs_handle: &InMemoryFsHandle,
+	format: Option<String>,
+	callback: Function,
+) -> WasmResult<()> {
+	let manifest_format = match format.as_deref() {
+		Some("json") => Some(ManifestFormat::Json),
+		#[cfg(feature = "jsonnet")]
+		Some("jsonnet") => Some(ManifestFormat::Jsonnet),
+		None => None,
+		Some(other) => {
+			let supported_formats = if cfg!(feature = "jsonnet") {
+				"json or jsonnet"
+			} else {
+				"json only (jsonnet not available in WASM builds)"
+			};
+
+			return Err(CollagenError {
+				message: format!(
+					"Unsupported manifest format: {other}. Supported formats: {supported_formats}"
+				),
+				error_type: "InvalidFormat",
+			});
+		}
+	};
+
+	let input = ProvidedInput::InMemoryFs(fs_handle.fs.clone(), PhantomData);
+
+	// Create fibroblast - enhanced error handling for memory issues
+	let fibroblast = Fibroblast::new(&input, manifest_format).map_err(|e| {
+		// Check if this is likely a memory-related error during image processing
+		let error_msg = format!("{e}");
+		if error_msg.contains("allocation")
+			|| error_msg.contains("memory")
+			|| error_msg.contains("out of memory")
+		{
+			CollagenError {
+				message: format!(
+					"Memory allocation failed during SVG generation. \
+					 This often happens with large images. Try using smaller \
+					 images or fewer files. Original error: {error_msg:?}"
+				),
+				error_type: "MemoryError",
+			}
+		} else {
+			CollagenError::from(e)
+		}
+	})?;
+
+	// Create streaming writer that calls JavaScript callback
+	let mut streaming_writer = StreamingWriter::new(callback);
+	let mut xml_writer = quick_xml::Writer::new(&mut streaming_writer);
+
+	fibroblast.to_svg(&mut xml_writer).map_err(|e| {
+		let error_msg = format!("{e}");
+		if error_msg.contains("allocation")
+			|| error_msg.contains("memory")
+			|| error_msg.contains("out of memory")
+		{
+			CollagenError {
+				message: format!(
+					"Memory allocation failed during SVG writing. \
+					 Try using smaller images or fewer files. \
+					 Original error: {error_msg:?}"
+				),
+				error_type: "MemoryError",
+			}
+		} else {
+			CollagenError::from(e)
+		}
+	})?;
+
+	// Ensure final flush
+	streaming_writer.flush().map_err(|e| CollagenError {
+		message: format!("Failed to flush final SVG chunk: {e}"),
+		error_type: "StreamingError",
+	})?;
+
+	Ok(())
+}
+
+/// Generate SVG from an in-memory filesystem (legacy non-streaming version)
 ///
 /// # Errors
 /// When the format string is provided but not supported (WASM builds only support JSON)
