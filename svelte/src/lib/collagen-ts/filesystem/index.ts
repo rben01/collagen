@@ -61,6 +61,9 @@ export function normalizePath(path: string): string {
 	// Remove duplicate slashes
 	normalized = normalized.replace(/\/+/g, "/");
 
+	// Remove leading ./ references
+	normalized = normalized.replace(/^\.\//, "");
+
 	// Remove trailing slash unless it's the root
 	if (normalized.length > 1 && normalized.endsWith("/")) {
 		normalized = normalized.slice(0, -1);
@@ -83,14 +86,17 @@ export function canonicalizePath(
 
 	// Start with base path components (if any)
 	if (basePath && basePath !== "/") {
-		for (const component of basePath.split("/").filter(c => c.length > 0)) {
+		for (const component of basePath.split("/")) {
+			if (component.length === 0) {
+				continue;
+			}
 			components.push(component);
 		}
 	}
 
 	// Process relative path components
-	for (const component of relativePath.split("/").filter(c => c.length > 0)) {
-		if (component === ".") {
+	for (const component of relativePath.split("/")) {
+		if (component.length === 0 || component === ".") {
 			// Current directory - skip
 			continue;
 		} else if (component === "..") {

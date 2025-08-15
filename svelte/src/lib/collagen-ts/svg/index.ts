@@ -18,7 +18,7 @@ import type {
 } from "../types/index.js";
 
 import type { InMemoryFileSystem } from "../filesystem/index.js";
-import { fetchResource } from "../filesystem/index.js";
+import { fetchResource, canonicalizePath } from "../filesystem/index.js";
 import { base64Encode, escapeXml } from "../utils/index.js";
 import {
 	ImageError,
@@ -35,6 +35,16 @@ import {
 export interface SvgGenerationContext {
 	filesystem: InMemoryFileSystem;
 	baseDepth: number;
+	currentDir: string; // Current directory context for resolving relative paths
+}
+
+// =============================================================================
+// Path Resolution Utilities
+// =============================================================================
+
+/** Resolve a resource path relative to the current directory context */
+function resolvePath(context: SvgGenerationContext, relativePath: string): string {
+	return canonicalizePath(context.currentDir, relativePath);
 }
 
 // =============================================================================
@@ -110,10 +120,13 @@ async function generateImageTag(
 	context: SvgGenerationContext,
 ): Promise<string> {
 	try {
+		// Resolve image path relative to current directory
+		const resolvedPath = resolvePath(context, tag.imagePath);
+		
 		// Fetch image file
 		const fileContent = await fetchResource(
 			context.filesystem,
-			tag.imagePath,
+			resolvedPath,
 		);
 
 		// Determine image type
@@ -146,8 +159,11 @@ async function generateContainerTag(
 	context: SvgGenerationContext,
 ): Promise<string> {
 	try {
+		// Resolve container path relative to current directory
+		const resolvedPath = resolvePath(context, tag.clgnPath);
+		
 		// Create a new filesystem context for the nested folder
-		const nestedContext = await createNestedContext(context, tag.clgnPath);
+		const nestedContext = await createNestedContext(context, resolvedPath);
 
 		// Load and validate the nested manifest
 		const { loadManifest } = await import("../filesystem/index.js");
@@ -187,10 +203,11 @@ async function generateFontTag(
 			styleContent += `font-family:${font.name};`;
 
 			if ("path" in font) {
-				// User-provided font
+				// User-provided font - resolve path relative to current directory
+				const resolvedFontPath = resolvePath(context, font.path);
 				const fileContent = await fetchResource(
 					context.filesystem,
-					font.path,
+					resolvedFontPath,
 				);
 				const base64Data = base64Encode(fileContent.bytes);
 				const dataUri = `url('data:font/woff2;charset=utf-8;base64,${base64Data}') format('woff2')`;
@@ -224,8 +241,11 @@ async function generateNestedSvgTag(
 	context: SvgGenerationContext,
 ): Promise<string> {
 	try {
+		// Resolve SVG path relative to current directory
+		const resolvedPath = resolvePath(context, tag.svgPath);
+		
 		// Fetch SVG file
-		const fileContent = await fetchResource(context.filesystem, tag.svgPath);
+		const fileContent = await fetchResource(context.filesystem, resolvedPath);
 
 		// Convert bytes to text
 		let svgText = new TextDecoder().decode(fileContent.bytes);
@@ -276,7 +296,11 @@ export async function generateSvg(
 	rootTag: RootTag,
 	filesystem: InMemoryFileSystem,
 ): Promise<string> {
-	const context: SvgGenerationContext = { filesystem, baseDepth: 0 };
+	const context: SvgGenerationContext = { 
+		filesystem, 
+		baseDepth: 0,
+		currentDir: "" // Start at root directory
+	};
 
 	// Ensure xmlns attribute is present
 	const svgAttrs: XmlAttrs = {
@@ -339,6 +363,7 @@ async function createNestedContext(
 	return {
 		filesystem: nestedFilesystem,
 		baseDepth: parentContext.baseDepth + 1,
+		currentDir: "", // Reset to root for nested context
 	};
 }
 
