@@ -8,11 +8,9 @@
 		"skipLibCheck": false,
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
+		"noImplicitAny": true,
 		"baseUrl": ".",
-		"paths": {
-			"@/*": ["src/*"],
-			"@collagen/*": ["src/lib/collagen-ts/*"]
-		},
+		"paths": { "@/*": ["src/*"], "@collagen/*": ["src/lib/collagen-ts/*"] },
 		"lib": ["ES2020", "ESNext", "DOM", "DOM.Iterable"],
 		"noEmit": true,
 		"sourceMap": true
