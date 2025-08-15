@@ -2,7 +2,10 @@
 	import { onMount } from "svelte";
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
-	import { generateSvgFromFiles, toCompatibleError } from "./lib/collagen-ts/index.js";
+	import {
+		generateSvgFromFiles,
+		toCompatibleError,
+	} from "./lib/collagen-ts/index.js";
 
 	let sjsonnet;
 	let error = null;
@@ -26,17 +29,21 @@
 		}
 	}
 
-
 	async function loadSjsonnet() {
 		// Check if SjsonnetMain is already available
-		if (typeof window !== "undefined" && typeof window.SjsonnetMain !== "undefined") {
+		if (
+			typeof window !== "undefined" &&
+			typeof window.SjsonnetMain !== "undefined"
+		) {
 			return window.SjsonnetMain;
 		}
 
 		// Load sjsonnet.js as a script tag since it's not a module
 		return new Promise((resolve, reject) => {
 			// Check if the script is already loading or loaded
-			const existingScript = document.querySelector('script[src="/sjsonnet.js"]');
+			const existingScript = document.querySelector(
+				'script[src="/sjsonnet.js"]',
+			);
 			if (existingScript) {
 				// Script is already in DOM, wait for it or use existing SjsonnetMain
 				if (typeof window.SjsonnetMain !== "undefined") {
@@ -71,16 +78,28 @@
 
 					if (typeof window.SjsonnetMain !== "undefined") {
 						sjsonnetMain = window.SjsonnetMain;
-						console.log("Found SjsonnetMain on window:", typeof sjsonnetMain);
+						console.log(
+							"Found SjsonnetMain on window:",
+							typeof sjsonnetMain,
+						);
 					} else if (
 						typeof window.exports !== "undefined" &&
 						window.exports.SjsonnetMain
 					) {
 						sjsonnetMain = window.exports.SjsonnetMain;
-						console.log("Found SjsonnetMain on window.exports:", typeof sjsonnetMain);
-					} else if (typeof exports !== "undefined" && exports.SjsonnetMain) {
+						console.log(
+							"Found SjsonnetMain on window.exports:",
+							typeof sjsonnetMain,
+						);
+					} else if (
+						typeof exports !== "undefined" &&
+						exports.SjsonnetMain
+					) {
 						sjsonnetMain = exports.SjsonnetMain;
-						console.log("Found SjsonnetMain on exports:", typeof sjsonnetMain);
+						console.log(
+							"Found SjsonnetMain on exports:",
+							typeof sjsonnetMain,
+						);
 					} else {
 						// Check for global variables that might be SjsonnetMain
 						const globals = Object.keys(window).filter(
@@ -97,7 +116,10 @@
 								typeof value.interpret === "function"
 							) {
 								sjsonnetMain = value;
-								console.log("Found potential SjsonnetMain via interpret method:", key);
+								console.log(
+									"Found potential SjsonnetMain via interpret method:",
+									key,
+								);
 								break;
 							}
 						}
@@ -161,7 +183,9 @@
 				);
 
 				// Create a new JSON file and add it to the fileMap
-				const jsonBlob = new Blob([compiledJson], { type: "application/json" });
+				const jsonBlob = new Blob([compiledJson], {
+					type: "application/json",
+				});
 				const jsonFile = new File([jsonBlob], "collagen.json", {
 					type: "application/json",
 				});
@@ -182,7 +206,6 @@
 		}
 	}
 
-
 	async function handleFilesUploaded(event) {
 		console.log("🔄 Starting file processing...");
 		const { files, folderName } = event.detail;
@@ -193,7 +216,7 @@
 
 	async function handleFilesWithTypeScript(files, folderName) {
 		console.log("🔄 Processing files...");
-		
+
 		try {
 			loading = true;
 			filesData = files;
@@ -214,7 +237,8 @@
 			console.log("🔍 Processing manifest...");
 			const manifestType = await processManifest(fileMap, folderName);
 			if (manifestType === "none") {
-				error = "No manifest file found. Please include collagen.json or collagen.jsonnet";
+				error =
+					"No manifest file found. Please include collagen.json or collagen.jsonnet";
 				console.log("❌ No manifest found");
 				return;
 			}
@@ -223,8 +247,10 @@
 			// Generate SVG using TypeScript implementation
 			console.log("🎨 Generating SVG...");
 			svgOutput = await generateSvgFromFiles(fileMap, "json");
-			console.log("✅ SVG generated successfully! Length:", svgOutput.length);
-
+			console.log(
+				"✅ SVG generated successfully! Length:",
+				svgOutput.length,
+			);
 		} catch (err) {
 			console.error("Error processing files:", err);
 			const compatError = toCompatibleError(err);
@@ -233,7 +259,6 @@
 			loading = false;
 		}
 	}
-
 
 	function handleClearFiles() {
 		filesData = null;
@@ -258,7 +283,6 @@
 			<p>Processing files...</p>
 		</div>
 	{/if}
-
 
 	<div class="upload-section">
 		<FileUploader
@@ -358,7 +382,8 @@
 		max-width: 1200px;
 		margin: 0 auto;
 		padding: 2em;
-		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+		font-family:
+			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
 	}
 
@@ -385,13 +410,11 @@
 		margin-bottom: 1em;
 	}
 
-
 	.loading {
 		text-align: center;
 		padding: 2em;
 		color: #6b7280;
 	}
-
 
 	.upload-section {
 		margin-bottom: 2em;

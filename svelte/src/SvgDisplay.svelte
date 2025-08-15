@@ -1,6 +1,6 @@
 <script>
 	export let svg;
-	
+
 	let showRawSvg = false;
 	let scale = 1;
 	let panX = 0;
@@ -10,93 +10,96 @@
 	let lastMouseY = 0;
 	let svgContainer;
 	let toasts = [];
-	
+
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
 	}
-	
-	function showToast(message, type = 'success') {
+
+	function showToast(message, type = "success") {
 		const id = Date.now();
 		const toast = { id, message, type };
 		toasts = [...toasts, toast];
-		
+
 		// Auto-remove after 3 seconds
 		setTimeout(() => {
 			toasts = toasts.filter(t => t.id !== id);
 		}, 3000);
 	}
-	
+
 	function removeToast(id) {
 		toasts = toasts.filter(t => t.id !== id);
 	}
 
 	function downloadSvg() {
-		const blob = new Blob([svg], { type: 'image/svg+xml' });
+		const blob = new Blob([svg], { type: "image/svg+xml" });
 		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
+		const a = document.createElement("a");
 		a.href = url;
-		a.download = 'collagen-output.svg';
+		a.download = "collagen-output.svg";
 		document.body.appendChild(a);
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-		showToast('SVG downloaded successfully!');
+		showToast("SVG downloaded successfully!");
 	}
-	
+
 	function resetView() {
 		scale = 1;
 		panX = 0;
 		panY = 0;
 	}
-	
+
 	function zoomIn() {
 		scale = Math.min(scale * 1.2, 5);
 	}
-	
+
 	function zoomOut() {
 		scale = Math.max(scale / 1.2, 0.1);
 	}
-	
+
 	function handleWheel(event) {
 		event.preventDefault();
 		const delta = event.deltaY > 0 ? 0.9 : 1.1;
 		scale = Math.max(0.1, Math.min(5, scale * delta));
 	}
-	
+
 	function handleMouseDown(event) {
 		isDragging = true;
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
-		svgContainer.style.cursor = 'grabbing';
+		svgContainer.style.cursor = "grabbing";
 	}
-	
+
 	function handleMouseMove(event) {
 		if (!isDragging) return;
-		
+
 		const deltaX = event.clientX - lastMouseX;
 		const deltaY = event.clientY - lastMouseY;
-		
+
 		panX += deltaX;
 		panY += deltaY;
-		
+
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
 	}
-	
+
 	function handleMouseUp() {
 		isDragging = false;
 		if (svgContainer) {
-			svgContainer.style.cursor = 'grab';
+			svgContainer.style.cursor = "grab";
 		}
 	}
-	
+
 	function copyToClipboard() {
-		navigator.clipboard.writeText(svg).then(() => {
-			showToast('SVG copied to clipboard!');
-		}).catch(err => {
-			console.error('Failed to copy SVG to clipboard:', err);
-			showToast('Failed to copy SVG to clipboard', 'error');
-		});
+		navigator.clipboard
+			.writeText(svg)
+			.then(() => {
+				showToast("SVG copied to clipboard!");
+			})
+			.catch(err => {
+				console.error("Failed to copy SVG to clipboard:", err);
+				showToast("Failed to copy SVG to clipboard", "error");
+			});
 	}
 </script>
 
@@ -108,7 +111,9 @@
 		{#each toasts as toast (toast.id)}
 			<div class="toast toast-{toast.type}" role="alert">
 				<span>{toast.message}</span>
-				<button class="toast-close" on:click={() => removeToast(toast.id)}>&times;</button>
+				<button class="toast-close" on:click={() => removeToast(toast.id)}
+					>&times;</button
+				>
 			</div>
 		{/each}
 	</div>
@@ -120,29 +125,31 @@
 			<button on:click={resetView} title="Reset View">🎯</button>
 			<span class="zoom-level">{Math.round(scale * 100)}%</span>
 		</div>
-		
+
 		<div class="control-group">
 			<button on:click={toggleRawSvg} class:active={showRawSvg}>
-				{showRawSvg ? 'Show Preview' : 'Show SVG Code'}
+				{showRawSvg ? "Show Preview" : "Show SVG Code"}
 			</button>
-			<button on:click={copyToClipboard} title="Copy SVG to Clipboard">📋</button>
+			<button on:click={copyToClipboard} title="Copy SVG to Clipboard"
+				>📋</button
+			>
 			<button on:click={downloadSvg} title="Download SVG">💾</button>
 		</div>
 	</div>
-	
+
 	{#if showRawSvg}
 		<div class="raw-svg">
 			<pre><code>{svg}</code></pre>
 		</div>
 	{:else}
-		<div 
+		<div
 			class="svg-container"
 			bind:this={svgContainer}
 			on:wheel={handleWheel}
 			on:mousedown={handleMouseDown}
 			style="cursor: grab;"
 		>
-			<div 
+			<div
 				class="svg-content"
 				style="transform: translate({panX}px, {panY}px) scale({scale});"
 			>
@@ -177,7 +184,9 @@
 		border: 1px solid #d1d5db;
 		border-radius: 0.375em;
 		padding: 0.75em 1em;
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+		box-shadow:
+			0 4px 6px -1px rgba(0, 0, 0, 0.1),
+			0 2px 4px -1px rgba(0, 0, 0, 0.06);
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -229,7 +238,7 @@
 			opacity: 1;
 		}
 	}
-	
+
 	.controls {
 		display: flex;
 		justify-content: space-between;
@@ -240,13 +249,13 @@
 		flex-wrap: wrap;
 		gap: 1em;
 	}
-	
+
 	.control-group {
 		display: flex;
 		align-items: center;
 		gap: 0.5em;
 	}
-	
+
 	.controls button {
 		background: #ffffff;
 		border: 1px solid #d1d5db;
@@ -256,18 +265,18 @@
 		font-size: 0.875em;
 		transition: all 0.2s;
 	}
-	
+
 	.controls button:hover {
 		background: #f3f4f6;
 		border-color: #9ca3af;
 	}
-	
+
 	.controls button.active {
 		background: #2563eb;
 		border-color: #2563eb;
 		color: white;
 	}
-	
+
 	.zoom-level {
 		font-family: monospace;
 		font-size: 0.875em;
@@ -275,17 +284,18 @@
 		min-width: 3em;
 		text-align: center;
 	}
-	
+
 	.svg-container {
 		height: 500px;
 		overflow: hidden;
 		position: relative;
-		background: 
-			radial-gradient(circle, #e5e7eb 1px, transparent 1px);
+		background: radial-gradient(circle, #e5e7eb 1px, transparent 1px);
 		background-size: 20px 20px;
-		background-position: 0 0, 10px 10px;
+		background-position:
+			0 0,
+			10px 10px;
 	}
-	
+
 	.svg-content {
 		transform-origin: center;
 		transition: transform 0.1s ease-out;
@@ -295,7 +305,7 @@
 		min-height: 100%;
 		padding: 2em;
 	}
-	
+
 	.svg-content :global(svg) {
 		max-width: 100%;
 		max-height: 100%;
@@ -303,37 +313,37 @@
 		border-radius: 0.25em;
 		background: white;
 	}
-	
+
 	.raw-svg {
 		max-height: 500px;
 		overflow: auto;
 		background: #f8f9fa;
 	}
-	
+
 	.raw-svg pre {
 		margin: 0;
 		padding: 1em;
-		font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+		font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
 		font-size: 0.875em;
 		line-height: 1.5;
 		white-space: pre-wrap;
 		word-wrap: break-word;
 	}
-	
+
 	.raw-svg code {
 		color: #374151;
 	}
-	
+
 	@media (max-width: 640px) {
 		.controls {
 			flex-direction: column;
 			align-items: stretch;
 		}
-		
+
 		.control-group {
 			justify-content: center;
 		}
-		
+
 		.svg-container {
 			height: 300px;
 		}

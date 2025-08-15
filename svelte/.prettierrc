@@ -7,5 +7,7 @@
 	"objectWrap": "collapse",
 	"arrowParens": "avoid",
 	"printWidth": 80,
-	"proseWrap": "always"
+	"proseWrap": "always",
+	"plugins": ["prettier-plugin-svelte"],
+	"overrides": [{ "files": "*.svelte", "options": { "parser": "svelte" } }]
 }
