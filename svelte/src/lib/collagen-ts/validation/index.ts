@@ -92,8 +92,7 @@ function validateXmlAttrs(
 
 /** Validate children field (can be single child or array of children) */
 function validateChildren(
-	value: unknown,
-	tagType: string,
+	value: any,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag[] {
 	if (value === undefined || value === null) {
@@ -108,7 +107,7 @@ function validateChildren(
 
 	// Array of children
 	const result: AnyChildTag[] = [];
-	for (let i = 0; i < value.length; i++) {
+	for (let i = 0, len = value.length; i < len; i++) {
 		const child = validateAnyChildTag(value[i], errors);
 		if (child) {
 			result.push(child);
@@ -262,7 +261,7 @@ function validateGenericTag(
 
 	const tagName = obj.tag;
 	const attrs = validateXmlAttrs(obj.attrs, "Generic", errors);
-	const children = validateChildren(obj.children, "Generic", errors);
+	const children = validateChildren(obj.children, errors);
 
 	// Check for unexpected keys
 	const unexpectedKeys = getUnexpectedKeys(obj, "tag", ["attrs", "children"]);
@@ -293,7 +292,7 @@ function validateImageTag(
 	const imagePath = obj.image_path;
 	const kind = isString(obj.kind) ? obj.kind : undefined;
 	const attrs = validateXmlAttrs(obj.attrs, "Image", errors);
-	const children = validateChildren(obj.children, "Image", errors);
+	const children = validateChildren(obj.children, errors);
 
 	// Check for unexpected keys
 	const unexpectedKeys = getUnexpectedKeys(obj, "image_path", [
@@ -385,7 +384,7 @@ function validateFontTag(
 	}
 
 	const fonts: FontFace[] = [];
-	for (let i = 0; i < obj.fonts.length; i++) {
+	for (let i = 0, len = obj.fonts.length; i < len; i++) {
 		const font = validateFontFace(obj.fonts[i], errors);
 		if (font) {
 			fonts.push(font);
@@ -475,7 +474,7 @@ export function validateRootTag(value: UnvalidatedRootTag): RootTag {
 	const errors = createValidationErrorList();
 
 	const attrs = validateXmlAttrs(value.attrs, "Root", errors);
-	const children = validateChildren(value.children, "Root", errors);
+	const children = validateChildren(value.children, errors);
 
 	// Check for unexpected keys (root only accepts attrs and children)
 	const unexpectedKeys = Object.keys(value).filter(

@@ -51,7 +51,7 @@
 		let rootFolderName = null;
 
 		try {
-			for (let i = 0; i < items.length; i++) {
+			for (let i = 0, len = items.length; i < len; i++) {
 				const item = items[i];
 				console.log(`📋 Item ${i}: kind=${item.kind}, type=${item.type}`);
 				if (item.kind === "file") {
