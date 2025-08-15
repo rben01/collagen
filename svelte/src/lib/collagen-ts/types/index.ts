@@ -53,68 +53,6 @@ export function isBundledFont(font: FontFace): font is BundledFontFace {
 }
 
 // =============================================================================
-// Unvalidated Types (from JSON parsing)
-// =============================================================================
-
-/** Base unvalidated tag with common fields */
-interface UnvalidatedBaseTag {
-	attrs?: unknown;
-	children?: unknown;
-	[key: string]: unknown; // Allow extra properties for validation
-}
-
-/** Unvalidated generic SVG tag */
-export interface UnvalidatedGenericTag extends UnvalidatedBaseTag {
-	tag: string;
-}
-
-/** Unvalidated image tag */
-export interface UnvalidatedImageTag extends UnvalidatedBaseTag {
-	image_path: string;
-	kind?: string;
-}
-
-/** Unvalidated text tag */
-export interface UnvalidatedTextTag {
-	text: string;
-	is_preescaped?: boolean;
-	[key: string]: unknown;
-}
-
-/** Unvalidated container tag */
-export interface UnvalidatedContainerTag {
-	clgn_path: string;
-	[key: string]: unknown;
-}
-
-/** Unvalidated font tag */
-export interface UnvalidatedFontTag extends UnvalidatedBaseTag {
-	fonts: unknown; // Will be validated to FontFace[]
-}
-
-/** Unvalidated nested SVG tag */
-export interface UnvalidatedNestedSvgTag extends UnvalidatedBaseTag {
-	svg_path: string;
-}
-
-/** Union of all unvalidated child tag types */
-export type UnvalidatedAnyChildTag =
-	| UnvalidatedGenericTag
-	| UnvalidatedImageTag
-	| UnvalidatedTextTag
-	| UnvalidatedContainerTag
-	| UnvalidatedFontTag
-	| UnvalidatedNestedSvgTag
-	| string; // TextTag can be just a string
-
-/** Unvalidated root tag */
-export interface UnvalidatedRootTag {
-	attrs?: unknown;
-	children?: unknown;
-	[key: string]: unknown;
-}
-
-// =============================================================================
 // Validated Types (after processing)
 // =============================================================================
 
@@ -178,46 +116,6 @@ export interface RootTag {
 	type: "root";
 	attrs: XmlAttrs;
 	children: AnyChildTag[];
-}
-
-// =============================================================================
-// Type Discrimination Helpers
-// =============================================================================
-
-/** Get the primary key for a tag type (used for discrimination) */
-export function getPrimaryKey(tag: UnvalidatedAnyChildTag): string | null {
-	if (typeof tag === "string") return "text";
-	if (typeof tag !== "object" || tag === null) return null;
-
-	if ("tag" in tag) return "tag";
-	if ("image_path" in tag) return "image_path";
-	if ("text" in tag) return "text";
-	if ("clgn_path" in tag) return "clgn_path";
-	if ("fonts" in tag) return "fonts";
-	if ("svg_path" in tag) return "svg_path";
-
-	return null;
-}
-
-/** Get the tag type name from its discriminator */
-export function getTagTypeName(tag: UnvalidatedAnyChildTag): string | null {
-	const primaryKey = getPrimaryKey(tag);
-	switch (primaryKey) {
-		case "tag":
-			return "Generic";
-		case "image_path":
-			return "Image";
-		case "text":
-			return "Text";
-		case "clgn_path":
-			return "Container";
-		case "fonts":
-			return "Font";
-		case "svg_path":
-			return "NestedSvg";
-		default:
-			return null;
-	}
 }
 
 // =============================================================================

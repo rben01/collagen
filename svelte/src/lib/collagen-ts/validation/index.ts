@@ -8,11 +8,8 @@
 import type {
 	XmlAttrs,
 	FontFace,
-	UnvalidatedAnyChildTag,
-	UnvalidatedRootTag,
 	AnyChildTag,
 	RootTag,
-	ValidationErrorList,
 } from "../types/index.js";
 
 import {
@@ -72,18 +69,21 @@ function validateXmlAttrs(
 	}
 
 	const result: XmlAttrs = {};
-	for (const [key, val] of Object.entries(value)) {
-		if (isString(val) || isNumber(val)) {
-			result[key] = val;
-		} else {
-			errors.push(
-				new InvalidFieldTypeError(
-					tagType,
-					`attrs.${key}`,
-					"string or number",
-					typeof val,
-				),
-			);
+	for (const key in value) {
+		if (value.hasOwnProperty(key)) {
+			const val = value[key];
+			if (isString(val) || isNumber(val)) {
+				result[key] = val;
+			} else {
+				errors.push(
+					new InvalidFieldTypeError(
+						tagType,
+						`attrs.${key}`,
+						"string or number",
+						typeof val,
+					),
+				);
+			}
 		}
 	}
 
@@ -124,7 +124,13 @@ function getUnexpectedKeys(
 	allowedKeys: string[],
 ): string[] {
 	const allAllowedKeys = [primaryKey, ...allowedKeys];
-	return Object.keys(obj).filter(key => !allAllowedKeys.includes(key));
+	const unexpected: string[] = [];
+	for (const key in obj) {
+		if (obj.hasOwnProperty(key) && !allAllowedKeys.includes(key)) {
+			unexpected.push(key);
+		}
+	}
+	return unexpected;
 }
 
 // =============================================================================
@@ -225,18 +231,21 @@ function validateFontAttrs(
 	}
 
 	const result: Record<string, string | number> = {};
-	for (const [key, val] of Object.entries(value)) {
-		if (isString(val) || isNumber(val)) {
-			result[key] = val;
-		} else {
-			errors.push(
-				new InvalidFieldTypeError(
-					"FontFace",
-					`attrs.${key}`,
-					"string or number",
-					typeof val,
-				),
-			);
+	for (const key in value) {
+		if (value.hasOwnProperty(key)) {
+			const val = value[key];
+			if (isString(val) || isNumber(val)) {
+				result[key] = val;
+			} else {
+				errors.push(
+					new InvalidFieldTypeError(
+						"FontFace",
+						`attrs.${key}`,
+						"string or number",
+						typeof val,
+					),
+				);
+			}
 		}
 	}
 
@@ -252,6 +261,8 @@ function validateGenericTag(
 	obj: Record<string, unknown>,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
+	const initialErrorCount = errors.errors.length;
+
 	if (!isString(obj.tag)) {
 		errors.push(
 			new InvalidFieldTypeError("Generic", "tag", "string", typeof obj.tag),
@@ -269,6 +280,11 @@ function validateGenericTag(
 		errors.push(new UnexpectedKeysError("Generic", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "generic", tagName, attrs, children };
 }
 
@@ -277,6 +293,8 @@ function validateImageTag(
 	obj: Record<string, unknown>,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
+	const initialErrorCount = errors.errors.length;
+
 	if (!isString(obj.image_path)) {
 		errors.push(
 			new InvalidFieldTypeError(
@@ -304,6 +322,11 @@ function validateImageTag(
 		errors.push(new UnexpectedKeysError("Image", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "image", imagePath, kind, attrs, children };
 }
 
@@ -316,6 +339,8 @@ function validateTextTag(
 	if (isString(obj)) {
 		return { type: "text", text: obj, isPreescaped: false };
 	}
+
+	const initialErrorCount = errors.errors.length;
 
 	if (!isPlainObject(obj)) {
 		errors.push(new InvalidTypeError(obj));
@@ -340,6 +365,11 @@ function validateTextTag(
 		errors.push(new UnexpectedKeysError("Text", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "text", text, isPreescaped };
 }
 
@@ -348,6 +378,8 @@ function validateContainerTag(
 	obj: Record<string, unknown>,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
+	const initialErrorCount = errors.errors.length;
+
 	if (!isString(obj.clgn_path)) {
 		errors.push(
 			new InvalidFieldTypeError(
@@ -368,6 +400,11 @@ function validateContainerTag(
 		errors.push(new UnexpectedKeysError("Container", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "container", clgnPath };
 }
 
@@ -376,6 +413,8 @@ function validateFontTag(
 	obj: Record<string, unknown>,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
+	const initialErrorCount = errors.errors.length;
+
 	if (!isArray(obj.fonts)) {
 		errors.push(
 			new InvalidFieldTypeError("Font", "fonts", "array", typeof obj.fonts),
@@ -399,6 +438,11 @@ function validateFontTag(
 		errors.push(new UnexpectedKeysError("Font", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "font", fonts, attrs };
 }
 
@@ -407,6 +451,8 @@ function validateNestedSvgTag(
 	obj: Record<string, unknown>,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
+	const initialErrorCount = errors.errors.length;
+
 	if (!isString(obj.svg_path)) {
 		errors.push(
 			new InvalidFieldTypeError(
@@ -428,6 +474,11 @@ function validateNestedSvgTag(
 		errors.push(new UnexpectedKeysError("NestedSvg", unexpectedKeys));
 	}
 
+	// Return null if any errors were added during validation
+	if (errors.errors.length > initialErrorCount) {
+		return null;
+	}
+
 	return { type: "nested-svg", svgPath, attrs };
 }
 
@@ -437,7 +488,7 @@ function validateNestedSvgTag(
 
 /** Validate any child tag */
 export function validateAnyChildTag(
-	value: UnvalidatedAnyChildTag,
+	value: unknown,
 	errors: ValidationErrorListImpl,
 ): AnyChildTag | null {
 	// Handle string form (for TextTag)
@@ -470,16 +521,23 @@ export function validateAnyChildTag(
 }
 
 /** Validate root tag */
-export function validateRootTag(value: UnvalidatedRootTag): RootTag {
+export function validateRootTag(value: unknown): RootTag {
 	const errors = createValidationErrorList();
+
+	if (!isPlainObject(value)) {
+		throw new InvalidTypeError(value);
+	}
 
 	const attrs = validateXmlAttrs(value.attrs, "Root", errors);
 	const children = validateChildren(value.children, errors);
 
 	// Check for unexpected keys (root only accepts attrs and children)
-	const unexpectedKeys = Object.keys(value).filter(
-		key => !["attrs", "children"].includes(key),
-	);
+	const unexpectedKeys: string[] = [];
+	for (const key in value) {
+		if (value.hasOwnProperty(key) && !["attrs", "children"].includes(key)) {
+			unexpectedKeys.push(key);
+		}
+	}
 	if (unexpectedKeys.length > 0) {
 		errors.push(new UnexpectedKeysError("Root", unexpectedKeys));
 	}
