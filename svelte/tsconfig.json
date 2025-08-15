@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"esModuleInterop": false,
+		"skipLibCheck": false,
+		"forceConsistentCasingInFileNames": true,
+		"allowSyntheticDefaultImports": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"],
+			"@collagen/*": ["src/lib/collagen-ts/*"]
+		},
+		"lib": ["ES2020", "ESNext", "DOM", "DOM.Iterable"],
+		"noEmit": true,
+		"sourceMap": true
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist", "public"]
+}

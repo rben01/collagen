@@ -2,14 +2,13 @@
 	import { onMount } from "svelte";
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
+	import { generateSvgFromFiles, toCompatibleError } from "./lib/collagen-ts/index.js";
 
-	let wasm;
 	let sjsonnet;
 	let error = null;
 	let loading = false;
 	let svgOutput = null;
 	let filesData = null;
-	let wasmCorrupted = false; // Track if WASM module is corrupted
 
 	onMount(async () => {
 		await loadModules();
@@ -17,27 +16,16 @@
 
 	async function loadModules() {
 		try {
-			// Load both WASM and sjsonnet modules in parallel
-			const [wasmModule, sjsonnetModule] = await Promise.all([
-				import("../Cargo.toml"),
-				loadSjsonnet(),
-			]);
-
-			wasm = wasmModule;
+			// Load sjsonnet module
+			const sjsonnetModule = await loadSjsonnet();
 			sjsonnet = sjsonnetModule;
-			wasmCorrupted = false; // Reset corruption flag
-			console.log("WASM module loaded successfully");
-			console.log("sjsonnet module loaded successfully");
+			console.log("Modules loaded successfully");
 		} catch (err) {
 			console.error("Failed to load modules:", err);
 			error = "Failed to load modules: " + err.message;
 		}
 	}
 
-	function handleAutoReload() {
-		console.log("🔄 Auto-reloading page to recover from WASM corruption...");
-		window.location.reload();
-	}
 
 	async function loadSjsonnet() {
 		// Check if SjsonnetMain is already available
@@ -194,89 +182,25 @@
 		}
 	}
 
-	function getMemoryUsage() {
-		if (performance && performance.memory) {
-			const mem = performance.memory;
-			return {
-				used: (mem.usedJSHeapSize / 1024 / 1024).toFixed(1),
-				total: (mem.totalJSHeapSize / 1024 / 1024).toFixed(1),
-				limit: (mem.jsHeapSizeLimit / 1024 / 1024).toFixed(1),
-			};
-		}
-		return null;
-	}
 
 	async function handleFilesUploaded(event) {
 		console.log("🔄 Starting file processing...");
 		const { files, folderName } = event.detail;
 		console.log("📁 Files received:", Object.keys(files).length, "files");
 
-		// Log initial memory usage
-		const initialMemory = getMemoryUsage();
-		if (initialMemory) {
-			console.log(
-				`💾 Initial memory: ${initialMemory.used}MB used / ${initialMemory.total}MB allocated (limit: ${initialMemory.limit}MB)`,
-			);
-		}
+		await handleFilesWithTypeScript(files, folderName);
+	}
 
-		filesData = files;
-		svgOutput = null;
-		error = null;
-
-		// Check if WASM module is corrupted
-		if (wasmCorrupted) {
-			error = "WASM module is corrupted. Please reload the page to continue.";
-			console.log("❌ WASM module corrupted, upload blocked");
-			return;
-		}
-
-		if (!wasm || !sjsonnet) {
-			error = "Modules not loaded yet";
-			console.log("❌ Modules not loaded");
-			return;
-		}
-
+	async function handleFilesWithTypeScript(files, folderName) {
+		console.log("🔄 Processing files...");
+		
 		try {
 			loading = true;
-			console.log("🚀 Starting processing pipeline...");
+			filesData = files;
+			svgOutput = null;
+			error = null;
 
-			// Validate file sizes before processing
-			console.log("📊 Validating file sizes...");
-			const MAX_SINGLE_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-			const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
-			let totalSize = 0;
-
-			for (const [path, file] of Object.entries(files)) {
-				const fileSize = file.size;
-				totalSize += fileSize;
-				console.log(`📄 File: ${path} (${(fileSize / 1024).toFixed(1)}KB)`);
-
-				if (fileSize > MAX_SINGLE_FILE_SIZE) {
-					error = `File '${path}' is too large (${(fileSize / (1024 * 1024)).toFixed(1)}MB). Maximum file size is ${(MAX_SINGLE_FILE_SIZE / (1024 * 1024)).toFixed(1)}MB. Try using smaller images.`;
-					console.log("❌ File too large:", path);
-					loading = false;
-					return;
-				}
-			}
-
-			if (totalSize > MAX_TOTAL_SIZE) {
-				error = `Total file size is too large (${(totalSize / (1024 * 1024)).toFixed(1)}MB). Maximum total size is ${(MAX_TOTAL_SIZE / (1024 * 1024)).toFixed(1)}MB. Try uploading fewer files or using smaller images.`;
-				console.log(
-					"❌ Total size too large:",
-					(totalSize / (1024 * 1024)).toFixed(1),
-					"MB",
-				);
-				loading = false;
-				return;
-			}
-
-			console.log(
-				"✅ File size validation passed. Total:",
-				(totalSize / 1024).toFixed(1),
-				"KB",
-			);
-
-			// Convert FileList to Map for WASM
+			// Convert FileList to Map for TypeScript implementation
 			console.log("🗺️ Converting files to Map...");
 			const fileMap = new Map();
 			for (const [path, file] of Object.entries(files)) {
@@ -286,214 +210,30 @@
 			}
 			console.log("✅ File Map created with", fileMap.size, "entries");
 
-			// Check for manifest and handle jsonnet compilation first
+			// Check for manifest and handle jsonnet compilation if needed
 			console.log("🔍 Processing manifest...");
 			const manifestType = await processManifest(fileMap, folderName);
 			if (manifestType === "none") {
-				error =
-					"No manifest file found. Please include collagen.json or collagen.jsonnet";
+				error = "No manifest file found. Please include collagen.json or collagen.jsonnet";
 				console.log("❌ No manifest found");
-				loading = false;
 				return;
 			}
 			console.log("✅ Manifest processed, type:", manifestType);
 
-			console.log("📋 Final fileMap:", Array.from(fileMap.keys()));
+			// Generate SVG using TypeScript implementation
+			console.log("🎨 Generating SVG...");
+			svgOutput = await generateSvgFromFiles(fileMap, "json");
+			console.log("✅ SVG generated successfully! Length:", svgOutput.length);
 
-			// Create in-memory filesystem after manifest processing (when fileMap is finalized)
-			console.log("💾 Creating in-memory filesystem...");
-			const fsHandle = await wasm.createInMemoryFs(fileMap);
-			console.log(
-				"✅ In-memory filesystem created with",
-				fsHandle.getFileCount(),
-				"files",
-			);
-
-			// Don't clear fileMap yet - WASM may still need references to File objects
-			// We'll clear it after SVG generation completes
-
-			// Log memory usage after filesystem creation
-			const postFsMemory = getMemoryUsage();
-			if (postFsMemory) {
-				console.log(
-					`💾 Post-filesystem memory: ${postFsMemory.used}MB used / ${postFsMemory.total}MB allocated`,
-				);
-			}
-
-			// Validate fsHandle before using it
-			if (!fsHandle || !fsHandle.__wbg_ptr) {
-				throw new Error(
-					"Invalid WASM filesystem handle - may indicate memory corruption",
-				);
-			}
-
-			// Generate SVG using streaming approach to reduce memory usage
-			console.log("🎨 Generating SVG with streaming...");
-			let svgChunks = [];
-			let totalLength = 0;
-
-			try {
-				// Use streaming SVG generation to reduce memory usage
-				wasm.generateSvgStreaming(fsHandle, "json", chunk => {
-					svgChunks.push(chunk);
-					totalLength += chunk.length;
-					// Log progress for large files
-					if (totalLength % 10000 < chunk.length) {
-						console.log(
-							`📊 SVG streaming progress: ${(totalLength / 1024).toFixed(1)}KB`,
-						);
-					}
-				});
-
-				// Combine chunks efficiently
-				console.log(
-					`🔗 Combining ${svgChunks.length} SVG chunks (total: ${(totalLength / 1024).toFixed(1)}KB)...`,
-				);
-				svgOutput = svgChunks.join("");
-
-				// Clear chunks to free memory
-				svgChunks = null;
-
-				console.log("✅ SVG generated successfully! Length:", svgOutput.length);
-				console.log(
-					"🎯 Setting svgOutput, current value:",
-					svgOutput ? svgOutput.substring(0, 100) + "..." : "null",
-				);
-
-				// Now it's safe to clear fileMap - WASM no longer needs File object references
-				fileMap.clear();
-				console.log("🧹 Cleared JavaScript fileMap after successful SVG generation");
-
-				// Suggest garbage collection to free up memory
-				if (typeof window !== "undefined" && window.gc) {
-					window.gc();
-					console.log("🧹 Performed garbage collection");
-				}
-
-				// Log final memory usage
-				const finalMemory = getMemoryUsage();
-				if (finalMemory) {
-					console.log(
-						`💾 Final memory: ${finalMemory.used}MB used / ${finalMemory.total}MB allocated`,
-					);
-				}
-			} catch (streamingError) {
-				console.warn(
-					"⚠️ Streaming SVG generation failed, falling back to legacy method:",
-					streamingError,
-				);
-
-				// Validate fsHandle again before fallback method
-				if (!fsHandle || !fsHandle.__wbg_ptr) {
-					throw new Error(
-						"WASM filesystem handle corrupted during streaming - cannot use fallback method",
-					);
-				}
-
-				// Fallback to legacy non-streaming method
-				const svg = wasm.generateSvg(fsHandle, "json");
-				svgOutput = svg;
-				console.log(
-					"✅ SVG generated successfully (legacy method)! Length:",
-					svg.length,
-				);
-
-				// Clear fileMap after successful legacy generation too
-				fileMap.clear();
-				console.log(
-					"🧹 Cleared JavaScript fileMap after successful legacy SVG generation",
-				);
-			}
-
-			console.log("🎯 Loading state before finally:", loading);
 		} catch (err) {
 			console.error("Error processing files:", err);
-
-			// Provide better error messages with specific guidance
-			let errorMessage = "Error processing files: " + err.message;
-
-			// Detect common error types and provide specific guidance
-			if (err.message && typeof err.message === "string") {
-				// TODO: check for case insensitive regex instead of lowercasing the message
-				const msg = err.message.toLowerCase();
-
-				if (
-					msg.includes("out of bounds memory access") ||
-					msg.includes("memory corruption") ||
-					msg.includes("invalid wasm")
-				) {
-					// Mark WASM as corrupted - page reload required
-					wasmCorrupted = true;
-					errorMessage =
-						"❌ Memory corruption detected. The page needs to be reloaded.\n\n" +
-						"💡 This is a known issue that we've improved, but recovery requires a page refresh.\n" +
-						"Click the 'Reload Page' button below or refresh manually.\n\n" +
-						"To prevent this:\n" +
-						"• Try uploading files one at a time\n" +
-						"• Use smaller images\n\n" +
-						"Technical details: " +
-						err.message;
-				} else if (msg.includes("memory")) {
-					errorMessage =
-						"❌ Memory limit exceeded. This usually happens with large images or too many files.\n\n" +
-						"💡 Try these solutions:\n" +
-						"• Use smaller images (compress them before uploading)\n" +
-						"• Upload fewer files at once\n" +
-						"• Reduce image resolution\n" +
-						"• Use JPEG instead of PNG for photos\n\n" +
-						"Technical details: " +
-						err.message;
-				} else if (msg.includes("createinmemoryfs")) {
-					// WASM function calls failing could indicate corruption
-					wasmCorrupted = true;
-					errorMessage =
-						"❌ Failed to load files into memory. Page reload may be needed.\n\n" +
-						"💡 If this persists after reloading:\n" +
-						"• Use smaller images\n" +
-						"• Upload fewer files\n" +
-						"• Compress images before upload\n\n" +
-						"Technical details: " +
-						err.message;
-				} else if (msg.includes("generatesvg")) {
-					// WASM function calls failing could indicate corruption
-					wasmCorrupted = true;
-					errorMessage =
-						"❌ Failed to generate SVG output. Page reload may be needed.\n\n" +
-						"💡 If this persists after reloading:\n" +
-						"• Use smaller images\n" +
-						"• Reduce the number of images in your manifest\n" +
-						"• Simplify your SVG layout\n\n" +
-						"Technical details: " +
-						err.message;
-				} else if (msg.includes("jsonnet")) {
-					errorMessage =
-						"❌ Jsonnet compilation failed.\n\n" +
-						"💡 Check your jsonnet syntax:\n" +
-						"• Verify all imports exist\n" +
-						"• Check for syntax errors\n" +
-						"• Ensure all referenced files are included\n\n" +
-						"Technical details: " +
-						err.message;
-				}
-			}
-
-			error = errorMessage;
-
-			// Always clear fileMap in error cases to prevent memory leaks
-			if (typeof fileMap !== "undefined" && fileMap.size > 0) {
-				fileMap.clear();
-				console.log("🧹 Cleared JavaScript fileMap after error");
-			}
+			const compatError = toCompatibleError(err);
+			error = compatError.message;
 		} finally {
 			loading = false;
-			console.log("🏁 Finally block executed, loading set to false");
-			console.log(
-				"🎯 Final svgOutput state:",
-				svgOutput ? "has content" : "null/empty",
-			);
-			console.log("🎯 Final error state:", error || "no error");
 		}
 	}
+
 
 	function handleClearFiles() {
 		filesData = null;
@@ -510,14 +250,6 @@
 		<div class="error">
 			<strong>Error:</strong>
 			{error}
-
-			{#if wasmCorrupted}
-				<div class="error-actions">
-					<button class="reload-button" on:click={handleAutoReload}>
-						🔄 Reload Page
-					</button>
-				</div>
-			{/if}
 		</div>
 	{/if}
 
@@ -527,11 +259,12 @@
 		</div>
 	{/if}
 
+
 	<div class="upload-section">
 		<FileUploader
 			on:files-uploaded={handleFilesUploaded}
 			on:clear={handleClearFiles}
-			disabled={loading || !wasm || !sjsonnet || wasmCorrupted}
+			disabled={loading || !sjsonnet}
 		/>
 	</div>
 
@@ -652,37 +385,13 @@
 		margin-bottom: 1em;
 	}
 
-	.error-actions {
-		margin-top: 1em;
-		padding-top: 1em;
-		border-top: 1px solid #fecaca;
-	}
-
-	.reload-button {
-		background: #dc2626;
-		color: white;
-		border: none;
-		padding: 0.75em 1.5em;
-		border-radius: 0.375em;
-		font-weight: 600;
-		cursor: pointer;
-		font-size: 0.9em;
-		transition: background-color 0.2s;
-	}
-
-	.reload-button:hover {
-		background: #b91c1c;
-	}
-
-	.reload-button:active {
-		transform: translateY(1px);
-	}
 
 	.loading {
 		text-align: center;
 		padding: 2em;
 		color: #6b7280;
 	}
+
 
 	.upload-section {
 		margin-bottom: 2em;

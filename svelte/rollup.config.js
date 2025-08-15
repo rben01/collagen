@@ -5,6 +5,7 @@ import terser from "@rollup/plugin-terser";
 import resolve from "@rollup/plugin-node-resolve";
 import livereload from "rollup-plugin-livereload";
 import css from "rollup-plugin-css-only";
+import typescript from "@rollup/plugin-typescript";
 
 import rust from "@wasm-tool/rollup-plugin-rust";
 
@@ -39,8 +40,18 @@ export default {
 		dir: "public/build",
 	},
 	plugins: [
-		rust({
-			verbose: true,
+		// Temporarily disable WASM to focus on TypeScript implementation
+		// rust({
+		// 	verbose: true,
+		// }),
+		typescript({
+			sourceMap: true,
+			inlineSources: !production,
+			// Configure TypeScript to use the same output directory
+			outDir: "public/build",
+			// Don't emit declarations for this build
+			declaration: false,
+			declarationMap: false,
 		}),
 		svelte({
 			compilerOptions: {

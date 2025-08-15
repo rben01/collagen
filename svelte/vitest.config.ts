@@ -1,0 +1,16 @@
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['src/lib/collagen-ts/**/*.{test,spec}.{js,ts}'],
+    exclude: ['node_modules/**', 'src/lib/collagen-ts/**/*.d.ts'],
+  },
+  resolve: {
+    alias: {
+      '@': '/src',
+      '@collagen': '/src/lib/collagen-ts',
+    },
+  },
+});
