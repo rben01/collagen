@@ -293,7 +293,7 @@
 	main {
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: 2em;
+		padding: 2em 2em 8em 2em;
 		font-family:
 			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
