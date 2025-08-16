@@ -189,13 +189,6 @@
 	<h1>Collagen Web</h1>
 	<p>Generate SVG collages from JSON/Jsonnet manifests</p>
 
-	{#if error}
-		<div class="error">
-			<strong>Error:</strong>
-			{error}
-		</div>
-	{/if}
-
 	{#if loading}
 		<div class="loading">
 			<p>Processing files...</p>
@@ -207,6 +200,7 @@
 			{handleFilesUploaded}
 			{handleClearFiles}
 			disabled={loading || !sjsonnet}
+			externalError={error}
 		/>
 	</div>
 

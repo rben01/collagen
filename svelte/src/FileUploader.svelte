@@ -3,6 +3,7 @@
 		disabled = false,
 		handleFilesUploaded,
 		handleClearFiles,
+		externalError = null,
 	} = $props<{
 		disabled: boolean;
 		handleFilesUploaded: (
@@ -10,10 +11,13 @@
 			root: string,
 		) => Promise<void>;
 		handleClearFiles: () => void;
+		externalError?: string | null;
 	}>();
 
 	let dragOver = $state(false);
 	let files: Record<string, File> | null = $state(null);
+	let errorMessage = $state<string | null>(null);
+	let isFileUpload = $state(false); // Track if it's a single file vs folder
 
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
@@ -44,6 +48,16 @@
 
 	async function processFiles(items: DataTransferItemList) {
 		console.log("🔄 Processing files...");
+
+		// Clear any previous error
+		errorMessage = null;
+
+		// Check if multiple items were dropped
+		if (items.length > 1) {
+			errorMessage = "Please drop only one file or folder at a time.";
+			return;
+		}
+
 		const fileData = {};
 		let rootFolderName = null;
 
@@ -58,6 +72,26 @@
 						console.log(
 							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
 						);
+
+						// If it's a single file, validate its type
+						if (!entry.isDirectory) {
+							const validExtensions = [".json", ".jsonnet"];
+							const extension = entry.name
+								.toLowerCase()
+								.substring(entry.name.lastIndexOf("."));
+
+							if (!validExtensions.includes(extension)) {
+								errorMessage = `"${entry.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
+								return;
+							}
+
+							// Mark as file upload
+							isFileUpload = true;
+						} else {
+							// Mark as folder upload
+							isFileUpload = false;
+						}
+
 						// Capture root folder name from first directory entry
 						if (entry.isDirectory && rootFolderName === null) {
 							rootFolderName = entry.name;
@@ -83,12 +117,14 @@
 			handleFilesUploaded(cleanedFileData, rootFolderName);
 		} catch (error) {
 			console.error("❌ Error processing files:", error);
-			// You might want to dispatch an error event here
-			// dispatch('error', { message: error.message });
+			errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
 		}
 	}
 
 	function processFileList(fileList: FileList) {
+		// Clear any previous error since we're processing valid files
+		errorMessage = null;
+
 		const fileData: { [k: string]: File } = {};
 		let rootFolderName = null;
 
@@ -199,6 +235,8 @@
 
 	function handleClear() {
 		files = null;
+		errorMessage = null;
+		isFileUpload = false;
 		handleClearFiles();
 	}
 
@@ -229,19 +267,45 @@
 		return cleanedData;
 	}
 
+	function validateAndProcessFiles(fileList: FileList) {
+		const validExtensions = [".json", ".jsonnet"];
+
+		// Clear any previous error
+		errorMessage = null;
+
+		if (fileList.length !== 1) {
+			errorMessage = "Please select only one file at a time.";
+			return;
+		}
+
+		const file = fileList[0];
+		const extension = file.name
+			.toLowerCase()
+			.substring(file.name.lastIndexOf("."));
+
+		if (!validExtensions.includes(extension)) {
+			errorMessage = `"${file.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
+			return;
+		}
+
+		// File is valid, mark as file upload and process it
+		isFileUpload = true;
+		processFileList(fileList);
+	}
+
 	function openFolderPicker() {
 		if (disabled) return;
 
 		const input = document.createElement("input");
 		input.type = "file";
-		input.webkitdirectory = true;
-		input.multiple = true;
+		input.multiple = false;
+		input.webkitdirectory = false; // Allow individual files
 		input.style.display = "none";
 
 		input.addEventListener("change", e => {
 			const files = (e.target! as HTMLInputElement).files!;
 			if (files.length > 0) {
-				processFileList(files);
+				validateAndProcessFiles(files);
 			}
 			document.body.removeChild(input);
 		});
@@ -249,7 +313,22 @@
 		document.body.appendChild(input);
 		input.click();
 	}
+
+	function handleGlobalKeydown(event: KeyboardEvent) {
+		// Only trigger if no specific element is focused or if focus is on body
+		const activeElement = document.activeElement;
+		if (
+			(activeElement === document.body || activeElement === null) &&
+			(event.key === "o" || event.key === "O") &&
+			!disabled
+		) {
+			event.preventDefault();
+			openFolderPicker();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="uploader">
 	<div
@@ -259,32 +338,63 @@
 		ondrop={handleDrop}
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}
+		onclick={openFolderPicker}
+		role="button"
+		aria-label="File upload drop zone - drag and drop files, click to browse, or press Enter when focused"
+		title="Drop files here or click to browse (Enter when focused, O when nothing is focused)"
+		tabindex="0"
+		onkeydown={e =>
+			(e.key === "Enter" || e.key === " ") && !disabled
+				? (e.preventDefault(), openFolderPicker())
+				: null}
 	>
+		{#if errorMessage || externalError}
+			<div class="error-message">
+				<span class="error-icon">⚠️</span>
+				{errorMessage || externalError}
+			</div>
+		{/if}
+
 		{#if !files}
 			<div class="upload-content">
-				<div class="upload-icon">📁</div>
-				<h3>Upload Collagen Project Folder</h3>
+				<h3>Upload Collagen Project</h3>
 				<p>
-					Drag and drop a folder containing your collagen.json or
-					collagen.jsonnet manifest
+					Drag and drop a <code>collagen.json</code> or a
+					<code>collagen.jsonnet</code> manifest file, or a folder
+					containing one of those and any other resources. Or press O to
+					<em>open</em> the file/folder picker.
 				</p>
-				<button class="browse-btn" onclick={openFolderPicker} {disabled}>
-					Browse for Folder
+
+				<button
+					class="browse-btn"
+					onclick={e => {
+						e.stopPropagation();
+						openFolderPicker();
+					}}
+					onkeydown={e => {
+						if (e.key === "Enter" && !disabled) {
+							e.preventDefault();
+							e.stopPropagation();
+							openFolderPicker();
+						}
+					}}
+					title="Browse for file or folder (Enter to open when focused, O when nothing is focused)"
+					aria-label="Browse for file or folder - press Enter to open file picker"
+					{disabled}
+				>
+					Browse
 				</button>
-				<div class="supported-formats">
-					<small
-						>Supported: .json, .jsonnet, .png, .jpg, .svg, and more</small
-					>
-				</div>
 			</div>
 		{:else}
 			<div class="files-uploaded">
 				<div class="upload-success">
 					<span class="success-icon">✅</span>
-					<span>Folder uploaded successfully!</span>
+					<span
+						>{isFileUpload ? "File" : "Folder"} uploaded successfully!</span
+					>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
-					Upload Different Folder
+					Upload Another Project
 				</button>
 			</div>
 		{/if}
@@ -311,6 +421,13 @@
 		background: #eff6ff;
 	}
 
+	.drop-zone:focus {
+		outline: 2px solid #2563eb;
+		outline-offset: 2px;
+		border-color: #2563eb;
+		background: #eff6ff;
+	}
+
 	.drop-zone.drag-over {
 		border-color: #2563eb;
 		background: #dbeafe;
@@ -331,13 +448,32 @@
 
 	.upload-content p {
 		color: #6b7280;
+		margin: auto;
 		margin-bottom: 1.5em;
 		line-height: 1.5;
+		max-width: min(80%, 640px);
 	}
 
-	.upload-icon {
-		font-size: 3em;
-		margin-bottom: 0.5em;
+	.error-message {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		color: #dc2626;
+		padding: 0.75em 1em;
+		border-radius: 0.5em;
+		margin: 1em auto;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5em;
+		font-size: 0.9em;
+		line-height: 1.4;
+		width: fit-content;
+		max-width: calc(100% - 2em);
+	}
+
+	.error-icon {
+		font-size: 1.1em;
+		flex-shrink: 0;
 	}
 
 	.browse-btn {
@@ -359,11 +495,6 @@
 	.browse-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.supported-formats {
-		color: #9ca3af;
-		font-size: 0.9em;
 	}
 
 	.files-uploaded {
