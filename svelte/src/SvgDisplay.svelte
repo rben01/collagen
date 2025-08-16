@@ -489,8 +489,10 @@
 	}
 
 	.svg-container:focus {
-		outline: 2px solid #2563eb;
-		outline-offset: -2px;
+		outline: none;
+		box-shadow: 0 0 0 2px #2563eb;
+		margin: 2px;
+		width: calc(100% - 4px);
 	}
 
 	.sr-only {
