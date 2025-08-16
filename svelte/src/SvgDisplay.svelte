@@ -9,6 +9,7 @@
 	let lastMouseX = 0;
 	let lastMouseY = 0;
 	let svgContainer: HTMLElement;
+	let lastTouchDistance = 0;
 	let toasts: { id: number; message: string; type: string }[] = [];
 
 	function toggleRawSvg() {
@@ -57,10 +58,63 @@
 		scale = Math.max(scale / 1.2, 0.1);
 	}
 
-	function handleWheel(event: WheelEvent) {
-		event.preventDefault();
-		const delta = event.deltaY > 0 ? 0.9 : 1.1;
-		scale = Math.max(0.1, Math.min(5, scale * delta));
+	function getTouchDistance(touches: TouchList): number {
+		if (touches.length < 2) return 0;
+		const touch1 = touches[0];
+		const touch2 = touches[1];
+		const dx = touch1.clientX - touch2.clientX;
+		const dy = touch1.clientY - touch2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	function handleTouchStart(event: TouchEvent) {
+		if (event.touches.length === 2) {
+			event.preventDefault();
+			lastTouchDistance = getTouchDistance(event.touches);
+		} else if (event.touches.length === 1) {
+			// Single touch for panning
+			isDragging = true;
+			lastMouseX = event.touches[0].clientX;
+			lastMouseY = event.touches[0].clientY;
+			svgContainer.style.cursor = "grabbing";
+		}
+	}
+
+	function handleTouchMove(event: TouchEvent) {
+		if (event.touches.length === 2) {
+			// Pinch to zoom
+			event.preventDefault();
+			const currentDistance = getTouchDistance(event.touches);
+			if (lastTouchDistance > 0) {
+				const delta = currentDistance / lastTouchDistance;
+				scale = Math.max(0.1, Math.min(5, scale * delta));
+			}
+			lastTouchDistance = currentDistance;
+		} else if (event.touches.length === 1 && isDragging) {
+			// Single touch panning
+			event.preventDefault();
+			const deltaX = event.touches[0].clientX - lastMouseX;
+			const deltaY = event.touches[0].clientY - lastMouseY;
+
+			panX += deltaX;
+			panY += deltaY;
+
+			lastMouseX = event.touches[0].clientX;
+			lastMouseY = event.touches[0].clientY;
+		}
+	}
+
+	function handleTouchEnd(event: TouchEvent) {
+		if (event.touches.length === 0) {
+			isDragging = false;
+			lastTouchDistance = 0;
+			if (svgContainer) {
+				svgContainer.style.cursor = "grab";
+			}
+		} else if (event.touches.length === 1) {
+			// Reset touch distance when going from 2 touches to 1
+			lastTouchDistance = 0;
+		}
 	}
 
 	function handleMouseDown(event: MouseEvent) {
@@ -166,6 +220,8 @@
 		overflow: hidden;
 		background: white;
 		position: relative;
+		width: 80%;
+		margin: 0 auto;
 	}
 
 	.toast-container {
@@ -286,7 +342,6 @@
 	}
 
 	.svg-container {
-		height: 500px;
 		overflow: hidden;
 		position: relative;
 		background: radial-gradient(circle, #e5e7eb 1px, transparent 1px);
@@ -302,13 +357,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		min-height: 100%;
 		padding: 2em;
 	}
 
 	.svg-content :global(svg) {
 		max-width: 100%;
-		max-height: 100%;
+		height: auto;
 		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 		border-radius: 0.25em;
 		background: white;
@@ -342,10 +396,6 @@
 
 		.control-group {
 			justify-content: center;
-		}
-
-		.svg-container {
-			height: 300px;
 		}
 	}
 </style>
