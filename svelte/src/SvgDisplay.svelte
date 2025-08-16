@@ -167,12 +167,11 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		// Only handle if the svg container has focus
-		if (document.activeElement !== svgContainer) return;
-
 		const panAmount = 20;
 		let handled = false;
+		const hasSvgFocus = document.activeElement === svgContainer;
 
+		// Global shortcuts (work regardless of focus) - these correspond to buttons
 		switch (event.key) {
 			case "+":
 			case "=":
@@ -188,7 +187,8 @@
 				resetView();
 				handled = true;
 				break;
-			case " ":
+			case "v":
+			case "V":
 				toggleRawSvg();
 				handled = true;
 				break;
@@ -202,30 +202,36 @@
 				downloadSvg();
 				handled = true;
 				break;
-			case "ArrowUp":
-				if (event.shiftKey) {
-					panY -= panAmount;
-					handled = true;
-				}
-				break;
-			case "ArrowDown":
-				if (event.shiftKey) {
-					panY += panAmount;
-					handled = true;
-				}
-				break;
-			case "ArrowLeft":
-				if (event.shiftKey) {
-					panX -= panAmount;
-					handled = true;
-				}
-				break;
-			case "ArrowRight":
-				if (event.shiftKey) {
-					panX += panAmount;
-					handled = true;
-				}
-				break;
+		}
+
+		// Focus-required shortcuts (pan controls - no corresponding buttons)
+		if (hasSvgFocus && !handled) {
+			switch (event.key) {
+				case "ArrowUp":
+					if (event.shiftKey) {
+						panY -= panAmount;
+						handled = true;
+					}
+					break;
+				case "ArrowDown":
+					if (event.shiftKey) {
+						panY += panAmount;
+						handled = true;
+					}
+					break;
+				case "ArrowLeft":
+					if (event.shiftKey) {
+						panX -= panAmount;
+						handled = true;
+					}
+					break;
+				case "ArrowRight":
+					if (event.shiftKey) {
+						panX += panAmount;
+						handled = true;
+					}
+					break;
+			}
 		}
 
 		if (handled) {
@@ -277,8 +283,8 @@
 			<button
 				onclick={toggleRawSvg}
 				class:active={showRawSvg}
-				title="Toggle Code View (Keyboard: Space)"
-				aria-label="Toggle between preview and code view, keyboard shortcut spacebar"
+				title="Toggle Code View (Keyboard: V)"
+				aria-label="Toggle between preview and code view, keyboard shortcut V key"
 			>
 				{showRawSvg ? "Show Preview" : "Show SVG Code"}
 			</button>
@@ -325,8 +331,8 @@
 		<!-- Hidden description for screen readers -->
 		<div id="svg-controls-description" class="sr-only">
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
-			view, Shift+arrow keys to pan, Space to toggle code view, C to copy, S
-			to save. Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to
+			view (work globally), Shift+arrow keys to pan (when viewer is focused), V to toggle code view, C to copy, S
+			to save (work globally). Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to
 			zoom. Touch controls: Single finger to pan, pinch to zoom.
 		</div>
 	{/if}
