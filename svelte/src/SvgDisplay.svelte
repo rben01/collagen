@@ -117,6 +117,16 @@
 		}
 	}
 
+	function handleWheel(event: WheelEvent) {
+		// Only zoom if Ctrl is held (trackpad pinch) or if it's a Mac and Meta is held
+		if (event.ctrlKey || event.metaKey) {
+			event.preventDefault();
+			const delta = event.deltaY > 0 ? 0.9 : 1.1;
+			scale = Math.max(0.1, Math.min(5, scale * delta));
+		}
+		// Otherwise, let the scroll event pass through for normal page scrolling
+	}
+
 	function handleMouseDown(event: MouseEvent) {
 		isDragging = true;
 		lastMouseX = event.clientX;
@@ -155,9 +165,80 @@
 				showToast("Failed to copy SVG to clipboard", "error");
 			});
 	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		// Only handle if the svg container has focus
+		if (document.activeElement !== svgContainer) return;
+
+		const panAmount = 20;
+		let handled = false;
+
+		switch (event.key) {
+			case "+":
+			case "=":
+				zoomIn();
+				handled = true;
+				break;
+			case "-":
+			case "_":
+				zoomOut();
+				handled = true;
+				break;
+			case "0":
+				resetView();
+				handled = true;
+				break;
+			case " ":
+				toggleRawSvg();
+				handled = true;
+				break;
+			case "c":
+			case "C":
+				copyToClipboard();
+				handled = true;
+				break;
+			case "s":
+			case "S":
+				downloadSvg();
+				handled = true;
+				break;
+			case "ArrowUp":
+				if (event.shiftKey) {
+					panY -= panAmount;
+					handled = true;
+				}
+				break;
+			case "ArrowDown":
+				if (event.shiftKey) {
+					panY += panAmount;
+					handled = true;
+				}
+				break;
+			case "ArrowLeft":
+				if (event.shiftKey) {
+					panX -= panAmount;
+					handled = true;
+				}
+				break;
+			case "ArrowRight":
+				if (event.shiftKey) {
+					panX += panAmount;
+					handled = true;
+				}
+				break;
+		}
+
+		if (handled) {
+			event.preventDefault();
+		}
+	}
 </script>
 
-<svelte:window on:mousemove={handleMouseMove} on:mouseup={handleMouseUp} />
+<svelte:window
+	on:mousemove={handleMouseMove}
+	on:mouseup={handleMouseUp}
+	on:keydown={handleKeyDown}
+/>
 
 <div class="svg-display">
 	<!-- Toast notifications -->
@@ -165,7 +246,7 @@
 		{#each toasts as toast (toast.id)}
 			<div class="toast toast-{toast.type}" role="alert">
 				<span>{toast.message}</span>
-				<button class="toast-close" on:click={() => removeToast(toast.id)}
+				<button class="toast-close" onclick={() => removeToast(toast.id)}
 					>&times;</button
 				>
 			</div>
@@ -174,20 +255,44 @@
 
 	<div class="controls">
 		<div class="control-group">
-			<button on:click={zoomIn} title="Zoom In">🔍+</button>
-			<button on:click={zoomOut} title="Zoom Out">🔍−</button>
-			<button on:click={resetView} title="Reset View">🎯</button>
+			<button
+				onclick={zoomIn}
+				title="Zoom In (Keyboard: +)"
+				aria-label="Zoom in, keyboard shortcut plus key">🔍+</button
+			>
+			<button
+				onclick={zoomOut}
+				title="Zoom Out (Keyboard: -)"
+				aria-label="Zoom out, keyboard shortcut minus key">🔍−</button
+			>
+			<button
+				onclick={resetView}
+				title="Reset View (Keyboard: 0)"
+				aria-label="Reset view, keyboard shortcut zero key">🎯</button
+			>
 			<span class="zoom-level">{Math.round(scale * 100)}%</span>
 		</div>
 
 		<div class="control-group">
-			<button on:click={toggleRawSvg} class:active={showRawSvg}>
+			<button
+				onclick={toggleRawSvg}
+				class:active={showRawSvg}
+				title="Toggle Code View (Keyboard: Space)"
+				aria-label="Toggle between preview and code view, keyboard shortcut spacebar"
+			>
 				{showRawSvg ? "Show Preview" : "Show SVG Code"}
 			</button>
-			<button on:click={copyToClipboard} title="Copy SVG to Clipboard"
+			<button
+				onclick={copyToClipboard}
+				title="Copy SVG to Clipboard (Keyboard: C)"
+				aria-label="Copy SVG to clipboard, keyboard shortcut C key"
 				>📋</button
 			>
-			<button on:click={downloadSvg} title="Download SVG">💾</button>
+			<button
+				onclick={downloadSvg}
+				title="Download SVG (Keyboard: S)"
+				aria-label="Download SVG file, keyboard shortcut S key">💾</button
+			>
 		</div>
 	</div>
 
@@ -196,19 +301,33 @@
 			<pre><code>{svg}</code></pre>
 		</div>
 	{:else}
-		<div
+		<button
 			class="svg-container"
 			bind:this={svgContainer}
-			on:wheel={handleWheel}
-			on:mousedown={handleMouseDown}
+			onmousedown={handleMouseDown}
+			onwheel={handleWheel}
+			ontouchstart={handleTouchStart}
+			ontouchmove={handleTouchMove}
+			ontouchend={handleTouchEnd}
 			style="cursor: grab;"
+			aria-label="Interactive SVG viewer"
+			aria-describedby="svg-controls-description"
 		>
 			<div
 				class="svg-content"
 				style="transform: translate({panX}px, {panY}px) scale({scale});"
 			>
+				<!-- can this be used maliciously? any way for untrusted input to get in there? -->
 				{@html svg}
 			</div>
+		</button>
+
+		<!-- Hidden description for screen readers -->
+		<div id="svg-controls-description" class="sr-only">
+			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
+			view, Shift+arrow keys to pan, Space to toggle code view, C to copy, S
+			to save. Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to
+			zoom. Touch controls: Single finger to pan, pinch to zoom.
 		</div>
 	{/if}
 </div>
@@ -327,10 +446,24 @@
 		border-color: #9ca3af;
 	}
 
+	.controls button:focus {
+		outline: 2px solid #2563eb;
+		outline-offset: 2px;
+		background: #f3f4f6;
+		border-color: #2563eb;
+	}
+
 	.controls button.active {
 		background: #2563eb;
 		border-color: #2563eb;
 		color: white;
+	}
+
+	.controls button.active:focus {
+		outline: 2px solid #1d4ed8;
+		outline-offset: 2px;
+		background: #1d4ed8;
+		border-color: #1d4ed8;
 	}
 
 	.zoom-level {
@@ -349,6 +482,27 @@
 		background-position:
 			0 0,
 			10px 10px;
+		border: none;
+		padding: 0;
+		width: 100%;
+		font-family: inherit;
+	}
+
+	.svg-container:focus {
+		outline: 2px solid #2563eb;
+		outline-offset: -2px;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 
 	.svg-content {
