@@ -8,6 +8,8 @@
 		"skipLibCheck": false,
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
 		"noImplicitAny": true,
 		"baseUrl": ".",
 		"paths": { "@/*": ["src/*"], "@collagen/*": ["src/lib/collagen-ts/*"] },
@@ -15,6 +17,6 @@
 		"noEmit": true,
 		"sourceMap": true
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "public/sjsonnet.js"],
 	"exclude": ["node_modules", "dist", "public"]
 }

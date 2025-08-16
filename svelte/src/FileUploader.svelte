@@ -1,14 +1,21 @@
-<script>
-	import { createEventDispatcher } from "svelte";
+<script lang="ts">
+	let {
+		disabled = false,
+		handleFilesUploaded,
+		handleClearFiles,
+	} = $props<{
+		disabled: boolean;
+		handleFilesUploaded: (
+			files: Record<string, File>,
+			root: string,
+		) => Promise<void>;
+		handleClearFiles: () => void;
+	}>();
 
-	export let disabled = false;
+	let dragOver = $state(false);
+	let files: Record<string, File> | null = $state(null);
 
-	const dispatch = createEventDispatcher();
-
-	let dragOver = false;
-	let files = null;
-
-	function handleDrop(event) {
+	function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		dragOver = false;
 
@@ -19,12 +26,12 @@
 			return;
 		}
 
-		const items = event.dataTransfer.items;
+		const items = event.dataTransfer!.items;
 		console.log("📁 Items in drop:", items.length);
 		processFiles(items);
 	}
 
-	function handleDragOver(event) {
+	function handleDragOver(event: DragEvent) {
 		event.preventDefault();
 		if (!disabled) {
 			dragOver = true;
@@ -35,17 +42,7 @@
 		dragOver = false;
 	}
 
-	function handleFileInput(event) {
-		if (disabled) return;
-
-		const fileInput = event.target;
-		if (fileInput.files.length > 0) {
-			const files = Array.from(fileInput.files);
-			processFileList(files);
-		}
-	}
-
-	async function processFiles(items) {
+	async function processFiles(items: DataTransferItemList) {
 		console.log("🔄 Processing files...");
 		const fileData = {};
 		let rootFolderName = null;
@@ -54,6 +51,7 @@
 			for (let i = 0, len = items.length; i < len; i++) {
 				const item = items[i];
 				console.log(`📋 Item ${i}: kind=${item.kind}, type=${item.type}`);
+				// meaning we dragged a file, not some text
 				if (item.kind === "file") {
 					const entry = item.webkitGetAsEntry();
 					if (entry) {
@@ -65,7 +63,7 @@
 							rootFolderName = entry.name;
 							console.log("📁 Root folder detected:", rootFolderName);
 						}
-						await processEntry(entry, "", fileData, rootFolderName);
+						await processEntry(entry, "", fileData, rootFolderName!);
 					}
 				}
 			}
@@ -74,7 +72,7 @@
 			console.log("📂 Root folder name:", rootFolderName);
 
 			// Strip root folder prefix from all paths if we detected one
-			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName);
+			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
 
 			console.log(
 				"✨ Cleaned file data keys:",
@@ -82,10 +80,7 @@
 			);
 
 			files = cleanedFileData;
-			dispatch("files-uploaded", {
-				files: cleanedFileData,
-				folderName: rootFolderName,
-			});
+			handleFilesUploaded(cleanedFileData, rootFolderName);
 		} catch (error) {
 			console.error("❌ Error processing files:", error);
 			// You might want to dispatch an error event here
@@ -93,8 +88,8 @@
 		}
 	}
 
-	function processFileList(fileList) {
-		const fileData = {};
+	function processFileList(fileList: FileList) {
+		const fileData: { [k: string]: File } = {};
 		let rootFolderName = null;
 
 		for (const file of fileList) {
@@ -113,25 +108,28 @@
 		}
 
 		// Strip root folder prefix from all paths if we detected one
-		const cleanedFileData = stripFolderPrefix(fileData, rootFolderName);
+		const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
 
 		files = cleanedFileData;
-		dispatch("files-uploaded", {
-			files: cleanedFileData,
-			folderName: rootFolderName,
-		});
+		handleFilesUploaded(cleanedFileData, rootFolderName);
 	}
 
-	function processEntry(entry, path, fileData, rootFolderName = null) {
-		return new Promise((resolve, reject) => {
+	function processEntry(
+		entry: FileSystemEntry,
+		path: string,
+		fileData: Record<string, File>,
+		rootFolderName: string | null = null,
+	) {
+		return new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(() => {
 				console.error("⏰ Timeout processing entry:", entry.name);
 				reject(new Error(`Timeout processing entry: ${entry.name}`));
 			}, 30000); // 30 second timeout
 
 			if (entry.isFile) {
+				let entryFile = entry as FileSystemFileEntry;
 				console.log(`📄 Processing file: ${entry.name}`);
-				entry.file(
+				entryFile.file(
 					file => {
 						const fullPath = path ? `${path}/${entry.name}` : entry.name;
 						console.log(
@@ -148,8 +146,9 @@
 					},
 				);
 			} else if (entry.isDirectory) {
+				let entryDirectory = entry as FileSystemDirectoryEntry;
 				console.log(`📁 Processing directory: ${entry.name}`);
-				const reader = entry.createReader();
+				const reader = entryDirectory.createReader();
 				reader.readEntries(
 					entries => {
 						console.log(
@@ -200,15 +199,18 @@
 
 	function handleClear() {
 		files = null;
-		dispatch("clear");
+		handleClearFiles();
 	}
 
-	function stripFolderPrefix(fileData, rootFolderName) {
+	function stripFolderPrefix(
+		fileData: Record<string, File>,
+		rootFolderName: string,
+	) {
 		if (!rootFolderName) {
 			return fileData;
 		}
 
-		const cleanedData = {};
+		const cleanedData: Record<string, File> = {};
 		const prefix = rootFolderName + "/";
 
 		for (const [path, file] of Object.entries(fileData)) {
@@ -237,8 +239,8 @@
 		input.style.display = "none";
 
 		input.addEventListener("change", e => {
-			if (e.target.files.length > 0) {
-				const files = Array.from(e.target.files);
+			const files = (e.target! as HTMLInputElement).files!;
+			if (files.length > 0) {
 				processFileList(files);
 			}
 			document.body.removeChild(input);
@@ -254,9 +256,9 @@
 		class="drop-zone"
 		class:drag-over={dragOver}
 		class:disabled
-		on:drop={handleDrop}
-		on:dragover={handleDragOver}
-		on:dragleave={handleDragLeave}
+		ondrop={handleDrop}
+		ondragover={handleDragOver}
+		ondragleave={handleDragLeave}
 	>
 		{#if !files}
 			<div class="upload-content">
@@ -266,7 +268,7 @@
 					Drag and drop a folder containing your collagen.json or
 					collagen.jsonnet manifest
 				</p>
-				<button class="browse-btn" on:click={openFolderPicker} {disabled}>
+				<button class="browse-btn" onclick={openFolderPicker} {disabled}>
 					Browse for Folder
 				</button>
 				<div class="supported-formats">
@@ -281,7 +283,7 @@
 					<span class="success-icon">✅</span>
 					<span>Folder uploaded successfully!</span>
 				</div>
-				<button class="clear-btn" on:click={handleClear}>
+				<button class="clear-btn" onclick={handleClear}>
 					Upload Different Folder
 				</button>
 			</div>

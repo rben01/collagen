@@ -1,17 +1,21 @@
-<script>
+<script lang="ts">
 	import { onMount } from "svelte";
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import {
-		generateSvgFromFiles,
+		createFileSystem,
+		validateDocument,
+		generateSvg,
 		toCompatibleError,
 	} from "./lib/collagen-ts/index.js";
+	import { loadSjsonnet } from "./lib/collagen-ts/jsonnet/index";
+	import { SjsonnetMain } from "./lib/collagen-ts/jsonnet/types";
 
-	let sjsonnet;
-	let error = null;
+	let sjsonnet: SjsonnetMain;
+	let error: string | null = null;
 	let loading = false;
-	let svgOutput = null;
-	let filesData = null;
+	let svgOutput: string | null = null;
+	let filesData: Record<string, { size: number }> | null = null;
 
 	onMount(async () => {
 		await loadModules();
@@ -25,133 +29,29 @@
 			console.log("Modules loaded successfully");
 		} catch (err) {
 			console.error("Failed to load modules:", err);
-			error = "Failed to load modules: " + err.message;
+			error =
+				"Failed to load modules: " +
+				(err instanceof Error ? err.message : String(err));
 		}
 	}
 
-	async function loadSjsonnet() {
-		// Check if SjsonnetMain is already available
-		if (
-			typeof window !== "undefined" &&
-			typeof window.SjsonnetMain !== "undefined"
-		) {
-			return window.SjsonnetMain;
-		}
-
-		// Load sjsonnet.js as a script tag since it's not a module
-		return new Promise((resolve, reject) => {
-			// Check if the script is already loading or loaded
-			const existingScript = document.querySelector(
-				'script[src="/sjsonnet.js"]',
-			);
-			if (existingScript) {
-				// Script is already in DOM, wait for it or use existing SjsonnetMain
-				if (typeof window.SjsonnetMain !== "undefined") {
-					resolve(window.SjsonnetMain);
-					return;
-				}
-				// Wait for existing script to load
-				existingScript.addEventListener("load", () => {
-					if (typeof window.SjsonnetMain !== "undefined") {
-						resolve(window.SjsonnetMain);
-					} else {
-						reject(new Error("SjsonnetMain not found after script load"));
-					}
-				});
-				return;
-			}
-
-			// Set up exports object before loading sjsonnet.js
-			if (typeof window.exports === "undefined") {
-				window.exports = {};
-			}
-
-			const script = document.createElement("script");
-			script.src = "/sjsonnet.js";
-			script.onload = () => {
-				// Add a small delay to ensure the script has fully executed
-				setTimeout(() => {
-					console.log("sjsonnet.js loaded, checking for SjsonnetMain...");
-
-					// Check multiple possible locations for SjsonnetMain
-					let sjsonnetMain = null;
-
-					if (typeof window.SjsonnetMain !== "undefined") {
-						sjsonnetMain = window.SjsonnetMain;
-						console.log(
-							"Found SjsonnetMain on window:",
-							typeof sjsonnetMain,
-						);
-					} else if (
-						typeof window.exports !== "undefined" &&
-						window.exports.SjsonnetMain
-					) {
-						sjsonnetMain = window.exports.SjsonnetMain;
-						console.log(
-							"Found SjsonnetMain on window.exports:",
-							typeof sjsonnetMain,
-						);
-					} else if (
-						typeof exports !== "undefined" &&
-						exports.SjsonnetMain
-					) {
-						sjsonnetMain = exports.SjsonnetMain;
-						console.log(
-							"Found SjsonnetMain on exports:",
-							typeof sjsonnetMain,
-						);
-					} else {
-						// Check for global variables that might be SjsonnetMain
-						const globals = Object.keys(window).filter(
-							k => k.includes("jsonnet") || k.includes("Sjsonnet"),
-						);
-						console.log("Available globals with jsonnet:", globals);
-
-						// Also check for any variable that might be the main Sjsonnet object
-						for (const key of Object.keys(window)) {
-							const value = window[key];
-							if (
-								value &&
-								typeof value === "object" &&
-								typeof value.interpret === "function"
-							) {
-								sjsonnetMain = value;
-								console.log(
-									"Found potential SjsonnetMain via interpret method:",
-									key,
-								);
-								break;
-							}
-						}
-					}
-
-					if (sjsonnetMain) {
-						resolve(sjsonnetMain);
-					} else {
-						reject(new Error("SjsonnetMain not found after script load"));
-					}
-				}, 100);
-			};
-			script.onerror = () => reject(new Error("Failed to load sjsonnet.js"));
-			document.head.appendChild(script);
-		});
-	}
-
-	async function processManifest(fileMap, folderName) {
+	async function processManifest(fileMap: Map<string, File>) {
 		// Check for jsonnet manifest first (with leading slash)
 		const jsonnetPath = "/collagen.jsonnet";
 		const jsonPath = "/collagen.json";
 
-		if (fileMap.has(jsonnetPath)) {
-			console.log("Found jsonnet manifest, compiling to JSON...");
-
-			try {
-				// Read the jsonnet file
-				const jsonnetFile = fileMap.get(jsonnetPath);
+		try {
+			// Check for jsonnet first
+			const jsonnetFile = fileMap.get(jsonnetPath);
+			if (jsonnetFile !== undefined) {
+				console.log("Found jsonnet manifest, compiling to JSON...");
 				const jsonnetContent = await jsonnetFile.text();
 
 				// Compile jsonnet to JSON using sjsonnet
-				const importCallback = (workingDir, importedPath) => {
+				const importCallback = (
+					_workingDir: string,
+					importedPath: string,
+				): { foundHere: string; content: string } | null => {
 					// Handle imports by looking up files in our fileMap
 					let resolvedPath = importedPath.startsWith("./")
 						? importedPath.substring(2)
@@ -162,59 +62,75 @@
 						resolvedPath = "/" + resolvedPath;
 					}
 
-					if (fileMap.has(resolvedPath)) {
-						return fileMap.get(resolvedPath).text();
+					const resolvedFile = fileMap.get(resolvedPath);
+					if (resolvedFile === undefined) {
+						return null;
 					}
 
-					// If not found, return null (will cause import error)
+					// We need to handle this synchronously, but File.text() is async
+					// For now, return null for imports - this may need a different approach
+					// TODO: Consider pre-loading all file contents or using a different strategy
+					console.warn(
+						"Import callback not fully implemented for file:",
+						resolvedPath,
+					);
 					return null;
 				};
 
-				// TODO: it's wasteful to serialize to JSON just to get the data over to
-				// Rust just to deserialize again. Can we pass a JS object straight to Rust?
-				const compiledJson = JSON.stringify(
-					sjsonnet.interpret(
-						jsonnetContent,
-						{}, // ext vars
-						{}, // tla vars
-						jsonnetPath,
-						importCallback,
-					),
+				const compiledManifest: any = sjsonnet.interpret(
+					jsonnetContent,
+					{}, // ext vars
+					{}, // tla vars
+					jsonnetPath,
+					importCallback,
 				);
 
-				// Create a new JSON file and add it to the fileMap
-				const jsonBlob = new Blob([compiledJson], {
-					type: "application/json",
-				});
-				const jsonFile = new File([jsonBlob], "collagen.json", {
-					type: "application/json",
-				});
-				fileMap.set(jsonPath, jsonFile);
-				fileMap.delete(jsonnetPath);
-
-				console.log("Successfully compiled jsonnet to JSON");
-				return "json"; // We now have a JSON manifest
-			} catch (err) {
-				console.error("Failed to compile jsonnet:", err);
-				throw new Error(`Jsonnet compilation failed: ${err.message}`);
+				return { data: compiledManifest, format: "jsonnet" as const };
 			}
-		} else if (fileMap.has(jsonPath)) {
-			console.log("Found JSON manifest");
-			return "json";
-		} else {
-			return "none";
+
+			// Check for JSON manifest
+			const jsonFile = fileMap.get(jsonPath);
+			if (jsonFile !== undefined) {
+				console.log("Found JSON manifest");
+				const jsonContent = await jsonFile.text();
+				const parsedManifest = JSON.parse(jsonContent);
+				return { data: parsedManifest, format: "json" as const };
+			}
+
+			return null;
+		} catch (err) {
+			console.error("Failed to process manifest:", err);
+			throw new Error(
+				`Manifest processing failed: ${err instanceof Error ? err.message : String(err)}`,
+			);
 		}
 	}
 
-	async function handleFilesUploaded(event) {
-		console.log("🔄 Starting file processing...");
-		const { files, folderName } = event.detail;
-		console.log("📁 Files received:", Object.keys(files).length, "files");
+	async function generateSvgFromManifestData(
+		fileMap: Map<string, File>,
+		manifestData: unknown,
+	): Promise<string> {
+		// Create filesystem from fileMap
+		const filesystem = createFileSystem(fileMap);
 
-		await handleFilesWithTypeScript(files, folderName);
+		// Validate the manifest data to create typed structure
+		const rootTag = validateDocument(manifestData);
+
+		// Generate SVG from the validated root tag
+		return await generateSvg(rootTag, filesystem);
 	}
 
-	async function handleFilesWithTypeScript(files, folderName) {
+	async function handleFilesUploaded(files: Record<string, File>) {
+		console.log("🔄 Starting file processing...");
+
+		console.log("📁 Files received:", Object.keys(files).length, "files");
+
+		await handleFilesWithTypeScript(files);
+	}
+
+	async function handleFilesWithTypeScript(
+		files: Record<string, { size: number }>,
+	) {
 		console.log("🔄 Processing files...");
 
 		try {
@@ -235,22 +151,24 @@
 
 			// Check for manifest and handle jsonnet compilation if needed
 			console.log("🔍 Processing manifest...");
-			const manifestType = await processManifest(fileMap, folderName);
-			if (manifestType === "none") {
+			const manifestResult = await processManifest(fileMap);
+			if (manifestResult === null) {
 				error =
 					"No manifest file found. Please include collagen.json or collagen.jsonnet";
 				console.log("❌ No manifest found");
 				return;
 			}
-			console.log("✅ Manifest processed, type:", manifestType);
+			console.log("✅ Manifest processed, format:", manifestResult.format);
 
-			// Generate SVG using TypeScript implementation
+			// Generate SVG using the processed manifest data
 			console.log("🎨 Generating SVG...");
-			svgOutput = await generateSvgFromFiles(fileMap, "json");
-			console.log(
-				"✅ SVG generated successfully! Length:",
-				svgOutput.length,
-			);
+			svgOutput = await generateSvgFromManifestData(fileMap, manifestResult.data);
+			if (svgOutput) {
+				console.log(
+					"✅ SVG generated successfully! Length:",
+					svgOutput.length,
+				);
+			}
 		} catch (err) {
 			console.error("Error processing files:", err);
 			const compatError = toCompatibleError(err);
@@ -286,8 +204,8 @@
 
 	<div class="upload-section">
 		<FileUploader
-			on:files-uploaded={handleFilesUploaded}
-			on:clear={handleClearFiles}
+			{handleFilesUploaded}
+			{handleClearFiles}
 			disabled={loading || !sjsonnet}
 		/>
 	</div>

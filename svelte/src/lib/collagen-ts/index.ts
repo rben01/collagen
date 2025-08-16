@@ -71,8 +71,8 @@ export async function parseManifest(
  * Check what manifest formats are available in a filesystem
  */
 export function getSupportedFormats(): ManifestFormat[] {
-	// For now, only JSON is supported (Jsonnet requires additional compilation)
-	return ["json"];
+	// Both JSON and Jsonnet are now supported
+	return ["json", "jsonnet"];
 }
 
 /**
@@ -145,6 +145,15 @@ export {
 
 // Export errors
 export * from "./errors/index.js";
+
+// Export Jsonnet utilities
+export { 
+	compileJsonnet, 
+	compileJsonnetFromFile, 
+	isSjsonnetAvailable, 
+	getSjsonnetInfo 
+} from "./jsonnet/index.js";
+export type { JsonnetConfig, JsonnetResult } from "./jsonnet/types.js";
 
 // =============================================================================
 // Compatibility Layer

@@ -12,7 +12,6 @@ import {
 	FileReadError,
 	MissingManifestError,
 	JsonError,
-	JsonnetError,
 } from "../errors/index.js";
 
 // =============================================================================
@@ -290,10 +289,9 @@ export async function loadManifest(
 		if (manifestFormat === "json") {
 			return JSON.parse(text);
 		} else {
-			throw new JsonnetError(
-				manifestPath,
-				"Jsonnet compilation not yet implemented in TypeScript",
-			);
+			// Handle Jsonnet compilation
+			const { compileJsonnetFromFile } = await import("../jsonnet/index.js");
+			return await compileJsonnetFromFile(fs, manifestPath);
 		}
 	} catch (error) {
 		if (error instanceof SyntaxError) {

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jsonnet Test - Collagen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        .error {
+            background: #fee;
+            color: #c00;
+        }
+        .success {
+            background: #efe;
+            color: #060;
+        }
+        svg {
+            border: 1px solid #ccc;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jsonnet Support Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Basic Jsonnet Compilation</h2>
+        <p>Testing simple Jsonnet to SVG generation...</p>
+        <div id="test1-result" class="result">Running test...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Jsonnet Pinwheel Example</h2>
+        <p>Testing complex Jsonnet with loops and math...</p>
+        <div id="test2-result" class="result">Running test...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Error Handling</h2>
+        <p>Testing invalid Jsonnet syntax...</p>
+        <div id="test3-result" class="result">Running test...</div>
+    </div>
+
+    <script type="module">
+        import { generateSvgFromFiles, isSjsonnetAvailable, getSjsonnetInfo } from './build/main.js';
+
+        async function createTestFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            return new File([blob], filename);
+        }
+
+        async function runTest1() {
+            const resultDiv = document.getElementById('test1-result');
+            try {
+                const simpleJsonnet = `{
+                    attrs: { viewBox: "0 0 100 100" },
+                    children: [
+                        {
+                            tag: "circle",
+                            attrs: {
+                                cx: 50,
+                                cy: 50,
+                                r: 20,
+                                fill: "blue"
+                            }
+                        }
+                    ]
+                }`;
+
+                const files = new Map([
+                    ['collagen.jsonnet', await createTestFile(simpleJsonnet, 'collagen.jsonnet')]
+                ]);
+
+                const svg = await generateSvgFromFiles(files);
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>✅ Success!</strong><br>
+                    Generated SVG:<br>
+                    <code>${svg.substring(0, 200)}...</code><br>
+                    <div style="margin-top: 10px;">${svg}</div>
+                `;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function runTest2() {
+            const resultDiv = document.getElementById('test2-result');
+            try {
+                // Fetch the test jsonnet file
+                const response = await fetch('./test-jsonnet/collagen.jsonnet');
+                const jsonnetContent = await response.text();
+
+                const files = new Map([
+                    ['collagen.jsonnet', await createTestFile(jsonnetContent, 'collagen.jsonnet')]
+                ]);
+
+                const svg = await generateSvgFromFiles(files);
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <strong>✅ Success!</strong><br>
+                    Generated Pinwheel SVG:<br>
+                    <div style="margin-top: 10px;">${svg}</div>
+                `;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            }
+        }
+
+        async function runTest3() {
+            const resultDiv = document.getElementById('test3-result');
+            try {
+                const invalidJsonnet = `{
+                    attrs: { viewBox: "0 0 100 100" },
+                    children: [
+                        syntax error here
+                    ]
+                }`;
+
+                const files = new Map([
+                    ['collagen.jsonnet', await createTestFile(invalidJsonnet, 'collagen.jsonnet')]
+                ]);
+
+                const svg = await generateSvgFromFiles(files);
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>❌ Expected error but got success:</strong> ${svg.substring(0, 100)}...`;
+            } catch (error) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `<strong>✅ Correctly caught error:</strong> ${error.message}`;
+            }
+        }
+
+        // Check sjsonnet availability first
+        async function checkAvailability() {
+            const available = await isSjsonnetAvailable();
+            const info = await getSjsonnetInfo();
+            
+            console.log('Sjsonnet available:', available);
+            console.log('Sjsonnet info:', info);
+            
+            if (!available) {
+                document.body.innerHTML = `
+                    <h1>❌ Jsonnet Not Available</h1>
+                    <p>sjsonnet.js could not be loaded. Error: ${info.error}</p>
+                `;
+                return false;
+            }
+            return true;
+        }
+
+        // Run tests
+        async function runAllTests() {
+            if (await checkAvailability()) {
+                await runTest1();
+                await runTest2();
+                await runTest3();
+            }
+        }
+
+        runAllTests().catch(console.error);
+    </script>
+</body>
+</html>

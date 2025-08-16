@@ -1,5 +1,5 @@
-<script>
-	export let svg;
+<script lang="ts">
+	export let svg: string;
 
 	let showRawSvg = false;
 	let scale = 1;
@@ -8,14 +8,14 @@
 	let isDragging = false;
 	let lastMouseX = 0;
 	let lastMouseY = 0;
-	let svgContainer;
-	let toasts = [];
+	let svgContainer: HTMLElement;
+	let toasts: { id: number; message: string; type: string }[] = [];
 
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
 	}
 
-	function showToast(message, type = "success") {
+	function showToast(message: string, type = "success") {
 		const id = Date.now();
 		const toast = { id, message, type };
 		toasts = [...toasts, toast];
@@ -26,7 +26,7 @@
 		}, 3000);
 	}
 
-	function removeToast(id) {
+	function removeToast(id: number) {
 		toasts = toasts.filter(t => t.id !== id);
 	}
 
@@ -57,20 +57,20 @@
 		scale = Math.max(scale / 1.2, 0.1);
 	}
 
-	function handleWheel(event) {
+	function handleWheel(event: WheelEvent) {
 		event.preventDefault();
 		const delta = event.deltaY > 0 ? 0.9 : 1.1;
 		scale = Math.max(0.1, Math.min(5, scale * delta));
 	}
 
-	function handleMouseDown(event) {
+	function handleMouseDown(event: MouseEvent) {
 		isDragging = true;
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
 		svgContainer.style.cursor = "grabbing";
 	}
 
-	function handleMouseMove(event) {
+	function handleMouseMove(event: MouseEvent) {
 		if (!isDragging) return;
 
 		const deltaX = event.clientX - lastMouseX;
