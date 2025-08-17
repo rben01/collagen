@@ -43,7 +43,10 @@ export interface SvgGenerationContext {
 // =============================================================================
 
 /** Resolve a resource path relative to the current directory context */
-function resolvePath(context: SvgGenerationContext, relativePath: string): string {
+function resolvePath(
+	context: SvgGenerationContext,
+	relativePath: string,
+): string {
 	return canonicalizePath(context.currentDir, relativePath);
 }
 
@@ -122,12 +125,9 @@ async function generateImageTag(
 	try {
 		// Resolve image path relative to current directory
 		const resolvedPath = resolvePath(context, tag.imagePath);
-		
+
 		// Fetch image file
-		const fileContent = await fetchResource(
-			context.filesystem,
-			resolvedPath,
-		);
+		const fileContent = await fetchResource(context.filesystem, resolvedPath);
 
 		// Determine image type
 		const imageKind = tag.kind || inferImageKind(tag.imagePath);
@@ -161,7 +161,7 @@ async function generateContainerTag(
 	try {
 		// Resolve container path relative to current directory
 		const resolvedPath = resolvePath(context, tag.clgnPath);
-		
+
 		// Create a new filesystem context for the nested folder
 		const nestedContext = await createNestedContext(context, resolvedPath);
 
@@ -243,7 +243,7 @@ async function generateNestedSvgTag(
 	try {
 		// Resolve SVG path relative to current directory
 		const resolvedPath = resolvePath(context, tag.svgPath);
-		
+
 		// Fetch SVG file
 		const fileContent = await fetchResource(context.filesystem, resolvedPath);
 
@@ -296,10 +296,10 @@ export async function generateSvg(
 	rootTag: RootTag,
 	filesystem: InMemoryFileSystem,
 ): Promise<string> {
-	const context: SvgGenerationContext = { 
-		filesystem, 
+	const context: SvgGenerationContext = {
+		filesystem,
 		baseDepth: 0,
-		currentDir: "" // Start at root directory
+		currentDir: "", // Start at root directory
 	};
 
 	// Ensure xmlns attribute is present

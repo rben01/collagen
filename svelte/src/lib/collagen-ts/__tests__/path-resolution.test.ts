@@ -30,18 +30,34 @@ describe("Path Resolution", () => {
 	it("should resolve image paths correctly in SVG generation", async () => {
 		// Create a simple image
 		const imageBytes = new Uint8Array([
-			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG header
+			0x89,
+			0x50,
+			0x4e,
+			0x47,
+			0x0d,
+			0x0a,
+			0x1a,
+			0x0a, // PNG header
 		]);
 
 		// Test with different path formats that should resolve to the same file
 		const files = new Map<string, File>([
-			["collagen.json", createFileFromString(JSON.stringify({
-				children: [
-					{ image_path: "image.png" },
-					{ image_path: "./image.png" },
-				]
-			}), "collagen.json")],
-			["image.png", new File([imageBytes], "image.png", { type: "image/png" })],
+			[
+				"collagen.json",
+				createFileFromString(
+					JSON.stringify({
+						children: [
+							{ image_path: "image.png" },
+							{ image_path: "./image.png" },
+						],
+					}),
+					"collagen.json",
+				),
+			],
+			[
+				"image.png",
+				new File([imageBytes], "image.png", { type: "image/png" }),
+			],
 		]);
 
 		// This should work without throwing an error about missing files
@@ -50,17 +66,33 @@ describe("Path Resolution", () => {
 
 	it("should handle nested directory paths correctly", async () => {
 		const imageBytes = new Uint8Array([
-			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG header
+			0x89,
+			0x50,
+			0x4e,
+			0x47,
+			0x0d,
+			0x0a,
+			0x1a,
+			0x0a, // PNG header
 		]);
 
 		const files = new Map<string, File>([
-			["collagen.json", createFileFromString(JSON.stringify({
-				children: [
-					{ image_path: "assets/image.png" },
-					{ image_path: "./assets/image.png" },
-				]
-			}), "collagen.json")],
-			["assets/image.png", new File([imageBytes], "image.png", { type: "image/png" })],
+			[
+				"collagen.json",
+				createFileFromString(
+					JSON.stringify({
+						children: [
+							{ image_path: "assets/image.png" },
+							{ image_path: "./assets/image.png" },
+						],
+					}),
+					"collagen.json",
+				),
+			],
+			[
+				"assets/image.png",
+				new File([imageBytes], "image.png", { type: "image/png" }),
+			],
 		]);
 
 		await expect(generateSvgFromFiles(files)).resolves.toContain("<image");
@@ -68,17 +100,33 @@ describe("Path Resolution", () => {
 
 	it("should handle parent directory references", async () => {
 		const imageBytes = new Uint8Array([
-			0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG header
+			0x89,
+			0x50,
+			0x4e,
+			0x47,
+			0x0d,
+			0x0a,
+			0x1a,
+			0x0a, // PNG header
 		]);
 
 		// Manifest at root, but references files using relative paths including parent dirs
 		const files = new Map<string, File>([
-			["collagen.json", createFileFromString(JSON.stringify({
-				children: [
-					{ image_path: "folder/../image.png" }, // This should resolve to just "image.png"
-				]
-			}), "collagen.json")],
-			["image.png", new File([imageBytes], "image.png", { type: "image/png" })],
+			[
+				"collagen.json",
+				createFileFromString(
+					JSON.stringify({
+						children: [
+							{ image_path: "folder/../image.png" }, // This should resolve to just "image.png"
+						],
+					}),
+					"collagen.json",
+				),
+			],
+			[
+				"image.png",
+				new File([imageBytes], "image.png", { type: "image/png" }),
+			],
 		]);
 
 		// This would fail if path resolution doesn't work correctly

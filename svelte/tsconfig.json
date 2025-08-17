@@ -14,9 +14,15 @@
 		"baseUrl": ".",
 		"paths": { "@/*": ["src/*"], "@collagen/*": ["src/lib/collagen-ts/*"] },
 		"lib": ["ES2020", "ESNext", "DOM", "DOM.Iterable"],
+		"types": ["node"],
 		"noEmit": true,
 		"sourceMap": true
 	},
-	"include": ["src/**/*", "public/sjsonnet.js"],
+	"include": [
+		"src/**/*",
+		"public/sjsonnet.js",
+		"test/**/*.spec.ts",
+		"playwright.config.ts"
+	],
 	"exclude": ["node_modules", "dist", "public"]
 }

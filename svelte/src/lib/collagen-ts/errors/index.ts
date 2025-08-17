@@ -30,7 +30,17 @@ export class InvalidTypeError extends CollagenError {
 	readonly errorType = "InvalidType";
 
 	constructor(value: unknown) {
-		super(`Each tag must be an object; got: ${JSON.stringify(value)}`);
+		let valueStr: string;
+		try {
+			valueStr = JSON.stringify(value);
+		} catch (error) {
+			// Handle circular references safely
+			valueStr =
+				typeof value === "object" && value !== null
+					? "[object with circular reference]"
+					: String(value);
+		}
+		super(`Each tag must be an object; got: ${valueStr}`);
 	}
 }
 

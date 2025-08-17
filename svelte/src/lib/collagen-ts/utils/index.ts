@@ -67,7 +67,13 @@ export function isEmpty<T>(array: T[]): boolean {
 export function isPlainObject(
 	value: unknown,
 ): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return false;
+	}
+
+	// Check if it's a plain object (not a class instance)
+	const proto = Object.getPrototypeOf(value);
+	return proto === null || proto === Object.prototype;
 }
 
 /** Get object keys with proper typing */

@@ -6,6 +6,12 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/lib/collagen-ts/**/*.{test,spec}.{js,ts}'],
     exclude: ['node_modules/**', 'src/lib/collagen-ts/**/*.d.ts'],
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
   },
   resolve: {
     alias: {

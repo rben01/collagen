@@ -33,7 +33,10 @@ describe("Jsonnet Support", () => {
 		`;
 
 		const files = new Map<string, File>([
-			["collagen.jsonnet", createFileFromString(jsonnetManifest, "collagen.jsonnet")],
+			[
+				"collagen.jsonnet",
+				createFileFromString(jsonnetManifest, "collagen.jsonnet"),
+			],
 		]);
 
 		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
@@ -63,7 +66,10 @@ describe("Jsonnet Support", () => {
 		`;
 
 		const files = new Map<string, File>([
-			["collagen.jsonnet", createFileFromString(jsonnetManifest, "collagen.jsonnet")],
+			[
+				"collagen.jsonnet",
+				createFileFromString(jsonnetManifest, "collagen.jsonnet"),
+			],
 		]);
 
 		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
@@ -108,7 +114,10 @@ describe("Jsonnet Support", () => {
 		`;
 
 		const files = new Map<string, File>([
-			["collagen.jsonnet", createFileFromString(pinwheelJsonnet, "collagen.jsonnet")],
+			[
+				"collagen.jsonnet",
+				createFileFromString(pinwheelJsonnet, "collagen.jsonnet"),
+			],
 		]);
 
 		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
@@ -128,8 +137,14 @@ describe("Jsonnet Support", () => {
 		`;
 
 		const files = new Map<string, File>([
-			["collagen.jsonnet", createFileFromString(jsonnetManifest, "collagen.jsonnet")],
-			["test.png", new File([TEST_IMAGE_PNG], "test.png", { type: "image/png" })],
+			[
+				"collagen.jsonnet",
+				createFileFromString(jsonnetManifest, "collagen.jsonnet"),
+			],
+			[
+				"test.png",
+				new File([TEST_IMAGE_PNG], "test.png", { type: "image/png" }),
+			],
 		]);
 
 		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
@@ -139,7 +154,9 @@ describe("Jsonnet Support", () => {
 	it.skip("should prefer jsonnet over json when both exist", async () => {
 		const jsonManifest = JSON.stringify({
 			attrs: { viewBox: "0 0 100 100" },
-			children: [{ tag: "circle", attrs: { cx: 50, cy: 50, r: 20, fill: "red" } }]
+			children: [
+				{ tag: "circle", attrs: { cx: 50, cy: 50, r: 20, fill: "red" } },
+			],
 		});
 
 		const jsonnetManifest = `
@@ -161,7 +178,10 @@ describe("Jsonnet Support", () => {
 
 		const files = new Map<string, File>([
 			["collagen.json", createFileFromString(jsonManifest, "collagen.json")],
-			["collagen.jsonnet", createFileFromString(jsonnetManifest, "collagen.jsonnet")],
+			[
+				"collagen.jsonnet",
+				createFileFromString(jsonnetManifest, "collagen.jsonnet"),
+			],
 		]);
 
 		// Should prefer jsonnet over json (will fail due to sjsonnet not being available in test env)
