@@ -6,7 +6,7 @@
  */
 
 import type { InMemoryFileSystem } from "../filesystem/index.js";
-import { normalizePath, canonicalizePath } from "../filesystem/index.js";
+import { normalizedPathJoin } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
 import type {
 	SjsonnetMain,
@@ -97,8 +97,8 @@ function createImportCallback(
 	return (dir: string, importedFrom: string) => {
 		try {
 			// Resolve the import path relative to the current directory
-			const importPath = canonicalizePath(dir, importedFrom);
-			const resolvedPath = normalizePath(importPath);
+			const importPath = normalizedPathJoin(dir, importedFrom);
+			const resolvedPath = normalizedPathJoin(importPath);
 
 			// Check the cache for the file
 			if (fileCache.has(resolvedPath)) {

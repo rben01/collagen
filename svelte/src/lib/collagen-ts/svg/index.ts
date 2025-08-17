@@ -18,7 +18,7 @@ import type {
 } from "../types/index.js";
 
 import type { InMemoryFileSystem } from "../filesystem/index.js";
-import { fetchResource, canonicalizePath } from "../filesystem/index.js";
+import { fetchResource, normalizedPathJoin } from "../filesystem/index.js";
 import { base64Encode, escapeXml } from "../utils/index.js";
 import {
 	ImageError,
@@ -26,8 +26,6 @@ import {
 	BundledFontNotFoundError,
 	XmlError,
 } from "../errors/index.js";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 
 // =============================================================================
 // SVG Generation Context
@@ -49,7 +47,7 @@ function resolvePath(
 	context: SvgGenerationContext,
 	relativePath: string,
 ): string {
-	return canonicalizePath(context.currentDir, relativePath);
+	return normalizedPathJoin(context.currentDir, relativePath);
 }
 
 // =============================================================================
@@ -444,6 +442,9 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 	// font files in /public/assets/fonts are already base64-encoded, so no need to
 	// base64 encode here.
 	if (typeof process === "object") {
+		const { readFile } = await import("node:fs/promises");
+		const path = await import("node:path");
+
 		fontDataB64 = await readFile(
 			path.join(process.cwd(), `/public/assets/fonts/${fontBase64File}`),
 			{ encoding: "ascii" },

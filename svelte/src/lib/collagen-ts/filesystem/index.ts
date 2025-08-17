@@ -7,7 +7,6 @@
  */
 
 import {
-	InvalidPathError,
 	MissingFileError,
 	FileReadError,
 	MissingManifestError,
@@ -49,82 +48,45 @@ export interface InMemoryFileSystem {
 // Path Utilities
 // =============================================================================
 
-/** Normalize a path for consistent handling */
-export function normalizePath(path: string): string {
-	// Remove leading slash and normalize separators
-	let normalized = path.replace(/^\/+/, "");
-
-	// Convert backslashes to forward slashes
-	normalized = normalized.replace(/\\/g, "/");
-
-	// Remove duplicate slashes
-	normalized = normalized.replace(/\/+/g, "/");
-
-	// Remove leading ./ references
-	normalized = normalized.replace(/^\.\//, "");
-
-	// Remove trailing slash unless it's the root
-	if (normalized.length > 1 && normalized.endsWith("/")) {
-		normalized = normalized.slice(0, -1);
-	}
-
-	return normalized;
-}
-
-/** Canonicalize a path using string operations (similar to Rust implementation) */
-export function canonicalizePath(
-	basePath: string,
-	relativePath: string,
-): string {
-	// Paths cannot start with /
-	if (relativePath.startsWith("/")) {
-		throw new InvalidPathError(relativePath);
-	}
-
+export function normalizedPathJoin(...paths: string[]): string {
 	const components: string[] = [];
+	const componentRe = /[^/\\]+/g;
 
-	// Start with base path components (if any)
-	if (basePath && basePath !== "/") {
-		for (const component of basePath.split("/")) {
-			if (component.length === 0) {
-				continue;
-			}
-			components.push(component);
-		}
-	}
-
-	// Process relative path components
-	for (const component of relativePath.split("/")) {
-		if (component.length === 0 || component === ".") {
-			// Current directory - skip
+	for (const path of paths) {
+		// Skip empty paths
+		if (!path) {
 			continue;
-		} else if (component === "..") {
-			// Parent directory - pop if possible
-			if (components.length > 0) {
+		}
+
+		const componentMatches = path.matchAll(componentRe);
+
+		for (const match of componentMatches) {
+			const component = match[0];
+
+			if (component === "" || component === ".") {
+				// Skip empty components and current directory references
+				continue;
+			} else if (component === "..") {
+				// no-op if stack is empty
 				components.pop();
+			} else {
+				components.push(component);
 			}
-		} else {
-			// Regular component
-			components.push(component);
 		}
 	}
 
-	// Build final path
-	if (components.length === 0) {
-		return "";
-	}
-
+	// Join components back together
 	return components.join("/");
 }
 
 /** Join two paths */
 export function joinPath(basePath: string, relativePath: string): string {
 	if (!relativePath) {
-		return normalizePath(basePath);
+		return normalizedPathJoin(basePath);
 	}
 
-	const base = normalizePath(basePath);
-	const rel = normalizePath(relativePath);
+	const base = normalizedPathJoin(basePath);
+	const rel = normalizedPathJoin(relativePath);
 
 	if (!base || base === "/") {
 		return rel;
@@ -173,19 +135,19 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 		if (files instanceof Map) {
 			this.files = new Map();
 			for (const [path, file] of files) {
-				this.files.set(normalizePath(path), file);
+				this.files.set(normalizedPathJoin(path), file);
 			}
 		} else {
 			this.files = new Map();
 			for (const [path, file] of Object.entries(files)) {
-				this.files.set(normalizePath(path), file);
+				this.files.set(normalizedPathJoin(path), file);
 			}
 		}
 	}
 
 	/** Get file content by path */
 	async load(path: string): Promise<FileContent> {
-		const normalizedPath = normalizePath(path);
+		const normalizedPath = normalizedPathJoin(path);
 
 		// Check cache first
 		if (this.cache.has(normalizedPath)) {
@@ -212,7 +174,7 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 
 	/** Check if a file exists */
 	exists(path: string): boolean {
-		return this.files.has(normalizePath(path));
+		return this.files.has(normalizedPathJoin(path));
 	}
 
 	/** List all available paths */
@@ -310,7 +272,7 @@ export function resolveResourcePath(
 	basePath: string,
 	resourcePath: string,
 ): string {
-	return canonicalizePath(basePath, resourcePath);
+	return normalizedPathJoin(basePath, resourcePath);
 }
 
 /** Fetch a resource file from the filesystem */
@@ -318,7 +280,7 @@ export async function fetchResource(
 	fs: InMemoryFileSystem,
 	resourcePath: string,
 ): Promise<FileContent> {
-	const resolvedPath = normalizePath(resourcePath);
+	const resolvedPath = normalizedPathJoin(resourcePath);
 	return await fs.load(resolvedPath);
 }
 

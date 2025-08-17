@@ -8,8 +8,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
 	// Path utilities
-	normalizePath,
-	canonicalizePath,
+	normalizedPathJoin,
 	joinPath,
 	// File system
 	BrowserInMemoryFileSystem,
@@ -103,100 +102,104 @@ function createTestFiles(): Record<string, File> {
 // =============================================================================
 
 describe("Path Utilities", () => {
-	describe("normalizePath", () => {
+	describe("normalizedPathJoin", () => {
 		it("should remove leading slashes", () => {
-			expect(normalizePath("/path/to/file")).toBe("path/to/file");
-			expect(normalizePath("///multiple/slashes")).toBe("multiple/slashes");
+			expect(normalizedPathJoin("/path/to/file")).toBe("path/to/file");
+			expect(normalizedPathJoin("///multiple/slashes")).toBe(
+				"multiple/slashes",
+			);
 		});
 
 		it("should convert backslashes to forward slashes", () => {
-			expect(normalizePath("path\\to\\file")).toBe("path/to/file");
-			expect(normalizePath("mixed/path\\with\\both")).toBe(
+			expect(normalizedPathJoin("path\\to\\file")).toBe("path/to/file");
+			expect(normalizedPathJoin("mixed/path\\with\\both")).toBe(
 				"mixed/path/with/both",
 			);
 		});
 
 		it("should remove duplicate slashes", () => {
-			expect(normalizePath("path//to///file")).toBe("path/to/file");
-			expect(normalizePath("//multiple////slashes//")).toBe(
+			expect(normalizedPathJoin("path//to///file")).toBe("path/to/file");
+			expect(normalizedPathJoin("//multiple////slashes//")).toBe(
 				"multiple/slashes",
 			);
 		});
 
 		it("should remove leading ./ references", () => {
-			expect(normalizePath("./path/to/file")).toBe("path/to/file");
-			expect(normalizePath("./relative")).toBe("relative");
+			expect(normalizedPathJoin("./path/to/file")).toBe("path/to/file");
+			expect(normalizedPathJoin("./relative")).toBe("relative");
+		});
+
+		it("should handle parent directory references", () => {
+			expect(normalizedPathJoin("a/b/../c")).toBe("a/c");
+			expect(normalizedPathJoin("a/../b")).toBe("b");
+			expect(normalizedPathJoin("a/b/c/../../d")).toBe("a/d");
+			expect(normalizedPathJoin("../a")).toBe("a");
+			expect(normalizedPathJoin("../../a")).toBe("a");
+		});
+
+		it("should handle mixed current and parent directory references", () => {
+			expect(normalizedPathJoin("a/./b/../c")).toBe("a/c");
+			expect(normalizedPathJoin("./a/../b/./c")).toBe("b/c");
 		});
 
 		it("should remove trailing slash except for root", () => {
-			expect(normalizePath("path/to/dir/")).toBe("path/to/dir");
-			expect(normalizePath("/")).toBe("");
+			expect(normalizedPathJoin("path/to/dir/")).toBe("path/to/dir");
+			expect(normalizedPathJoin("/")).toBe("");
 		});
 
 		it("should handle empty and root paths", () => {
-			expect(normalizePath("")).toBe("");
-			expect(normalizePath("/")).toBe("");
-			expect(normalizePath("./")).toBe("");
+			expect(normalizedPathJoin("")).toBe("");
+			expect(normalizedPathJoin("/")).toBe("");
+			expect(normalizedPathJoin("./")).toBe("");
 		});
 
 		it("should handle complex paths", () => {
-			expect(normalizePath("//./path\\to/../file//")).toBe(
-				"path/to/../file",
-			);
-			expect(normalizePath("\\\\server\\share\\file")).toBe(
+			expect(normalizedPathJoin("//./path\\to/../file//")).toBe("path/file");
+			expect(normalizedPathJoin("\\\\server\\share\\file")).toBe(
 				"server/share/file",
 			);
 		});
 	});
 
-	describe("canonicalizePath", () => {
+	describe("normalizedPathJoin", () => {
 		it("should resolve relative paths correctly", () => {
-			expect(canonicalizePath("base/path", "file.txt")).toBe(
+			expect(normalizedPathJoin("base/path", "file.txt")).toBe(
 				"base/path/file.txt",
 			);
-			expect(canonicalizePath("", "file.txt")).toBe("file.txt");
+			expect(normalizedPathJoin("", "file.txt")).toBe("file.txt");
 		});
 
 		it("should handle parent directory references", () => {
-			expect(canonicalizePath("base/path", "../file.txt")).toBe(
+			expect(normalizedPathJoin("base/path", "../file.txt")).toBe(
 				"base/file.txt",
 			);
-			expect(canonicalizePath("base/path/deep", "../../file.txt")).toBe(
+			expect(normalizedPathJoin("base/path/deep", "../../file.txt")).toBe(
 				"base/file.txt",
 			);
 		});
 
 		it("should handle current directory references", () => {
-			expect(canonicalizePath("base", "./file.txt")).toBe("base/file.txt");
-			expect(canonicalizePath("base", "./sub/./file.txt")).toBe(
+			expect(normalizedPathJoin("base", "./file.txt")).toBe("base/file.txt");
+			expect(normalizedPathJoin("base", "./sub/./file.txt")).toBe(
 				"base/sub/file.txt",
 			);
 		});
 
 		it("should handle complex path resolution", () => {
-			expect(canonicalizePath("a/b/c", "../d/./e/../f")).toBe("a/b/d/f");
-			expect(canonicalizePath("base", "sub/../other/./file")).toBe(
+			expect(normalizedPathJoin("a/b/c", "../d/./e/../f")).toBe("a/b/d/f");
+			expect(normalizedPathJoin("base", "sub/../other/./file")).toBe(
 				"base/other/file",
 			);
 		});
 
 		it("should handle going past root", () => {
-			expect(canonicalizePath("base", "../../..")).toBe("");
-			expect(canonicalizePath("a", "../../../file")).toBe("file");
-		});
-
-		it("should throw error for absolute paths", () => {
-			expect(() => canonicalizePath("base", "/absolute/path")).toThrow(
-				InvalidPathError,
-			);
-			expect(() => canonicalizePath("", "/file.txt")).toThrow(
-				InvalidPathError,
-			);
+			expect(normalizedPathJoin("base", "../../..")).toBe("");
+			expect(normalizedPathJoin("a", "../../../file")).toBe("file");
 		});
 
 		it("should handle empty components", () => {
-			expect(canonicalizePath("base", "sub//file")).toBe("base/sub/file");
-			expect(canonicalizePath("", "file//name")).toBe("file/name");
+			expect(normalizedPathJoin("base", "sub//file")).toBe("base/sub/file");
+			expect(normalizedPathJoin("", "file//name")).toBe("file/name");
 		});
 	});
 
@@ -215,6 +218,84 @@ describe("Path Utilities", () => {
 		it("should normalize both parts", () => {
 			expect(joinPath("//base//", "\\file.txt")).toBe("base/file.txt");
 			expect(joinPath("./base/", "./file.txt")).toBe("base/file.txt");
+		});
+	});
+
+	describe("normalizedPathJoin", () => {
+		it("should join multiple paths correctly", () => {
+			expect(normalizedPathJoin("path", "to", "file")).toBe("path/to/file");
+			expect(normalizedPathJoin("base", "sub", "file.txt")).toBe(
+				"base/sub/file.txt",
+			);
+		});
+
+		it("should handle empty paths", () => {
+			expect(normalizedPathJoin()).toBe("");
+			expect(normalizedPathJoin("")).toBe("");
+			expect(normalizedPathJoin("", "", "")).toBe("");
+			expect(normalizedPathJoin("", "file", "")).toBe("file");
+		});
+
+		it("should discard empty components and '.' references", () => {
+			expect(normalizedPathJoin("path", "", "to", "file")).toBe(
+				"path/to/file",
+			);
+			expect(normalizedPathJoin(".", "path", ".", "file")).toBe("path/file");
+			expect(normalizedPathJoin("path/./sub", "file")).toBe("path/sub/file");
+		});
+
+		it("should process '..' components with stack", () => {
+			expect(normalizedPathJoin("path", "..", "other")).toBe("other");
+			expect(normalizedPathJoin("base", "sub", "..", "file")).toBe(
+				"base/file",
+			);
+			expect(normalizedPathJoin("a", "b", "c", "..", "..", "d")).toBe("a/d");
+		});
+
+		it("should handle '..' at the beginning", () => {
+			expect(normalizedPathJoin("..", "file")).toBe("file");
+			expect(normalizedPathJoin("..", "..", "file")).toBe("file");
+			expect(normalizedPathJoin("..", "path", "file")).toBe("path/file");
+		});
+
+		it("should handle mixed separators", () => {
+			expect(
+				normalizedPathJoin("path\\with\\backslashes", "file/with/forward"),
+			).toBe("path/with/backslashes/file/with/forward");
+			expect(normalizedPathJoin("mixed/path\\separators", "file")).toBe(
+				"mixed/path/separators/file",
+			);
+		});
+
+		it("should handle complex path operations", () => {
+			expect(normalizedPathJoin("base", "sub/../other", "./file")).toBe(
+				"base/other/file",
+			);
+			expect(normalizedPathJoin("a/b/c", "../d", "./e/../f")).toBe(
+				"a/b/d/f",
+			);
+			expect(normalizedPathJoin("./path", "../other", "file")).toBe(
+				"other/file",
+			);
+		});
+
+		it("should handle paths with duplicate separators", () => {
+			expect(normalizedPathJoin("path//with//doubles", "file")).toBe(
+				"path/with/doubles/file",
+			);
+			expect(normalizedPathJoin("base", "sub///file")).toBe("base/sub/file");
+		});
+
+		it("should handle single path elements", () => {
+			expect(normalizedPathJoin("single")).toBe("single");
+			expect(normalizedPathJoin("./single")).toBe("single");
+			expect(normalizedPathJoin("../single")).toBe("single");
+		});
+
+		it("should handle edge cases", () => {
+			expect(normalizedPathJoin("a", "b", "..", "..", "c")).toBe("c");
+			expect(normalizedPathJoin(".", "..", ".", "file")).toBe("file");
+			expect(normalizedPathJoin("//", "./", "../", "file")).toBe("file");
 		});
 	});
 });
@@ -682,25 +763,35 @@ describe("Utility Functions", () => {
 
 describe("Edge Cases and Error Handling", () => {
 	it("should handle very long paths", () => {
-		const longPath = "a/".repeat(100) + "file.txt";
-		const normalized = normalizePath(longPath);
-		expect(normalized).toBe(longPath.slice(0, -1)); // Remove trailing slash
+		const longFolder = "a/".repeat(100);
+		expect(normalizedPathJoin(longFolder)).toBe(longFolder.slice(0, -1));
+
+		const longerFolder = "a/////".repeat(100);
+		expect(normalizedPathJoin(longerFolder)).toBe(longFolder.slice(0, -1));
+
+		const longFile = "a/".repeat(100) + "file.txt";
+		expect(normalizedPathJoin(longFile));
+
+		const longerFile = "a/////".repeat(100) + "file.txt";
+		expect(normalizedPathJoin(longerFile)).toBe(longFile);
 	});
 
 	it("should handle paths with special characters", () => {
-		expect(normalizePath("path with spaces/file")).toBe(
+		expect(normalizedPathJoin("path with spaces/file")).toBe(
 			"path with spaces/file",
 		);
-		expect(normalizePath("path-with-dashes/file_with_underscores")).toBe(
+		expect(normalizedPathJoin("path-with-dashes/file_with_underscores")).toBe(
 			"path-with-dashes/file_with_underscores",
 		);
-		expect(normalizePath("path.with.dots/file")).toBe("path.with.dots/file");
+		expect(normalizedPathJoin("path.with.dots/file")).toBe(
+			"path.with.dots/file",
+		);
 	});
 
 	it("should handle unicode paths", () => {
-		expect(normalizePath("路径/文件.txt")).toBe("路径/文件.txt");
-		expect(normalizePath("مجلد/ملف.txt")).toBe("مجلد/ملف.txt");
-		expect(normalizePath("папка/файл.txt")).toBe("папка/файл.txt");
+		expect(normalizedPathJoin("路径/文件.txt")).toBe("路径/文件.txt");
+		expect(normalizedPathJoin("مجلد/ملف.txt")).toBe("مجلد/ملف.txt");
+		expect(normalizedPathJoin("папка/файл.txt")).toBe("папка/файл.txt");
 	});
 
 	it("should handle empty file system operations", () => {

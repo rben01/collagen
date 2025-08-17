@@ -7,8 +7,7 @@ export default defineConfig({
 		include: ["src/lib/collagen-ts/**/*.{test,spec}.{js,ts}"],
 		exclude: ["node_modules/**", "src/lib/collagen-ts/**/*.d.ts"],
 		pool: "threads",
-		poolOptions: { threads: { maxThreads: 2, useAtomics: true } },
-		browser: { api: { port: 63315 } },
+		poolOptions: { threads: { maxThreads: 2 } },
 	},
 	resolve: { alias: { "@": "/src", "@collagen": "/src/lib/collagen-ts" } },
 });

@@ -3,28 +3,30 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { canonicalizePath, normalizePath } from "../filesystem/index.js";
+import { normalizedPathJoin } from "../filesystem/index.js";
 import { generateSvgFromFiles } from "../index.js";
 import { createFileFromString } from "./test-utils.js";
 
 describe("Path Resolution", () => {
 	it("should resolve relative paths consistently", () => {
-		// Test canonicalizePath function
-		expect(canonicalizePath("", "file.txt")).toBe("file.txt");
-		expect(canonicalizePath("", "./file.txt")).toBe("file.txt");
-		expect(canonicalizePath("dir", "file.txt")).toBe("dir/file.txt");
-		expect(canonicalizePath("dir", "./file.txt")).toBe("dir/file.txt");
-		expect(canonicalizePath("dir/sub", "../file.txt")).toBe("dir/file.txt");
-		expect(canonicalizePath("dir", "./sub/../file.txt")).toBe("dir/file.txt");
+		// Test normalizedPathJoin function
+		expect(normalizedPathJoin("", "file.txt")).toBe("file.txt");
+		expect(normalizedPathJoin("", "./file.txt")).toBe("file.txt");
+		expect(normalizedPathJoin("dir", "file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("dir", "./file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("dir/sub", "../file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("dir", "./sub/../file.txt")).toBe(
+			"dir/file.txt",
+		);
 	});
 
 	it("should normalize paths consistently", () => {
-		expect(normalizePath("file.txt")).toBe("file.txt");
-		expect(normalizePath("./file.txt")).toBe("file.txt");
-		expect(normalizePath("dir/file.txt")).toBe("dir/file.txt");
-		expect(normalizePath("dir//file.txt")).toBe("dir/file.txt");
-		expect(normalizePath("/dir/file.txt")).toBe("dir/file.txt");
-		expect(normalizePath("dir/file.txt/")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("file.txt")).toBe("file.txt");
+		expect(normalizedPathJoin("./file.txt")).toBe("file.txt");
+		expect(normalizedPathJoin("dir/file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("dir//file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("/dir/file.txt")).toBe("dir/file.txt");
+		expect(normalizedPathJoin("dir/file.txt/")).toBe("dir/file.txt");
 	});
 
 	it("should resolve image paths correctly in SVG generation", async () => {
