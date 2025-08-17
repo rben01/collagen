@@ -132,15 +132,6 @@ export class MissingManifestError extends CollagenError {
 	}
 }
 
-/** Invalid path error */
-export class InvalidPathError extends CollagenError {
-	readonly errorType = "InvalidPath";
-
-	constructor(path: string) {
-		super(`Paths may not begin with a '/'; got "${path}"`);
-	}
-}
-
 /** Missing file error */
 export class MissingFileError extends CollagenError {
 	readonly errorType = "MissingFile";

@@ -17,7 +17,6 @@ import {
 	InvalidFieldTypeError,
 	// File system errors
 	MissingManifestError,
-	InvalidPathError,
 	MissingFileError,
 	FileReadError,
 	// Processing errors
@@ -236,15 +235,6 @@ describe("File System Errors", () => {
 			expect(error.message).toContain("collagen.jsonnet");
 			expect(error.message).toContain("collagen.json");
 			expect(error.errorType).toBe("MissingManifest");
-		});
-	});
-
-	describe("InvalidPathError", () => {
-		it("should include the invalid path", () => {
-			const error = new InvalidPathError("/absolute/path");
-			expect(error.message).toContain('"/absolute/path"');
-			expect(error.message).toContain("may not begin with a '/'");
-			expect(error.errorType).toBe("InvalidPath");
 		});
 	});
 

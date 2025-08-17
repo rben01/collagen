@@ -9,7 +9,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
 	// Path utilities
 	normalizedPathJoin,
-	joinPath,
 	// File system
 	BrowserInMemoryFileSystem,
 	createFileSystem,
@@ -30,11 +29,7 @@ import {
 	getFileExtension,
 	getMimeType,
 } from "../filesystem/index.js";
-import {
-	InvalidPathError,
-	MissingFileError,
-	MissingManifestError,
-} from "../errors/index.js";
+import { MissingFileError, MissingManifestError } from "../errors/index.js";
 
 // =============================================================================
 // Test Utilities
@@ -144,13 +139,14 @@ describe("Path Utilities", () => {
 
 		it("should remove trailing slash except for root", () => {
 			expect(normalizedPathJoin("path/to/dir/")).toBe("path/to/dir");
-			expect(normalizedPathJoin("/")).toBe("");
+			expect(normalizedPathJoin("/")).toBe("/");
 		});
 
 		it("should handle empty and root paths", () => {
-			expect(normalizedPathJoin("")).toBe("");
-			expect(normalizedPathJoin("/")).toBe("");
-			expect(normalizedPathJoin("./")).toBe("");
+			expect(normalizedPathJoin("")).toBe("/");
+			expect(normalizedPathJoin("/")).toBe("/");
+			expect(normalizedPathJoin("./")).toBe("/");
+			expect(normalizedPathJoin("./.")).toBe("/");
 		});
 
 		it("should handle complex paths", () => {
@@ -193,7 +189,7 @@ describe("Path Utilities", () => {
 		});
 
 		it("should handle going past root", () => {
-			expect(normalizedPathJoin("base", "../../..")).toBe("");
+			expect(normalizedPathJoin("base", "../../..")).toBe("/");
 			expect(normalizedPathJoin("a", "../../../file")).toBe("file");
 		});
 
@@ -203,21 +199,27 @@ describe("Path Utilities", () => {
 		});
 	});
 
-	describe("joinPath", () => {
+	describe("normalizedPathJoin", () => {
 		it("should join paths correctly", () => {
-			expect(joinPath("base", "file.txt")).toBe("base/file.txt");
-			expect(joinPath("/base/", "/file.txt")).toBe("base/file.txt");
+			expect(normalizedPathJoin("base", "file.txt")).toBe("base/file.txt");
+			expect(normalizedPathJoin("/base/", "/file.txt")).toBe(
+				"base/file.txt",
+			);
 		});
 
 		it("should handle empty paths", () => {
-			expect(joinPath("", "file.txt")).toBe("file.txt");
-			expect(joinPath("base", "")).toBe("base");
-			expect(joinPath("", "")).toBe("");
+			expect(normalizedPathJoin("", "file.txt")).toBe("file.txt");
+			expect(normalizedPathJoin("base", "")).toBe("base");
+			expect(normalizedPathJoin("", "")).toBe("/");
 		});
 
 		it("should normalize both parts", () => {
-			expect(joinPath("//base//", "\\file.txt")).toBe("base/file.txt");
-			expect(joinPath("./base/", "./file.txt")).toBe("base/file.txt");
+			expect(normalizedPathJoin("//base//", "\\file.txt")).toBe(
+				"base/file.txt",
+			);
+			expect(normalizedPathJoin("./base/", "./file.txt")).toBe(
+				"base/file.txt",
+			);
 		});
 	});
 
@@ -230,9 +232,9 @@ describe("Path Utilities", () => {
 		});
 
 		it("should handle empty paths", () => {
-			expect(normalizedPathJoin()).toBe("");
-			expect(normalizedPathJoin("")).toBe("");
-			expect(normalizedPathJoin("", "", "")).toBe("");
+			expect(normalizedPathJoin()).toBe("/");
+			expect(normalizedPathJoin("")).toBe("/");
+			expect(normalizedPathJoin("", "", "")).toBe("/");
 			expect(normalizedPathJoin("", "file", "")).toBe("file");
 		});
 
