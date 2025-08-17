@@ -162,7 +162,10 @@
 
 			// Generate SVG using the processed manifest data
 			console.log("🎨 Generating SVG...");
-			svgOutput = await generateSvgFromManifestData(fileMap, manifestResult.data);
+			svgOutput = await generateSvgFromManifestData(
+				fileMap,
+				manifestResult.data,
+			);
 			if (svgOutput) {
 				console.log(
 					"✅ SVG generated successfully! Length:",

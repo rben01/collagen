@@ -331,9 +331,10 @@
 		<!-- Hidden description for screen readers -->
 		<div id="svg-controls-description" class="sr-only">
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
-			view (work globally), Shift+arrow keys to pan (when viewer is focused), V to toggle code view, C to copy, S
-			to save (work globally). Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to
-			zoom. Touch controls: Single finger to pan, pinch to zoom.
+			view (work globally), Shift+arrow keys to pan (when viewer is focused),
+			V to toggle code view, C to copy, S to save (work globally). Mouse
+			controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom. Touch
+			controls: Single finger to pan, pinch to zoom.
 		</div>
 	{/if}
 </div>
