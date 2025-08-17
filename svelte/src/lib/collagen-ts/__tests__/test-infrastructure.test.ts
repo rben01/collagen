@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { generateSvgFromFiles, createFileSystem } from "../index.js";
+import { generateSvgFromFiles } from "../index.js";
 
 // =============================================================================
 // Test Data Generators
@@ -85,8 +85,7 @@ export class ManifestGenerator {
 		const chars =
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
 		const length = this.generateRandomNumber(minLength, maxLength);
-		return Array(length)
-			.fill(0)
+		return [...Array(length)]
 			.map(() => chars[Math.floor(Math.random() * chars.length)])
 			.join("");
 	}
@@ -165,9 +164,9 @@ export class ManifestGenerator {
 		// Add children for container elements
 		if (["g", "defs"].includes(tag) && currentDepth < maxDepth) {
 			const childCount = this.generateRandomNumber(1, 4);
-			element.children = Array(childCount)
-				.fill(0)
-				.map(() => this.generateRandomElement(maxDepth, currentDepth + 1));
+			element.children = [...Array(childCount)].map(() =>
+				this.generateRandomElement(maxDepth, currentDepth + 1),
+			);
 		}
 
 		// Add text content for text elements
@@ -185,9 +184,9 @@ export class ManifestGenerator {
 		const maxDepth =
 			complexity === "simple" ? 1 : complexity === "medium" ? 3 : 5;
 
-		const children = Array(elementCount)
-			.fill(0)
-			.map(() => this.generateRandomElement(maxDepth));
+		const children = [...Array(elementCount)].map(() =>
+			this.generateRandomElement(maxDepth),
+		);
 
 		return {
 			attrs: {
@@ -235,9 +234,9 @@ export class TestFileGenerator {
 		const header = headers[format];
 		const data = [
 			...header,
-			...Array(size - header.length)
-				.fill(0)
-				.map(() => Math.floor(Math.random() * 256)),
+			...[...Array(size - header.length)].map(() =>
+				Math.floor(Math.random() * 256),
+			),
 		];
 
 		return this.createMockBinaryFile(
@@ -261,9 +260,11 @@ export class TestFileGenerator {
 		const header = headers[format];
 		const data = [
 			...header,
-			...Array(size - header.length)
-				.fill(0)
-				.map(() => Math.floor(Math.random() * 256)),
+			...[
+				...Array(size - header.length).map(() =>
+					Math.floor(Math.random() * 256),
+				),
+			],
 		];
 
 		return this.createMockBinaryFile(
@@ -705,7 +706,6 @@ describe("Test Infrastructure", () => {
 describe("Test Infrastructure Integration", () => {
 	it("should support end-to-end testing with generated data", async () => {
 		const files = TestFileGenerator.generateProjectFiles("complex");
-		const filesystem = createFileSystem(files);
 
 		// Should be able to process complex generated project
 		const svg = await generateSvgFromFiles(files);
@@ -722,9 +722,9 @@ describe("Test Infrastructure Integration", () => {
 
 	it("should handle stress testing with generated data", async () => {
 		// Generate multiple projects and process them
-		const projects = Array(5)
-			.fill(0)
-			.map(() => TestFileGenerator.generateProjectFiles("standard"));
+		const projects = [...Array(5)].map(() =>
+			TestFileGenerator.generateProjectFiles("standard"),
+		);
 
 		const results = await Promise.all(
 			projects.map(files => generateSvgFromFiles(files)),
@@ -739,9 +739,9 @@ describe("Test Infrastructure Integration", () => {
 
 	it("should verify test data consistency", () => {
 		// Generate the same type multiple times - should have consistent structure
-		const projects = Array(3)
-			.fill(0)
-			.map(() => TestFileGenerator.generateProjectFiles("minimal"));
+		const projects = [...Array(3)].map(() =>
+			TestFileGenerator.generateProjectFiles("minimal"),
+		);
 
 		projects.forEach(project => {
 			expect(project).toHaveProperty("collagen.json");

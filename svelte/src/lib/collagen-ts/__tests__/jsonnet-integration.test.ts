@@ -33,7 +33,7 @@ class MockSjsonnet implements SjsonnetMain {
 		jsonnetCode: string,
 		extVars: Record<string, unknown>,
 		tlaVars: Record<string, unknown>,
-		jpaths: string,
+		_jpaths: string,
 		importCallback: JsonnetImportCallback | null,
 	): unknown {
 		try {
@@ -155,8 +155,6 @@ class MockSjsonnet implements SjsonnetMain {
 }
 
 let mockSjsonnet: MockSjsonnet;
-let originalDocument: Document;
-let originalWindow: Window & typeof globalThis;
 
 beforeEach(() => {
 	mockSjsonnet = new MockSjsonnet();
@@ -565,7 +563,7 @@ describe("Complex Jsonnet Integration", () => {
 		const manifestCode = `
 			local width = 400;
 			local height = 300;
-			
+
 			{
 				attrs: { viewBox: "0 0 %d %d" % [width, height] },
 				children: [
@@ -603,7 +601,7 @@ describe("Complex Jsonnet Integration", () => {
 				`
 				local config = import "config.jsonnet";
 				local shapes = import "shapes.libsonnet";
-				
+
 				config + { children: shapes.createShapes() }
 			`,
 			),
@@ -635,7 +633,7 @@ describe("Complex Jsonnet Integration", () => {
 	it("should handle loops and iterations", async () => {
 		const loopCode = `
 			local count = 5;
-			
+
 			{
 				children: [
 					{
@@ -662,7 +660,7 @@ describe("Complex Jsonnet Integration", () => {
 	it("should handle conditional logic", async () => {
 		const conditionalCode = `
 			local showDebug = std.extVar("DEBUG");
-			
+
 			{
 				children: [
 					{ tag: "rect", attrs: { width: 100, height: 100 } }
@@ -691,7 +689,7 @@ describe("Complex Jsonnet Integration", () => {
 				"main.jsonnet",
 				`
 				local utils = import "utils.libsonnet";
-				
+
 				{
 					children: [
 						utils.createButton(10, 10, "Click me"),

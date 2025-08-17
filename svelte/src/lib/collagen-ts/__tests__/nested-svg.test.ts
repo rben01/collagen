@@ -7,11 +7,7 @@ import {
 	generateSvgFromFileSystem,
 	type InMemoryFileSystem,
 } from "../index.js";
-import {
-	createTestFileSystem,
-	expectSvgEqual,
-	TEST_SVG,
-} from "./test-utils.js";
+import { createTestFileSystem, TEST_SVG } from "./test-utils.js";
 
 /** Generate SVG wrapper for test execution */
 async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {

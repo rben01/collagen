@@ -665,11 +665,16 @@ describe("Performance Utilities", () => {
 			expect(defaultCache.has("key104")).toBe(true);
 		});
 
-		it("should handle edge case of size 0", () => {
-			const tinyCache = new SimpleCache<string, number>(0);
-			tinyCache.set("key", 1);
-			expect(tinyCache.size).toBe(0);
-			expect(tinyCache.has("key")).toBe(false);
+		it("should reject maxSize of 0 or negative values", () => {
+			expect(() => new SimpleCache<string, number>(0)).toThrow(
+				"maxSize must be greater than 0",
+			);
+			expect(() => new SimpleCache<string, number>(-1)).toThrow(
+				"maxSize must be greater than 0",
+			);
+			expect(() => new SimpleCache<string, number>(-10)).toThrow(
+				"maxSize must be greater than 0",
+			);
 		});
 	});
 });
@@ -701,7 +706,7 @@ describe("Integration and Edge Cases", () => {
 		expect(isNumber(Number.MIN_SAFE_INTEGER)).toBe(true);
 
 		// Very large arrays
-		const largeArray = new Array(1000).fill(0);
+		const largeArray = [...Array(1000)];
 		expect(isArray(largeArray)).toBe(true);
 		expect(isEmpty(largeArray)).toBe(false);
 	});

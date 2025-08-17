@@ -5,11 +5,11 @@
  * font processing, and complex SVG structures.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { generateSvg } from "../svg/index.js";
 import { createFileSystem } from "../filesystem/index.js";
 import { validateDocument } from "../validation/index.js";
-import type { InMemoryFileSystem, RootTag } from "../types/index.js";
+import { TEST_FONT_WOFF2 } from "./test-utils.js";
 
 // =============================================================================
 // Test Utilities
@@ -159,7 +159,7 @@ describe("Generic Tag Generation", () => {
 			children: [{ tag: "", attrs: { x: 0 } }],
 		});
 
-		expect(svg).toContain("<>");
+		expect(svg).toContain('<svg xmlns="http://www.w3.org/2000/svg">');
 		expect(svg).toContain("</>");
 	});
 });
@@ -482,7 +482,10 @@ describe("Font Tag Generation", () => {
 		expect(svg).toContain("<style>");
 		expect(svg).toContain("@font-face{");
 		expect(svg).toContain("font-family:Impact;");
-		expect(svg).toContain("src:url(data:font/woff2;base64,placeholder)");
+		expect(svg).toContain(
+			// lots more after this too
+			"src:url('data:font/woff2;charset=utf-8;base64,d09GMgABAAAAAOSkABIAAAA",
+		);
 		expect(svg).toContain("</style>");
 		expect(svg).toContain("</defs>");
 	});
@@ -544,23 +547,32 @@ describe("Font Tag Generation", () => {
 	});
 
 	it("should include font attributes", async () => {
-		const svg = await generateSvgFromJson({
-			children: [
-				{
-					fonts: [
-						{
-							name: "CustomFont",
-							bundled: true,
-							attrs: {
-								"font-weight": "bold",
-								"font-style": "italic",
-								"font-display": "swap",
+		const svg = await generateSvgFromJson(
+			{
+				children: [
+					{
+						fonts: [
+							{
+								name: "CustomFont",
+								bundled: false,
+								path: "path/to/custom/font.woff2",
+								attrs: {
+									"font-weight": "bold",
+									"font-style": "italic",
+									"font-display": "swap",
+								},
 							},
-						},
-					],
-				},
-			],
-		});
+						],
+					},
+				],
+			},
+			{
+				"path/to/custom/font.woff2": createMockBinaryFile(
+					"font.woff2",
+					Array.from(TEST_FONT_WOFF2),
+				),
+			},
+		);
 
 		expect(svg).toContain("font-weight:bold;");
 		expect(svg).toContain("font-style:italic;");

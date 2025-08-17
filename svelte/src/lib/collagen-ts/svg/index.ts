@@ -26,6 +26,8 @@ import {
 	BundledFontNotFoundError,
 	XmlError,
 } from "../errors/index.js";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 
 // =============================================================================
 // SVG Generation Context
@@ -112,7 +114,7 @@ async function generateGenericTag(
 /** Generate SVG for a text tag */
 async function generateTextTag(
 	tag: TextTag,
-	context: SvgGenerationContext,
+	_context: SvgGenerationContext,
 ): Promise<string> {
 	return writeTextContent(tag.text, tag.isPreescaped);
 }
@@ -202,6 +204,7 @@ async function generateFontTag(
 			styleContent += "@font-face{";
 			styleContent += `font-family:${font.name};`;
 
+			let fontDataBase64;
 			if ("path" in font) {
 				// User-provided font - resolve path relative to current directory
 				const resolvedFontPath = resolvePath(context, font.path);
@@ -209,14 +212,15 @@ async function generateFontTag(
 					context.filesystem,
 					resolvedFontPath,
 				);
-				const base64Data = base64Encode(fileContent.bytes);
-				const dataUri = `url('data:font/woff2;charset=utf-8;base64,${base64Data}') format('woff2')`;
-				styleContent += `src:${dataUri};`;
+				fontDataBase64 = base64Encode(fileContent.bytes);
 			} else {
-				// Bundled font
-				const bundledFontData = getBundledFontData(font.name);
-				styleContent += `src:${bundledFontData};`;
+				fontDataBase64 = await getBundledFontDataBase64(font.name);
 			}
+
+			// TODO: make this handle font formats other than woff2
+			const dataUri = `url('data:font/woff2;charset=utf-8;base64,${fontDataBase64}') format('woff2')`;
+
+			styleContent += `src:${dataUri};`;
 
 			// Add custom attributes
 			if (font.attrs) {
@@ -427,16 +431,28 @@ function inferImageKind(imagePath: string): string {
 }
 
 /** Get bundled font data (placeholder - would be populated with actual fonts) */
-function getBundledFontData(fontName: string): string {
-	const bundledFonts: Record<string, string> = {
-		// Impact font would be here as base64
-		Impact: 'url(data:font/woff2;base64,placeholder) format("woff2")',
-	};
+async function getBundledFontDataBase64(fontName: string): Promise<string> {
+	const fontPaths: Record<string, string> = { IMPACT: "impact.woff2.b64.txt" };
+	const fontBase64File: string | undefined = fontPaths[fontName.toUpperCase()];
 
-	const fontData = bundledFonts[fontName.toUpperCase()];
-	if (!fontData) {
+	if (fontBase64File === undefined) {
 		throw new BundledFontNotFoundError(fontName);
 	}
 
-	return fontData;
+	let fontDataB64;
+
+	// font files in /public/assets/fonts are already base64-encoded, so no need to
+	// base64 encode here.
+	if (typeof process === "object") {
+		fontDataB64 = await readFile(
+			path.join(process.cwd(), `/public/assets/fonts/${fontBase64File}`),
+			{ encoding: "ascii" },
+		);
+	} else {
+		fontDataB64 = await (
+			await fetch(`/assets/fonts/${fontBase64File}`)
+		).text();
+	}
+
+	return fontDataB64;
 }

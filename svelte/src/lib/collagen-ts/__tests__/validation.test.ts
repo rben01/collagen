@@ -16,17 +16,7 @@ import {
 	InvalidFieldTypeError,
 	InvalidSchemaError,
 } from "../errors/index.js";
-import type {
-	RootTag,
-	AnyChildTag,
-	GenericTag,
-	ImageTag,
-	TextTag,
-	ContainerTag,
-	FontTag,
-	NestedSvgTag,
-	FontFace,
-} from "../types/index.js";
+import type { AnyChildTag, GenericTag } from "../types/index.js";
 
 // =============================================================================
 // Test Utilities

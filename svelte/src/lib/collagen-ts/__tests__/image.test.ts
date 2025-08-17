@@ -9,12 +9,7 @@ import {
 	generateSvgFromFileSystem,
 	type InMemoryFileSystem,
 } from "../index.js";
-import {
-	createTestFileSystem,
-	expectSvgEqual,
-	TEST_IMAGE_PNG,
-	createFileFromBytes,
-} from "./test-utils.js";
+import { createTestFileSystem, TEST_IMAGE_PNG } from "./test-utils.js";
 
 // =============================================================================
 // Helper Functions

@@ -15,7 +15,6 @@ import {
 	getAvailableManifestFormat,
 	getFileSystemInfo,
 } from "../index.js";
-import type { InMemoryFileSystem } from "../filesystem/index.js";
 
 // =============================================================================
 // Test Utilities
@@ -94,55 +93,6 @@ function createTestProject(): Record<string, File> {
 	};
 }
 
-/** Create test files for a Jsonnet project */
-function createJsonnetProject(): Record<string, File> {
-	return {
-		"collagen.jsonnet": createMockFile(
-			"collagen.jsonnet",
-			`
-			local config = import "config.jsonnet";
-			local width = config.width;
-			local height = config.height;
-			
-			{
-				attrs: { viewBox: "0 0 %d %d" % [width, height] },
-				children: [
-					{
-						tag: "rect",
-						attrs: { 
-							x: 0, y: 0, 
-							width: width, height: height, 
-							fill: config.backgroundColor 
-						},
-					},
-					{
-						tag: "g",
-						attrs: { transform: "translate(50, 50)" },
-						children: [
-							{
-								tag: "circle",
-								attrs: { cx: i * 30, cy: 25, r: 10, fill: "hsl(%d, 100%%, 50%%)" % (i * 60) },
-							}
-							for i in std.range(0, 4)
-						],
-					},
-				],
-			}
-		`,
-		),
-		"config.jsonnet": createMockFile(
-			"config.jsonnet",
-			`
-			{
-				width: 300,
-				height: 200,
-				backgroundColor: "#ffffff",
-			}
-		`,
-		),
-	};
-}
-
 /** Create test files with fonts */
 function createProjectWithFonts(): Record<string, File> {
 	return {
@@ -177,72 +127,9 @@ function createProjectWithFonts(): Record<string, File> {
 	};
 }
 
-/** Create nested project structure */
-function createNestedProject(): Record<string, File> {
-	return {
-		"collagen.json": createMockFile(
-			"collagen.json",
-			JSON.stringify({
-				children: [
-					{
-						tag: "g",
-						attrs: { transform: "translate(10, 10)" },
-						children: [
-							{ clgn_path: "components/button" },
-							{ clgn_path: "components/icon" },
-						],
-					},
-				],
-			}),
-		),
-		"components/button/collagen.json": createMockFile(
-			"collagen.json",
-			JSON.stringify({
-				children: [
-					{
-						tag: "rect",
-						attrs: {
-							x: 0,
-							y: 0,
-							width: 80,
-							height: 30,
-							fill: "#e0e0e0",
-							stroke: "#999",
-						},
-					},
-					{
-						tag: "text",
-						attrs: { x: 40, y: 20, "text-anchor": "middle" },
-						children: ["Button"],
-					},
-				],
-			}),
-		),
-		"components/icon/collagen.json": createMockFile(
-			"collagen.json",
-			JSON.stringify({
-				children: [
-					{
-						tag: "circle",
-						attrs: { cx: 15, cy: 15, r: 12, fill: "#007acc" },
-					},
-					{
-						tag: "path",
-						attrs: {
-							d: "M10,15 L20,15 M15,10 L15,20",
-							stroke: "white",
-							"stroke-width": 2,
-						},
-					},
-				],
-			}),
-		),
-	};
-}
-
 // Mock sjsonnet for Jsonnet tests
 const mockSjsonnet = {
-	interpret: vi.fn((code, extVars, tlaVars, jpaths, importCallback) => {
+	interpret: vi.fn(code => {
 		// Simple mock that returns basic structures
 		if (code.includes("config.width")) {
 			return {
@@ -600,8 +487,7 @@ describe("End-to-End Error Handling", () => {
 
 describe("Performance and Scalability", () => {
 	it("should handle large number of elements", async () => {
-		const children = Array(100)
-			.fill(0)
+		const children = [...Array(100)]
 			.map((_, i) => ({
 				tag: "rect",
 				attrs: {
@@ -628,8 +514,7 @@ describe("Performance and Scalability", () => {
 
 	it("should handle large image files", async () => {
 		// Create a "large" mock image (1000 bytes)
-		const largeImageData = Array(1000)
-			.fill(0)
+		const largeImageData = [...Array(1000)]
 			.map((_, i) => i % 256);
 
 		const files = {
@@ -654,8 +539,7 @@ describe("Performance and Scalability", () => {
 			"collagen.json": createMockFile(
 				"collagen.json",
 				JSON.stringify({
-					children: Array(20)
-						.fill(0)
+					children: [...Array(20)]
 						.map((_, i) => ({
 							image_path: `icon${i}.png`,
 							attrs: { x: i * 20, y: 0, width: 16, height: 16 },

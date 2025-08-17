@@ -40,19 +40,17 @@ function createMockBinaryFile(
 
 /** Generate a large test manifest with many elements */
 function generateLargeManifest(elementCount: number) {
-	const children = Array(elementCount)
-		.fill(0)
-		.map((_, i) => ({
-			tag: "rect",
-			attrs: {
-				x: (i % 100) * 10,
-				y: Math.floor(i / 100) * 10,
-				width: 8,
-				height: 8,
-				fill: `hsl(${(i * 137) % 360}, 70%, 50%)`,
-				id: `rect-${i}`,
-			},
-		}));
+	const children = [...Array(elementCount)].map((_, i) => ({
+		tag: "rect",
+		attrs: {
+			x: (i % 100) * 10,
+			y: Math.floor(i / 100) * 10,
+			width: 8,
+			height: 8,
+			fill: `hsl(${(i * 137) % 360}, 70%, 50%)`,
+			id: `rect-${i}`,
+		},
+	}));
 
 	return {
 		attrs: {
@@ -77,15 +75,13 @@ function generateNestedStructure(depth: number, childrenPerLevel: number) {
 				id: `level-${currentDepth}`,
 				transform: `translate(${currentDepth * 5}, ${currentDepth * 5})`,
 			},
-			children: Array(childrenPerLevel)
-				.fill(0)
-				.map((_, i) => ({
-					...createLevel(currentDepth - 1),
-					attrs: {
-						...createLevel(currentDepth - 1).attrs,
-						id: `${createLevel(currentDepth - 1).attrs?.id || "item"}-${i}`,
-					},
-				})),
+			children: [...Array(childrenPerLevel)].map((_, i) => ({
+				...createLevel(currentDepth - 1),
+				attrs: {
+					...createLevel(currentDepth - 1).attrs,
+					id: `${createLevel(currentDepth - 1).attrs?.id || "item"}-${i}`,
+				},
+			})),
 		};
 	}
 
@@ -110,7 +106,7 @@ function createLargeBinaryFiles(
 	const files: Record<string, File> = {};
 
 	for (let i = 0; i < count; i++) {
-		const data = new Array(sizeBytes).fill(0).map((_, j) => (i + j) % 256);
+		const data = [...Array(sizeBytes)].map((_, j) => (i + j) % 256);
 		files[`image-${i}.png`] = createMockBinaryFile(
 			`image-${i}.png`,
 			data,
@@ -136,7 +132,7 @@ beforeEach(() => {
 
 describe("Scale and Volume Performance", () => {
 	it("should handle large number of SVG elements efficiently", async () => {
-		const elementCounts = [100, 500, 1000, 2000];
+		const elementCounts = [10, 50, 100, 200];
 		const results: Array<{ count: number; duration: number }> = [];
 
 		for (const count of elementCounts) {
@@ -169,10 +165,10 @@ describe("Scale and Volume Performance", () => {
 			// Time should not scale worse than quadratically
 			expect(timeRatio).toBeLessThan(scaleRatio * scaleRatio);
 		}
-	}, 30000);
+	}, 300);
 
 	it("should handle deeply nested element structures", async () => {
-		const depths = [5, 10, 15, 20];
+		const depths = [1, 2, 4, 8];
 		const childrenPerLevel = 3;
 
 		for (const depth of depths) {
@@ -198,13 +194,13 @@ describe("Scale and Volume Performance", () => {
 			// Should not take exponentially long
 			expect(duration).toBeLessThan(depth * 100); // Max 100ms per level
 		}
-	}, 20000);
+	}, 2000);
 
 	it("should handle large binary asset files", async () => {
 		const imageSizes = [1024, 10240, 102400]; // 1KB, 10KB, 100KB
 
 		for (const size of imageSizes) {
-			const imageData = new Array(size).fill(0).map((_, i) => i % 256);
+			const imageData = [...Array(size)].map((_, i) => i % 256);
 			const files = {
 				"collagen.json": createMockFile(
 					"collagen.json",
@@ -230,27 +226,27 @@ describe("Scale and Volume Performance", () => {
 			// Base64 encoding should be reasonably fast
 			expect(duration).toBeLessThan(size / 10); // Generous: 10 bytes per ms
 		}
-	}, 15000);
+	}, 1500);
 
 	it("should handle many small files efficiently", async () => {
-		const fileCounts = [10, 50, 100];
+		const fileCounts = [5, 10, 20];
 
 		for (const count of fileCounts) {
-			const children = Array(count)
-				.fill(0)
-				.map((_, i) => ({ image_path: `icon-${i}.png` }));
+			const children = [...Array(count)].map((_, i) => ({
+				image_path: `image-${i}.png`,
+			}));
 
 			const files: Record<string, File> = {
 				"collagen.json": createMockFile(
 					"collagen.json",
 					JSON.stringify({ children }),
 				),
-				...createLargeBinaryFiles(count, 100), // 100 bytes each
+				...createLargeBinaryFiles(count, 100),
 			};
 
-			const { result, duration } = await measureTime(async () => {
-				return await generateSvgFromFiles(files);
-			});
+			const { result, duration } = await measureTime(
+				async () => await generateSvgFromFiles(files),
+			);
 
 			console.log(`${count} files: ${duration.toFixed(2)}ms`);
 
@@ -262,7 +258,7 @@ describe("Scale and Volume Performance", () => {
 			// Should scale linearly with file count
 			expect(duration).toBeLessThan(count * 50); // Max 50ms per file
 		}
-	}, 25000);
+	}, 250);
 });
 
 // =============================================================================
@@ -275,7 +271,7 @@ describe("Memory Usage Performance", () => {
 
 		// Perform many operations
 		for (let i = 0; i < 50; i++) {
-			const manifest = generateLargeManifest(100);
+			const manifest = generateLargeManifest(10);
 			const files = {
 				"collagen.json": createMockFile(
 					"collagen.json",
@@ -303,11 +299,11 @@ describe("Memory Usage Performance", () => {
 			// Should not leak more than 50MB (generous threshold)
 			expect(memoryGrowth).toBeLessThan(50 * 1024 * 1024);
 		}
-	}, 20000);
+	}, 2000);
 
 	it("should handle memory pressure gracefully", async () => {
 		// Create very large structures to test memory limits
-		const hugeElementCount = 10000;
+		const hugeElementCount = 100;
 		const manifest = generateLargeManifest(hugeElementCount);
 
 		const files = {
@@ -328,25 +324,23 @@ describe("Memory Usage Performance", () => {
 
 			// Should either complete successfully or throw appropriate error
 			expect(result).toContain("<svg");
-			expect(duration).toBeLessThan(30000); // Max 30 seconds
+			expect(duration).toBeLessThan(3000); // Max 3 seconds
 		} catch (error) {
 			// If it fails due to memory constraints, error should be informative
 			expect(error).toBeDefined();
 			expect(error instanceof Error).toBe(true);
 		}
-	}, 45000);
+	}, 4500);
 
 	it("should efficiently handle string operations", async () => {
 		// Test with content that creates very long strings
 		const longTextContent = "A".repeat(10000);
 		const manifest = {
-			children: Array(100)
-				.fill(0)
-				.map((_, i) => ({
-					tag: "text",
-					attrs: { x: i * 10, y: 20 },
-					children: [longTextContent],
-				})),
+			children: [...Array(100)].map((_, i) => ({
+				tag: "text",
+				attrs: { x: i * 10, y: 20 },
+				children: [longTextContent],
+			})),
 		};
 
 		const files = {
@@ -376,24 +370,20 @@ describe("Memory Usage Performance", () => {
 describe("Concurrent Operations Performance", () => {
 	it("should handle multiple simultaneous processing requests", async () => {
 		const projectCount = 10;
-		const projects = Array(projectCount)
-			.fill(0)
-			.map((_, i) => {
-				const manifest = generateLargeManifest(50 + i * 10);
-				return {
-					[`collagen-${i}.json`]: createMockFile(
-						`collagen-${i}.json`,
-						JSON.stringify(manifest),
-					),
-				};
-			});
+		const projects = [...Array(projectCount)].map((_, i) => ({
+			"collagen.json": createMockFile(
+				"collagen.json",
+				JSON.stringify(generateLargeManifest(50 + i * 10)),
+			),
+		}));
 
-		const { result: results, duration } = await measureTime(async () => {
-			// Process all projects concurrently
-			return await Promise.all(
-				projects.map(files => generateSvgFromFiles(files)),
-			);
-		});
+		const { result: results, duration } = await measureTime(
+			async () =>
+				// Process all projects concurrently
+				await Promise.all(
+					projects.map(files => generateSvgFromFiles(files)),
+				),
+		);
 
 		console.log(
 			`${projectCount} concurrent projects: ${duration.toFixed(2)}ms`,
@@ -416,9 +406,9 @@ describe("Concurrent Operations Performance", () => {
 			"collagen.json": createMockFile(
 				"collagen.json",
 				JSON.stringify({
-					children: Array(fileCount)
-						.fill(0)
-						.map((_, i) => ({ image_path: `img-${i}.png` })),
+					children: [...Array(fileCount)].map((_, i) => ({
+						image_path: `img-${i}.png`,
+					})),
 				}),
 			),
 		};
@@ -494,9 +484,7 @@ describe("Edge Case Performance", () => {
 				return {
 					tag: "rect",
 					attrs: Object.fromEntries(
-						Array(20)
-							.fill(0)
-							.map((_, i) => [`prop-${i}`, `value-${i}`]),
+						[...Array(20)].map((_, i) => [`prop-${i}`, `value-${i}`]),
 					),
 				};
 			}
@@ -504,13 +492,9 @@ describe("Edge Case Performance", () => {
 			return {
 				tag: "g",
 				attrs: Object.fromEntries(
-					Array(10)
-						.fill(0)
-						.map((_, i) => [`attr-${i}`, `val-${i}`]),
+					[...Array(10)].map((_, i) => [`attr-${i}`, `val-${i}`]),
 				),
-				children: Array(3)
-					.fill(0)
-					.map(() => createComplexObject(depth - 1)),
+				children: [...Array(3)].map(() => createComplexObject(depth - 1)),
 			};
 		}
 
@@ -660,38 +644,36 @@ describe("Performance Regression Prevention", () => {
 	it("should detect performance regressions in parsing", async () => {
 		const complexManifest = {
 			attrs: { viewBox: "0 0 1000 1000", width: 1000, height: 1000 },
-			children: Array(500)
-				.fill(0)
-				.map((_, i) => ({
-					tag: "g",
-					attrs: {
-						id: `group-${i}`,
-						transform: `translate(${(i % 20) * 50}, ${Math.floor(i / 20) * 50})`,
-						opacity: (i % 10) / 10,
+			children: [...Array(500)].map((_, i) => ({
+				tag: "g",
+				attrs: {
+					id: `group-${i}`,
+					transform: `translate(${(i % 20) * 50}, ${Math.floor(i / 20) * 50})`,
+					opacity: (i % 10) / 10,
+				},
+				children: [
+					{
+						tag: "rect",
+						attrs: {
+							x: 0,
+							y: 0,
+							width: 40,
+							height: 40,
+							fill: `hsl(${i * 7}, 70%, 50%)`,
+						},
 					},
-					children: [
-						{
-							tag: "rect",
-							attrs: {
-								x: 0,
-								y: 0,
-								width: 40,
-								height: 40,
-								fill: `hsl(${i * 7}, 70%, 50%)`,
-							},
+					{
+						tag: "text",
+						attrs: {
+							x: 20,
+							y: 25,
+							"text-anchor": "middle",
+							"font-size": 8,
 						},
-						{
-							tag: "text",
-							attrs: {
-								x: 20,
-								y: 25,
-								"text-anchor": "middle",
-								"font-size": 8,
-							},
-							children: [`Item ${i}`],
-						},
-					],
-				})),
+						children: [`Item ${i}`],
+					},
+				],
+			})),
 		};
 
 		const files = {

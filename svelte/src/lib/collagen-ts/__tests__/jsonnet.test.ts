@@ -2,7 +2,7 @@
  * Test Jsonnet support in Collagen TypeScript implementation
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { generateSvgFromFiles, getSupportedFormats } from "../index.js";
 import { createFileFromString, TEST_IMAGE_PNG } from "./test-utils.js";
 import { JsonnetError } from "../errors/index.js";
@@ -47,7 +47,7 @@ describe("Jsonnet Support", () => {
 		const jsonnetManifest = `
 			local width = 200;
 			local height = 200;
-			
+
 			{
 				attrs: { viewBox: "0 0 %d %d" % [width, height] },
 				children: [

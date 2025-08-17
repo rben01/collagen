@@ -156,6 +156,9 @@ export class SimpleCache<K, V> {
 	private maxSize: number;
 
 	constructor(maxSize = 100) {
+		if (maxSize <= 0) {
+			throw new Error("maxSize must be greater than 0");
+		}
 		this.maxSize = maxSize;
 	}
 

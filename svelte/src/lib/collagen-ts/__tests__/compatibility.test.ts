@@ -7,12 +7,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { generateSvgFromFiles, createFileSystem } from "../index.js";
-import {
-	TEST_CASES,
-	createTestFileSystem,
-	expectSvgEqual,
-} from "./test-utils.js";
+import { generateSvgFromFiles } from "../index.js";
+import { expectSvgEqual } from "./test-utils.js";
 
 // =============================================================================
 // Test Utilities
@@ -412,7 +408,7 @@ describe("Font Handling Compatibility", () => {
 		expect(svg).toContain("@font-face{");
 		expect(svg).toContain("font-family:Impact;");
 		expect(svg).toContain(
-			'src:url(data:font/woff2;base64,placeholder) format("woff2")',
+			"src:url('data:font/woff2;charset=utf-8;base64,d09GMgABAAAAAOSkABIAAAA",
 		);
 	});
 

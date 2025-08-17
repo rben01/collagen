@@ -381,7 +381,7 @@ test.describe('Performance and Edge Case Workflows', () => {
 		await page.evaluate(() => {
 			const largeManifest = {
 				attrs: { viewBox: '0 0 1000 1000' },
-				children: Array(200).fill(0).map((_, i) => ({
+				children: [...Array(200)].map((_, i) => ({
 					tag: 'rect',
 					attrs: {
 						x: (i % 20) * 50,
@@ -656,7 +656,7 @@ test.describe('Error Recovery Workflows', () => {
 		// Create extremely large project (simulated)
 		await page.evaluate(() => {
 			// Simulate memory pressure
-			const hugeArray = new Array(10000).fill(0).map((_, i) => ({
+			const hugeArray = [...Array(10000)].map((_, i) => ({
 				tag: 'rect',
 				attrs: { x: i, y: i, width: 1, height: 1 }
 			}));

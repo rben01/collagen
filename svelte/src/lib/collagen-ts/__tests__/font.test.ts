@@ -43,9 +43,8 @@ describe("Font Tag Tests", () => {
 			}),
 		});
 
-		// For now, bundled fonts are not implemented so should throw error
-		await expect(generateSvgForTest(fs)).rejects.toThrow(
-			'Could not find bundled font "Impact"',
+		expect(await generateSvgForTest(fs)).toContain(
+			"data:font/woff2;charset=utf-8;base64,d09GMgABAAAAAOSkABIAAAA",
 		);
 	});
 
