@@ -48,6 +48,46 @@ export interface InMemoryFileSystem {
 // Path Utilities
 // =============================================================================
 
+/**
+ * Join and normalize multiple path segments into a single path
+ *
+ * This function takes multiple path segments and combines them into a single
+ * normalized path using stack-based processing to handle directory navigation.
+ *
+ * @param paths - Variable number of path segments to join
+ * @returns A normalized path string with forward slashes as separators
+ *
+ * @example
+ * ```typescript
+ * // Basic path joining
+ * normalizedPathJoin("path", "to", "file") // "path/to/file"
+ * normalizedPathJoin("base", "sub", "file.txt") // "base/sub/file.txt"
+ *
+ * // Handles mixed separators
+ * normalizedPathJoin("path\\with\\backslashes", "file/with/forward")
+ * // "path/with/backslashes/file/with/forward"
+ *
+ * // Processes parent directory references (..)
+ * normalizedPathJoin("base", "sub", "..", "file") // "base/file"
+ * normalizedPathJoin("a", "b", "c", "..", "..", "d") // "a/d"
+ *
+ * // Discards current directory references (.)
+ * normalizedPathJoin(".", "path", ".", "././file") // "path/file"
+ *
+ * // Handles strings consisting of multiple components
+ * normalizedPathJoin("path/./to/./sub", "../file") // "path/to/file"
+ *
+ * // Handles empty paths
+ * normalizedPathJoin("", "file", "") // "file"
+ * normalizedPathJoin() // ""
+ *
+ * // Going past root results in empty components being discarded
+ * normalizedPathJoin("..", "file") // "file"
+ *
+ * // The "empty" path becomes the root folder
+ * normalizedPathJoin("base", "../../..") // "/"
+ * ```
+ */
 export function normalizedPathJoin(...paths: string[]): string {
 	const components: string[] = [];
 	const componentRe = /[^/\\]+/g;
@@ -73,6 +113,10 @@ export function normalizedPathJoin(...paths: string[]): string {
 				components.push(component);
 			}
 		}
+	}
+
+	if (components.length === 0) {
+		return "/";
 	}
 
 	// Join components back together
