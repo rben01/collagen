@@ -6,16 +6,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import {
-	compileJsonnet,
-	compileJsonnetFromFile,
-	loadSjsonnet,
-	isSjsonnetAvailable,
-	getSjsonnetInfo,
-} from "../jsonnet/index.js";
+import { compileJsonnet, compileJsonnetFromFile } from "../jsonnet/index.js";
 import { createFileSystem } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
-import type { SjsonnetMain, JsonnetImportCallback } from "../jsonnet/types.js";
+import { SjsonnetMain } from "../jsonnet/sjsonnet.js";
 
 // =============================================================================
 // Mock Setup
@@ -27,137 +21,137 @@ function createMockFile(name: string, content: string): File {
 	return new File([blob], name, { type: "text/plain" });
 }
 
-/** Mock sjsonnet implementation for testing */
-class MockSjsonnet implements SjsonnetMain {
-	interpret(
-		jsonnetCode: string,
-		extVars: Record<string, unknown>,
-		tlaVars: Record<string, unknown>,
-		_jpaths: string,
-		importCallback: JsonnetImportCallback | null,
-	): unknown {
-		try {
-			// Simple mock implementation that handles basic Jsonnet features
-			return this.mockInterpret(
-				jsonnetCode,
-				extVars,
-				tlaVars,
-				importCallback,
-			);
-		} catch (error) {
-			throw new Error(`Mock Jsonnet error: ${error}`);
-		}
-	}
+// /** Mock sjsonnet implementation for testing */
+// class MockSjsonnet implements SjsonnetMain {
+// 	interpret(
+// 		jsonnetCode: string,
+// 		extVars: Record<string, unknown>,
+// 		tlaVars: Record<string, unknown>,
+// 		_jpaths: string,
+// 		importCallback: JsonnetImportCallback | null,
+// 	): unknown {
+// 		try {
+// 			// Simple mock implementation that handles basic Jsonnet features
+// 			return this.mockInterpret(
+// 				jsonnetCode,
+// 				extVars,
+// 				tlaVars,
+// 				importCallback,
+// 			);
+// 		} catch (error) {
+// 			throw new Error(`Mock Jsonnet error: ${error}`);
+// 		}
+// 	}
 
-	private mockInterpret(
-		code: string,
-		extVars: Record<string, unknown>,
-		tlaVars: Record<string, unknown>,
-		importCallback: JsonnetImportCallback | null,
-	): unknown {
-		// Handle basic object syntax
-		if (code.trim() === "{}") {
-			return {};
-		}
+// 	private mockInterpret(
+// 		code: string,
+// 		extVars: Record<string, unknown>,
+// 		tlaVars: Record<string, unknown>,
+// 		importCallback: JsonnetImportCallback | null,
+// 	): unknown {
+// 		// Handle basic object syntax
+// 		if (code.trim() === "{}") {
+// 			return {};
+// 		}
 
-		if (code.trim() === "{ test: 'value' }") {
-			return { test: "value" };
-		}
+// 		if (code.trim() === "{ test: 'value' }") {
+// 			return { test: "value" };
+// 		}
 
-		// Handle external variables
-		if (code.includes("std.extVar")) {
-			const varMatch = code.match(/std\.extVar\(['"]([^'"]+)['"]\)/);
-			if (varMatch && varMatch[1] in extVars) {
-				return { [varMatch[1]]: extVars[varMatch[1]] };
-			}
-		}
+// 		// Handle external variables
+// 		if (code.includes("std.extVar")) {
+// 			const varMatch = code.match(/std\.extVar\(['"]([^'"]+)['"]\)/);
+// 			if (varMatch && varMatch[1] in extVars) {
+// 				return { [varMatch[1]]: extVars[varMatch[1]] };
+// 			}
+// 		}
 
-		// Handle simple object with variables
-		if (code.includes("local") && code.includes("{")) {
-			// Parse basic local variable syntax
-			const localMatch = code.match(/local\s+(\w+)\s*=\s*['"]([^'"]+)['"];/);
-			const objMatch = code.match(/\{\s*(\w+):\s*(\w+)\s*\}/);
-			if (localMatch && objMatch && localMatch[1] === objMatch[2]) {
-				return { [objMatch[1]]: localMatch[2] };
-			}
-		}
+// 		// Handle simple object with variables
+// 		if (code.includes("local") && code.includes("{")) {
+// 			// Parse basic local variable syntax
+// 			const localMatch = code.match(/local\s+(\w+)\s*=\s*['"]([^'"]+)['"];/);
+// 			const objMatch = code.match(/\{\s*(\w+):\s*(\w+)\s*\}/);
+// 			if (localMatch && objMatch && localMatch[1] === objMatch[2]) {
+// 				return { [objMatch[1]]: localMatch[2] };
+// 			}
+// 		}
 
-		// Handle imports
-		if (code.includes("import") && importCallback) {
-			const importMatch = code.match(/import\s+['"]([^'"]+)['"]/);
-			if (importMatch) {
-				const importPath = importMatch[1];
-				const imported = importCallback("", importPath);
-				if (imported) {
-					// Recursively interpret the imported content
-					return this.mockInterpret(
-						imported.content,
-						extVars,
-						tlaVars,
-						importCallback,
-					);
-				}
-			}
-		}
+// 		// Handle imports
+// 		if (code.includes("import") && importCallback) {
+// 			const importMatch = code.match(/import\s+['"]([^'"]+)['"]/);
+// 			if (importMatch) {
+// 				const importPath = importMatch[1];
+// 				const imported = importCallback("", importPath);
+// 				if (imported) {
+// 					// Recursively interpret the imported content
+// 					return this.mockInterpret(
+// 						imported.content,
+// 						extVars,
+// 						tlaVars,
+// 						importCallback,
+// 					);
+// 				}
+// 			}
+// 		}
 
-		// Handle array syntax
-		if (code.trim().startsWith("[") && code.trim().endsWith("]")) {
-			try {
-				// Simple array parsing for basic arrays
-				const arrayContent = code.trim().slice(1, -1).trim();
-				if (arrayContent === "") return [];
-				if (arrayContent.includes('"')) {
-					// String array
-					return arrayContent
-						.split(",")
-						.map(s => s.trim().replace(/['"]/g, ""));
-				}
-				// Number array
-				return arrayContent.split(",").map(s => Number(s.trim()));
-			} catch {
-				return [1, 2, 3]; // fallback
-			}
-		}
+// 		// Handle array syntax
+// 		if (code.trim().startsWith("[") && code.trim().endsWith("]")) {
+// 			try {
+// 				// Simple array parsing for basic arrays
+// 				const arrayContent = code.trim().slice(1, -1).trim();
+// 				if (arrayContent === "") return [];
+// 				if (arrayContent.includes('"')) {
+// 					// String array
+// 					return arrayContent
+// 						.split(",")
+// 						.map(s => s.trim().replace(/['"]/g, ""));
+// 				}
+// 				// Number array
+// 				return arrayContent.split(",").map(s => Number(s.trim()));
+// 			} catch {
+// 				return [1, 2, 3]; // fallback
+// 			}
+// 		}
 
-		// Handle complex object with children
-		if (code.includes("children") && code.includes("[")) {
-			return {
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{ tag: "rect", attrs: { x: 0, y: 0, width: 50, height: 50 } },
-					"Text content",
-				],
-			};
-		}
+// 		// Handle complex object with children
+// 		if (code.includes("children") && code.includes("[")) {
+// 			return {
+// 				attrs: { viewBox: "0 0 100 100" },
+// 				children: [
+// 					{ tag: "rect", attrs: { x: 0, y: 0, width: 50, height: 50 } },
+// 					"Text content",
+// 				],
+// 			};
+// 		}
 
-		// Handle loop syntax (basic)
-		if (code.includes("for") && code.includes("in")) {
-			return [
-				{ index: 0, value: "item0" },
-				{ index: 1, value: "item1" },
-				{ index: 2, value: "item2" },
-			];
-		}
+// 		// Handle loop syntax (basic)
+// 		if (code.includes("for") && code.includes("in")) {
+// 			return [
+// 				{ index: 0, value: "item0" },
+// 				{ index: 1, value: "item1" },
+// 				{ index: 2, value: "item2" },
+// 			];
+// 		}
 
-		// Syntax error simulation
-		if (code.includes("SYNTAX_ERROR")) {
-			throw new Error("Syntax error at line 1: unexpected token");
-		}
+// 		// Syntax error simulation
+// 		if (code.includes("SYNTAX_ERROR")) {
+// 			throw new Error("Syntax error at line 1: unexpected token");
+// 		}
 
-		// Runtime error simulation
-		if (code.includes("RUNTIME_ERROR")) {
-			throw new Error("Runtime error: undefined variable");
-		}
+// 		// Runtime error simulation
+// 		if (code.includes("RUNTIME_ERROR")) {
+// 			throw new Error("Runtime error: undefined variable");
+// 		}
 
-		// Default fallback
-		return { mock: "result", code: code.slice(0, 50) };
-	}
-}
+// 		// Default fallback
+// 		return { mock: "result", code: code.slice(0, 50) };
+// 	}
+// }
 
-let mockSjsonnet: MockSjsonnet;
+let mockSjsonnet: typeof SjsonnetMain;
 
 beforeEach(() => {
-	mockSjsonnet = new MockSjsonnet();
+	mockSjsonnet = SjsonnetMain;
 
 	// Mock DOM environment
 	const mockScript = {
@@ -190,8 +184,6 @@ beforeEach(() => {
 afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
-	// Clear the cached promise
-	(loadSjsonnet as any).sjsonnetPromise = null;
 });
 
 // =============================================================================
@@ -528,29 +520,8 @@ describe("Jsonnet Error Handling", () => {
 
 describe("sjsonnet Loading", () => {
 	it("should load sjsonnet successfully", async () => {
-		const sjsonnet = await loadSjsonnet();
-		expect(sjsonnet).toBeDefined();
-		expect(typeof sjsonnet.interpret).toBe("function");
-	});
-
-	it("should cache sjsonnet instance", async () => {
-		const sjsonnet1 = await loadSjsonnet();
-		const sjsonnet2 = await loadSjsonnet();
-		expect(sjsonnet1).toBe(sjsonnet2);
-	});
-
-	it("should detect sjsonnet availability", async () => {
-		const available = await isSjsonnetAvailable();
-		expect(available).toBe(true);
-	});
-
-	it("should provide sjsonnet info", async () => {
-		const info = await getSjsonnetInfo();
-		expect(info).toEqual({
-			available: true,
-			version: "unknown",
-			source: "sjsonnet.js",
-		});
+		expect(SjsonnetMain).toBeDefined();
+		expect(typeof SjsonnetMain.interpret).toBe("function");
 	});
 });
 

@@ -34,11 +34,7 @@ function serve() {
 
 export default {
 	input: "src/main.js",
-	output: {
-		sourcemap: true,
-		format: "es",
-		dir: "public/build",
-	},
+	output: { sourcemap: true, format: "es", dir: "public/build" },
 	plugins: [
 		// Temporarily disable WASM to focus on TypeScript implementation
 		// rust({
@@ -73,7 +69,7 @@ export default {
 			dedupe: ["svelte"],
 			exportConditions: ["svelte"],
 		}),
-		commonjs(),
+		commonjs({ include: "src/lib/collagen-ts/jsonnet/sjsonnet.js" }),
 
 		// In dev mode, call `npm run start` once
 		// the bundle has been generated
@@ -87,7 +83,5 @@ export default {
 		// instead of npm run dev), minify
 		production && terser(),
 	],
-	watch: {
-		clearScreen: false,
-	},
+	watch: { clearScreen: false },
 };

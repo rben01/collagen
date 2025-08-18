@@ -8,56 +8,11 @@
 import type { InMemoryFileSystem } from "../filesystem/index.js";
 import { normalizedPathJoin } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
-import type {
+import {
+	type JsonnetImportCallback,
+	type JsonnetConfig,
 	SjsonnetMain,
-	JsonnetImportCallback,
-	JsonnetConfig,
-} from "./types.js";
-
-// =============================================================================
-// sjsonnet.js Loading
-// =============================================================================
-
-let sjsonnetPromise: Promise<SjsonnetMain> | null = null;
-
-/** Load sjsonnet.js dynamically */
-export async function loadSjsonnet(): Promise<SjsonnetMain> {
-	if (sjsonnetPromise) {
-		return sjsonnetPromise;
-	}
-
-	sjsonnetPromise = (async () => {
-		// Check if already loaded globally
-		if (window.SjsonnetMain) {
-			return window.SjsonnetMain;
-		}
-
-		if (typeof window.exports === "undefined") {
-			window.exports = {};
-		}
-
-		// Load the script dynamically
-		return new Promise<SjsonnetMain>((resolve, reject) => {
-			const script = document.createElement("script");
-			script.src = "/sjsonnet.js";
-			script.addEventListener("load", () => {
-				const sjsonnetMain = window.exports?.SjsonnetMain;
-				if (sjsonnetMain) {
-					window.SjsonnetMain = sjsonnetMain;
-					resolve(sjsonnetMain);
-				} else {
-					reject(new Error("SjsonnetMain not found after loading script"));
-				}
-			});
-			script.addEventListener("error", () => {
-				reject(new Error("Failed to load sjsonnet.js"));
-			});
-			document.head.appendChild(script);
-		});
-	})();
-
-	return sjsonnetPromise;
-}
+} from "./sjsonnet";
 
 // =============================================================================
 // Import Resolution
@@ -157,10 +112,7 @@ export async function compileJsonnet(
 	manifestPath: string = "collagen.jsonnet",
 ): Promise<unknown> {
 	try {
-		const [sjsonnet, fileCache] = await Promise.all([
-			loadSjsonnet(),
-			preloadFileCache(filesystem),
-		]);
+		const fileCache = await preloadFileCache(filesystem);
 
 		// Create import callback
 		const importCallback = createImportCallback(fileCache);
@@ -171,7 +123,7 @@ export async function compileJsonnet(
 		const jpaths = (config.jpaths || []).join(":");
 
 		// Compile the Jsonnet code
-		const result = sjsonnet.interpret(
+		const result = SjsonnetMain.interpret(
 			jsonnetCode,
 			extVars,
 			tlaVars,
@@ -217,36 +169,5 @@ export async function compileJsonnetFromFile(
 			manifestPath,
 			error instanceof Error ? error.message : String(error),
 		);
-	}
-}
-
-// =============================================================================
-// Utility Functions
-// =============================================================================
-
-/** Check if sjsonnet.js is available */
-export async function isSjsonnetAvailable(): Promise<boolean> {
-	try {
-		await loadSjsonnet();
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-/** Get version information about sjsonnet */
-export async function getSjsonnetInfo(): Promise<Record<string, unknown>> {
-	try {
-		await loadSjsonnet();
-		return {
-			available: true,
-			version: "unknown", // sjsonnet doesn't expose version info
-			source: "sjsonnet.js",
-		};
-	} catch (error) {
-		return {
-			available: false,
-			error: error instanceof Error ? error.message : String(error),
-		};
 	}
 }

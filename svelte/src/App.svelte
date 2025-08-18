@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import {
@@ -8,32 +7,12 @@
 		generateSvg,
 		toCompatibleError,
 	} from "./lib/collagen-ts/index.js";
-	import { loadSjsonnet } from "./lib/collagen-ts/jsonnet/index";
-	import { SjsonnetMain } from "./lib/collagen-ts/jsonnet/types";
+	import { SjsonnetMain } from "./lib/collagen-ts/jsonnet/sjsonnet";
 
-	let sjsonnet: SjsonnetMain;
 	let error: string | null = null;
 	let loading = false;
 	let svgOutput: string | null = null;
 	let filesData: Record<string, { size: number }> | null = null;
-
-	onMount(async () => {
-		await loadModules();
-	});
-
-	async function loadModules() {
-		try {
-			// Load sjsonnet module
-			const sjsonnetModule = await loadSjsonnet();
-			sjsonnet = sjsonnetModule;
-			console.log("Modules loaded successfully");
-		} catch (err) {
-			console.error("Failed to load modules:", err);
-			error =
-				"Failed to load modules: " +
-				(err instanceof Error ? err.message : String(err));
-		}
-	}
 
 	async function processManifest(fileMap: Map<string, File>) {
 		// Check for jsonnet manifest first (with leading slash)
@@ -77,7 +56,7 @@
 					return null;
 				};
 
-				const compiledManifest: any = sjsonnet.interpret(
+				const compiledManifest: any = SjsonnetMain.interpret(
 					jsonnetContent,
 					{}, // ext vars
 					{}, // tla vars
@@ -202,7 +181,7 @@
 		<FileUploader
 			{handleFilesUploaded}
 			{handleClearFiles}
-			disabled={loading || !sjsonnet}
+			disabled={loading || !SjsonnetMain}
 			externalError={error}
 		/>
 	</div>

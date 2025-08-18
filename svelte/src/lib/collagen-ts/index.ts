@@ -146,13 +146,8 @@ export {
 export * from "./errors/index.js";
 
 // Export Jsonnet utilities
-export {
-	compileJsonnet,
-	compileJsonnetFromFile,
-	isSjsonnetAvailable,
-	getSjsonnetInfo,
-} from "./jsonnet/index.js";
-export type { JsonnetConfig, JsonnetResult } from "./jsonnet/types.js";
+export { compileJsonnet, compileJsonnetFromFile } from "./jsonnet/index.js";
+export type { JsonnetConfig, JsonnetResult } from "./jsonnet/sjsonnet";
 
 // =============================================================================
 // Compatibility Layer
