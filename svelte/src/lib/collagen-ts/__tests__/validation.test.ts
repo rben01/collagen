@@ -543,7 +543,7 @@ describe("Font Tag Validation", () => {
 		expect(errors.errors[0]).toBeInstanceOf(InvalidFieldTypeError);
 	});
 
-	it.skip("should require font name", () => {
+	it("should require font name", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{
@@ -554,14 +554,13 @@ describe("Font Tag Validation", () => {
 			errors,
 		);
 
-		assertTagType(result, "font");
-		expect(result.fonts).toHaveLength(0); // invalid font filtered out
+		expect(result).toBeNull();
 		expect(errors.errors.some(e => e instanceof MissingFieldError)).toBe(
 			true,
 		);
 	});
 
-	it.skip("should require path for non-bundled fonts", () => {
+	it("should require path for non-bundled fonts", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{
@@ -572,14 +571,13 @@ describe("Font Tag Validation", () => {
 			errors,
 		);
 
-		assertTagType(result, "font");
-		expect(result.fonts).toHaveLength(0);
+		expect(result).toBeNull();
 		expect(errors.errors.some(e => e instanceof MissingFieldError)).toBe(
 			true,
 		);
 	});
 
-	it.skip("should reject bundled fonts with path", () => {
+	it("should reject bundled fonts with path", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{
@@ -594,14 +592,13 @@ describe("Font Tag Validation", () => {
 			errors,
 		);
 
-		assertTagType(result, "font");
-		expect(result.fonts).toHaveLength(0);
+		expect(result).toBeNull();
 		expect(errors.errors.some(e => e instanceof InvalidFieldTypeError)).toBe(
 			true,
 		);
 	});
 
-	it.skip("should handle invalid font attrs", () => {
+	it("should handle invalid font attrs", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{
@@ -619,22 +616,20 @@ describe("Font Tag Validation", () => {
 			errors,
 		);
 
-		assertTagType(result, "font");
-		expect(result.fonts[0].attrs).toEqual({ valid: "value" });
+		expect(result).toBeNull();
 		expect(errors.errors.some(e => e instanceof InvalidFieldTypeError)).toBe(
 			true,
 		);
 	});
 
-	it.skip("should reject unexpected keys in font faces", () => {
+	it("should reject unexpected keys in font faces", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{ fonts: [{ name: "MyFont", bundled: true, unexpected: "value" }] },
 			errors,
 		);
 
-		assertTagType(result, "font");
-		expect(result.fonts).toHaveLength(0);
+		expect(result).toBeNull();
 		expect(errors.errors.some(e => e instanceof UnexpectedKeysError)).toBe(
 			true,
 		);

@@ -16,7 +16,7 @@ async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {
 
 describe("Container Tag Tests", () => {
 	it("should include nested folder contents", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -47,7 +47,7 @@ describe("Container Tag Tests", () => {
 	});
 
 	it("should handle deeply nested containers", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ clgn_path: "level1" }],
 			}),

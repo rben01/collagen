@@ -360,7 +360,7 @@ async function createNestedContext(
 	}
 
 	// Create new filesystem with the filtered files
-	const nestedFilesystem = createFileSystem(nestedFiles);
+	const nestedFilesystem = await createFileSystem(nestedFiles);
 
 	return {
 		filesystem: nestedFilesystem,

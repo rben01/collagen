@@ -5,6 +5,8 @@
  * which is compiled from Scala.js.
  */
 
+import { JsonObject } from ".";
+
 // =============================================================================
 // sjsonnet Global Interface
 // =============================================================================
@@ -17,50 +19,33 @@ declare module "./sjsonnet.js" {
 		 * @param jsonnetCode - The Jsonnet source code
 		 * @param extVars - External variables object
 		 * @param tlaVars - Top-level arguments object
-		 * @param jpaths - Array of library paths
+		 * @param cwd - Initial working directory
 		 * @param importCallback - Function to resolve imports
 		 * @returns JavaScript object (not JSON string)
 		 */
 		interpret(
 			jsonnetCode: string,
 			extVars: Record<string, unknown>,
-			tlaVars: Record<string, unknown>,
-			jpaths: string,
-			importCallback: JsonnetImportCallback | null,
-		): unknown;
+			tlaVars: Record<string, string>,
+			cwd: string,
+			resolverCallback: JsonnetResolverCallback,
+			loaderCallback: JsonnetLoaderCallback,
+		): JsonObject;
 	};
 }
 
-/** sjsonnet import callback function */
-export type JsonnetImportCallback = (
-	dir: string,
-	importedFrom: string,
-) => { foundHere: string; content: string } | null;
-
-// =============================================================================
-// Jsonnet Processing Types
-// =============================================================================
-
 /** Configuration for Jsonnet compilation */
 export interface JsonnetConfig {
-	/** External variables to pass to Jsonnet */
-	extVars?: Record<string, unknown>;
+	// We are intentionally omitting extVars because we don't need them and it doesn't
+	// look like Sjsonnet correctly supports them
 
 	/** Top-level arguments to pass to Jsonnet */
-	tlaVars?: Record<string, unknown>;
+	tlaVars?: Record<string, string>;
 
 	/** Library search paths */
-	jpaths?: string[];
+	cwd?: string;
 }
 
-/** Result of Jsonnet compilation */
-export interface JsonnetResult {
-	/** Whether compilation was successful */
-	success: boolean;
+export type JsonnetResolverCallback = (wd: string, imported: string) => string;
 
-	/** Compiled JavaScript object (if successful) */
-	result?: unknown;
-
-	/** Error message (if failed) */
-	error?: string;
-}
+export type JsonnetLoaderCallback = (path: string, _binary: unknown) => string;

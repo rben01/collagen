@@ -9,94 +9,17 @@ import type { InMemoryFileSystem } from "../filesystem/index.js";
 import { normalizedPathJoin } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
 import {
-	type JsonnetImportCallback,
-	type JsonnetConfig,
 	SjsonnetMain,
-} from "./sjsonnet";
+	JsonnetResolverCallback,
+	JsonnetLoaderCallback,
+	JsonnetConfig,
+} from "./sjsonnet.js";
 
-// =============================================================================
-// Import Resolution
-// =============================================================================
-
-/** Pre-load all files as text for synchronous access */
-async function preloadFileCache(
-	filesystem: InMemoryFileSystem,
-): Promise<Map<string, string>> {
-	const cache = new Map<string, string>();
-	const paths = filesystem.getPaths();
-
-	// Load all text files (Jsonnet files and potential imports)
-	await Promise.all(
-		paths
-			.filter(
-				path => path.endsWith(".jsonnet") || path.endsWith(".libsonnet"),
-			)
-			.map(async path => {
-				try {
-					const content = await filesystem.load(path);
-					const text = new TextDecoder().decode(content.bytes);
-					cache.set(path, text);
-				} catch (error) {
-					console.warn(`Failed to preload file ${path}:`, error);
-				}
-			}),
-	);
-
-	return cache;
-}
-
-/** Create an import callback using preloaded file cache */
-function createImportCallback(
-	fileCache: Map<string, string>,
-): JsonnetImportCallback {
-	return (dir: string, importedFrom: string) => {
-		try {
-			// Resolve the import path relative to the current directory
-			const importPath = normalizedPathJoin(dir, importedFrom);
-			const resolvedPath = normalizedPathJoin(importPath);
-
-			// Check the cache for the file
-			if (fileCache.has(resolvedPath)) {
-				return {
-					foundHere: resolvedPath,
-					content: fileCache.get(resolvedPath)!,
-				};
-			}
-
-			// Try with .jsonnet extension if not already present
-			const withExtension = resolvedPath.endsWith(".jsonnet")
-				? resolvedPath
-				: resolvedPath + ".jsonnet";
-
-			if (fileCache.has(withExtension)) {
-				return {
-					foundHere: withExtension,
-					content: fileCache.get(withExtension)!,
-				};
-			}
-
-			// Try with .libsonnet extension
-			const withLibExtension = resolvedPath.endsWith(".libsonnet")
-				? resolvedPath
-				: resolvedPath.replace(/\.jsonnet$/, ".libsonnet");
-
-			if (fileCache.has(withLibExtension)) {
-				return {
-					foundHere: withLibExtension,
-					content: fileCache.get(withLibExtension)!,
-				};
-			}
-
-			return null; // File not found
-		} catch (error) {
-			console.warn(
-				`Failed to resolve import: ${importedFrom} from ${dir}:`,
-				error,
-			);
-			return null;
-		}
-	};
-}
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonObject =
+	| JsonPrimitive
+	| JsonPrimitive[]
+	| Record<string, JsonPrimitive>;
 
 // =============================================================================
 // Jsonnet Compilation
@@ -105,30 +28,34 @@ function createImportCallback(
 /**
  * Compile Jsonnet code to a JavaScript object
  */
-export async function compileJsonnet(
+export function compileJsonnet(
 	jsonnetCode: string,
 	filesystem: InMemoryFileSystem,
 	config: JsonnetConfig = {},
 	manifestPath: string = "collagen.jsonnet",
-): Promise<unknown> {
+): JsonObject {
 	try {
-		const fileCache = await preloadFileCache(filesystem);
+		// Create resolver callback (for resolving import paths)
+		const resolverCallback: JsonnetResolverCallback = (wd, imported) =>
+			normalizedPathJoin(wd, imported);
 
-		// Create import callback
-		const importCallback = createImportCallback(fileCache);
-
-		// Set up compilation parameters
-		const extVars = config.extVars || {};
-		const tlaVars = config.tlaVars || {};
-		const jpaths = (config.jpaths || []).join(":");
-
-		// Compile the Jsonnet code
+		// Create loader callback (for loading file contents)
+		const loaderCallback: JsonnetLoaderCallback = (path, _) => {
+			try {
+				return new TextDecoder().decode(filesystem.loadSync(path).bytes);
+			} catch (error) {
+				// If the file doesn't exist, throw a more descriptive error
+				throw new Error(`Failed to load Jsonnet import: ${path}`);
+			}
+		};
+		// Compile the Jsonnet code with correct argument order
 		const result = SjsonnetMain.interpret(
 			jsonnetCode,
-			extVars,
-			tlaVars,
-			jpaths,
-			importCallback,
+			{},
+			config.tlaVars ?? {},
+			config.cwd ?? "",
+			resolverCallback,
+			loaderCallback,
 		);
 
 		return result;
@@ -147,14 +74,14 @@ export async function compileJsonnetFromFile(
 	filesystem: InMemoryFileSystem,
 	manifestPath: string,
 	config: JsonnetConfig = {},
-): Promise<unknown> {
+): Promise<JsonObject> {
 	try {
 		// Load the Jsonnet file
 		const fileContent = await filesystem.load(manifestPath);
 		const jsonnetCode = new TextDecoder().decode(fileContent.bytes);
 
 		// Compile it
-		return await compileJsonnet(
+		return compileJsonnet(
 			jsonnetCode,
 			filesystem,
 			config,

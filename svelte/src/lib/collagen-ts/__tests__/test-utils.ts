@@ -34,9 +34,9 @@ export function createFileFromBytes(
 }
 
 /** Create a simple file system from content map */
-export function createTestFileSystem(
+export async function createTestFileSystem(
 	files: Record<string, string | Uint8Array>,
-): InMemoryFileSystem {
+): Promise<InMemoryFileSystem> {
 	const fileMap = new Map<string, File>();
 
 	for (const [path, content] of Object.entries(files)) {
@@ -49,7 +49,7 @@ export function createTestFileSystem(
 		fileMap.set(path, file);
 	}
 
-	return createFileSystem(fileMap);
+	return await createFileSystem(fileMap);
 }
 
 // =============================================================================
@@ -245,7 +245,7 @@ export async function executeTestCase(
 		return;
 	}
 
-	const fs = createTestFileSystem(testCase.files);
+	const fs = await createTestFileSystem(testCase.files);
 
 	if (testCase.shouldFail) {
 		await expect(generateSvg(fs)).rejects.toThrow();

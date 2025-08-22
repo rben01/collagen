@@ -27,7 +27,7 @@ export async function generateSvgFromFiles(
 	format?: ManifestFormat,
 ): Promise<string> {
 	// Create filesystem
-	const filesystem = createFileSystem(files);
+	const filesystem = await createFileSystem(files);
 
 	// Load and parse manifest
 	const manifestData = await loadManifest(filesystem, format);
@@ -147,7 +147,7 @@ export * from "./errors/index.js";
 
 // Export Jsonnet utilities
 export { compileJsonnet, compileJsonnetFromFile } from "./jsonnet/index.js";
-export type { JsonnetConfig, JsonnetResult } from "./jsonnet/sjsonnet";
+export type { JsonnetConfig } from "./jsonnet/sjsonnet.js";
 
 // =============================================================================
 // Compatibility Layer

@@ -31,6 +31,9 @@ export interface InMemoryFileSystem {
 	/** Get file content by path */
 	load(path: string): Promise<FileContent>;
 
+	/** Get file content synchronously (for pre-loaded filesystems) */
+	loadSync(path: string): FileContent;
+
 	/** Check if a file exists */
 	exists(path: string): boolean;
 
@@ -156,78 +159,71 @@ export async function readFileAsBytes(file: File): Promise<Uint8Array> {
 
 /** Implementation of InMemoryFileSystem using browser File objects */
 export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
-	private files: Map<string, File>;
-	private cache: Map<string, FileContent> = new Map();
+	private files: Record<string, FileContent>;
 
-	constructor(files: Map<string, File> | Record<string, File>) {
-		if (files instanceof Map) {
-			this.files = new Map();
-			for (const [path, file] of files) {
-				this.files.set(normalizedPathJoin(path), file);
-			}
-		} else {
-			this.files = new Map();
-			for (const [path, file] of Object.entries(files)) {
-				this.files.set(normalizedPathJoin(path), file);
+	private constructor(files: Record<string, FileContent>) {
+		this.files = files;
+	}
+
+	static async create(files: Map<string, File> | Record<string, File>): Promise<BrowserInMemoryFileSystem> {
+		const fileContents: Record<string, FileContent> = {};
+		
+		const fileEntries = files instanceof Map ? Array.from(files.entries()) : Object.entries(files);
+		
+		for (const [path, file] of fileEntries) {
+			const normalizedPath = normalizedPathJoin(path);
+			try {
+				const bytes = await readFileAsBytes(file);
+				fileContents[normalizedPath] = { bytes, path: normalizedPath };
+			} catch (error) {
+				throw new FileReadError(normalizedPath, String(error));
 			}
 		}
+		
+		return new BrowserInMemoryFileSystem(fileContents);
 	}
 
 	/** Get file content by path */
 	async load(path: string): Promise<FileContent> {
+		return this.loadSync(path);
+	}
+
+	/** Get file content synchronously (since files are pre-loaded) */
+	loadSync(path: string): FileContent {
 		const normalizedPath = normalizedPathJoin(path);
-
-		// Check cache first
-		if (this.cache.has(normalizedPath)) {
-			return this.cache.get(normalizedPath)!;
-		}
-
-		// Get file from map
-		const file = this.files.get(normalizedPath);
-		if (!file) {
+		
+		const content = this.files[normalizedPath];
+		if (!content) {
 			throw new MissingFileError(normalizedPath);
 		}
-
-		try {
-			const bytes = await readFileAsBytes(file);
-			const content: FileContent = { bytes, path: normalizedPath };
-
-			// Cache the result
-			this.cache.set(normalizedPath, content);
-			return content;
-		} catch (error) {
-			throw new FileReadError(normalizedPath, String(error));
-		}
+		
+		return content;
 	}
 
 	/** Check if a file exists */
 	exists(path: string): boolean {
-		return this.files.has(normalizedPathJoin(path));
+		return normalizedPathJoin(path) in this.files;
 	}
 
 	/** List all available paths */
 	getPaths(): string[] {
-		return Array.from(this.files.keys()).sort();
+		return Object.keys(this.files).sort();
 	}
 
 	/** Get total size of all files */
 	getTotalSize(): number {
 		let total = 0;
-		for (const file of this.files.values()) {
-			total += file.size;
+		for (const content of Object.values(this.files)) {
+			total += content.bytes.length;
 		}
 		return total;
 	}
 
 	/** Get number of files */
 	getFileCount(): number {
-		return this.files.size;
+		return Object.keys(this.files).length;
 	}
 
-	/** Clear the cache (useful for memory management) */
-	clearCache(): void {
-		this.cache.clear();
-	}
 }
 
 // =============================================================================
@@ -317,10 +313,10 @@ export async function fetchResource(
 // =============================================================================
 
 /** Create a file system from a Map of files */
-export function createFileSystem(
+export async function createFileSystem(
 	files: Map<string, File> | Record<string, File>,
-): InMemoryFileSystem {
-	return new BrowserInMemoryFileSystem(files);
+): Promise<InMemoryFileSystem> {
+	return await BrowserInMemoryFileSystem.create(files);
 }
 
 /** Check if a path looks like an image file */

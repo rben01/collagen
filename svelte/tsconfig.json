@@ -4,7 +4,7 @@
 		"module": "esnext",
 		"moduleResolution": "bundler",
 		"strict": true,
-		"esModuleInterop": false,
+		"esModuleInterop": true,
 		"skipLibCheck": false,
 		"forceConsistentCasingInFileNames": true,
 		"allowSyntheticDefaultImports": true,

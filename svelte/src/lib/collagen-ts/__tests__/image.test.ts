@@ -26,7 +26,7 @@ async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {
 
 describe("Image Tag Tests", () => {
 	it("should embed PNG image with base64 encoding", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -53,7 +53,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should infer image type from file extension", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ image_path: "test.jpg" },
@@ -74,7 +74,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should use explicit kind over file extension", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -95,7 +95,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should handle image with children", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -117,7 +117,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should handle image without explicit dimensions", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -137,7 +137,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should throw error for missing image file", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ image_path: "missing.png", attrs: { x: 0, y: 0 } }],
 			}),
@@ -150,7 +150,7 @@ describe("Image Tag Tests", () => {
 	});
 
 	it("should handle images in subdirectories", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ image_path: "assets/images/logo.png", attrs: { x: 0, y: 0 } },
@@ -179,7 +179,7 @@ describe("Image Tag Tests", () => {
 		];
 
 		for (const { ext, expectedMime } of testCases) {
-			const fs = createTestFileSystem({
+			const fs = await createTestFileSystem({
 				"collagen.json": JSON.stringify({
 					children: [{ image_path: `test.${ext}` }],
 				}),
@@ -198,7 +198,7 @@ describe("Image Tag Tests", () => {
 
 describe("Image Error Handling", () => {
 	it("should throw error for invalid image_path type", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -215,7 +215,7 @@ describe("Image Error Handling", () => {
 	});
 
 	it("should throw error for unexpected keys in image tag", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -234,7 +234,7 @@ describe("Image Error Handling", () => {
 	});
 
 	it("should throw error for invalid attrs type", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{

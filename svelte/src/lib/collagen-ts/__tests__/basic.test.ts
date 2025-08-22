@@ -42,7 +42,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should handle manual manifest creation", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 50 50" },
 				children: [
@@ -62,7 +62,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should handle text tags", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ text: "Hello, World!" },
@@ -80,7 +80,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should handle nested groups", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -121,7 +121,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should preserve xmlns attribute if provided", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: {
 					xmlns: "http://www.w3.org/2000/svg",
@@ -140,7 +140,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should handle single child without array", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: { tag: "circle", attrs: { cx: 50, cy: 50, r: 25 } },
 			}),
@@ -154,7 +154,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 	});
 
 	it("should handle empty children array", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 100 100" },
 				children: [],
@@ -175,7 +175,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 
 describe("Collagen TypeScript Error Handling", () => {
 	it("should throw error for missing manifest", async () => {
-		const fs = createTestFileSystem({ "other-file.txt": "not a manifest" });
+		const fs = await createTestFileSystem({ "other-file.txt": "not a manifest" });
 
 		await expect(generateSvgForTest(fs)).rejects.toThrow(
 			"Missing manifest file",
@@ -183,13 +183,13 @@ describe("Collagen TypeScript Error Handling", () => {
 	});
 
 	it("should throw error for invalid JSON", async () => {
-		const fs = createTestFileSystem({ "collagen.json": "{ invalid json }" });
+		const fs = await createTestFileSystem({ "collagen.json": "{ invalid json }" });
 
 		await expect(generateSvgForTest(fs)).rejects.toThrow();
 	});
 
 	it("should throw error for unrecognized tag", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ unknown_field: "value" }],
 			}),
@@ -201,7 +201,7 @@ describe("Collagen TypeScript Error Handling", () => {
 	});
 
 	it("should throw error for missing required field", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ tag: "" }, // empty tag name
@@ -222,7 +222,7 @@ describe("Collagen TypeScript Error Handling", () => {
 
 describe("XML Attribute Handling", () => {
 	it("should escape XML special characters in attributes", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -244,7 +244,7 @@ describe("XML Attribute Handling", () => {
 	});
 
 	it("should handle numeric attributes", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{
@@ -263,7 +263,7 @@ describe("XML Attribute Handling", () => {
 	});
 
 	it("should handle percentage and unit values", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{

@@ -23,14 +23,14 @@ async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {
 
 describe("Rust Examples - Basic Cases", () => {
 	it("should match empty example output", async () => {
-		const fs = createTestFileSystem({ "collagen.json": "{}" });
+		const fs = await createTestFileSystem({ "collagen.json": "{}" });
 
 		const svg = await generateSvgForTest(fs);
 		expectSvgSimilar(svg, '<svg xmlns="http://www.w3.org/2000/svg"></svg>');
 	});
 
 	it("should match basic-smiley-pure-svg example", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -94,7 +94,7 @@ describe("Rust Examples - Basic Cases", () => {
 	});
 
 	it("should handle simple-nesting example structure", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			// Main folder A
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 30 30" },
@@ -128,7 +128,7 @@ describe("Rust Examples - Basic Cases", () => {
 
 describe("Rust Examples - Advanced Features", () => {
 	it("should handle images with various formats", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 200 100" },
 				children: [
@@ -160,7 +160,7 @@ describe("Rust Examples - Advanced Features", () => {
   <circle cx="25" cy="25" r="20" fill="red"/>
 </svg>`;
 
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ svg_path: "icon.svg", attrs: { transform: "scale(2)" } },
@@ -177,7 +177,7 @@ describe("Rust Examples - Advanced Features", () => {
 	});
 
 	it("should handle text content in various forms", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					"Plain text string",
@@ -205,7 +205,7 @@ describe("Rust Examples - Advanced Features", () => {
 	});
 
 	it("should handle complex nested structures", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				attrs: { viewBox: "0 0 300 200" },
 				children: [
@@ -270,7 +270,7 @@ describe("Rust Examples - Advanced Features", () => {
 
 describe("Rust Examples - Error Cases", () => {
 	it("should handle missing files gracefully", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ image_path: "missing.png" }],
 			}),
@@ -282,7 +282,7 @@ describe("Rust Examples - Error Cases", () => {
 	});
 
 	it("should handle invalid JSON gracefully", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": "{ invalid json syntax }",
 		});
 
@@ -290,7 +290,7 @@ describe("Rust Examples - Error Cases", () => {
 	});
 
 	it("should handle unrecognized tag structures", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ unknown_tag_type: "value", random_field: 123 }],
 			}),

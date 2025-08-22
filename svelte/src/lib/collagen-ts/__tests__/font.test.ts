@@ -16,7 +16,7 @@ async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {
 
 describe("Font Tag Tests", () => {
 	it("should embed user-provided font", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ fonts: [{ name: "CustomFont", path: "fonts/custom.woff2" }] },
@@ -37,7 +37,7 @@ describe("Font Tag Tests", () => {
 	});
 
 	it("should handle bundled fonts", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ fonts: [{ name: "Impact", bundled: true }] }],
 			}),
@@ -49,7 +49,7 @@ describe("Font Tag Tests", () => {
 	});
 
 	it("should handle font attributes", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{

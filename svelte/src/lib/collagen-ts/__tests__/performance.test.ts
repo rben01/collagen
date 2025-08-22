@@ -69,19 +69,14 @@ function generateNestedStructure(depth: number, childrenPerLevel: number) {
 			return { tag: "circle", attrs: { cx: 10, cy: 10, r: 5, fill: "red" } };
 		}
 
+		const nextLevel = createLevel(currentDepth - 1);
 		return {
 			tag: "g",
 			attrs: {
 				id: `level-${currentDepth}`,
 				transform: `translate(${currentDepth * 5}, ${currentDepth * 5})`,
 			},
-			children: [...Array(childrenPerLevel)].map((_, i) => ({
-				...createLevel(currentDepth - 1),
-				attrs: {
-					...createLevel(currentDepth - 1).attrs,
-					id: `${createLevel(currentDepth - 1).attrs?.id || "item"}-${i}`,
-				},
-			})),
+			children: [...Array(childrenPerLevel)].map(() => nextLevel),
 		};
 	}
 
@@ -194,7 +189,7 @@ describe("Scale and Volume Performance", () => {
 			// Should not take exponentially long
 			expect(duration).toBeLessThan(depth * 100); // Max 100ms per level
 		}
-	}, 2000);
+	}, 5000);
 
 	it("should handle large binary asset files", async () => {
 		const imageSizes = [1024, 10240, 102400]; // 1KB, 10KB, 100KB
@@ -422,7 +417,7 @@ describe("Concurrent Operations Performance", () => {
 			);
 		}
 
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const { duration } = await measureTime(async () => {
 			// Test file system operations

@@ -192,7 +192,7 @@ describe("Basic End-to-End Pipeline", () => {
 
 	it("should process from pre-created filesystem", async () => {
 		const files = createTestProject();
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const svg = await generateSvgFromFileSystem(filesystem);
 		expect(svg).toContain('<svg xmlns="http://www.w3.org/2000/svg"');
@@ -201,7 +201,7 @@ describe("Basic End-to-End Pipeline", () => {
 
 	it("should parse manifest without generating SVG", async () => {
 		const files = createTestProject();
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const rootTag = await parseManifest(filesystem);
 		expect(rootTag.type).toBe("root");
@@ -215,28 +215,28 @@ describe("Basic End-to-End Pipeline", () => {
 // =============================================================================
 
 describe("Format Detection and Handling", () => {
-	it("should detect JSON format", () => {
+	it("should detect JSON format", async () => {
 		const files = { "collagen.json": createMockFile("collagen.json", "{}") };
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const format = getAvailableManifestFormat(filesystem);
 		expect(format).toBe("json");
 	});
 
-	it("should prefer Jsonnet over JSON", () => {
+	it("should prefer Jsonnet over JSON", async () => {
 		const files = {
 			"collagen.json": createMockFile("collagen.json", "{}"),
 			"collagen.jsonnet": createMockFile("collagen.jsonnet", "{}"),
 		};
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const format = getAvailableManifestFormat(filesystem);
 		expect(format).toBe("jsonnet");
 	});
 
-	it("should return null when no manifest exists", () => {
+	it("should return null when no manifest exists", async () => {
 		const files = { "other.txt": createMockFile("other.txt", "content") };
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const format = getAvailableManifestFormat(filesystem);
 		expect(format).toBeNull();
@@ -371,9 +371,9 @@ describe("Complex Project Processing", () => {
 // =============================================================================
 
 describe("File System Information", () => {
-	it("should provide filesystem information", () => {
+	it("should provide filesystem information", async () => {
 		const files = createTestProject();
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 
 		const info = getFileSystemInfo(filesystem);
 
@@ -386,8 +386,8 @@ describe("File System Information", () => {
 		expect(info.manifestFormat).toBe("json");
 	});
 
-	it("should handle empty filesystem", () => {
-		const filesystem = createFileSystem({});
+	it("should handle empty filesystem", async () => {
+		const filesystem = await createFileSystem({});
 		const info = getFileSystemInfo(filesystem);
 
 		expect(info.fileCount).toBe(0);
@@ -396,11 +396,11 @@ describe("File System Information", () => {
 		expect(info.manifestFormat).toBeNull();
 	});
 
-	it("should detect Jsonnet format in info", () => {
+	it("should detect Jsonnet format in info", async () => {
 		const files = {
 			"collagen.jsonnet": createMockFile("collagen.jsonnet", "{}"),
 		};
-		const filesystem = createFileSystem(files);
+		const filesystem = await createFileSystem(files);
 		const info = getFileSystemInfo(filesystem);
 
 		expect(info.manifestFormat).toBe("jsonnet");

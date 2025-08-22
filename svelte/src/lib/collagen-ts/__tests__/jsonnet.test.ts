@@ -5,7 +5,6 @@
 import { describe, it, expect } from "vitest";
 import { generateSvgFromFiles, getSupportedFormats } from "../index.js";
 import { createFileFromString, TEST_IMAGE_PNG } from "./test-utils.js";
-import { JsonnetError } from "../errors/index.js";
 
 describe("Jsonnet Support", () => {
 	it("should include jsonnet in supported formats", () => {
@@ -14,7 +13,7 @@ describe("Jsonnet Support", () => {
 		expect(formats).toContain("jsonnet");
 	});
 
-	it.skip("should handle simple Jsonnet compilation", async () => {
+	it("should handle simple Jsonnet compilation", async () => {
 		const jsonnetManifest = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
@@ -39,11 +38,10 @@ describe("Jsonnet Support", () => {
 			],
 		]);
 
-		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
-		await expect(generateSvgFromFiles(files)).rejects.toThrow(JsonnetError);
+		expect(await generateSvgFromFiles(files)).toContain("<svg");
 	}, 1000);
 
-	it.skip("should handle Jsonnet with variables", async () => {
+	it("should handle Jsonnet with variables", async () => {
 		const jsonnetManifest = `
 			local width = 200;
 			local height = 200;
@@ -72,11 +70,10 @@ describe("Jsonnet Support", () => {
 			],
 		]);
 
-		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
-		await expect(generateSvgFromFiles(files)).rejects.toThrow(JsonnetError);
+		expect(await generateSvgFromFiles(files)).toContain('"0 0 200 200"');
 	}, 1000);
 
-	it.skip("should handle Jsonnet with loops (pinwheel example)", async () => {
+	it("should handle Jsonnet with loops (pinwheel example)", async () => {
 		const pinwheelJsonnet = `
 			local width = 400;
 			local height = width;
@@ -120,11 +117,13 @@ describe("Jsonnet Support", () => {
 			],
 		]);
 
-		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
-		await expect(generateSvgFromFiles(files)).rejects.toThrow(JsonnetError);
+		// check the output, this is one of the spokes
+		expect(await generateSvgFromFiles(files)).toContain(
+			'<line stroke="hsl(180, 100%, 50%)" stroke-linecap="round" stroke-width="5" x1="200" x2="200" y1="350" y2="50"',
+		);
 	}, 1000);
 
-	it.skip("should handle Jsonnet with image references", async () => {
+	it("should handle Jsonnet with image references", async () => {
 		const jsonnetManifest = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
@@ -147,11 +146,13 @@ describe("Jsonnet Support", () => {
 			],
 		]);
 
-		// In test environment, should fail with JsonnetError since sjsonnet.js isn't available
-		await expect(generateSvgFromFiles(files)).rejects.toThrow(JsonnetError);
+		// This is that test png, base64 encoded
+		expect(await generateSvgFromFiles(files)).toContain(
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4DwAAAQABXHKoZgAAAABJRU5ErkJggg==",
+		);
 	}, 1000);
 
-	it.skip("should prefer jsonnet over json when both exist", async () => {
+	it("should prefer jsonnet over json when both exist", async () => {
 		const jsonManifest = JSON.stringify({
 			attrs: { viewBox: "0 0 100 100" },
 			children: [
@@ -184,7 +185,6 @@ describe("Jsonnet Support", () => {
 			],
 		]);
 
-		// Should prefer jsonnet over json (will fail due to sjsonnet not being available in test env)
-		await expect(generateSvgFromFiles(files)).rejects.toThrow(JsonnetError);
+		expect(await generateSvgFromFiles(files)).toContain('fill="blue"');
 	}, 1000);
 });

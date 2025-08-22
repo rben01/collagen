@@ -6,8 +6,9 @@
 		validateDocument,
 		generateSvg,
 		toCompatibleError,
+		parseManifest,
+		getAvailableManifestFormat,
 	} from "./lib/collagen-ts/index.js";
-	import { SjsonnetMain } from "./lib/collagen-ts/jsonnet/sjsonnet";
 
 	let error: string | null = null;
 	let loading = false;
@@ -15,68 +16,22 @@
 	let filesData: Record<string, { size: number }> | null = null;
 
 	async function processManifest(fileMap: Map<string, File>) {
-		// Check for jsonnet manifest first (with leading slash)
-		const jsonnetPath = "/collagen.jsonnet";
-		const jsonPath = "/collagen.json";
-
 		try {
-			// Check for jsonnet first
-			const jsonnetFile = fileMap.get(jsonnetPath);
-			if (jsonnetFile !== undefined) {
-				console.log("Found jsonnet manifest, compiling to JSON...");
-				const jsonnetContent = await jsonnetFile.text();
+			// Create filesystem from files
+			const filesystem = await createFileSystem(fileMap);
 
-				// Compile jsonnet to JSON using sjsonnet
-				const importCallback = (
-					_workingDir: string,
-					importedPath: string,
-				): { foundHere: string; content: string } | null => {
-					// Handle imports by looking up files in our fileMap
-					let resolvedPath = importedPath.startsWith("./")
-						? importedPath.substring(2)
-						: importedPath;
-
-					// Ensure resolved path has leading slash
-					if (!resolvedPath.startsWith("/")) {
-						resolvedPath = "/" + resolvedPath;
-					}
-
-					const resolvedFile = fileMap.get(resolvedPath);
-					if (resolvedFile === undefined) {
-						return null;
-					}
-
-					// We need to handle this synchronously, but File.text() is async
-					// For now, return null for imports - this may need a different approach
-					// TODO: Consider pre-loading all file contents or using a different strategy
-					console.warn(
-						"Import callback not fully implemented for file:",
-						resolvedPath,
-					);
-					return null;
-				};
-
-				const compiledManifest: any = SjsonnetMain.interpret(
-					jsonnetContent,
-					{}, // ext vars
-					{}, // tla vars
-					jsonnetPath,
-					importCallback,
-				);
-
-				return { data: compiledManifest, format: "jsonnet" as const };
+			// Detect manifest format
+			const format = getAvailableManifestFormat(filesystem);
+			if (!format) {
+				return null;
 			}
 
-			// Check for JSON manifest
-			const jsonFile = fileMap.get(jsonPath);
-			if (jsonFile !== undefined) {
-				console.log("Found JSON manifest");
-				const jsonContent = await jsonFile.text();
-				const parsedManifest = JSON.parse(jsonContent);
-				return { data: parsedManifest, format: "json" as const };
-			}
+			console.log(`Found ${format} manifest, processing...`);
 
-			return null;
+			// Parse and validate manifest using the proper API
+			const manifestData = await parseManifest(filesystem, format);
+
+			return { data: manifestData, format };
 		} catch (err) {
 			console.error("Failed to process manifest:", err);
 			throw new Error(
@@ -90,7 +45,7 @@
 		manifestData: unknown,
 	): Promise<string> {
 		// Create filesystem from fileMap
-		const filesystem = createFileSystem(fileMap);
+		const filesystem = await createFileSystem(fileMap);
 
 		// Validate the manifest data to create typed structure
 		const rootTag = validateDocument(manifestData);
@@ -181,7 +136,7 @@
 		<FileUploader
 			{handleFilesUploaded}
 			{handleClearFiles}
-			disabled={loading || !SjsonnetMain}
+			disabled={loading}
 			externalError={error}
 		/>
 	</div>

@@ -16,7 +16,7 @@ async function generateSvgForTest(fs: InMemoryFileSystem): Promise<string> {
 
 describe("Nested SVG Tag Tests", () => {
 	it("should include SVG file content", async () => {
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [
 					{ svg_path: "icon.svg", attrs: { transform: "scale(2)" } },
@@ -38,7 +38,7 @@ describe("Nested SVG Tag Tests", () => {
   <rect x="10" y="10" width="80" height="80" fill="red"/>
 </svg>`;
 
-		const fs = createTestFileSystem({
+		const fs = await createTestFileSystem({
 			"collagen.json": JSON.stringify({
 				children: [{ svg_path: "test.svg" }],
 			}),

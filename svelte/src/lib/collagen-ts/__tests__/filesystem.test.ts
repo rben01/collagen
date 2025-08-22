@@ -344,25 +344,25 @@ describe("BrowserInMemoryFileSystem", () => {
 	let fs: InMemoryFileSystem;
 	let testFiles: Record<string, File>;
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		testFiles = createTestFiles();
-		fs = new BrowserInMemoryFileSystem(testFiles);
+		fs = await BrowserInMemoryFileSystem.create(testFiles);
 	});
 
 	describe("Constructor", () => {
-		it("should accept Record<string, File>", () => {
-			const fs = new BrowserInMemoryFileSystem(testFiles);
+		it("should accept Record<string, File>", async () => {
+			const fs = await BrowserInMemoryFileSystem.create(testFiles);
 			expect(fs.getFileCount()).toBe(6);
 		});
 
-		it("should accept Map<string, File>", () => {
+		it("should accept Map<string, File>", async () => {
 			const fileMap = new Map(Object.entries(testFiles));
-			const fs = new BrowserInMemoryFileSystem(fileMap);
+			const fs = await BrowserInMemoryFileSystem.create(fileMap);
 			expect(fs.getFileCount()).toBe(6);
 		});
 
-		it("should normalize paths during construction", () => {
-			const fs = new BrowserInMemoryFileSystem({
+		it("should normalize paths during construction", async () => {
+			const fs = await BrowserInMemoryFileSystem.create({
 				"/leading/slash.txt": testFiles["README.md"],
 				"trailing/slash/": testFiles["README.md"],
 				"double//slash.txt": testFiles["README.md"],
@@ -408,10 +408,10 @@ describe("BrowserInMemoryFileSystem", () => {
 			);
 		});
 
-		it("should cache loaded files", async () => {
+		it("should return same content for repeated loads", async () => {
 			const content1 = await fs.load("collagen.json");
 			const content2 = await fs.load("collagen.json");
-			expect(content1).toBe(content2); // Same reference due to caching
+			expect(content1).toBe(content2); // Same reference since eagerly loaded
 		});
 
 		it("should handle path normalization", async () => {
@@ -436,8 +436,8 @@ describe("BrowserInMemoryFileSystem", () => {
 			]);
 		});
 
-		it("should return normalized paths", () => {
-			const fs = new BrowserInMemoryFileSystem({
+		it("should return normalized paths", async () => {
+			const fs = await BrowserInMemoryFileSystem.create({
 				"/path/with/leading.txt": testFiles["README.md"],
 				"path\\with\\backslashes.txt": testFiles["README.md"],
 			});
@@ -450,6 +450,7 @@ describe("BrowserInMemoryFileSystem", () => {
 	describe("getTotalSize", () => {
 		it("should return sum of all file sizes", () => {
 			const totalSize = fs.getTotalSize();
+			// Note: Now returns actual byte length, which should equal the file sizes in our test case
 			const expectedSize = Object.values(testFiles).reduce(
 				(sum, file) => sum + file.size,
 				0,
@@ -457,8 +458,8 @@ describe("BrowserInMemoryFileSystem", () => {
 			expect(totalSize).toBe(expectedSize);
 		});
 
-		it("should handle empty file system", () => {
-			const emptyFs = new BrowserInMemoryFileSystem({});
+		it("should handle empty file system", async () => {
+			const emptyFs = await BrowserInMemoryFileSystem.create({});
 			expect(emptyFs.getTotalSize()).toBe(0);
 		});
 	});
@@ -468,8 +469,8 @@ describe("BrowserInMemoryFileSystem", () => {
 			expect(fs.getFileCount()).toBe(6);
 		});
 
-		it("should handle empty file system", () => {
-			const emptyFs = new BrowserInMemoryFileSystem({});
+		it("should handle empty file system", async () => {
+			const emptyFs = await BrowserInMemoryFileSystem.create({});
 			expect(emptyFs.getFileCount()).toBe(0);
 		});
 	});
@@ -481,30 +482,30 @@ describe("BrowserInMemoryFileSystem", () => {
 
 describe("Manifest Handling", () => {
 	describe("detectManifestFormat", () => {
-		it("should prefer jsonnet over json", () => {
-			const fs = createFileSystem({
+		it("should prefer jsonnet over json", async () => {
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile("collagen.json", "{}"),
 				"collagen.jsonnet": createMockFile("collagen.jsonnet", "{}"),
 			});
 			expect(detectManifestFormat(fs)).toBe("jsonnet");
 		});
 
-		it("should detect json when only json exists", () => {
-			const fs = createFileSystem({
+		it("should detect json when only json exists", async () => {
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile("collagen.json", "{}"),
 			});
 			expect(detectManifestFormat(fs)).toBe("json");
 		});
 
-		it("should detect jsonnet when only jsonnet exists", () => {
-			const fs = createFileSystem({
+		it("should detect jsonnet when only jsonnet exists", async () => {
+			const fs = await createFileSystem({
 				"collagen.jsonnet": createMockFile("collagen.jsonnet", "{}"),
 			});
 			expect(detectManifestFormat(fs)).toBe("jsonnet");
 		});
 
-		it("should return null when no manifest exists", () => {
-			const fs = createFileSystem({
+		it("should return null when no manifest exists", async () => {
+			const fs = await createFileSystem({
 				"other.txt": createMockFile("other.txt", "content"),
 			});
 			expect(detectManifestFormat(fs)).toBe(null);
@@ -520,7 +521,7 @@ describe("Manifest Handling", () => {
 
 	describe("loadManifest", () => {
 		it("should load and parse JSON manifest", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile(
 					"collagen.json",
 					'{"key": "value", "number": 42}',
@@ -531,7 +532,7 @@ describe("Manifest Handling", () => {
 		});
 
 		it("should auto-detect format when not specified", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile(
 					"collagen.json",
 					'{"auto": "detected"}',
@@ -542,14 +543,14 @@ describe("Manifest Handling", () => {
 		});
 
 		it("should throw error for missing manifest", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"other.txt": createMockFile("other.txt", "not a manifest"),
 			});
 			await expect(loadManifest(fs)).rejects.toThrow(MissingManifestError);
 		});
 
 		it("should throw error for invalid JSON", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile(
 					"collagen.json",
 					"{ invalid json }",
@@ -559,7 +560,7 @@ describe("Manifest Handling", () => {
 		});
 
 		it("should handle UTF-8 content", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"collagen.json": createMockFile(
 					"collagen.json",
 					'{"unicode": "🌍 中文 العربية"}',
@@ -596,7 +597,7 @@ describe("Resource Resolution", () => {
 
 	describe("fetchResource", () => {
 		it("should fetch existing resources", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"resource.txt": createMockFile("resource.txt", "resource content"),
 			});
 			const content = await fetchResource(fs, "resource.txt");
@@ -606,14 +607,14 @@ describe("Resource Resolution", () => {
 		});
 
 		it("should throw error for missing resources", async () => {
-			const fs = createFileSystem({});
+			const fs = await createFileSystem({});
 			await expect(fetchResource(fs, "missing.txt")).rejects.toThrow(
 				MissingFileError,
 			);
 		});
 
 		it("should normalize resource paths", async () => {
-			const fs = createFileSystem({
+			const fs = await createFileSystem({
 				"resource.txt": createMockFile("resource.txt", "content"),
 			});
 			const content = await fetchResource(fs, "/resource.txt");
@@ -628,18 +629,18 @@ describe("Resource Resolution", () => {
 
 describe("Utility Functions", () => {
 	describe("createFileSystem", () => {
-		it("should create file system from Record", () => {
+		it("should create file system from Record", async () => {
 			const files = { "test.txt": createMockFile("test.txt", "content") };
-			const fs = createFileSystem(files);
+			const fs = await createFileSystem(files);
 			expect(fs.getFileCount()).toBe(1);
 			expect(fs.exists("test.txt")).toBe(true);
 		});
 
-		it("should create file system from Map", () => {
+		it("should create file system from Map", async () => {
 			const files = new Map([
 				["test.txt", createMockFile("test.txt", "content")],
 			]);
-			const fs = createFileSystem(files);
+			const fs = await createFileSystem(files);
 			expect(fs.getFileCount()).toBe(1);
 			expect(fs.exists("test.txt")).toBe(true);
 		});
@@ -796,8 +797,8 @@ describe("Edge Cases and Error Handling", () => {
 		expect(normalizedPathJoin("папка/файл.txt")).toBe("папка/файл.txt");
 	});
 
-	it("should handle empty file system operations", () => {
-		const fs = createFileSystem({});
+	it("should handle empty file system operations", async () => {
+		const fs = await createFileSystem({});
 		expect(fs.getFileCount()).toBe(0);
 		expect(fs.getTotalSize()).toBe(0);
 		expect(fs.getPaths()).toEqual([]);
@@ -808,10 +809,11 @@ describe("Edge Cases and Error Handling", () => {
 		// Create a large mock file (1MB of 'A' characters)
 		const largeContent = "A".repeat(1024 * 1024);
 		const largeFile = createMockFile("large.txt", largeContent);
-		const fs = createFileSystem({ "large.txt": largeFile });
+		const fs = await createFileSystem({ "large.txt": largeFile });
 
 		const content = await fs.load("large.txt");
 		expect(content.bytes.length).toBe(1024 * 1024);
-		expect(fs.getTotalSize()).toBe(largeFile.size);
+		// Note: getTotalSize now returns the actual byte length, not File.size
+		expect(fs.getTotalSize()).toBe(1024 * 1024);
 	});
 });

@@ -41,7 +41,7 @@ async function generateSvgFromJson(
 	json: any,
 	files: Record<string, File> = {},
 ): Promise<string> {
-	const filesystem = createFileSystem(files);
+	const filesystem = await createFileSystem(files);
 	const rootTag = validateDocument(json);
 	return await generateSvg(rootTag, filesystem);
 }
