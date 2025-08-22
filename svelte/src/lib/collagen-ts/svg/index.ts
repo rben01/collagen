@@ -58,7 +58,8 @@ function resolvePath(
 function writeAttributes(attrs: XmlAttrs): string {
 	const parts: string[] = [];
 
-	for (const [key, value] of Object.entries(attrs)) {
+	for (const key in attrs) {
+		const value = attrs[key];
 		const escapedValue = escapeXml(String(value));
 		parts.push(`${key}="${escapedValue}"`);
 	}
@@ -222,7 +223,8 @@ async function generateFontTag(
 
 			// Add custom attributes
 			if (font.attrs) {
-				for (const [key, value] of Object.entries(font.attrs)) {
+				for (const key in font.attrs) {
+					const value = font.attrs[key];
 					styleContent += `${key}:${value};`;
 				}
 			}

@@ -125,6 +125,10 @@ The codebase supports both disk-backed and in-memory file systems for testing. T
 - Clippy pedantic warnings enabled with specific allows
 - Imports organized at crate level (`imports_granularity = "Crate"`)
 - Use descriptive variable and function names
+- TypeScript
+  - Do not create temporary arrays. Iterate over an object’s keys and extract the values
+    rather than iterating over `Object.entries`. Use `for` loops instead of chained
+    `array.map(...).filter(...)`
 
 ## Frontend-Backend Integration
 

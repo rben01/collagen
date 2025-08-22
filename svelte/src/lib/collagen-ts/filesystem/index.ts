@@ -165,12 +165,12 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 		this.files = files;
 	}
 
-	static async create(files: Map<string, File> | Record<string, File>): Promise<BrowserInMemoryFileSystem> {
+	static async create(
+		files: Map<string, File> | Record<string, File>,
+	): Promise<BrowserInMemoryFileSystem> {
 		const fileContents: Record<string, FileContent> = {};
-		
-		const fileEntries = files instanceof Map ? Array.from(files.entries()) : Object.entries(files);
-		
-		for (const [path, file] of fileEntries) {
+
+		async function processFile(path: string, file: File): Promise<void> {
 			const normalizedPath = normalizedPathJoin(path);
 			try {
 				const bytes = await readFileAsBytes(file);
@@ -179,7 +179,17 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 				throw new FileReadError(normalizedPath, String(error));
 			}
 		}
-		
+
+		if (files instanceof Map) {
+			for (const [path, file] of files) {
+				await processFile(path, file);
+			}
+		} else {
+			for (const path in files) {
+				await processFile(path, files[path]);
+			}
+		}
+
 		return new BrowserInMemoryFileSystem(fileContents);
 	}
 
@@ -191,12 +201,12 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 	/** Get file content synchronously (since files are pre-loaded) */
 	loadSync(path: string): FileContent {
 		const normalizedPath = normalizedPathJoin(path);
-		
+
 		const content = this.files[normalizedPath];
 		if (!content) {
 			throw new MissingFileError(normalizedPath);
 		}
-		
+
 		return content;
 	}
 
@@ -223,7 +233,6 @@ export class BrowserInMemoryFileSystem implements InMemoryFileSystem {
 	getFileCount(): number {
 		return Object.keys(this.files).length;
 	}
-
 }
 
 // =============================================================================
