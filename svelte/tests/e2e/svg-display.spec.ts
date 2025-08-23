@@ -5,6 +5,8 @@
  * and interactive controls.
  */
 
+/// <reference path="../globals.d.ts" />
+
 import { test, expect } from "@playwright/test";
 
 // =============================================================================
