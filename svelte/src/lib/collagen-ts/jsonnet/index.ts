@@ -81,12 +81,7 @@ export async function compileJsonnetFromFile(
 		const jsonnetCode = new TextDecoder().decode(fileContent.bytes);
 
 		// Compile it
-		return compileJsonnet(
-			jsonnetCode,
-			filesystem,
-			config,
-			manifestPath,
-		);
+		return compileJsonnet(jsonnetCode, filesystem, config, manifestPath);
 	} catch (error) {
 		if (error instanceof JsonnetError) {
 			throw error;

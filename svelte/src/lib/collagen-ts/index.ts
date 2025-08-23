@@ -120,6 +120,7 @@ export type { InMemoryFileSystem, FileContent } from "./filesystem/index.js";
 // Export filesystem utilities
 export {
 	createFileSystem,
+	loadManifest,
 	normalizedPathJoin,
 	isImagePath,
 	isFontPath,

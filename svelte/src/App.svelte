@@ -6,8 +6,8 @@
 		validateDocument,
 		generateSvg,
 		toCompatibleError,
-		parseManifest,
 		getAvailableManifestFormat,
+		loadManifest,
 	} from "./lib/collagen-ts/index.js";
 
 	let error: string | null = null;
@@ -28,10 +28,10 @@
 
 			console.log(`Found ${format} manifest, processing...`);
 
-			// Parse and validate manifest using the proper API
-			const manifestData = await parseManifest(filesystem, format);
+			// Load raw manifest data first
+			const rawManifestData = await loadManifest(filesystem, format);
 
-			return { data: manifestData, format };
+			return { data: rawManifestData, format };
 		} catch (err) {
 			console.error("Failed to process manifest:", err);
 			throw new Error(

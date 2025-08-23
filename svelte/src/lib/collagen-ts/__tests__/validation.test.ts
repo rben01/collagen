@@ -876,4 +876,21 @@ describe("Complex Validation Scenarios", () => {
 			height: "40%",
 		});
 	});
+
+	it("should fail validation when passed already-transformed objects instead of raw input", () => {
+		// This tests that we fixed the double validation issue by ensuring
+		// already-validated objects cause proper validation errors rather than passing through
+		const alreadyTransformedObject = {
+			type: "image", // This is the transformed format
+			imagePath: "test.jpg", // This is the transformed field name
+			attrs: {},
+			children: [],
+		};
+
+		expectValidationError(() => 
+			validateDocument({
+				children: [alreadyTransformedObject]
+			})
+		);
+	});
 });

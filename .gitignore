@@ -3,3 +3,6 @@
 .vscode/settings.json
 spellright.dict
 node_modules
+test-results/.last-run.json
+test-results
+test-results.json
