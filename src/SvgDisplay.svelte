@@ -207,6 +207,10 @@
 				downloadSvg();
 				handled = true;
 				break;
+			case "?":
+				toggleInstructions();
+				handled = true;
+				break;
 		}
 
 		// Focus-required shortcuts (pan controls - no corresponding buttons)
@@ -295,8 +299,8 @@
 				class="control-btn help-btn"
 				onclick={toggleInstructions}
 				class:active={showInstructions}
-				title="Show Usage Instructions"
-				aria-label="Toggle usage instructions"><div class="btn-content"></div></button
+				title="Toggle Usage Instructions (Keyboard: ?)"
+				aria-label="Toggle usage instructions, keyboard shortcut question mark key"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn toggle-view"
@@ -344,6 +348,7 @@
 					<div class="instruction-section">
 						<h5>📄 Actions</h5>
 						<ul>
+							<li><strong>?</strong> key: Toggle help instructions</li>
 							<li><strong>V</strong> key: Toggle code view</li>
 							<li><strong>C</strong> key: Copy SVG to clipboard</li>
 							<li><strong>S</strong> key: Download SVG file</li>
