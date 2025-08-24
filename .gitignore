@@ -1,5 +1,5 @@
 .DS_Store
-/target
+target
 .vscode/settings.json
 spellright.dict
 node_modules
