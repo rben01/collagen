@@ -487,16 +487,15 @@ describe("End-to-End Error Handling", () => {
 
 describe("Performance and Scalability", () => {
 	it("should handle large number of elements", async () => {
-		const children = [...Array(100)]
-			.map((_, i) => ({
-				tag: "rect",
-				attrs: {
-					x: (i % 10) * 20,
-					y: Math.floor(i / 10) * 20,
-					width: 15,
-					height: 15,
-				},
-			}));
+		const children = [...Array(100)].map((_, i) => ({
+			tag: "rect",
+			attrs: {
+				x: (i % 10) * 20,
+				y: Math.floor(i / 10) * 20,
+				width: 15,
+				height: 15,
+			},
+		}));
 
 		const files = {
 			"collagen.json": createMockFile(
@@ -514,8 +513,7 @@ describe("Performance and Scalability", () => {
 
 	it("should handle large image files", async () => {
 		// Create a "large" mock image (1000 bytes)
-		const largeImageData = [...Array(1000)]
-			.map((_, i) => i % 256);
+		const largeImageData = [...Array(1000)].map((_, i) => i % 256);
 
 		const files = {
 			"collagen.json": createMockFile(
@@ -539,11 +537,10 @@ describe("Performance and Scalability", () => {
 			"collagen.json": createMockFile(
 				"collagen.json",
 				JSON.stringify({
-					children: [...Array(20)]
-						.map((_, i) => ({
-							image_path: `icon${i}.png`,
-							attrs: { x: i * 20, y: 0, width: 16, height: 16 },
-						})),
+					children: [...Array(20)].map((_, i) => ({
+						image_path: `icon${i}.png`,
+						attrs: { x: i * 20, y: 0, width: 16, height: 16 },
+					})),
 				}),
 			),
 		};

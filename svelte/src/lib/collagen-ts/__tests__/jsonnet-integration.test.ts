@@ -269,11 +269,7 @@ describe("Jsonnet Configuration", () => {
 		const filesystem = await createFileSystem({});
 		const config = { tlaVars: {} };
 
-		const result = compileJsonnet(
-			"{ combined: true }",
-			filesystem,
-			config,
-		);
+		const result = compileJsonnet("{ combined: true }", filesystem, config);
 		expect(result).toEqual({ combined: true });
 	});
 });

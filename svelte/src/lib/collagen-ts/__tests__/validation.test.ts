@@ -887,10 +887,8 @@ describe("Complex Validation Scenarios", () => {
 			children: [],
 		};
 
-		expectValidationError(() => 
-			validateDocument({
-				children: [alreadyTransformedObject]
-			})
+		expectValidationError(() =>
+			validateDocument({ children: [alreadyTransformedObject] }),
 		);
 	});
 });

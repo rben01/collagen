@@ -175,7 +175,9 @@ describe("Collagen TypeScript Basic Tests", () => {
 
 describe("Collagen TypeScript Error Handling", () => {
 	it("should throw error for missing manifest", async () => {
-		const fs = await createTestFileSystem({ "other-file.txt": "not a manifest" });
+		const fs = await createTestFileSystem({
+			"other-file.txt": "not a manifest",
+		});
 
 		await expect(generateSvgForTest(fs)).rejects.toThrow(
 			"Missing manifest file",
@@ -183,7 +185,9 @@ describe("Collagen TypeScript Error Handling", () => {
 	});
 
 	it("should throw error for invalid JSON", async () => {
-		const fs = await createTestFileSystem({ "collagen.json": "{ invalid json }" });
+		const fs = await createTestFileSystem({
+			"collagen.json": "{ invalid json }",
+		});
 
 		await expect(generateSvgForTest(fs)).rejects.toThrow();
 	});

@@ -82,7 +82,9 @@ async function setupMockProject(
 				],
 			}),
 			// Create a minimal valid PNG data URI (1x1 transparent pixel)
-			"logo.png": atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="),
+			"logo.png": atob(
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+			),
 			"icon.svg":
 				'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="blue"/></svg>',
 		},
@@ -111,7 +113,7 @@ async function setupMockProject(
 		Object.entries(projectData).forEach(([filename, content]) => {
 			let mimeType = "text/plain";
 			let fileContent: string | Uint8Array = content;
-			
+
 			if (filename.endsWith(".json") || filename.endsWith(".jsonnet")) {
 				mimeType = "application/json";
 			} else if (filename.endsWith(".png")) {
@@ -126,8 +128,10 @@ async function setupMockProject(
 			} else if (filename.endsWith(".svg")) {
 				mimeType = "image/svg+xml";
 			}
-			
-			const file = new File([fileContent as BlobPart], filename, { type: mimeType });
+
+			const file = new File([fileContent as BlobPart], filename, {
+				type: mimeType,
+			});
 			window.mockProjectFiles[filename] = file;
 		});
 	}, projects[projectType]);
@@ -280,10 +284,14 @@ test.describe("Complete User Workflows", () => {
 			expect(rectCount).toBeGreaterThanOrEqual(1);
 		} else if (await errorMessage.isVisible()) {
 			// Complex assets may not be supported, processing failed, or file upload issue
-			await expect(errorMessage).toContainText(/image|svg|asset|processing|drop.*file|folder/i);
+			await expect(errorMessage).toContainText(
+				/image|svg|asset|processing|drop.*file|folder/i,
+			);
 		} else {
 			// If neither SVG nor error is visible, that's unexpected
-			throw new Error("Expected either SVG output or error message for complex project");
+			throw new Error(
+				"Expected either SVG output or error message for complex project",
+			);
 		}
 
 		// Test interactive features only if SVG was successfully generated
@@ -434,9 +442,7 @@ test.describe("User Interaction Workflows", () => {
 		}
 	});
 
-	test("should support touch interaction workflow", async ({
-		browser,
-	}) => {
+	test("should support touch interaction workflow", async ({ browser }) => {
 		// Create a new context with touch support
 		const context = await browser.newContext({
 			hasTouch: true,
@@ -476,7 +482,7 @@ test.describe("User Interaction Workflows", () => {
 								pageX: coords.x,
 								pageY: coords.y,
 							});
-							
+
 							const touch2 = new Touch({
 								identifier: 1,
 								target: container,
@@ -491,13 +497,13 @@ test.describe("User Interaction Workflows", () => {
 								bubbles: true,
 								cancelable: true,
 							});
-							
+
 							const touchMove = new TouchEvent("touchmove", {
 								touches: [touch2],
 								bubbles: true,
 								cancelable: true,
 							});
-							
+
 							const touchEnd = new TouchEvent("touchend", {
 								touches: [],
 								bubbles: true,
@@ -544,12 +550,10 @@ test.describe("Performance and Edge Case Workflows", () => {
 		};
 
 		// Create mock file and upload via drag-and-drop
-		await page.evaluate((manifest) => {
-			const file = new File(
-				[JSON.stringify(manifest)],
-				"collagen.json",
-				{ type: "application/json" },
-			);
+		await page.evaluate(manifest => {
+			const file = new File([JSON.stringify(manifest)], "collagen.json", {
+				type: "application/json",
+			});
 			window.mockProjectFiles = { "collagen.json": file };
 		}, largeManifest);
 
@@ -861,12 +865,10 @@ test.describe("Error Recovery Workflows", () => {
 		};
 
 		// Create mock file and upload via drag-and-drop
-		await page.evaluate((manifest) => {
-			const file = new File(
-				[JSON.stringify(manifest)],
-				"collagen.json",
-				{ type: "application/json" },
-			);
+		await page.evaluate(manifest => {
+			const file = new File([JSON.stringify(manifest)], "collagen.json", {
+				type: "application/json",
+			});
 			window.mockProjectFiles = { "collagen.json": file };
 		}, hugeManifest);
 
