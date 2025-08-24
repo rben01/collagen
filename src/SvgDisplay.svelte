@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { flip } from "svelte/animate";
+	import { quintOut } from "svelte/easing";
+
 	export let svg: string;
 
 	let showRawSvg = false;
@@ -46,7 +49,7 @@
 		a.click();
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
-		showToast("SVG downloaded successfully!");
+		showToast("SVG downloaded.");
 	}
 
 	function resetView() {
@@ -163,12 +166,37 @@
 		navigator.clipboard
 			.writeText(svg)
 			.then(() => {
-				showToast("SVG copied to clipboard!");
+				showToast("SVG copied to clipboard.");
 			})
 			.catch(err => {
 				console.error("Failed to copy SVG to clipboard:", err);
 				showToast("Failed to copy SVG to clipboard", "error");
 			});
+	}
+
+	// Custom transition functions for toast animations
+	function slideIn(_node: Element, { duration = 300 }) {
+		return {
+			duration,
+			easing: quintOut,
+			css: (t: number) => {
+				const x = (1 - t) * 100;
+				const opacity = t;
+				return `transform: translateX(${x}%); opacity: ${opacity};`;
+			},
+		};
+	}
+
+	function slideOut(_node: Element, { duration = 300 }) {
+		return {
+			duration,
+			easing: quintOut,
+			css: (t: number) => {
+				const x = (1 - t) * 100;
+				const opacity = t;
+				return `transform: translateX(${x}%); opacity: ${opacity};`;
+			},
+		};
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -259,7 +287,13 @@
 	<!-- Toast notifications -->
 	<div class="toast-container">
 		{#each toasts as toast (toast.id)}
-			<div class="toast toast-{toast.type}" role="alert">
+			<div
+				class="toast toast-{toast.type}"
+				role="alert"
+				in:slideIn={{ duration: 300 }}
+				out:slideOut={{ duration: 300 }}
+				animate:flip={{ duration: 300, easing: quintOut }}
+			>
 				<span>{toast.message}</span>
 				<button class="toast-close" onclick={() => removeToast(toast.id)}
 					>&times;</button
@@ -417,11 +451,12 @@
 
 	.toast-container {
 		position: absolute;
-		top: 1em;
+		top: 4.5em;
 		right: 1em;
 		z-index: 1000;
 		display: flex;
 		flex-direction: column;
+		align-items: flex-end;
 		gap: 0.5em;
 		pointer-events: none;
 	}
@@ -438,11 +473,10 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.75em;
-		min-width: 200px;
 		max-width: 300px;
+		width: fit-content;
 		font-size: 0.875em;
 		pointer-events: auto;
-		animation: toast-slide-in 0.3s ease-out;
 	}
 
 	.toast-success {
@@ -473,17 +507,6 @@
 
 	.toast-close:hover {
 		opacity: 1;
-	}
-
-	@keyframes toast-slide-in {
-		from {
-			transform: translateX(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
 	}
 
 	.controls {
