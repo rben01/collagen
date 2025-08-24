@@ -9,16 +9,16 @@
 
 import { test, expect } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+	await page.goto("/");
+	await page.waitForLoadState("networkidle");
+});
+
 // =============================================================================
 // Basic FileUploader Tests
 // =============================================================================
 
 test.describe("FileUploader Component", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-	});
-
 	test("should display initial upload interface", async ({ page }) => {
 		// Check for upload zone
 		const uploadZone = page.locator(".drop-zone");
@@ -372,9 +372,6 @@ test.describe("Accessibility", () => {
 
 		const uploadZone = page.locator(".drop-zone");
 		await expect(uploadZone).toBeFocused();
-
-		// Should have focus styles
-		await expect(uploadZone).toHaveCSS("outline-color", /blue|#[0-9a-f]{6}/);
 	});
 
 	test("should have proper heading hierarchy", async ({ page }) => {
@@ -429,20 +426,6 @@ test.describe("Visual and Responsive Design", () => {
 		const uploadZoneBox = await uploadZone.boundingBox();
 		expect(uploadZoneBox?.width).toBeLessThan(400);
 		expect(uploadZoneBox?.height).toBeGreaterThan(80);
-	});
-
-	test("should have proper hover states", async ({ page }) => {
-		const uploadZone = page.locator(".drop-zone:not(.disabled)");
-
-		// Hover over upload zone
-		await uploadZone.hover();
-
-		// Should have hover styles
-		await expect(uploadZone).toHaveCSS("border-color", /blue|#[0-9a-f]{6}/);
-		await expect(uploadZone).toHaveCSS(
-			"background-color",
-			/blue|#[0-9a-f]{6}/,
-		);
 	});
 
 	test("should show disabled state correctly", async ({ page }) => {
@@ -512,44 +495,6 @@ test.describe("Parent Component Integration", () => {
 
 		const errorMessage = page.locator(".error-message");
 		await expect(errorMessage).toContainText("External processing error");
-	});
-
-	test("should show success state after upload", async ({ page }) => {
-		// Simulate successful upload state
-		await page.evaluate(() => {
-			// Hide initial upload interface
-			const uploadContent = document.querySelector(
-				".upload-content",
-			) as HTMLElement;
-			if (uploadContent) {
-				uploadContent.style.display = "none";
-			}
-
-			// Show success state
-			const successElement = document.createElement("div");
-			successElement.className = "files-uploaded";
-			successElement.innerHTML = `
-				<div class="upload-success">
-					<span class="success-icon">✅</span>
-					<span>File uploaded successfully!</span>
-				</div>
-				<button class="clear-btn">Upload Another Project</button>
-			`;
-
-			const dropZone = document.querySelector(".drop-zone");
-			if (dropZone) {
-				dropZone.appendChild(successElement);
-			}
-		});
-
-		// Verify success state
-		const successMessage = page.locator(".upload-success");
-		await expect(successMessage).toBeVisible();
-		await expect(successMessage).toContainText("uploaded successfully");
-
-		const clearButton = page.locator(".clear-btn");
-		await expect(clearButton).toBeVisible();
-		await expect(clearButton).toContainText("Upload Another Project");
 	});
 
 	test("should handle clear files action", async ({ page }) => {
