@@ -12,6 +12,7 @@ import {
 	MissingManifestError,
 	JsonError,
 } from "../errors/index.js";
+import { JsonObject } from "../jsonnet/index.js";
 
 // =============================================================================
 // Types
@@ -267,7 +268,7 @@ export function getManifestPath(format: ManifestFormat): string {
 export async function loadManifest(
 	fs: InMemoryFileSystem,
 	format?: ManifestFormat,
-): Promise<unknown> {
+): Promise<JsonObject> {
 	// Auto-detect format if not specified
 	const manifestFormat = format || detectManifestFormat(fs);
 	if (!manifestFormat) {

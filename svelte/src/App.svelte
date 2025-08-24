@@ -54,10 +54,16 @@
 		return await generateSvg(rootTag, filesystem);
 	}
 
-	async function handleFilesUploaded(files: Record<string, File>) {
+	async function handleFilesUploaded(
+		files: Record<string, File>,
+		root?: string,
+	) {
 		console.log("🔄 Starting file processing...");
 
 		console.log("📁 Files received:", Object.keys(files).length, "files");
+		if (root) {
+			console.log("📂 Root folder:", root);
+		}
 
 		await handleFilesWithTypeScript(files);
 	}
