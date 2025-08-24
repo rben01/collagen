@@ -517,9 +517,7 @@
 	.svg-content {
 		transform-origin: center;
 		transition: transform 0.1s ease-out;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		text-align: center;
 		padding: 2em;
 	}
 
