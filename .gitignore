@@ -6,3 +6,5 @@ node_modules
 test-results/.last-run.json
 test-results
 test-results.json
+playwright-report
+public/build
