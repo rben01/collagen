@@ -374,6 +374,7 @@
 		<button
 			class="svg-container"
 			bind:this={svgContainer}
+			tabindex="0"
 			onmousedown={handleMouseDown}
 			onwheel={handleWheel}
 			ontouchstart={handleTouchStart}
