@@ -300,7 +300,8 @@
 				onclick={toggleInstructions}
 				class:active={showInstructions}
 				title="Toggle Usage Instructions (Keyboard: ?)"
-				aria-label="Toggle usage instructions, keyboard shortcut question mark key"><div class="btn-content"></div></button
+				aria-label="Toggle usage instructions, keyboard shortcut question mark key"
+				><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn toggle-view"
@@ -335,24 +336,24 @@
 
 				<div class="instructions-grid">
 					<div class="instruction-section">
-						<h5>🎯 Zoom & Pan</h5>
+						<h5>Zoom & Pan</h5>
 						<ul>
 							<li><strong>+/-</strong> keys: Zoom in/out</li>
 							<li><strong>0</strong> key: Reset view</li>
-							<li><strong>Shift + arrows:</strong> Pan (when viewer focused)</li>
-							<li><strong>Mouse:</strong> Drag to pan, Ctrl/Cmd+scroll to zoom</li>
-							<li><strong>Touch:</strong> Pinch to zoom, drag to pan</li>
+							<li><strong>Shift + arrows</strong>: Pan (when viewer focused)</li>
+							<li><strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to zoom</li>
+							<li><strong>Touch</strong>: Pinch to zoom, drag to pan</li>
 						</ul>
 					</div>
 
 					<div class="instruction-section">
-						<h5>📄 Actions</h5>
+						<h5>Actions</h5>
 						<ul>
 							<li><strong>?</strong> key: Toggle help instructions</li>
 							<li><strong>V</strong> key: Toggle code view</li>
 							<li><strong>C</strong> key: Copy SVG to clipboard</li>
 							<li><strong>S</strong> key: Download SVG file</li>
-							<li><strong>Buttons:</strong> Use the controls above for all actions</li>
+							<li><strong>Buttons</strong>: Use the controls above for all actions</li>
 						</ul>
 					</div>
 				</div>
@@ -680,10 +681,18 @@
 	}
 
 	.instructions-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 2em;
+		display: flex;
+		flex-wrap: wrap;
 		margin-bottom: 1em;
+		align-items: flex-start;
+		justify-content: space-around;
+		column-gap: 30px;
+		row-gap: 16px;
+	}
+
+	.instruction-section {
+		min-width: 240px;
+		flex: 1;
 	}
 
 	.instruction-section h5 {
@@ -713,7 +722,6 @@
 		background: #e5e7eb;
 		padding: 0.1em 0.3em;
 		border-radius: 0.2em;
-		font-size: 0.85em;
 	}
 
 	.instructions-note {
@@ -725,21 +733,5 @@
 		font-size: 0.9em;
 		line-height: 1.4;
 		color: #1e40af;
-	}
-
-	@media (max-width: 640px) {
-		.controls {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.control-group {
-			justify-content: center;
-		}
-
-		.instructions-grid {
-			grid-template-columns: 1fr;
-			gap: 1.5em;
-		}
 	}
 </style>
