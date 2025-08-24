@@ -2,6 +2,7 @@
 	export let svg: string;
 
 	let showRawSvg = false;
+	let showInstructions = false;
 	let scale = 1;
 	let panX = 0;
 	let panY = 0;
@@ -14,6 +15,10 @@
 
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
+	}
+
+	function toggleInstructions() {
+		showInstructions = !showInstructions;
 	}
 
 	function showToast(message: string, type = "success") {
@@ -265,48 +270,95 @@
 				class="control-btn zoom-in"
 				onclick={zoomIn}
 				title="Zoom In (Keyboard: +)"
-				aria-label="Zoom in, keyboard shortcut plus key">🔍+</button
+				aria-label="Zoom in, keyboard shortcut plus key"
+				><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn zoom-out"
 				onclick={zoomOut}
 				title="Zoom Out (Keyboard: -)"
-				aria-label="Zoom out, keyboard shortcut minus key">🔍−</button
+				aria-label="Zoom out, keyboard shortcut minus key"
+				><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn reset-view"
 				onclick={resetView}
 				title="Reset View (Keyboard: 0)"
-				aria-label="Reset view, keyboard shortcut zero key">🎯</button
+				aria-label="Reset view, keyboard shortcut zero key"
+				><div class="btn-content"></div></button
 			>
 			<span class="zoom-level">{Math.round(scale * 100)}%</span>
 		</div>
 
 		<div class="control-group">
 			<button
+				class="control-btn help-btn"
+				onclick={toggleInstructions}
+				class:active={showInstructions}
+				title="Show Usage Instructions"
+				aria-label="Toggle usage instructions"><div class="btn-content"></div></button
+			>
+			<button
 				class="control-btn toggle-view"
 				onclick={toggleRawSvg}
 				class:active={showRawSvg}
 				title="Toggle Code View (Keyboard: V)"
 				aria-label="Toggle between preview and code view, keyboard shortcut V key"
+				><div class="btn-content"></div></button
 			>
-				{showRawSvg ? "Show Preview" : "Show SVG Code"}
-			</button>
 			<button
 				class="control-btn copy-btn"
 				onclick={copyToClipboard}
 				title="Copy SVG to Clipboard (Keyboard: C)"
 				aria-label="Copy SVG to clipboard, keyboard shortcut C key"
-				>📋</button
+				><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn export-btn"
 				onclick={downloadSvg}
 				title="Download SVG (Keyboard: S)"
-				aria-label="Download SVG file, keyboard shortcut S key">💾</button
+				aria-label="Download SVG file, keyboard shortcut S key"
+				><div class="btn-content"></div></button
 			>
 		</div>
 	</div>
+
+	<!-- Usage Instructions -->
+	{#if showInstructions && !showRawSvg}
+		<div class="instructions" role="region" aria-label="Usage instructions">
+			<div class="instructions-content">
+				<h4>How to Use the SVG Viewer</h4>
+
+				<div class="instructions-grid">
+					<div class="instruction-section">
+						<h5>🎯 Zoom & Pan</h5>
+						<ul>
+							<li><strong>+/-</strong> keys: Zoom in/out</li>
+							<li><strong>0</strong> key: Reset view</li>
+							<li><strong>Shift + arrows:</strong> Pan (when viewer focused)</li>
+							<li><strong>Mouse:</strong> Drag to pan, Ctrl/Cmd+scroll to zoom</li>
+							<li><strong>Touch:</strong> Pinch to zoom, drag to pan</li>
+						</ul>
+					</div>
+
+					<div class="instruction-section">
+						<h5>📄 Actions</h5>
+						<ul>
+							<li><strong>V</strong> key: Toggle code view</li>
+							<li><strong>C</strong> key: Copy SVG to clipboard</li>
+							<li><strong>S</strong> key: Download SVG file</li>
+							<li><strong>Buttons:</strong> Use the controls above for all actions</li>
+						</ul>
+					</div>
+				</div>
+
+				<p class="instructions-note">
+					💡 <strong>Tip:</strong> Click on the SVG viewer area first to enable keyboard
+					pan controls (Shift + arrow keys).
+				</p>
+			</div>
+		</div>
+	{/if}
 
 	{#if showRawSvg}
 		<div class="raw-svg">
@@ -336,11 +388,11 @@
 
 		<!-- Hidden description for screen readers -->
 		<div id="svg-controls-description" class="sr-only">
-			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
-			view (work globally), Shift+arrow keys to pan (when viewer is focused),
-			V to toggle code view, C to copy, S to save (work globally). Mouse
-			controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom. Touch
-			controls: Single finger to pan, pinch to zoom.
+			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset view (work
+			globally), Shift+arrow keys to pan (when viewer is focused), V to toggle code
+			view, C to copy, S to save (work globally). Mouse controls: Drag to pan,
+			Ctrl+scroll or Cmd+scroll to zoom. Touch controls: Single finger to pan, pinch to
+			zoom.
 		</div>
 	{/if}
 </div>
@@ -484,6 +536,48 @@
 		border-color: #1d4ed8;
 	}
 
+	.control-btn .btn-content {
+		background-color: #374151;
+		min-width: 20px;
+		min-height: 20px;
+		mask-size: 100%;
+		mask-repeat: no-repeat;
+	}
+
+	.control-btn.active .btn-content {
+		background-color: white;
+	}
+
+	/* This CSS file is in /build where assets lives in top level(ish).  We can't use
+	/assets because GH pages has the repo name in the path. */
+	.control-btn.zoom-in .btn-content {
+		mask-image: url("../assets/icons/zoom-in.svg");
+	}
+
+	.control-btn.zoom-out .btn-content {
+		mask-image: url("../assets/icons/zoom-out.svg");
+	}
+
+	.control-btn.reset-view .btn-content {
+		mask-image: url("../assets/icons/focus-centered.svg");
+	}
+
+	.control-btn.help-btn .btn-content {
+		mask-image: url("../assets/icons/help.svg");
+	}
+
+	.control-btn.toggle-view .btn-content {
+		mask-image: url("../assets/icons/code.svg");
+	}
+
+	.control-btn.copy-btn .btn-content {
+		mask-image: url("../assets/icons/clipboard-copy.svg");
+	}
+
+	.control-btn.export-btn .btn-content {
+		mask-image: url("../assets/icons/file-download.svg");
+	}
+
 	.zoom-level {
 		font-family: monospace;
 		font-size: 0.875em;
@@ -560,6 +654,74 @@
 		color: #374151;
 	}
 
+	.ui-icon {
+		height: 20px;
+		background-color: #374151;
+	}
+
+	/* Instructions Styles */
+	.instructions {
+		background: #f8fafc;
+		border-bottom: 1px solid #e5e7eb;
+		padding: 1.5em;
+		margin: 0;
+	}
+
+	.instructions-content h4 {
+		margin: 0 0 1em 0;
+		color: #374151;
+		font-size: 1.1em;
+		font-weight: 600;
+	}
+
+	.instructions-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 2em;
+		margin-bottom: 1em;
+	}
+
+	.instruction-section h5 {
+		margin: 0 0 0.75em 0;
+		color: #1f2937;
+		font-size: 0.95em;
+		font-weight: 600;
+	}
+
+	.instruction-section ul {
+		margin: 0;
+		padding-left: 1.2em;
+		list-style: disc;
+	}
+
+	.instruction-section li {
+		margin-bottom: 0.4em;
+		font-size: 0.9em;
+		line-height: 1.4;
+		color: #4b5563;
+	}
+
+	.instruction-section strong {
+		color: #374151;
+		font-weight: 600;
+		font-family: monospace;
+		background: #e5e7eb;
+		padding: 0.1em 0.3em;
+		border-radius: 0.2em;
+		font-size: 0.85em;
+	}
+
+	.instructions-note {
+		background: #eff6ff;
+		border: 1px solid #bfdbfe;
+		border-radius: 0.5em;
+		padding: 0.75em 1em;
+		margin: 0;
+		font-size: 0.9em;
+		line-height: 1.4;
+		color: #1e40af;
+	}
+
 	@media (max-width: 640px) {
 		.controls {
 			flex-direction: column;
@@ -568,6 +730,11 @@
 
 		.control-group {
 			justify-content: center;
+		}
+
+		.instructions-grid {
+			grid-template-columns: 1fr;
+			gap: 1.5em;
 		}
 	}
 </style>
