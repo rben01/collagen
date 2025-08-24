@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Collagen is a Rust-based CLI tool that generates SVG collages from JSON/Jsonnet manifest files. The project consists of:
+Collagen is primarily a TypeScript/Svelte web application that generates SVG collages from JSON/Jsonnet manifest files. The project consists of:
 
-- Main Rust crate (`collagen`) that produces the `clgn` executable
-- Svelte web frontend in the `svelte/` directory
-- Comprehensive test suite with visual examples
+- **Primary implementation**: TypeScript library in `src/lib/collagen-ts/` with full Collagen functionality
+- **Web frontend**: Svelte application providing drag-and-drop interface for creating SVG collages
+- **Backup implementation**: Rust crate in `rust/` directory (legacy, not actively used)
+- **Comprehensive test suite**: Unit tests (Vitest) and E2E tests (Playwright)
 
 ### Project rationale
 
@@ -18,30 +19,7 @@ Collagen is a Rust-based CLI tool that generates SVG collages from JSON/Jsonnet 
 
 ## Common Commands
 
-- Try to use absolute paths for commands instead of relative paths, as when you use
-  relative paths you tend to get lost (since you don't know which directory you're
-  currently in).
-
 ### Building and Testing
-
-```bash
-# Build the main Rust project
-cargo build
-
-# Build in release mode
-cargo build --release
-
-# Run all tests
-cargo test
-
-# Run a specific test
-cargo test test_name
-
-# Check code without building
-cargo check
-```
-
-### Svelte Frontend (in svelte/ directory)
 
 ```bash
 # Install dependencies
@@ -55,136 +33,152 @@ npm run build
 
 # Start production server
 npm run start
+
+# Run unit tests
+npm run test
+
+# Run tests in watch mode (interactive)
+npm run test:ui
+
+# Run tests once and exit
+npm run test:run
+
+# Run E2E tests
+npm run test:e2e
+
+# Run E2E tests with UI
+npm run test:e2e:ui
+
+# Debug E2E tests
+npm run test:e2e:debug
+
+# Format code
+npm run format
+
+# Check formatting
+npm run format:check
 ```
 
-**Note for testing**: When testing whether the frontend will build correctly (especially WASM compilation), use `npm run build` instead of `npm run dev`. This avoids waiting for the dev server to launch and then timeout, making testing much faster.
-
-### Running Collagen
+### Running Individual Tests
 
 ```bash
-# Basic usage
-cargo run -- -i path/to/skeleton -o output.svg
+# Run specific test file
+npm run test src/lib/collagen-ts/__tests__/basic.test.ts
 
-# With watch mode
-cargo run -- -i path/to/skeleton -o output.svg --watch
+# Run tests matching pattern
+npm run test -- --run filesystem
+
+# Run single test by name
+npm run test -- --run -t "validates basic root tag structure"
 ```
 
 ## Architecture
 
-### Core Modules
+### TypeScript Core Modules (`src/lib/collagen-ts/`)
 
-- **`cli/`**: Command-line interface and file system abstractions (disk-backed and in-memory)
-- **`fibroblast/`**: Core data structures representing the in-memory SVG structure
-  - **`tags/`**: SVG element types (text, image, container, etc.)
-  - **`data_types/`**: Value types and decoding context
-- **`from_json/`**: JSON/Jsonnet deserialization and validation
-- **`to_svg/`**: SVG output generation
-- **`assets/`**: Embedded font handling
-- **`utils/`**: Common utilities
+- **`index.ts`**: Main API providing `generateSvgFromFiles()` and other entry points
+- **`filesystem/`**: File system abstraction and path utilities
+- **`types/`**: TypeScript definitions for all SVG tag types and document structure
+- **`validation/`**: Schema validation and type checking for manifest documents
+- **`svg/`**: SVG generation from typed document structure
+- **`jsonnet/`**: Jsonnet compilation using sjsonnet WASM library
+- **`utils/`**: Common utilities (base64, XML escaping, etc.)
+- **`errors/`**: Error types and handling
 
 ### Key Types
 
-- **`Fibroblast`**: Main struct containing the root SVG tag and decoding context
-- **`AnyChildTag`**: Enum of all possible SVG child elements (uses serde's `untagged`)
-- **`DecodingContext`**: Context for resolving file paths and resources
-- **`ProvidedInput`**: Abstraction over disk-based or in-memory file systems
+- **`RootTag`**: Root SVG document structure with attributes and children
+- **`AnyChildTag`**: Union type of all possible SVG child elements (text, image, container, etc.)
+- **`InMemoryFileSystem`**: File system abstraction for browser File objects
+- **`ManifestFormat`**: Either "json" or "jsonnet" for manifest file detection
 
-### Data Flow in Backend
+### Data Flow
 
-1. CLI parses input folder/file and creates `ProvidedInput`
-2. `Fibroblast::new()` loads and deserializes manifest (JSON/Jsonnet)
-3. Tags are resolved with their context (images base64-encoded, paths resolved)
-4. `to_svg()` writes the final SVG output
+1. Files uploaded via browser file picker or drag-and-drop
+2. `createFileSystem()` converts File objects to `InMemoryFileSystem`
+3. `loadManifest()` detects and parses JSON or Jsonnet manifest
+4. `validateDocument()` validates and creates typed `RootTag` structure
+5. `generateSvg()` recursively builds SVG with embedded assets (base64-encoded images/fonts)
 
 ## Development Notes
 
 ### Tag System
 
-When adding new tag types to `AnyChildTag`, ensure the required fields don't overlap with existing tags to avoid deserialization ambiguity. The system uses serde's `untagged` approach.
+The TypeScript implementation uses discriminated unions for tag types. When adding new tag types:
+
+- Add the type to the `AnyChildTag` union in `src/lib/collagen-ts/types/index.ts`
+- Ensure discriminating properties don't overlap with existing tags to avoid ambiguity
+- Add validation logic in `src/lib/collagen-ts/validation/index.ts`
+- Add SVG generation logic in `src/lib/collagen-ts/svg/index.ts`
 
 ### File System Abstraction
 
-The codebase supports both disk-backed and in-memory file systems for testing. The `InMemoryFs` type allows testing without actual files.
+The `InMemoryFileSystem` class provides browser-compatible file access:
+
+- Handles both individual files and directories from drag-and-drop
+- Normalizes paths using forward slashes across platforms
+- Provides utilities for detecting file types (images, fonts) by extension
 
 ### Test Structure
 
-- **`tests/examples/`**: Visual test cases with skeleton folders and expected SVG outputs
-- Each test case has a `skeleton/` folder with manifest and assets, plus `out.svg` for comparison
-- Tests verify that generated SVG exactly matches expected output
+- **`src/lib/collagen-ts/__tests__/`**: Unit tests using Vitest
+- **`tests/e2e/`**: End-to-end tests using Playwright
+- **`tests/examples/`**: Reference test cases with skeleton folders and expected SVG outputs
+- Each test example has a `skeleton/` folder with manifest and assets, plus `out.svg` for validation
+- Tests verify that generated SVG matches expected output character-for-character
 
 ### Manifest Formats
 
-- JSON: `collagen.json`
-- Jsonnet: `collagen.jsonnet` (preferred if both exist)
-  - Jsonnet provides variables, functions, loops, and imports for complex layouts, which
-    makes it more flexible than JSON
+- **JSON**: `collagen.json` - Standard JSON format
+- **Jsonnet**: `collagen.jsonnet` - Preferred when both exist, provides variables, functions, loops, and imports
+- The TypeScript implementation uses sjsonnet.js (WASM-compiled jsonnet) for client-side evaluation
 
 ### Code Style
 
-- Uses hard tabs (configured in `rustfmt.toml`)
-- Clippy pedantic warnings enabled with specific allows
-- Imports organized at crate level (`imports_granularity = "Crate"`)
-- Use descriptive variable and function names
-- TypeScript
-  - Do not create temporary arrays. Iterate over an object’s keys and extract the values
-    rather than iterating over `Object.entries`. Use `for` loops instead of chained
-    `array.map(...).filter(...)`
+- **TypeScript**: Strict mode enabled with comprehensive linting
+- **Performance**: Avoid creating temporary arrays; use `for...of` loops instead of chained `array.map(...).filter(...)`
+- **Path handling**: Always use forward slashes (`/`) in paths, normalized by the filesystem layer
+- **Imports**: Use explicit `.js` extensions for ESM compatibility
+- **Error handling**: Use typed error classes from `src/lib/collagen-ts/errors/`
 
-## Frontend-Backend Integration
+## Frontend Architecture
 
-### WASM Connection Architecture
+### Core Components (`src/`)
 
-The project includes a web frontend that runs Collagen entirely in the browser via WebAssembly (WASM):
-
-#### Build Process
-
-- **Main Rust Crate**: The core `collagen` library includes a `wasm` feature that exposes WASM bindings in `src/wasm.rs`
-- **WASM Wrapper Crate**: A separate `collagen-wasm` crate in `svelte/Cargo.toml` re-exports the main crate's WASM functionality
-- **Rollup Integration**: `@wasm-tool/rollup-plugin-rust` plugin automatically compiles Rust to WASM during frontend builds
-- **Runtime Loading**: The frontend dynamically imports the WASM module via `import("../Cargo.toml")`
-
-#### WASM API Surface
-
-The WASM module exposes these key functions (defined in `src/wasm.rs`):
-
-- `createInMemoryFs(files_map)` - Converts uploaded files to in-memory filesystem
-- `generateSvg(fs_handle, format)` - Processes manifest and generates SVG output
-- `getSupportedFormats()` - Returns supported manifest formats
-
-#### Data Flow
-
-1. **File Upload**: Browser files are collected into a JavaScript `Map<string, File>`
-2. **WASM Conversion**: Files are converted to Rust's `InMemoryFs` via `createInMemoryFs()`
-3. **Processing**: Same core logic as CLI version processes manifest and assets
-4. **SVG Output**: Generated SVG is returned as string to JavaScript
-
-### Frontend Architecture
-
-#### Core Components (`svelte/src/`)
-
-- **`App.svelte`**: Main application component that orchestrates file upload and SVG generation
+- **`App.svelte`**: Main application component orchestrating file upload and SVG generation
 - **`FileUploader.svelte`**: Drag-and-drop file upload component with folder support
 - **`SvgDisplay.svelte`**: Interactive SVG viewer with zoom, pan, and export functionality
 - **`main.js`**: Application entry point using Svelte 5's `mount()` API
 
-#### Key Features
+### Key Features
 
 - **Folder Upload**: Supports drag-and-drop of entire project folders and browser folder picker
-- **Real-time Processing**: Files are processed immediately after upload
+- **Real-time Processing**: Files are processed immediately after upload using pure TypeScript
 - **Interactive Viewer**: Generated SVGs can be zoomed, panned, and exported
-- **Error Handling**: Comprehensive error display for WASM loading and processing failures
+- **Error Handling**: Comprehensive error display with typed error messages
 - **Manifest Detection**: Automatically detects and prefers `collagen.jsonnet` over `collagen.json`
+- **Client-side Jsonnet**: Uses sjsonnet.js WASM library for Jsonnet compilation in browser
 
-#### Data Flow in Frontend
+### Data Flow
 
 1. **File Collection**: `FileUploader` handles drag-and-drop and folder selection
-2. **WASM Integration**: Files are passed to WASM module via `handleFilesUploaded()` in `App.svelte`
-3. **In-Memory FS**: JavaScript files are converted to Rust `InMemoryFs` structure
-4. **Processing**: Core Collagen logic runs entirely in browser (same as CLI)
+2. **TypeScript Processing**: Files are passed to `generateSvgFromFiles()` from the TypeScript library
+3. **In-Memory FS**: Browser File objects are converted to `InMemoryFileSystem`
+4. **Processing**: Pure TypeScript implementation processes manifest and assets
 5. **Display**: Generated SVG is rendered in `SvgDisplay` with interactive controls
 
-#### Browser Compatibility
+### Browser Compatibility
 
 - Uses modern browser APIs: `File`, `FileReader`, `drag-and-drop`, `webkitdirectory`
-- WASM module requires browsers with WebAssembly support (all modern browsers)
+- Jsonnet support via sjsonnet.js WASM (pre-compiled, included in bundle)
 - No server-side processing required - fully client-side application
+- Works in all modern browsers with ES2020+ support
+
+## Legacy Rust Implementation
+
+The `rust/` directory contains the original Rust implementation which served as the reference for the TypeScript port. This implementation:
+
+- Is not actively used but maintained for reference
+- Contains the same test examples in `rust/tests/examples/`
+- Uses the original CLI interface (`cargo run -- -i skeleton -o output.svg`)
+- Does not support WebAssembly compilation (removed)
