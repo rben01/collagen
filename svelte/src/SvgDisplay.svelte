@@ -262,16 +262,19 @@
 	<div class="controls">
 		<div class="control-group">
 			<button
+				class="control-btn zoom-in"
 				onclick={zoomIn}
 				title="Zoom In (Keyboard: +)"
 				aria-label="Zoom in, keyboard shortcut plus key">🔍+</button
 			>
 			<button
+				class="control-btn zoom-out"
 				onclick={zoomOut}
 				title="Zoom Out (Keyboard: -)"
 				aria-label="Zoom out, keyboard shortcut minus key">🔍−</button
 			>
 			<button
+				class="control-btn reset-view"
 				onclick={resetView}
 				title="Reset View (Keyboard: 0)"
 				aria-label="Reset view, keyboard shortcut zero key">🎯</button
@@ -281,6 +284,7 @@
 
 		<div class="control-group">
 			<button
+				class="control-btn toggle-view"
 				onclick={toggleRawSvg}
 				class:active={showRawSvg}
 				title="Toggle Code View (Keyboard: V)"
@@ -289,12 +293,14 @@
 				{showRawSvg ? "Show Preview" : "Show SVG Code"}
 			</button>
 			<button
+				class="control-btn copy-btn"
 				onclick={copyToClipboard}
 				title="Copy SVG to Clipboard (Keyboard: C)"
 				aria-label="Copy SVG to clipboard, keyboard shortcut C key"
 				>📋</button
 			>
 			<button
+				class="control-btn export-btn"
 				onclick={downloadSvg}
 				title="Download SVG (Keyboard: S)"
 				aria-label="Download SVG file, keyboard shortcut S key">💾</button
@@ -438,7 +444,8 @@
 		gap: 0.5em;
 	}
 
-	.controls button {
+	.controls button,
+	.control-btn {
 		background: #ffffff;
 		border: 1px solid #d1d5db;
 		padding: 0.5em 0.75em;
@@ -448,25 +455,29 @@
 		transition: all 0.2s;
 	}
 
-	.controls button:hover {
+	.controls button:hover,
+	.control-btn:hover {
 		background: #f3f4f6;
 		border-color: #9ca3af;
 	}
 
-	.controls button:focus {
+	.controls button:focus,
+	.control-btn:focus {
 		outline: 2px solid #2563eb;
 		outline-offset: 2px;
 		background: #f3f4f6;
 		border-color: #2563eb;
 	}
 
-	.controls button.active {
+	.controls button.active,
+	.control-btn.active {
 		background: #2563eb;
 		border-color: #2563eb;
 		color: white;
 	}
 
-	.controls button.active:focus {
+	.controls button.active:focus,
+	.control-btn.active:focus {
 		outline: 2px solid #1d4ed8;
 		outline-offset: 2px;
 		background: #1d4ed8;

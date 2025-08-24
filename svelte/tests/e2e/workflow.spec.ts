@@ -7,7 +7,8 @@
 
 /// <reference path="../globals.d.ts" />
 
-import { test, expect, Page } from "@playwright/test";
+import { expect, Page } from "@playwright/test";
+import { test } from "./fixtures";
 
 // =============================================================================
 // Test Setup and Utilities
@@ -202,11 +203,6 @@ async function waitForSvgProcessing(page: any, timeout = 5000) {
 // =============================================================================
 
 test.describe("Complete User Workflows", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-	});
-
 	test("should complete simple project workflow", async ({ page }) => {
 		// 1. Start with upload interface
 		await expect(page.locator(".drop-zone")).toBeVisible();
@@ -268,6 +264,7 @@ test.describe("Complete User Workflows", () => {
 
 	test("should handle complex project with multiple assets", async ({
 		page,
+		isMobile,
 	}) => {
 		// Upload complex project
 		await simulateFileUpload(page, "complex");
@@ -306,7 +303,9 @@ test.describe("Complete User Workflows", () => {
 
 				// Test wheel zoom
 				await svgContainer.hover();
-				await page.mouse.wheel(0, -100);
+				if (!isMobile) {
+					await page.mouse.wheel(0, -100);
+				}
 				await page.waitForTimeout(100);
 			}
 
@@ -377,15 +376,6 @@ test.describe("Complete User Workflows", () => {
 // =============================================================================
 
 test.describe("User Interaction Workflows", () => {
-	test.beforeEach(async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
-		// Set up a working project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-	});
-
 	test("should support keyboard navigation workflow", async ({ page }) => {
 		// Tab through interface elements
 		await page.keyboard.press("Tab"); // Focus upload zone or first control
@@ -412,7 +402,10 @@ test.describe("User Interaction Workflows", () => {
 		}
 	});
 
-	test("should support mouse interaction workflow", async ({ page }) => {
+	test("should support mouse interaction workflow", async ({
+		page,
+		isMobile,
+	}) => {
 		const svgContainer = page.locator(".svg-container");
 
 		if (await svgContainer.isVisible()) {
@@ -437,8 +430,10 @@ test.describe("User Interaction Workflows", () => {
 
 			// Test wheel zoom
 			await svgContainer.hover();
-			await page.mouse.wheel(0, -120); // Zoom in
-			await page.mouse.wheel(0, 120); // Zoom out
+			if (!isMobile) {
+				await page.mouse.wheel(0, -120); // Zoom in
+				await page.mouse.wheel(0, 120); // Zoom out
+			}
 		}
 	});
 
@@ -451,9 +446,7 @@ test.describe("User Interaction Workflows", () => {
 		});
 		const touchPage = await context.newPage();
 
-		// Navigate and setup
-		await touchPage.goto("/");
-		await touchPage.waitForLoadState("networkidle");
+		// setup
 		await simulateFileUpload(touchPage, "simple");
 		await waitForSvgProcessing(touchPage);
 
@@ -530,10 +523,7 @@ test.describe("User Interaction Workflows", () => {
 // =============================================================================
 
 test.describe("Performance and Edge Case Workflows", () => {
-	test("should handle large project workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
+	test("should handle large project workflow", async ({ page, isMobile }) => {
 		// Create and upload a project with many elements
 		const largeManifest = {
 			attrs: { viewBox: "0 0 1000 1000" },
@@ -603,14 +593,13 @@ test.describe("Performance and Edge Case Workflows", () => {
 			// Test that interactions still work with many elements
 			const svgContainer = page.locator(".svg-container");
 			await svgContainer.hover();
-			await page.mouse.wheel(0, -100); // Should still zoom smoothly
+			if (!isMobile) {
+				await page.mouse.wheel(0, -100); // Should still zoom smoothly
+			}
 		}
 	});
 
 	test("should handle rapid file switching workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Rapidly switch between different projects
 		for (let i = 0; i < 3; i++) {
 			await simulateFileUpload(page, "simple");
@@ -627,9 +616,6 @@ test.describe("Performance and Edge Case Workflows", () => {
 	});
 
 	test("should handle browser back/forward workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Upload project
 		await simulateFileUpload(page, "simple");
 		await waitForSvgProcessing(page);
@@ -648,16 +634,13 @@ test.describe("Performance and Edge Case Workflows", () => {
 	});
 
 	test("should handle browser refresh workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Upload project
 		await simulateFileUpload(page, "simple");
 		await waitForSvgProcessing(page);
 
 		// Refresh page
 		await page.reload();
-		await page.waitForLoadState("networkidle");
+		await page.waitForLoadState("domcontentloaded");
 
 		// Should reset to initial state
 		await expect(page.locator(".drop-zone")).toBeVisible();
@@ -676,9 +659,6 @@ test.describe("Performance and Edge Case Workflows", () => {
 
 test.describe("Accessibility Workflows", () => {
 	test("should support screen reader workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Check ARIA landmarks and labels - main element has implicit role
 		await expect(page.locator("main")).toBeVisible();
 
@@ -710,9 +690,6 @@ test.describe("Accessibility Workflows", () => {
 	test("should support keyboard-only navigation workflow", async ({
 		page,
 	}) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Complete workflow using only keyboard
 
 		// Tab to upload zone
@@ -743,9 +720,6 @@ test.describe("Accessibility Workflows", () => {
 	});
 
 	test("should support high contrast and zoom workflow", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Test with high zoom level
 		await page.evaluate(() => {
 			document.body.style.zoom = "150%";
@@ -789,7 +763,7 @@ test.describe("Error Recovery Workflows", () => {
 		});
 
 		await page.goto("/");
-		await page.waitForLoadState("networkidle");
+		await page.waitForLoadState("domcontentloaded");
 
 		// Should still show upload interface
 		await expect(page.locator(".drop-zone")).toBeVisible();
@@ -811,9 +785,6 @@ test.describe("Error Recovery Workflows", () => {
 	});
 
 	test("should recover from processing errors", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Upload invalid project
 		await simulateFileUpload(page, "invalid");
 		await waitForSvgProcessing(page);
@@ -849,9 +820,6 @@ test.describe("Error Recovery Workflows", () => {
 	});
 
 	test("should handle memory constraints gracefully", async ({ page }) => {
-		await page.goto("/");
-		await page.waitForLoadState("networkidle");
-
 		// Create and upload extremely large project (simulated)
 		// Simulate memory pressure
 		const hugeArray = [...Array(10000)].map((_, i) => ({

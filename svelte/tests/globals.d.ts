@@ -24,6 +24,8 @@ declare global {
 		// Workflow test properties
 		mockProjectFiles?: Record<string, File>;
 
+		generatedSvg?: string;
+
 		// Application-specific properties
 		sjsonnet?: any;
 	}
