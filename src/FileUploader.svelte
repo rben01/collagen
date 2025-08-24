@@ -6,10 +6,7 @@
 		externalError = null,
 	} = $props<{
 		disabled: boolean;
-		handleFilesUploaded: (
-			files: Record<string, File>,
-			root: string,
-		) => Promise<void>;
+		handleFilesUploaded: (files: Record<string, File>, root: string) => Promise<void>;
 		handleClearFiles: () => void;
 		externalError?: string | null;
 	}>();
@@ -108,10 +105,7 @@
 			// Strip root folder prefix from all paths if we detected one
 			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
 
-			console.log(
-				"✨ Cleaned file data keys:",
-				Object.keys(cleanedFileData),
-			);
+			console.log("✨ Cleaned file data keys:", Object.keys(cleanedFileData));
 
 			files = cleanedFileData;
 			handleFilesUploaded(cleanedFileData, rootFolderName);
@@ -168,9 +162,7 @@
 				entryFile.file(
 					file => {
 						const fullPath = path ? `${path}/${entry.name}` : entry.name;
-						console.log(
-							`✅ File processed: ${fullPath} (${file.size} bytes)`,
-						);
+						console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
 						fileData[fullPath] = file;
 						clearTimeout(timeout);
 						resolve();
@@ -187,19 +179,10 @@
 				const reader = entryDirectory.createReader();
 				reader.readEntries(
 					entries => {
-						console.log(
-							`📋 Directory ${entry.name} has ${entries.length} entries`,
-						);
+						console.log(`📋 Directory ${entry.name} has ${entries.length} entries`);
 						const promises = entries.map(childEntry => {
-							const childPath = path
-								? `${path}/${entry.name}`
-								: entry.name;
-							return processEntry(
-								childEntry,
-								childPath,
-								fileData,
-								rootFolderName,
-							);
+							const childPath = path ? `${path}/${entry.name}` : entry.name;
+							return processEntry(childEntry, childPath, fileData, rootFolderName);
 						});
 						Promise.all(promises)
 							.then(() => {
@@ -208,19 +191,13 @@
 								resolve();
 							})
 							.catch(error => {
-								console.error(
-									`❌ Error processing directory ${entry.name}:`,
-									error,
-								);
+								console.error(`❌ Error processing directory ${entry.name}:`, error);
 								clearTimeout(timeout);
 								reject(error);
 							});
 					},
 					error => {
-						console.error(
-							`❌ Error reading directory ${entry.name}:`,
-							error,
-						);
+						console.error(`❌ Error reading directory ${entry.name}:`, error);
 						clearTimeout(timeout);
 						reject(error);
 					},
@@ -240,10 +217,7 @@
 		handleClearFiles();
 	}
 
-	function stripFolderPrefix(
-		fileData: Record<string, File>,
-		rootFolderName: string,
-	) {
+	function stripFolderPrefix(fileData: Record<string, File>, rootFolderName: string) {
 		if (!rootFolderName) {
 			return fileData;
 		}
@@ -279,9 +253,7 @@
 		}
 
 		const file = fileList[0];
-		const extension = file.name
-			.toLowerCase()
-			.substring(file.name.lastIndexOf("."));
+		const extension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
 
 		if (!validExtensions.includes(extension)) {
 			errorMessage = `"${file.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
@@ -360,8 +332,8 @@
 				<h3>Upload Collagen Project</h3>
 				<p>
 					Drag and drop a <code>collagen.json</code> or a
-					<code>collagen.jsonnet</code> manifest file, or a folder
-					containing one of those and any other resources. Or press O to
+					<code>collagen.jsonnet</code> manifest file, or a folder containing one of
+					those and any other resources. Or press O to
 					<em>open</em> the file/folder picker.
 				</p>
 
@@ -388,10 +360,7 @@
 		{:else}
 			<div class="files-uploaded">
 				<div class="upload-success">
-					<span class="success-icon">✅</span>
-					<span
-						>{isFileUpload ? "File" : "Folder"} uploaded successfully!</span
-					>
+					<span>{isFileUpload ? "File" : "Folder"} uploaded successfully.</span>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
 					Upload Another Project
@@ -510,10 +479,6 @@
 		color: #059669;
 		font-size: 1.1em;
 		font-weight: 500;
-	}
-
-	.success-icon {
-		font-size: 1.2em;
 	}
 
 	.clear-btn {
