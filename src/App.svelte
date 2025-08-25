@@ -2,115 +2,47 @@
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import {
-		createFileSystem,
-		validateDocument,
-		generateSvg,
 		toCompatibleError,
-		getAvailableManifestFormat,
-		loadManifest,
+		InMemoryFileSystem,
+		generateSvgFromFileSystem,
+		FileContent,
 	} from "./lib/collagen-ts/index.js";
 
 	let error: string | null = null;
 	let loading = false;
 	let svgOutput: string | null = null;
-	let filesData: Record<string, { size: number }> | null = null;
+	let filesData: InMemoryFileSystem | null = null;
 
-	async function processManifest(fileMap: Map<string, File>) {
-		try {
-			// Create filesystem from files
-			const filesystem = await createFileSystem(fileMap);
-
-			// Detect manifest format
-			const format = getAvailableManifestFormat(filesystem);
-			if (!format) {
-				return null;
-			}
-
-			console.log(`Found ${format} manifest, processing...`);
-
-			// Load raw manifest data first
-			const rawManifestData = await loadManifest(filesystem, format);
-
-			return { data: rawManifestData, format };
-		} catch (err) {
-			console.error("Failed to process manifest:", err);
-			throw new Error(
-				`Manifest processing failed: ${err instanceof Error ? err.message : String(err)}`,
-			);
-		}
-	}
-
-	async function generateSvgFromManifestData(
-		fileMap: Map<string, File>,
-		manifestData: unknown,
-	): Promise<string> {
-		// Create filesystem from fileMap
-		const filesystem = await createFileSystem(fileMap);
-
-		// Validate the manifest data to create typed structure
-		const rootTag = validateDocument(manifestData);
-
-		// Generate SVG from the validated root tag
-		return await generateSvg(rootTag, filesystem);
-	}
-
-	async function handleFilesUploaded(
-		files: Record<string, File>,
-		root?: string,
-	) {
+	async function handleFilesUploadedWithRoot(files: Map<string, File>, root?: string) {
 		console.log("🔄 Starting file processing...");
 
-		console.log("📁 Files received:", Object.keys(files).length, "files");
+		console.log("📁 Files received:", files.size, "files");
 		if (root) {
 			console.log("📂 Root folder:", root);
 		}
 
-		await handleFilesWithTypeScript(files);
+		await handleFiles(await InMemoryFileSystem.create(files));
 	}
 
-	async function handleFilesWithTypeScript(
-		files: Record<string, { size: number }>,
-	) {
+	async function handleFiles(fs: InMemoryFileSystem) {
 		console.log("🔄 Processing files...");
 
 		try {
 			loading = true;
-			filesData = files;
+			filesData = fs;
 			svgOutput = null;
 			error = null;
 
-			// Convert FileList to Map for TypeScript implementation
-			console.log("🗺️ Converting files to Map...");
-			const fileMap = new Map();
-			for (const [path, file] of Object.entries(files)) {
-				// Ensure all paths have a leading slash (treat user folder as root)
-				const normalizedPath = path.startsWith("/") ? path : "/" + path;
-				fileMap.set(normalizedPath, file);
-			}
-			console.log("✅ File Map created with", fileMap.size, "entries");
-
+			// Normalize paths to ensure leading slash for TypeScript implementation
+			console.log("🗺️ Normalizing file paths...");
 			// Check for manifest and handle jsonnet compilation if needed
 			console.log("🔍 Processing manifest...");
-			const manifestResult = await processManifest(fileMap);
-			if (manifestResult === null) {
-				error =
-					"No manifest file found. Please include collagen.json or collagen.jsonnet";
-				console.log("❌ No manifest found");
-				return;
-			}
-			console.log("✅ Manifest processed, format:", manifestResult.format);
 
 			// Generate SVG using the processed manifest data
 			console.log("🎨 Generating SVG...");
-			svgOutput = await generateSvgFromManifestData(
-				fileMap,
-				manifestResult.data,
-			);
+			svgOutput = await generateSvgFromFileSystem(fs);
 			if (svgOutput) {
-				console.log(
-					"✅ SVG generated successfully! Length:",
-					svgOutput.length,
-				);
+				console.log("✅ SVG generated successfully! Length:", svgOutput.length);
 			}
 		} catch (err) {
 			console.error("Error processing files:", err);
@@ -140,7 +72,7 @@
 
 	<div class="upload-section">
 		<FileUploader
-			{handleFilesUploaded}
+			handleFilesUploaded={handleFilesUploadedWithRoot}
 			{handleClearFiles}
 			disabled={loading}
 			externalError={error}
@@ -149,24 +81,28 @@
 
 	{#if filesData}
 		<div class="files-info">
-			<h3>Uploaded Files ({Object.keys(filesData || {}).length})</h3>
+			<h3>Uploaded Files ({filesData?.getFileCount() || 0})</h3>
 
 			<!-- File size summary and warnings -->
 			{#each [(() => {
 					try {
-						if (!filesData || typeof filesData !== "object") {
+						if (!filesData) {
 							return { totalSize: 0, warnings: [] };
 						}
 
-						const files = Object.entries(filesData);
-						const totalSize = files.reduce((sum, [, file]) => {
-							// Ensure file exists and has size property
-							return sum + (file && typeof file.size === "number" ? file.size : 0);
-						}, 0);
+						let totalSize = 0;
+						const largeFiles: FileContent[] = [];
 
-						const largeFiles = files.filter(([, file]) => {
-							return file && typeof file.size === "number" && file.size > 5 * 1024 * 1024;
-						}); // > 5MB
+						for (const file of filesData.files.values()) {
+							// Ensure file exists and has size property
+							if (file && typeof file.bytes.length === "number") {
+								totalSize += file.bytes.length;
+								if (file.bytes.length > 5 * 1024 * 1024) {
+									// > 5MB
+									largeFiles.push(file);
+								}
+							}
+						}
 
 						const warnings = [];
 
@@ -176,7 +112,7 @@
 						}
 
 						if (largeFiles.length > 0) {
-							warnings.push( { type: "info", message: `${largeFiles.length} large file(s) detected. Consider compressing images for better performance.` }, );
+							warnings.push( { type: "info", message: `${largeFiles.length} large file(s) detected.` }, );
 						}
 
 						return { totalSize, warnings };
@@ -187,7 +123,8 @@
 				})()] as fileSummary}
 				<div class="file-summary">
 					<span class="total-size">
-						Total: {(fileSummary.totalSize / (1024 * 1024)).toFixed(1)}MB
+						<!-- TODO: this returns the wrong size -->
+						Total: {(fileSummary.totalSize / 1024).toFixed(1)}KB
 					</span>
 
 					{#each fileSummary.warnings as warning}
@@ -200,19 +137,19 @@
 			{/each}
 
 			<ul>
-				{#each Object.entries(filesData || {}) as [path, file]}
+				{#each filesData.files || [] as [path, file]}
 					<li class="file-item">
 						<span class="file-path">{path}</span>
 						<span class="file-size">
-							{#if file && typeof file.size === "number"}
-								{#if file.size > 1024 * 1024}
-									{(file.size / (1024 * 1024)).toFixed(1)}MB
-								{:else if file.size > 1024}
-									{(file.size / 1024).toFixed(0)}KB
+							{#if file && typeof file.bytes.length === "number"}
+								{#if file.bytes.length > 1024 * 1024}
+									{(file.bytes.length / (1024 * 1024)).toFixed(1)}MB
+								{:else if file.bytes.length > 1024}
+									{(file.bytes.length / 1024).toFixed(0)}KB
 								{:else}
-									{file.size}B
+									{file.bytes.length}B
 								{/if}
-								{#if file.size > 10 * 1024 * 1024}
+								{#if file.bytes.length > 10 * 1024 * 1024}
 									<span class="size-warning">⚠️</span>
 								{/if}
 							{:else}
@@ -238,8 +175,8 @@
 		margin: 0 auto;
 		padding: 2em 2em 8em 2em;
 		font-family:
-			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-			Cantarell, sans-serif;
+			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
+			sans-serif;
 	}
 
 	h1 {

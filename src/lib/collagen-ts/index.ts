@@ -5,95 +5,51 @@
  * designed to be a drop-in replacement for the WASM implementation.
  */
 
-import type { InMemoryFileSystem, ManifestFormat } from "./filesystem/index.js";
-import {
-	createFileSystem,
-	loadManifest,
-	detectManifestFormat,
-} from "./filesystem/index.js";
-import { validateDocument } from "./validation/index.js";
-import { generateSvg } from "./svg/index.js";
-import type { RootTag } from "./types/index.js";
+import { InMemoryFileSystem, ManifestFormat } from "./filesystem/index";
+import { generateSvg } from "./svg/index";
 
 // =============================================================================
 // Main API Functions
 // =============================================================================
 
 /**
- * Generate SVG from files, similar to the WASM generateSvg function
+ * Generate SVG from files.
  */
 export async function generateSvgFromFiles(
-	files: Map<string, File> | Record<string, File>,
-	format?: ManifestFormat,
+  files: Map<string, File>,
 ): Promise<string> {
-	// Create filesystem
-	const filesystem = await createFileSystem(files);
-
-	// Load and parse manifest
-	const manifestData = await loadManifest(filesystem, format);
-
-	// Validate to create typed structure
-	const rootTag = validateDocument(manifestData);
-
-	// Generate SVG
-	return await generateSvg(rootTag, filesystem);
+  return await generateSvgFromFileSystem(
+    await InMemoryFileSystem.create(files),
+  );
 }
 
 /**
- * Generate SVG from a pre-created filesystem
+ * Generate SVG from a pre-created filesystem.
  */
 export async function generateSvgFromFileSystem(
-	filesystem: InMemoryFileSystem,
-	format?: ManifestFormat,
+  fs: InMemoryFileSystem,
 ): Promise<string> {
-	// Load and parse manifest
-	const manifestData = await loadManifest(filesystem, format);
-
-	// Validate to create typed structure
-	const rootTag = validateDocument(manifestData);
-
-	// Generate SVG
-	return await generateSvg(rootTag, filesystem);
-}
-
-/**
- * Parse and validate a manifest without generating SVG
- */
-export async function parseManifest(
-	filesystem: InMemoryFileSystem,
-	format?: ManifestFormat,
-): Promise<RootTag> {
-	const manifestData = await loadManifest(filesystem, format);
-	return validateDocument(manifestData);
+  const rootTag = await fs.parseManifestIntoRootTag();
+  return await generateSvg(rootTag, fs);
 }
 
 /**
  * Check what manifest formats are available in a filesystem
  */
 export function getSupportedFormats(): ManifestFormat[] {
-	// Both JSON and Jsonnet are now supported
-	return ["json", "jsonnet"];
-}
-
-/**
- * Detect what manifest format is available in a filesystem
- */
-export function getAvailableManifestFormat(
-	filesystem: InMemoryFileSystem,
-): ManifestFormat | null {
-	return detectManifestFormat(filesystem);
+  return ["json", "jsonnet"];
 }
 
 /**
  * Get information about a filesystem
  */
-export function getFileSystemInfo(filesystem: InMemoryFileSystem) {
-	return {
-		fileCount: filesystem.getFileCount(),
-		totalSize: filesystem.getTotalSize(),
-		paths: filesystem.getPaths(),
-		manifestFormat: detectManifestFormat(filesystem),
-	};
+export function getFileSystemInfo(fs: InMemoryFileSystem) {
+  return {
+    fileCount: fs.getFileCount(),
+    totalSize: fs.getTotalSize(),
+    paths: fs.getPaths(),
+    manifestFormat: fs.loadManifestContents().format,
+  };
 }
 
 // =============================================================================
@@ -102,30 +58,28 @@ export function getFileSystemInfo(filesystem: InMemoryFileSystem) {
 
 // Export main types
 export type {
-	RootTag,
-	AnyChildTag,
-	GenericTag,
-	ImageTag,
-	TextTag,
-	ContainerTag,
-	FontTag,
-	NestedSvgTag,
-	XmlAttrs,
-	FontFace,
-	ManifestFormat,
+  RootTag,
+  AnyChildTag,
+  GenericTag,
+  ImageTag,
+  TextTag,
+  ContainerTag,
+  FontTag,
+  NestedSvgTag,
+  XmlAttrs,
+  FontFace,
+  ManifestFormat,
 } from "./types/index.js";
 
-export type { InMemoryFileSystem, FileContent } from "./filesystem/index.js";
+export { InMemoryFileSystem, FileContent } from "./filesystem/index.js";
 
 // Export filesystem utilities
 export {
-	createFileSystem,
-	loadManifest,
-	normalizedPathJoin,
-	isImagePath,
-	isFontPath,
-	getFileExtension,
-	getMimeType,
+  normalizedPathJoin,
+  isImagePath,
+  isFontPath,
+  getFileExtension,
+  getMimeType,
 } from "./filesystem/index.js";
 
 // Export validation
@@ -136,18 +90,18 @@ export { generateSvg } from "./svg/index.js";
 
 // Export utilities
 export {
-	base64Encode,
-	base64Decode,
-	escapeXml,
-	isPlainObject,
-	ensureArray,
+  base64Encode,
+  base64Decode,
+  escapeXml,
+  isPlainObject,
+  ensureArray,
 } from "./utils/index.js";
 
 // Export errors
 export * from "./errors/index.js";
 
 // Export Jsonnet utilities
-export { compileJsonnet, compileJsonnetFromFile } from "./jsonnet/index.js";
+export { compileJsonnet } from "./jsonnet/index.js";
 export type { JsonnetConfig } from "./jsonnet/sjsonnet.js";
 
 // =============================================================================
@@ -158,24 +112,24 @@ export type { JsonnetConfig } from "./jsonnet/sjsonnet.js";
  * Error type compatible with WASM CollagenError
  */
 export interface CollagenCompatError {
-	message: string;
-	errorType: string;
+  message: string;
+  errorType: string;
 }
 
 /**
  * Convert our errors to WASM-compatible format
  */
 export function toCompatibleError(error: unknown): CollagenCompatError {
-	if (error && typeof error === "object" && "errorType" in error) {
-		return {
-			message: String((error as any).message || error),
-			errorType: String((error as any).errorType || "Unknown"),
-		};
-	}
+  if (error && typeof error === "object" && "errorType" in error) {
+    return {
+      message: String((error as any).message || error),
+      errorType: String((error as any).errorType || "Unknown"),
+    };
+  }
 
-	if (error instanceof Error) {
-		return { message: error.message, errorType: error.constructor.name };
-	}
+  if (error instanceof Error) {
+    return { message: error.message, errorType: error.constructor.name };
+  }
 
-	return { message: String(error), errorType: "Unknown" };
+  return { message: String(error), errorType: "Unknown" };
 }

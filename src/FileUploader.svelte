@@ -6,13 +6,13 @@
 		externalError = null,
 	} = $props<{
 		disabled: boolean;
-		handleFilesUploaded: (files: Record<string, File>, root: string) => Promise<void>;
+		handleFilesUploaded: (files: Map<string, File>, root: string) => Promise<void>;
 		handleClearFiles: () => void;
 		externalError?: string | null;
 	}>();
 
 	let dragOver = $state(false);
-	let files: Record<string, File> | null = $state(null);
+	let files: Map<string, File> | null = $state(null);
 	let errorMessage = $state<string | null>(null);
 	let isFileUpload = $state(false); // Track if it's a single file vs folder
 
@@ -55,7 +55,7 @@
 			return;
 		}
 
-		const fileData = {};
+		const fileData = new Map<string, File>();
 		let rootFolderName = null;
 
 		try {
@@ -99,13 +99,13 @@
 				}
 			}
 
-			console.log("📊 Raw file data keys:", Object.keys(fileData));
+			console.log("📊 Raw file data size:", fileData.size, "files");
 			console.log("📂 Root folder name:", rootFolderName);
 
 			// Strip root folder prefix from all paths if we detected one
 			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
 
-			console.log("✨ Cleaned file data keys:", Object.keys(cleanedFileData));
+			console.log("✨ Cleaned file data size:", cleanedFileData.size, "files");
 
 			files = cleanedFileData;
 			handleFilesUploaded(cleanedFileData, rootFolderName);
@@ -119,7 +119,7 @@
 		// Clear any previous error since we're processing valid files
 		errorMessage = null;
 
-		const fileData: { [k: string]: File } = {};
+		const fileData = new Map<string, File>();
 		let rootFolderName = null;
 
 		for (const file of fileList) {
@@ -134,7 +134,7 @@
 				}
 			}
 
-			fileData[path] = file;
+			fileData.set(path, file);
 		}
 
 		// Strip root folder prefix from all paths if we detected one
@@ -147,7 +147,7 @@
 	function processEntry(
 		entry: FileSystemEntry,
 		path: string,
-		fileData: Record<string, File>,
+		fileData: Map<string, File>,
 		rootFolderName: string | null = null,
 	) {
 		return new Promise<void>((resolve, reject) => {
@@ -163,7 +163,7 @@
 					file => {
 						const fullPath = path ? `${path}/${entry.name}` : entry.name;
 						console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
-						fileData[fullPath] = file;
+						fileData.set(fullPath, file);
 						clearTimeout(timeout);
 						resolve();
 					},
@@ -217,24 +217,24 @@
 		handleClearFiles();
 	}
 
-	function stripFolderPrefix(fileData: Record<string, File>, rootFolderName: string) {
+	function stripFolderPrefix(fileData: Map<string, File>, rootFolderName: string) {
 		if (!rootFolderName) {
 			return fileData;
 		}
 
-		const cleanedData: Record<string, File> = {};
+		const cleanedData = new Map<string, File>();
 		const prefix = rootFolderName + "/";
 
-		for (const [path, file] of Object.entries(fileData)) {
+		for (const [path, file] of fileData) {
 			if (path.startsWith(prefix)) {
 				const cleanedPath = path.substring(prefix.length);
 				if (cleanedPath) {
 					// Skip empty paths
-					cleanedData[cleanedPath] = file;
+					cleanedData.set(cleanedPath, file);
 				}
 			} else {
 				// Keep files that don't have the prefix (shouldn't happen but handle gracefully)
-				cleanedData[path] = file;
+				cleanedData.set(path, file);
 			}
 		}
 
