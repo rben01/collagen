@@ -4,7 +4,6 @@
 	import {
 		toCompatibleError,
 		InMemoryFileSystem,
-		generateSvgFromFileSystem,
 		FileContent,
 	} from "./lib/collagen-ts/index.js";
 
@@ -40,7 +39,7 @@
 
 			// Generate SVG using the processed manifest data
 			console.log("🎨 Generating SVG...");
-			svgOutput = await generateSvgFromFileSystem(fs);
+			svgOutput = await fs.generateSvg();
 			if (svgOutput) {
 				console.log("✅ SVG generated successfully! Length:", svgOutput.length);
 			}

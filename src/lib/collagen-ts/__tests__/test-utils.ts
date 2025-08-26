@@ -6,7 +6,11 @@
  */
 
 import { expect } from "vitest";
-import { InMemoryFileSystem } from "../filesystem/index.js";
+import {
+  FileContent,
+  InMemoryFileSystem,
+  normalizedPathJoin,
+} from "../filesystem/index.js";
 
 // =============================================================================
 // Test Data Creation
@@ -33,23 +37,45 @@ export function createFileFromBytes(
 }
 
 /** Create a simple file system from content map */
-export async function createTestFileSystem(
-  files: Record<string, string | Uint8Array>,
+export async function createFileSystem(
+  files:
+    | Map<string, string | Uint8Array | File>
+    | Record<string, string | Uint8Array | File>,
 ): Promise<InMemoryFileSystem> {
   const fileMap = new Map<string, File>();
 
-  for (const path in files) {
-    const content = files[path];
-    let file: File;
-    if (typeof content === "string") {
-      file = createFileFromString(content, path.split("/").pop() || path);
-    } else {
-      file = createFileFromBytes(content, path.split("/").pop() || path);
+  function processFile(path: string, file: string | Uint8Array | File) {
+    path = normalizedPathJoin(path);
+    if (typeof file === "string") {
+      file = createFileFromString(file, path);
+    } else if (file instanceof Uint8Array) {
+      file = createFileFromBytes(file, path);
     }
     fileMap.set(path, file);
   }
 
-  return await InMemoryFileSystem.create(fileMap);
+  if (files instanceof Map) {
+    for (const [path, content] of files) {
+      processFile(path, content);
+    }
+  } else {
+    for (const path in files) {
+      processFile(path, files[path]);
+    }
+  }
+
+  return await InMemoryFileSystem.create(fileMap, false);
+}
+
+/**
+ * Generate SVG from files.
+ */
+export async function generateSvgFromFiles(
+  files:
+    | Map<string, string | Uint8Array | File>
+    | Record<string, string | Uint8Array | File>,
+): Promise<string> {
+  return await (await createFileSystem(files)).generateSvg();
 }
 
 // =============================================================================
@@ -74,13 +100,10 @@ export function expectSvgEqual(actual: string, expected: string): void {
   expect(normalizedActual).toBe(normalizedExpected);
 }
 
-/** Compare SVG with tolerance for minor differences */
-export function expectSvgSimilar(actual: string, expected: string): void {
-  // For now, just do exact comparison
-  // Can be enhanced later to handle minor formatting differences
-  expectSvgEqual(actual, expected);
+const DECODER = new TextDecoder();
+export function toText(content: FileContent): string {
+  return DECODER.decode(content.bytes);
 }
-
 // =============================================================================
 // Error Testing Utilities
 // =============================================================================
@@ -245,7 +268,7 @@ export async function executeTestCase(
     return;
   }
 
-  const fs = await createTestFileSystem(testCase.files);
+  const fs = await createFileSystem(testCase.files);
 
   if (testCase.shouldFail) {
     await expect(generateSvg(fs)).rejects.toThrow();

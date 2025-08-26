@@ -5,53 +5,6 @@
  * designed to be a drop-in replacement for the WASM implementation.
  */
 
-import { InMemoryFileSystem, ManifestFormat } from "./filesystem/index";
-import { generateSvg } from "./svg/index";
-
-// =============================================================================
-// Main API Functions
-// =============================================================================
-
-/**
- * Generate SVG from files.
- */
-export async function generateSvgFromFiles(
-  files: Map<string, File>,
-): Promise<string> {
-  return await generateSvgFromFileSystem(
-    await InMemoryFileSystem.create(files),
-  );
-}
-
-/**
- * Generate SVG from a pre-created filesystem.
- */
-export async function generateSvgFromFileSystem(
-  fs: InMemoryFileSystem,
-): Promise<string> {
-  const rootTag = await fs.parseManifestIntoRootTag();
-  return await generateSvg(rootTag, fs);
-}
-
-/**
- * Check what manifest formats are available in a filesystem
- */
-export function getSupportedFormats(): ManifestFormat[] {
-  return ["json", "jsonnet"];
-}
-
-/**
- * Get information about a filesystem
- */
-export function getFileSystemInfo(fs: InMemoryFileSystem) {
-  return {
-    fileCount: fs.getFileCount(),
-    totalSize: fs.getTotalSize(),
-    paths: fs.getPaths(),
-    manifestFormat: fs.loadManifestContents().format,
-  };
-}
-
 // =============================================================================
 // Re-exports
 // =============================================================================

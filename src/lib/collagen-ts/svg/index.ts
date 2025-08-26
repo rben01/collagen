@@ -128,7 +128,7 @@ async function generateImageTag(
     const resolvedPath = resolvePath(context, tag.imagePath);
 
     // Fetch image file
-    const fileContent = await fetchResource(context.filesystem, resolvedPath);
+    const fileContent = fetchResource(context.filesystem, resolvedPath);
 
     // Determine image type
     const imageKind = tag.kind || inferImageKind(tag.imagePath);
@@ -166,8 +166,7 @@ async function generateContainerTag(
     // Create a new filesystem context for the nested folder
     const nestedContext = await createNestedContext(context, resolvedPath);
 
-    const nestedRootTag =
-      await nestedContext.filesystem.parseManifestIntoRootTag();
+    const nestedRootTag = await nestedContext.filesystem.generateRootTag();
 
     // Generate children content (not the full SVG wrapper)
     const childrenContent = await Promise.all(
@@ -203,10 +202,7 @@ async function generateFontTag(
       if ("path" in font) {
         // User-provided font - resolve path relative to current directory
         const resolvedFontPath = resolvePath(context, font.path);
-        const fileContent = await fetchResource(
-          context.filesystem,
-          resolvedFontPath,
-        );
+        const fileContent = fetchResource(context.filesystem, resolvedFontPath);
         fontDataBase64 = base64Encode(fileContent.bytes);
       } else {
         fontDataBase64 = await getBundledFontDataBase64(font.name);
@@ -245,7 +241,7 @@ async function generateNestedSvgTag(
     const resolvedPath = resolvePath(context, tag.svgPath);
 
     // Fetch SVG file
-    const fileContent = await fetchResource(context.filesystem, resolvedPath);
+    const fileContent = fetchResource(context.filesystem, resolvedPath);
 
     // Convert bytes to text
     let svgText = new TextDecoder().decode(fileContent.bytes);
@@ -340,7 +336,7 @@ async function createNestedContext(
       if (nestedRelativePath) {
         // Skip the folder itself
         // Get the original file from the parent filesystem
-        const fileContent = parentContext.filesystem.loadSync(path);
+        const fileContent = parentContext.filesystem.load(path);
         // Create a new File object from the content
         const file = new File(
           [new Uint8Array(fileContent.bytes)],

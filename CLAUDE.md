@@ -76,7 +76,7 @@ npm run test -- --run -t "validates basic root tag structure"
 
 ### TypeScript Core Modules (`src/lib/collagen-ts/`)
 
-- **`index.ts`**: Main API providing `generateSvgFromFiles()` and other entry points
+- **`index.ts`**: Main API providing `generateSvgFromObject()` and other entry points
 - **`filesystem/`**: File system abstraction and path utilities
 - **`types/`**: TypeScript definitions for all SVG tag types and document structure
 - **`validation/`**: Schema validation and type checking for manifest documents
@@ -95,7 +95,7 @@ npm run test -- --run -t "validates basic root tag structure"
 ### Data Flow
 
 1. Files uploaded via browser file picker or drag-and-drop
-2. `createFileSystem()` converts File objects to `InMemoryFileSystem`
+2. `InMemoryFileSystem.create()` converts File objects to `InMemoryFileSystem`
 3. `loadManifest()` detects and parses JSON or Jsonnet manifest
 4. `validateDocument()` validates and creates typed `RootTag` structure
 5. `generateSvg()` recursively builds SVG with embedded assets (base64-encoded images/fonts)
@@ -162,7 +162,7 @@ The `InMemoryFileSystem` class provides browser-compatible file access:
 ### Data Flow
 
 1. **File Collection**: `FileUploader` handles drag-and-drop and folder selection
-2. **TypeScript Processing**: Files are passed to `generateSvgFromFiles()` from the TypeScript library
+2. **TypeScript Processing**: Files are passed to `generateSvgFromObject()` from the TypeScript library
 3. **In-Memory FS**: Browser File objects are converted to `InMemoryFileSystem`
 4. **Processing**: Pure TypeScript implementation processes manifest and assets
 5. **Display**: Generated SVG is rendered in `SvgDisplay` with interactive controls

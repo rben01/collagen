@@ -12,6 +12,7 @@ import {
   MissingManifestError,
   JsonError,
 } from "../errors/index.js";
+import { generateSvg } from "../index.js";
 import { JsonObject } from "../jsonnet/index.js";
 import { validateDocument } from "../validation/index.js";
 
@@ -164,7 +165,7 @@ export class InMemoryFileSystem {
   }
 
   /** Get file content synchronously (since files are pre-loaded) */
-  loadSync(path: string, normalizePath = true): FileContent {
+  load(path: string, normalizePath = true): FileContent {
     if (normalizePath) {
       path = normalizedPathJoin(path);
     }
@@ -237,32 +238,48 @@ export class InMemoryFileSystem {
     throw new MissingManifestError();
   }
 
-  async parseManifestIntoRootTag() {
+  /**
+   * Generate an unvalidated object
+   *
+   * Primarily used for testing, so we can test object loading separately from
+   * validation.
+   */
+  async generateUntypedObject() {
     const { format: manifestFormat, content } = this.loadManifestContents();
 
     try {
       // Convert bytes to text
       const text = new TextDecoder().decode(content.bytes);
 
-      let parsed;
       if (manifestFormat === "json") {
-        parsed = JSON.parse(text) as JsonObject;
+        return JSON.parse(text) as JsonObject;
       } else {
         const { compileJsonnet } = await import("../jsonnet/index.js");
-        parsed = compileJsonnet(
-          text,
-          this,
-          {},
-          getManifestPath(manifestFormat),
-        );
+        return compileJsonnet(text, this, {}, getManifestPath(manifestFormat));
       }
-      return validateDocument(parsed);
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new JsonError(getManifestPath(manifestFormat), error.message);
       }
       throw error;
     }
+  }
+
+  async generateRootTag() {
+    const { format: manifestFormat, content: _ } = this.loadManifestContents();
+
+    try {
+      return validateDocument(await this.generateUntypedObject());
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new JsonError(getManifestPath(manifestFormat), error.message);
+      }
+      throw error;
+    }
+  }
+
+  async generateSvg() {
+    return generateSvg(await this.generateRootTag(), this);
   }
 }
 
@@ -298,7 +315,7 @@ export function fetchResource(
   resourcePath: string,
 ): FileContent {
   const resolvedPath = normalizedPathJoin(resourcePath);
-  return fs.loadSync(resolvedPath);
+  return fs.load(resolvedPath);
 }
 
 // =============================================================================

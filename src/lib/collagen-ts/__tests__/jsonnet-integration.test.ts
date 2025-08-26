@@ -6,48 +6,42 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { compileJsonnet, compileJsonnetFromFile } from "../jsonnet/index";
-import { createFileSystem } from "../filesystem/index";
-import { JsonnetError } from "../errors/index";
+import { compileJsonnet } from "../jsonnet/index";
+import { JsonnetError, MissingManifestError } from "../errors/index";
+import { createFileSystem } from "./test-utils";
 
 // =============================================================================
 // Mock Setup
 // =============================================================================
 
-/** Mock File object for testing */
-function createMockFile(name: string, content: string): File {
-	const blob = new Blob([content], { type: "text/plain" });
-	return new File([blob], name, { type: "text/plain" });
-}
-
 beforeEach(() => {
-	// Mock DOM environment
-	const mockScript = {
-		src: "",
-		addEventListener: vi.fn((event: string, callback: () => void) => {
-			if (event === "load") {
-				// Simulate successful script loading
-				setTimeout(() => {
-					(global as any).window = { ...(global as any).window };
-					callback();
-				}, 0);
-			}
-		}),
-	};
+  // Mock DOM environment
+  const mockScript = {
+    src: "",
+    addEventListener: vi.fn((event: string, callback: () => void) => {
+      if (event === "load") {
+        // Simulate successful script loading
+        setTimeout(() => {
+          (global as any).window = { ...(global as any).window };
+          callback();
+        }, 0);
+      }
+    }),
+  };
 
-	const mockDocument = {
-		createElement: vi.fn(() => mockScript),
-		head: { appendChild: vi.fn() },
-	};
+  const mockDocument = {
+    createElement: vi.fn(() => mockScript),
+    head: { appendChild: vi.fn() },
+  };
 
-	// Set up global mocks
-	vi.stubGlobal("document", mockDocument);
-	vi.stubGlobal("window", { SjsonnetMain: undefined, exports: undefined });
+  // Set up global mocks
+  vi.stubGlobal("document", mockDocument);
+  vi.stubGlobal("window", { SjsonnetMain: undefined, exports: undefined });
 });
 
 afterEach(() => {
-	vi.restoreAllMocks();
-	vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 // =============================================================================
@@ -55,37 +49,37 @@ afterEach(() => {
 // =============================================================================
 
 describe("Basic Jsonnet Compilation", () => {
-	it("should compile simple empty object", async () => {
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet("{}", filesystem);
-		expect(result).toEqual({});
-	});
+  it("should compile simple empty object", async () => {
+    const fs = await createFileSystem({});
+    const result = compileJsonnet("{}", fs);
+    expect(result).toEqual({});
+  });
 
-	it("should compile simple object with string value", async () => {
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet("{ test: 'value' }", filesystem);
-		expect(result).toEqual({ test: "value" });
-	});
+  it("should compile simple object with string value", async () => {
+    const fs = await createFileSystem({});
+    const result = compileJsonnet("{ test: 'value' }", fs);
+    expect(result).toEqual({ test: "value" });
+  });
 
-	it("should handle local variables", async () => {
-		const filesystem = await createFileSystem({});
-		const jsonnetCode = `
+  it("should handle local variables", async () => {
+    const fs = await createFileSystem({});
+    const jsonnetCode = `
 			local name = "test";
 			{ name: name }
 		`;
-		const result = compileJsonnet(jsonnetCode, filesystem);
-		expect(result).toEqual({ name: "test" });
-	});
+    const result = compileJsonnet(jsonnetCode, fs);
+    expect(result).toEqual({ name: "test" });
+  });
 
-	it("should handle arrays", async () => {
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet('["a", "b", "c"]', filesystem);
-		expect(result).toEqual(["a", "b", "c"]);
-	});
+  it("should handle arrays", async () => {
+    const fs = await createFileSystem({});
+    const result = compileJsonnet('["a", "b", "c"]', fs);
+    expect(result).toEqual(["a", "b", "c"]);
+  });
 
-	it("should handle complex objects", async () => {
-		const filesystem = await createFileSystem({});
-		const jsonnetCode = `
+  it("should handle complex objects", async () => {
+    const fs = await createFileSystem({});
+    const jsonnetCode = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -94,12 +88,12 @@ describe("Basic Jsonnet Compilation", () => {
 				]
 			}
 		`;
-		const result = compileJsonnet(jsonnetCode, filesystem);
-		expect(result).toEqual({
-			attrs: { viewBox: "0 0 100 100" },
-			children: [{ tag: "rect" }, "text"],
-		});
-	});
+    const result = compileJsonnet(jsonnetCode, fs);
+    expect(result).toEqual({
+      attrs: { viewBox: "0 0 100 100" },
+      children: [{ tag: "rect" }, "text"],
+    });
+  });
 });
 
 // =============================================================================
@@ -107,62 +101,40 @@ describe("Basic Jsonnet Compilation", () => {
 // =============================================================================
 
 describe("File-based Compilation", () => {
-	it("should compile from filesystem", async () => {
-		const filesystem = await createFileSystem({
-			"collagen.jsonnet": createMockFile(
-				"collagen.jsonnet",
-				"{ test: 'value' }",
-			),
-		});
+  it("should handle missing files", async () => {
+    const fs = await createFileSystem({});
+    await expect(fs.generateUntypedObject()).rejects.toThrow(
+      MissingManifestError,
+    );
+  });
 
-		const result = await compileJsonnetFromFile(
-			filesystem,
-			"collagen.jsonnet",
-		);
-		expect(result).toEqual({ test: "value" });
-	});
+  it("should preserve error context with file path", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": "{ invalid syntax here }",
+    });
 
-	it("should handle missing files", async () => {
-		const filesystem = await createFileSystem({});
+    try {
+      await fs.generateUntypedObject();
+      expect.fail("Should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(JsonnetError);
+      if (error instanceof JsonnetError) {
+        expect(error.message).toContain("collagen.jsonnet");
+        expect(error.message).toContain("Error");
+      }
+    }
+  });
 
-		await expect(
-			compileJsonnetFromFile(filesystem, "missing.jsonnet"),
-		).rejects.toThrow(JsonnetError);
-	});
+  it("should handle UTF-8 content", async () => {
+    const unicodeContent = `{ unicode: "🌍 Hello 中文 العربية" }`;
+    const fs = await createFileSystem({
+      "collagen.jsonnet": unicodeContent,
+    });
 
-	it("should preserve error context with file path", async () => {
-		const filesystem = await createFileSystem({
-			"invalid.jsonnet": createMockFile(
-				"invalid.jsonnet",
-				"{ invalid syntax here }",
-			),
-		});
-
-		try {
-			await compileJsonnetFromFile(filesystem, "invalid.jsonnet");
-			expect.fail("Should have thrown");
-		} catch (error) {
-			expect(error).toBeInstanceOf(JsonnetError);
-			if (error instanceof JsonnetError) {
-				expect(error.message).toContain("invalid.jsonnet");
-				expect(error.message).toContain("Error");
-			}
-		}
-	});
-
-	it("should handle UTF-8 content", async () => {
-		const unicodeContent = `{ unicode: "🌍 Hello 中文 العربية" }`;
-		const filesystem = await createFileSystem({
-			"unicode.jsonnet": createMockFile("unicode.jsonnet", unicodeContent),
-		});
-
-		// Mock should handle this gracefully
-		const result = await compileJsonnetFromFile(
-			filesystem,
-			"unicode.jsonnet",
-		);
-		expect(result).toBeDefined();
-	});
+    // Mock should handle this gracefully
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ unicode: "🌍 Hello 中文 العربية" });
+  });
 });
 
 // =============================================================================
@@ -170,108 +142,55 @@ describe("File-based Compilation", () => {
 // =============================================================================
 
 describe("Import Resolution", () => {
-	it("should resolve simple imports", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "shared.jsonnet"',
-			),
-			"shared.jsonnet": createMockFile(
-				"shared.jsonnet",
-				"{ shared: 'value' }",
-			),
-		});
+  it("should resolve simple imports", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "shared.jsonnet"',
+      "shared.jsonnet": "{ shared: 'value' }",
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "main.jsonnet");
-		expect(result).toEqual({ shared: "value" });
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ shared: "value" });
+  });
 
-	it("should resolve imports with .libsonnet extension", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "utils.libsonnet"',
-			),
-			"utils.libsonnet": createMockFile(
-				"utils.libsonnet",
-				"{ util: 'function' }",
-			),
-		});
+  it("should resolve imports with .libsonnet extension", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "utils.libsonnet"',
+      "utils.libsonnet": "{ util: 'function' }",
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "main.jsonnet");
-		expect(result).toEqual({ util: "function" });
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ util: "function" });
+  });
 
-	it("should handle nested directory imports", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "shared/config.jsonnet"',
-			),
-			"shared/config.jsonnet": createMockFile(
-				"config.jsonnet",
-				"{ config: 'value' }",
-			),
-		});
+  it("should handle nested directory imports", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "shared/config.jsonnet"',
+      "shared/config.jsonnet": "{ config: 'value' }",
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "main.jsonnet");
-		expect(result).toEqual({ config: "value" });
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ config: "value" });
+  });
 
-	it("should handle missing imports gracefully", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "missing.jsonnet"',
-			),
-		});
+  it("should handle missing imports gracefully", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "missing.jsonnet"',
+    });
 
-		// Missing imports should throw an error
-		await expect(
-			compileJsonnetFromFile(filesystem, "main.jsonnet"),
-		).rejects.toThrow(JsonnetError);
-	});
+    // Missing imports should throw an error
+    await expect(fs.generateUntypedObject()).rejects.toThrow(JsonnetError);
+  });
 
-	it("should handle relative imports", async () => {
-		const filesystem = await createFileSystem({
-			"subdir/main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "../shared.jsonnet"',
-			),
-			"shared.jsonnet": createMockFile(
-				"shared.jsonnet",
-				"{ relative: 'import' }",
-			),
-		});
+  it("should handle relative imports", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "subdir/main.jsonnet"',
+      "subdir/main.jsonnet": 'import "../shared.jsonnet"',
+      "shared.jsonnet": "{ relative: 'import' }",
+    });
 
-		const result = await compileJsonnetFromFile(
-			filesystem,
-			"subdir/main.jsonnet",
-		);
-		expect(result).toEqual({ relative: "import" });
-	});
-});
-
-// =============================================================================
-// Configuration Tests
-// =============================================================================
-
-describe("Jsonnet Configuration", () => {
-	it("should handle nonempty cwd", async () => {
-		const filesystem = await createFileSystem({});
-		const config = { cwd: "foo/bar" };
-
-		const result = compileJsonnet("{}", filesystem, config);
-		expect(result).toEqual({});
-	});
-
-	it("should combine all config options", async () => {
-		const filesystem = await createFileSystem({});
-		const config = { tlaVars: {} };
-
-		const result = compileJsonnet("{ combined: true }", filesystem, config);
-		expect(result).toEqual({ combined: true });
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ relative: "import" });
+  });
 });
 
 // =============================================================================
@@ -279,59 +198,55 @@ describe("Jsonnet Configuration", () => {
 // =============================================================================
 
 describe("Jsonnet Error Handling", () => {
-	it("should handle syntax errors", async () => {
-		const filesystem = await createFileSystem({});
+  it("should handle syntax errors", async () => {
+    const fs = await createFileSystem({ "collagen.jsonnet": "SYNTAX ERROR" });
 
-		expect(() => compileJsonnet("SYNTAX ERROR", filesystem)).toThrow(
-			JsonnetError,
-		);
-	});
+    await expect(fs.generateUntypedObject()).rejects.toThrow(JsonnetError);
+  });
 
-	it("should handle runtime errors", async () => {
-		const filesystem = await createFileSystem({});
+  it("should handle runtime errors", async () => {
+    const fs = await createFileSystem({ "collagen.jsonnet": "RUNTIME_ERROR" });
 
-		expect(() => compileJsonnet("RUNTIME_ERROR", filesystem)).toThrow(
-			JsonnetError,
-		);
-	});
+    await expect(fs.generateUntypedObject()).rejects.toThrow(JsonnetError);
+  });
 
-	it("should preserve original error messages", async () => {
-		const filesystem = await createFileSystem({});
+  it("should preserve original error messages", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": "{ invalid: syntax }",
+    });
 
-		try {
-			compileJsonnet("{ invalid: syntax }", filesystem);
-			expect.fail("Should have thrown");
-		} catch (error) {
-			expect(error).toBeInstanceOf(JsonnetError);
-			if (error instanceof JsonnetError) {
-				expect(error.message).toContain("Error");
-			}
-		}
-	});
+    try {
+      await fs.generateUntypedObject();
+      expect.fail("Should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(JsonnetError);
+      if (error instanceof JsonnetError) {
+        expect(error.message).toContain("Error");
+      }
+    }
+  });
 
-	it("should include file path in errors", async () => {
-		const filesystem = await createFileSystem({
-			"error.jsonnet": createMockFile("error.jsonnet", "RUNTIME_ERROR"),
-		});
+  it("should include file path in errors", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": "RUNTIME_ERROR",
+    });
 
-		try {
-			await compileJsonnetFromFile(filesystem, "error.jsonnet");
-			expect.fail("Should have thrown");
-		} catch (error) {
-			expect(error).toBeInstanceOf(JsonnetError);
-			if (error instanceof JsonnetError) {
-				expect(error.message).toContain("error.jsonnet");
-			}
-		}
-	});
+    try {
+      await fs.generateUntypedObject();
+      expect.fail("Should have thrown");
+    } catch (error) {
+      expect(error).toBeInstanceOf(JsonnetError);
+      if (error instanceof JsonnetError) {
+        expect(error.message).toContain("collagen.jsonnet");
+      }
+    }
+  });
 
-	it("should handle file read errors", async () => {
-		const filesystem = await createFileSystem({});
+  it("should handle file read errors", async () => {
+    const fs = await createFileSystem({});
 
-		await expect(
-			compileJsonnetFromFile(filesystem, "nonexistent.jsonnet"),
-		).rejects.toThrow();
-	});
+    await expect(fs.generateUntypedObject()).rejects.toThrow();
+  });
 });
 
 // =============================================================================
@@ -339,8 +254,8 @@ describe("Jsonnet Error Handling", () => {
 // =============================================================================
 
 describe("Complex Jsonnet Integration", () => {
-	it("should handle complex Collagen manifest", async () => {
-		const manifestCode = `
+  it("should handle complex Collagen manifest", async () => {
+    const manifestCode = `
 			local width = 400;
 			local height = 300;
 
@@ -366,52 +281,39 @@ describe("Complex Jsonnet Integration", () => {
 			}
 		`;
 
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet(manifestCode, filesystem);
+    const fs = await createFileSystem({ "collagen.jsonnet": manifestCode });
+    const result = await fs.generateUntypedObject();
 
-		// Mock should return some structure
-		expect(result).toBeDefined();
-		expect(typeof result).toBe("object");
-	});
+    expect(result).toBeDefined();
+    expect(typeof result).toBe("object");
+  });
 
-	it("should handle modular Collagen project", async () => {
-		const filesystem = await createFileSystem({
-			"collagen.jsonnet": createMockFile(
-				"collagen.jsonnet",
-				`
+  it("should handle modular Collagen project", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": `
 				local config = import "config.jsonnet";
 				local shapes = import "shapes.libsonnet";
 
 				config + { children: shapes.createShapes() }
 			`,
-			),
-			"config.jsonnet": createMockFile(
-				"config.jsonnet",
-				`
+      "config.jsonnet": `
 				{ attrs: { viewBox: "0 0 100 100" } }
 			`,
-			),
-			"shapes.libsonnet": createMockFile(
-				"shapes.libsonnet",
-				`
+      "shapes.libsonnet": `
 				{
 					createShapes(): [
 						{ tag: "circle", attrs: { cx: 50, cy: 50, r: 20 } }
 					]
 				}
 			`,
-			),
-		});
+    });
 
-		const result = await compileJsonnetFromFile(
-			filesystem,
-			"collagen.jsonnet",
-		);
-		expect(result).toBeDefined();
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toBeDefined();
+  });
 
-	it("should handle loops and iterations", async () => {
-		const loopCode = `
+  it("should handle loops and iterations", async () => {
+    const loopCode = `
 			local count = 5;
 
 			{
@@ -430,18 +332,15 @@ describe("Complex Jsonnet Integration", () => {
 			}
 		`;
 
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet(loopCode, filesystem);
+    const fs = await createFileSystem({ "collagen.jsonnet": loopCode });
+    const result = await fs.generateUntypedObject();
 
-		// Mock should return array-like structure
-		expect(result).toBeDefined();
-	});
+    expect(result).toBeDefined();
+  });
 
-	it("should handle functions and libraries", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				`
+  it("should handle functions and libraries", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": `
 				local utils = import "utils.libsonnet";
 
 				{
@@ -451,10 +350,7 @@ describe("Complex Jsonnet Integration", () => {
 					]
 				}
 			`,
-			),
-			"utils.libsonnet": createMockFile(
-				"utils.libsonnet",
-				`
+      "utils.libsonnet": `
 				{
 					createButton(x, y, text): {
 						tag: "g",
@@ -466,12 +362,11 @@ describe("Complex Jsonnet Integration", () => {
 					}
 				}
 			`,
-			),
-		});
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "main.jsonnet");
-		expect(result).toBeDefined();
-	});
+    const result = await fs.generateUntypedObject();
+    expect(typeof result).toBe("object");
+  });
 });
 
 // =============================================================================
@@ -479,73 +374,63 @@ describe("Complex Jsonnet Integration", () => {
 // =============================================================================
 
 describe("Jsonnet Edge Cases", () => {
-	it("should handle empty files", async () => {
-		const filesystem = await createFileSystem({
-			"empty.jsonnet": createMockFile("empty.jsonnet", "{}"),
-		});
+  it("should handle empty files", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": "{}",
+    });
 
-		// Should handle simple empty object
-		const result = await compileJsonnetFromFile(filesystem, "empty.jsonnet");
-		expect(result).toEqual({});
-	});
+    // Should handle simple empty object
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({});
+  });
 
-	it("should handle very large files", async () => {
-		const largeContent = `{
+  it("should handle very large files", async () => {
+    const largeContent = `{
 			data: [${Array(1000).fill('"item"').join(", ")}]
 		}`;
 
-		const filesystem = await createFileSystem({
-			"large.jsonnet": createMockFile("large.jsonnet", largeContent),
-		});
+    const fs = await createFileSystem({
+      "collagen.jsonnet": largeContent,
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "large.jsonnet");
-		expect(result).toBeDefined();
-	});
+    const result = await fs.generateUntypedObject();
+    expect(typeof result).toBe("object");
+  });
 
-	it("should handle unicode in Jsonnet code", async () => {
-		const unicodeCode = `{
+  it("should handle unicode in Jsonnet code", async () => {
+    const unicodeCode = `{
 			message: "Hello 🌍 World! 中文 العربية",
 			emoji: "🎨✨🚀"
 		}`;
 
-		const filesystem = await createFileSystem({});
-		const result = compileJsonnet(unicodeCode, filesystem);
-		expect(result).toBeDefined();
-	});
+    const fs = await createFileSystem({ "collagen.jsonnet": unicodeCode });
+    const result = await fs.generateUntypedObject();
+    expect(typeof result).toBe("object");
+  });
 
-	it("should handle deeply nested imports", async () => {
-		const filesystem = await createFileSystem({
-			"main.jsonnet": createMockFile(
-				"main.jsonnet",
-				'import "level1.jsonnet"',
-			),
-			"level1.jsonnet": createMockFile(
-				"level1.jsonnet",
-				'import "level2.jsonnet"',
-			),
-			"level2.jsonnet": createMockFile(
-				"level2.jsonnet",
-				'import "level3.jsonnet"',
-			),
-			"level3.jsonnet": createMockFile("level3.jsonnet", "{ deep: true }"),
-		});
+  it("should handle deeply nested imports", async () => {
+    const fs = await createFileSystem({
+      "collagen.jsonnet": 'import "level1.jsonnet"',
+      "level1.jsonnet": 'import "level2.jsonnet"',
+      "level2.jsonnet": 'import "level3.jsonnet"',
+      "level3.jsonnet": "{ deep: true }",
+    });
 
-		const result = await compileJsonnetFromFile(filesystem, "main.jsonnet");
-		expect(result).toBeDefined();
-	});
+    const result = await fs.generateUntypedObject();
+    expect(result).toEqual({ deep: true });
+  });
 
-	it("should handle circular import protection", async () => {
-		const filesystem = await createFileSystem({
-			"a.jsonnet": createMockFile("a.jsonnet", 'import "b.jsonnet"'),
-			"b.jsonnet": createMockFile("b.jsonnet", 'import "a.jsonnet"'),
-		});
+  it("should handle circular import protection", async () => {
+    const fs = await createFileSystem({
+      "a.jsonnet": 'import "b.jsonnet"',
+      "b.jsonnet": 'import "a.jsonnet"',
+    });
 
-		// Should either handle gracefully or throw appropriate error
-		try {
-			await compileJsonnetFromFile(filesystem, "a.jsonnet");
-		} catch (error) {
-			// Circular imports should be caught
-			expect(error).toBeDefined();
-		}
-	});
+    // Should either handle gracefully or throw appropriate error
+    try {
+      await fs.generateUntypedObject();
+    } catch (error) {
+      expect(error).toBeDefined();
+    }
+  });
 });

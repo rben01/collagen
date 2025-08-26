@@ -15,15 +15,14 @@ import {
   JsonnetConfig,
 } from "./sjsonnet.js";
 
-export type JsonPrimitive = string | number | boolean | null;
+// technically not true (JSON cannot be `undefined`) but close enough to true to be
+// useful, since the stuff we're deserializing from JSON can be missing keys which, in
+// JS-land, is `undefined`
+export type JsonPrimitive = string | number | boolean | null | undefined;
 export type JsonObject =
   | JsonPrimitive
-  | JsonPrimitive[]
-  | Record<string, JsonPrimitive>;
-
-// =============================================================================
-// Jsonnet Compilation
-// =============================================================================
+  | JsonObject[]
+  | { [key: string]: JsonObject };
 
 /**
  * Compile Jsonnet code to a JavaScript object
@@ -42,7 +41,7 @@ export function compileJsonnet(
     // Create loader callback (for loading file contents)
     const loaderCallback: JsonnetLoaderCallback = (path, _) => {
       try {
-        return new TextDecoder().decode(filesystem.loadSync(path).bytes);
+        return new TextDecoder().decode(filesystem.load(path).bytes);
       } catch (error) {
         // If the file doesn't exist, throw a more descriptive error
         throw new Error(`Failed to load Jsonnet import: ${path}`);
