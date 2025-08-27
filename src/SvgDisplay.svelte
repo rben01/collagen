@@ -37,9 +37,7 @@
 		toasts = [...toasts, toast];
 
 		// Auto-remove after 3 seconds
-		setTimeout(() => {
-			toasts = toasts.filter(t => t.id !== id);
-		}, 3000);
+		setTimeout(() => removeToast(id), 3000);
 	}
 
 	function removeToast(id: number) {
@@ -303,7 +301,7 @@
 			>
 				<span>{toast.message}</span>
 				<button class="toast-close" onclick={() => removeToast(toast.id)} tabindex="0"
-					>&times;</button
+					>✕</button
 				>
 			</div>
 		{/each}
