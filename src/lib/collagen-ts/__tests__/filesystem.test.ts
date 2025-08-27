@@ -13,9 +13,6 @@ import {
   readFileAsText,
   readFileAsBytes,
   getManifestPath,
-  // Resource resolution
-  resolveResourcePath,
-  fetchResource,
   // Utility functions
   isImagePath,
   isFontPath,
@@ -105,14 +102,15 @@ describe("Path Utilities", () => {
 
     it("should remove trailing slash except for root", () => {
       expect(normalizedPathJoin("path/to/dir/")).toBe("path/to/dir");
-      expect(normalizedPathJoin("/")).toBe("/");
+      expect(normalizedPathJoin("/")).toBe(".");
     });
 
     it("should handle empty and root paths", () => {
-      expect(normalizedPathJoin("")).toBe("/");
-      expect(normalizedPathJoin("/")).toBe("/");
-      expect(normalizedPathJoin("./")).toBe("/");
-      expect(normalizedPathJoin("./.")).toBe("/");
+      expect(normalizedPathJoin()).toBe(".");
+      expect(normalizedPathJoin("")).toBe(".");
+      expect(normalizedPathJoin("/")).toBe(".");
+      expect(normalizedPathJoin("./")).toBe(".");
+      expect(normalizedPathJoin("./.")).toBe(".");
     });
 
     it("should handle complex paths", () => {
@@ -155,7 +153,7 @@ describe("Path Utilities", () => {
     });
 
     it("should handle going past root", () => {
-      expect(normalizedPathJoin("base", "../../..")).toBe("/");
+      expect(normalizedPathJoin("base", "../../..")).toBe(".");
       expect(normalizedPathJoin("a", "../../../file")).toBe("file");
     });
 
@@ -174,7 +172,7 @@ describe("Path Utilities", () => {
     it("should handle empty paths", () => {
       expect(normalizedPathJoin("", "file.txt")).toBe("file.txt");
       expect(normalizedPathJoin("base", "")).toBe("base");
-      expect(normalizedPathJoin("", "")).toBe("/");
+      expect(normalizedPathJoin("", "")).toBe(".");
     });
 
     it("should normalize both parts", () => {
@@ -194,9 +192,9 @@ describe("Path Utilities", () => {
     });
 
     it("should handle empty paths", () => {
-      expect(normalizedPathJoin()).toBe("/");
-      expect(normalizedPathJoin("")).toBe("/");
-      expect(normalizedPathJoin("", "", "")).toBe("/");
+      expect(normalizedPathJoin()).toBe(".");
+      expect(normalizedPathJoin("")).toBe(".");
+      expect(normalizedPathJoin("", "", "")).toBe(".");
       expect(normalizedPathJoin("", "file", "")).toBe("file");
     });
 
@@ -488,7 +486,7 @@ describe("Manifest Handling", () => {
       const fs = await createFileSystem({
         "collagen.json": '{"auto": "detected"}',
       });
-      const result = await fs.generateRootTag();
+      const result = await fs.generateUntypedObject();
       expect(result).toEqual({ auto: "detected" });
     });
 
@@ -496,21 +494,23 @@ describe("Manifest Handling", () => {
       const fs = await createFileSystem({
         "other.txt": "not a manifest",
       });
-      await expect(fs.generateRootTag()).rejects.toThrow(MissingManifestError);
+      await expect(fs.generateUntypedObject()).rejects.toThrow(
+        MissingManifestError,
+      );
     });
 
     it("should throw error for invalid JSON", async () => {
       const fs = await createFileSystem({
         "collagen.json": "{ invalid json }",
       });
-      await expect(fs.generateRootTag()).rejects.toThrow();
+      await expect(fs.generateUntypedObject()).rejects.toThrow();
     });
 
     it("should handle UTF-8 content", async () => {
       const fs = await createFileSystem({
         "collagen.json": '{"unicode": "🌍 中文 العربية"}',
       });
-      const result = await fs.generateRootTag();
+      const result = await fs.generateUntypedObject();
       expect(result).toEqual({ unicode: "🌍 中文 العربية" });
     });
   });
@@ -521,19 +521,19 @@ describe("Manifest Handling", () => {
 // =============================================================================
 
 describe("Resource Resolution", () => {
-  describe("resolveResourcePath", () => {
+  describe("normalizedPathJoin", () => {
     it("should resolve relative paths", () => {
-      expect(resolveResourcePath("base/path", "file.txt")).toBe(
+      expect(normalizedPathJoin("base/path", "file.txt")).toBe(
         "base/path/file.txt",
       );
-      expect(resolveResourcePath("", "file.txt")).toBe("file.txt");
+      expect(normalizedPathJoin("", "file.txt")).toBe("file.txt");
     });
 
     it("should handle parent directory navigation", () => {
-      expect(resolveResourcePath("base/path", "../other.txt")).toBe(
+      expect(normalizedPathJoin("base/path", "../other.txt")).toBe(
         "base/other.txt",
       );
-      expect(resolveResourcePath("deep/nested/path", "../../file.txt")).toBe(
+      expect(normalizedPathJoin("deep/nested/path", "../../file.txt")).toBe(
         "deep/file.txt",
       );
     });
@@ -544,7 +544,7 @@ describe("Resource Resolution", () => {
       const fs = await createFileSystem({
         "resource.txt": "resource content",
       });
-      const content = await fetchResource(fs, "resource.txt");
+      const content = await fs.load("resource.txt");
       expect(content.path).toBe("resource.txt");
       const text = new TextDecoder().decode(content.bytes);
       expect(text).toBe("resource content");
@@ -552,16 +552,14 @@ describe("Resource Resolution", () => {
 
     it("should throw error for missing resources", async () => {
       const fs = await createFileSystem({});
-      await expect(fetchResource(fs, "missing.txt")).rejects.toThrow(
-        MissingFileError,
-      );
+      await expect(() => fs.load("missing.txt")).toThrow(MissingFileError);
     });
 
     it("should normalize resource paths", async () => {
       const fs = await createFileSystem({
         "resource.txt": "content",
       });
-      const content = await fetchResource(fs, "/resource.txt");
+      const content = await fs.load("/resource.txt");
       expect(content.path).toBe("resource.txt");
     });
   });
@@ -574,16 +572,14 @@ describe("Resource Resolution", () => {
 describe("Utility Functions", () => {
   describe("createFileSystem", () => {
     it("should create file system from Record", async () => {
-      const files = { "test.txt": createFileFromString("content", "test.txt") };
+      const files = { "test.txt": "content" };
       const fs = await createFileSystem(files);
       expect(fs.getFileCount()).toBe(1);
       expect(fs.has("test.txt")).toBe(true);
     });
 
     it("should create file system from Map", async () => {
-      const files = new Map([
-        ["test.txt", createFileFromString("content", "test.txt")],
-      ]);
+      const files = new Map([["test.txt", "content"]]);
       const fs = await createFileSystem(files);
       expect(fs.getFileCount()).toBe(1);
       expect(fs.has("test.txt")).toBe(true);

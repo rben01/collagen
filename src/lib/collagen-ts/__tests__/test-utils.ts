@@ -42,12 +42,12 @@ export async function createFileSystem(
     | Map<string, string | Uint8Array | File>
     | Record<string, string | Uint8Array | File>,
 ): Promise<InMemoryFileSystem> {
-  const fileMap = new Map<string, File>();
+  const fileMap = new Map<string, string | File>();
 
   function processFile(path: string, file: string | Uint8Array | File) {
     path = normalizedPathJoin(path);
     if (typeof file === "string") {
-      file = createFileFromString(file, path);
+      file = file;
     } else if (file instanceof Uint8Array) {
       file = createFileFromBytes(file, path);
     }
@@ -64,7 +64,21 @@ export async function createFileSystem(
     }
   }
 
-  return await InMemoryFileSystem.create(fileMap, false);
+  // Convert strings to Files before passing to InMemoryFileSystem.create
+  const convertedFileMap = new Map<string, File>();
+  for (const [path, file] of fileMap) {
+    if (typeof file === "string") {
+      const blob = new Blob([file], { type: "text/plain" });
+      convertedFileMap.set(
+        path,
+        new File([blob], path, { type: "text/plain" }),
+      );
+    } else {
+      convertedFileMap.set(path, file);
+    }
+  }
+
+  return await InMemoryFileSystem.create(convertedFileMap, false);
 }
 
 /**

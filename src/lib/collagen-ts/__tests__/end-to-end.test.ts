@@ -10,7 +10,6 @@ import {
   toText,
   createFileSystem,
   generateSvgFromFiles,
-  createFileFromString,
   createFileFromBytes,
 } from "./test-utils.js";
 
@@ -21,83 +20,74 @@ import {
 /** Create a mock File object for testing */
 
 /** Create test files for a complete Collagen project */
-function createTestProject(): Record<string, File> {
+function createTestProject(): Record<string, string | File> {
   return {
-    "collagen.json": createFileFromString(
-      JSON.stringify({
-        attrs: { viewBox: "0 0 400 300", width: 400, height: 300 },
-        children: [
-          {
-            tag: "rect",
-            attrs: {
-              x: 0,
-              y: 0,
-              width: 400,
-              height: 300,
-              fill: "#f0f0f0",
-            },
+    "collagen.json": JSON.stringify({
+      attrs: { viewBox: "0 0 400 300", width: 400, height: 300 },
+      children: [
+        {
+          tag: "rect",
+          attrs: {
+            x: 0,
+            y: 0,
+            width: 400,
+            height: 300,
+            fill: "#f0f0f0",
           },
-          {
-            image_path: "logo.png",
-            attrs: { x: 10, y: 10, width: 100, height: 50 },
+        },
+        {
+          image_path: "logo.png",
+          attrs: { x: 10, y: 10, width: 100, height: 50 },
+        },
+        {
+          tag: "text",
+          attrs: {
+            x: 120,
+            y: 35,
+            "font-family": "Arial",
+            "font-size": 16,
           },
-          {
-            tag: "text",
-            attrs: {
-              x: 120,
-              y: 35,
-              "font-family": "Arial",
-              "font-size": 16,
-            },
-            children: ["Hello, World!"],
-          },
-          {
-            svg_path: "icon.svg",
-            attrs: { x: 300, y: 10, width: 80, height: 80 },
-          },
-        ],
-      }),
-      "collagen.json",
-    ),
+          children: ["Hello, World!"],
+        },
+        {
+          svg_path: "icon.svg",
+          attrs: { x: 300, y: 10, width: 80, height: 80 },
+        },
+      ],
+    }),
     "logo.png": createFileFromBytes(
       new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
       "logo.png",
       "image/png",
     ),
-    "icon.svg": createFileFromString(
+    "icon.svg":
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="blue"/></svg>',
-      "icon.svg",
-      "image/svg+xml",
-    ),
   };
 }
 
 /** Create test files with fonts */
-function createProjectWithFonts(): Record<string, File> {
+function createProjectWithFonts(): Record<string, string | File> {
   return {
-    "collagen.json": createFileFromString(
-      JSON.stringify({
-        children: [
-          {
-            fonts: [
-              { name: "Impact", bundled: true },
-              { name: "CustomFont", path: "fonts/custom.woff2" },
-            ],
-          },
-          {
-            tag: "text",
-            attrs: { x: 10, y: 30, "font-family": "Impact" },
-            children: ["Impact Text"],
-          },
-          {
-            tag: "text",
-            attrs: { x: 10, y: 60, "font-family": "CustomFont" },
-            children: ["Custom Font Text"],
-          },
-        ],
-      }),
-      "collagen.json",
-    ),
+    "collagen.json": JSON.stringify({
+      children: [
+        {
+          fonts: [
+            { name: "Impact", bundled: true },
+            { name: "CustomFont", path: "fonts/custom.woff2" },
+          ],
+        },
+        {
+          tag: "text",
+          attrs: { x: 10, y: 30, "font-family": "Impact" },
+          children: ["Impact Text"],
+        },
+        {
+          tag: "text",
+          attrs: { x: 10, y: 60, "font-family": "CustomFont" },
+          children: ["Custom Font Text"],
+        },
+      ],
+    }),
     "fonts/custom.woff2": createFileFromBytes(
       new Uint8Array([0x77, 0x4f, 0x46, 0x32]),
       "custom.woff2",

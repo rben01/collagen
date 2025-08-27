@@ -9,7 +9,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   createFileFromBytes,
-  createFileFromString,
   generateSvgFromFiles as generateSvgFromObjectFs,
 } from "./test-utils";
 
@@ -202,15 +201,6 @@ export class ManifestGenerator {
 
 /** Generate test files for various scenarios */
 export class TestFileGenerator {
-  static createMockFile(
-    name: string,
-    content: string,
-    type = "text/plain",
-  ): File {
-    const blob = new Blob([content], { type });
-    return new File([blob], name, { type });
-  }
-
   static generateImageFile(
     format: "png" | "jpg" | "gif" | "webp",
     size = 100,
@@ -267,7 +257,7 @@ export class TestFileGenerator {
 
   static generateSvgFile(
     complexity: "simple" | "medium" | "complex" = "medium",
-  ): File {
+  ): string {
     const templates = {
       simple:
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="blue"/></svg>',
@@ -298,11 +288,7 @@ export class TestFileGenerator {
 			</svg>`,
     };
 
-    return createFileFromString(
-      templates[complexity],
-      `nested.svg`,
-      "image/svg+xml",
-    );
+    return templates[complexity];
   }
 
   static generateProjectFiles(

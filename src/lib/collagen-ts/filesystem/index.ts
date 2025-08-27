@@ -39,7 +39,8 @@ export interface FileContent {
  * This function takes multiple path segments and combines them into a single normalized
  * path using stack-based processing to handle directory navigation. Note that the
  * resulting path _never_ starts with a leading slash, regardless of whether any input
- * values (especially the first) do.
+ * values (especially the first) do. Empty paths, paths that resolve to the root, etc.
+ * will all become `"."`
  *
  * @param paths - Variable number of path segments to join
  * @returns A normalized path string with forward slashes as separators
@@ -66,13 +67,15 @@ export interface FileContent {
  *
  * // Handles empty paths
  * normalizedPathJoin("", "file", "") // "file"
- * normalizedPathJoin() // ""
  *
  * // Going past root results in empty components being discarded
  * normalizedPathJoin("..", "file") // "file"
  *
- * // The "empty" path becomes the root folder
- * normalizedPathJoin("base", "../../..") // "/"
+ * // The "empty" path, or any other path resolving to root, becomes the current folder
+ * normalizedPathJoin() // "."
+ * normalizedPathJoin("") // "."
+ * normalizedPathJoin("/") // "."
+ * normalizedPathJoin("base", "../../..") // "."
  * ```
  */
 export function normalizedPathJoin(...paths: string[]): string {
@@ -103,7 +106,7 @@ export function normalizedPathJoin(...paths: string[]): string {
   }
 
   if (components.length === 0) {
-    return "/";
+    return ".";
   }
 
   // Join components back together
@@ -295,27 +298,6 @@ export function getManifestPath(format: ManifestFormat): string {
     case "json":
       return "collagen.json";
   }
-}
-
-// =============================================================================
-// Resource Resolution
-// =============================================================================
-
-/** Resolve a resource path relative to a base path */
-export function resolveResourcePath(
-  basePath: string,
-  resourcePath: string,
-): string {
-  return normalizedPathJoin(basePath, resourcePath);
-}
-
-/** Fetch a resource file from the filesystem */
-export function fetchResource(
-  fs: InMemoryFileSystem,
-  resourcePath: string,
-): FileContent {
-  const resolvedPath = normalizedPathJoin(resourcePath);
-  return fs.load(resolvedPath);
 }
 
 // =============================================================================

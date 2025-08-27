@@ -18,7 +18,7 @@ import type {
 } from "../types/index.js";
 
 import { InMemoryFileSystem } from "../filesystem/index.js";
-import { fetchResource, normalizedPathJoin } from "../filesystem/index.js";
+import { normalizedPathJoin } from "../filesystem/index.js";
 import { base64Encode, escapeXml } from "../utils/index.js";
 import {
   ImageError,
@@ -128,7 +128,7 @@ async function generateImageTag(
     const resolvedPath = resolvePath(context, tag.imagePath);
 
     // Fetch image file
-    const fileContent = fetchResource(context.filesystem, resolvedPath);
+    const fileContent = context.filesystem.load(resolvedPath);
 
     // Determine image type
     const imageKind = tag.kind || inferImageKind(tag.imagePath);
@@ -202,7 +202,7 @@ async function generateFontTag(
       if ("path" in font) {
         // User-provided font - resolve path relative to current directory
         const resolvedFontPath = resolvePath(context, font.path);
-        const fileContent = fetchResource(context.filesystem, resolvedFontPath);
+        const fileContent = context.filesystem.load(resolvedFontPath);
         fontDataBase64 = base64Encode(fileContent.bytes);
       } else {
         fontDataBase64 = await getBundledFontDataBase64(font.name);
@@ -241,7 +241,7 @@ async function generateNestedSvgTag(
     const resolvedPath = resolvePath(context, tag.svgPath);
 
     // Fetch SVG file
-    const fileContent = fetchResource(context.filesystem, resolvedPath);
+    const fileContent = context.filesystem.load(resolvedPath);
 
     // Convert bytes to text
     let svgText = new TextDecoder().decode(fileContent.bytes);

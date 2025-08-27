@@ -11,7 +11,6 @@ import {
   expectSvgEqual,
   generateSvgFromFiles,
   createFileFromBytes,
-  createFileFromString,
 } from "./test-utils.js";
 
 // =============================================================================
@@ -25,7 +24,7 @@ import {
 describe("Rust Test Case Compatibility", () => {
   it("should match empty SVG output", async () => {
     const files = {
-      "collagen.json": createFileFromString("collagen.json", "{}"),
+      "collagen.json": "{}",
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -66,10 +65,7 @@ describe("Rust Test Case Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -97,10 +93,7 @@ describe("Rust Test Case Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -122,10 +115,7 @@ describe("Rust Test Case Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "test.png": createFileFromBytes(
         new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
         "test.png",
@@ -177,10 +167,7 @@ describe("Rust Test Case Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -226,10 +213,7 @@ describe("Attribute Handling Compatibility", () => {
       };
 
       const files = {
-        "collagen.json": createFileFromString(
-          "collagen.json",
-          JSON.stringify(manifest),
-        ),
+        "collagen.json": JSON.stringify(manifest),
       };
 
       const svg = await generateSvgFromFiles(files);
@@ -256,10 +240,7 @@ describe("Attribute Handling Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -293,10 +274,7 @@ describe("Attribute Handling Compatibility", () => {
       };
 
       const files = {
-        "collagen.json": createFileFromString(
-          "collagen.json",
-          JSON.stringify(manifest),
-        ),
+        "collagen.json": JSON.stringify(manifest),
       };
 
       const svg = await generateSvgFromFiles(files);
@@ -310,10 +288,7 @@ describe("Attribute Handling Compatibility", () => {
       };
 
       const files = {
-        "collagen.json": createFileFromString(
-          "collagen.json",
-          JSON.stringify(manifest),
-        ),
+        "collagen.json": JSON.stringify(manifest),
       };
 
       const svg = await generateSvgFromFiles(files);
@@ -344,10 +319,7 @@ describe("Font Handling Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "font.woff2": createFileFromBytes(
         new Uint8Array([0x77, 0x4f, 0x46, 0x32]),
         "font.woff2",
@@ -374,10 +346,7 @@ describe("Font Handling Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -403,10 +372,7 @@ describe("Font Handling Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "font1.woff": createFileFromBytes(
         new Uint8Array([0x77, 0x4f, 0x46, 0x00]),
         "font1.woff",
@@ -441,19 +407,13 @@ describe("Path Resolution Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "images/logo.png": createFileFromBytes(
         new Uint8Array([0x89, 0x50]),
         "logo.png",
         "image/png",
       ),
-      "graphics/icon.svg": createFileFromString(
-        "icon.svg",
-        "<svg><circle r='5'/></svg>",
-      ),
+      "graphics/icon.svg": "<svg><circle r='5'/></svg>",
     };
 
     const svg = await generateSvgFromFiles(files);
@@ -470,10 +430,7 @@ describe("Path Resolution Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "assets/images/deep/nested/file.jpg": createFileFromBytes(
         new Uint8Array([0xff, 0xd8]),
         "file.jpg",
@@ -505,10 +462,7 @@ describe("Error Handling Compatibility", () => {
 
     for (const manifest of invalidManifests) {
       const files = {
-        "collagen.json": createFileFromString(
-          "collagen.json",
-          JSON.stringify(manifest),
-        ),
+        "collagen.json": JSON.stringify(manifest),
       };
 
       await expect(generateSvgFromFiles(files)).rejects.toThrow();
@@ -524,10 +478,7 @@ describe("Error Handling Compatibility", () => {
 
     for (const manifest of manifests) {
       const files = {
-        "collagen.json": createFileFromString(
-          "collagen.json",
-          JSON.stringify(manifest),
-        ),
+        "collagen.json": JSON.stringify(manifest),
       };
 
       await expect(generateSvgFromFiles(files)).rejects.toThrow();
@@ -536,10 +487,7 @@ describe("Error Handling Compatibility", () => {
 
   it("should match JSON parsing error behavior", async () => {
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        "{ invalid json }",
-      ),
+      "collagen.json": "{ invalid json }",
     };
 
     await expect(generateSvgFromFiles(files)).rejects.toThrow();
@@ -622,10 +570,7 @@ describe("Complex Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
       "content.png": createFileFromBytes(
         new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
         "content.png",
@@ -675,10 +620,7 @@ describe("Complex Compatibility", () => {
     };
 
     const files = {
-      "collagen.json": createFileFromString(
-        "collagen.json",
-        JSON.stringify(manifest),
-      ),
+      "collagen.json": JSON.stringify(manifest),
     };
 
     const svg = await generateSvgFromFiles(files);
