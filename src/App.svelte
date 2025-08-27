@@ -11,6 +11,7 @@
 	let loading = false;
 	let svgOutput: string | null = null;
 	let filesData: InMemoryFileSystem | null = null;
+	let svgDisplayComponent: any = null;
 
 	async function handleFilesUploadedWithRoot(files: Map<string, File>, root?: string) {
 		console.log("🔄 Starting file processing...");
@@ -50,6 +51,14 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	// Auto-focus SVG viewer when SVG is generated
+	$: if (svgOutput && svgDisplayComponent) {
+		// Use setTimeout to ensure the DOM is updated first
+		setTimeout(() => {
+			svgDisplayComponent.focus();
+		}, 0);
 	}
 
 	function handleClearFiles() {
@@ -163,7 +172,7 @@
 
 	{#if svgOutput}
 		<div class="svg-section">
-			<SvgDisplay svg={svgOutput} />
+			<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
 		</div>
 	{/if}
 </main>

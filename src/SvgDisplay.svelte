@@ -4,6 +4,13 @@
 
 	export let svg: string;
 
+	// Expose focus method for parent components
+	export function focus() {
+		if (svgContainer) {
+			svgContainer.focus();
+		}
+	}
+
 	let showRawSvg = false;
 	let showInstructions = false;
 	let scale = 1;
@@ -295,7 +302,7 @@
 				animate:flip={{ duration: 300, easing: quintOut }}
 			>
 				<span>{toast.message}</span>
-				<button class="toast-close" onclick={() => removeToast(toast.id)}
+				<button class="toast-close" onclick={() => removeToast(toast.id)} tabindex="0"
 					>&times;</button
 				>
 			</div>
@@ -309,21 +316,21 @@
 				onclick={zoomIn}
 				title="Zoom In (Keyboard: +)"
 				aria-label="Zoom in, keyboard shortcut plus key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn zoom-out"
 				onclick={zoomOut}
 				title="Zoom Out (Keyboard: -)"
 				aria-label="Zoom out, keyboard shortcut minus key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn reset-view"
 				onclick={resetView}
 				title="Reset View (Keyboard: 0)"
 				aria-label="Reset view, keyboard shortcut zero key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<span class="zoom-level">{Math.round(scale * 100)}%</span>
 		</div>
@@ -335,7 +342,7 @@
 				class:active={showInstructions}
 				title="Toggle Usage Instructions (Keyboard: ?)"
 				aria-label="Toggle usage instructions, keyboard shortcut question mark key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn toggle-view"
@@ -343,21 +350,21 @@
 				class:active={showRawSvg}
 				title="Toggle Code View (Keyboard: V)"
 				aria-label="Toggle between preview and code view, keyboard shortcut V key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn copy-btn"
 				onclick={copyToClipboard}
 				title="Copy SVG to Clipboard (Keyboard: C)"
 				aria-label="Copy SVG to clipboard, keyboard shortcut C key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 			<button
 				class="control-btn export-btn"
 				onclick={downloadSvg}
 				title="Download SVG (Keyboard: S)"
 				aria-label="Download SVG file, keyboard shortcut S key"
-				><div class="btn-content"></div></button
+				tabindex="0"><div class="btn-content"></div></button
 			>
 		</div>
 	</div>
@@ -372,11 +379,11 @@
 					<div class="instruction-section">
 						<h5>Zoom & Pan</h5>
 						<ul>
-							<li><strong>+/-</strong> keys: Zoom in/out</li>
-							<li><strong>0</strong> key: Reset view</li>
-							<li><strong>Shift + arrows</strong>: Pan (when viewer focused)</li>
 							<li><strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to zoom</li>
 							<li><strong>Touch</strong>: Pinch to zoom, drag to pan</li>
+							<li><strong>Shift + arrows</strong>: Pan (when viewer focused)</li>
+							<li><strong>+/-</strong> keys: Zoom in/out</li>
+							<li><strong>0</strong> key: Reset view</li>
 						</ul>
 					</div>
 
