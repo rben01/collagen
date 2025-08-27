@@ -251,25 +251,25 @@
 			switch (event.key) {
 				case "ArrowUp":
 					if (event.shiftKey) {
-						panY -= panAmount;
+						panY += panAmount;
 						handled = true;
 					}
 					break;
 				case "ArrowDown":
 					if (event.shiftKey) {
-						panY += panAmount;
+						panY -= panAmount;
 						handled = true;
 					}
 					break;
 				case "ArrowLeft":
 					if (event.shiftKey) {
-						panX -= panAmount;
+						panX += panAmount;
 						handled = true;
 					}
 					break;
 				case "ArrowRight":
 					if (event.shiftKey) {
-						panX += panAmount;
+						panX -= panAmount;
 						handled = true;
 					}
 					break;
