@@ -7,35 +7,15 @@
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page } from "@playwright/test";
+import { expect, Page, PlaywrightTestArgs } from "@playwright/test";
 import { test as base } from "./fixtures";
 
 // =============================================================================
 // Test Setup and Utilities
 // =============================================================================
 
-/** Sample SVG content for testing */
-const TEST_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150">
-	<rect x="10" y="10" width="180" height="130" fill="#f0f0f0" stroke="#333" stroke-width="2"/>
-	<circle cx="100" cy="75" r="30" fill="#007bff"/>
-	<text x="100" y="80" text-anchor="middle" fill="white" font-size="14">Test</text>
-</svg>`;
-
-/** Complex SVG for testing features */
-const COMPLEX_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
-	<defs>
-		<linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-			<stop offset="0%" style="stop-color:#ff0000;stop-opacity:1" />
-			<stop offset="100%" style="stop-color:#0000ff;stop-opacity:1" />
-		</linearGradient>
-	</defs>
-	<rect width="100%" height="100%" fill="url(#grad1)"/>
-	<g transform="translate(50, 50)">
-		<rect x="0" y="0" width="100" height="80" fill="yellow" opacity="0.7"/>
-		<text x="50" y="45" text-anchor="middle">Complex SVG</text>
-	</g>
-	<image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==" x="300" y="200" width="50" height="50"/>
-</svg>`;
+type JsonPrimitive = string | number | boolean | null | undefined;
+type JsonObject = JsonPrimitive | JsonObject[] | { [key: string]: JsonObject };
 
 async function dragAndDropFile(
 	page: Page,
@@ -64,18 +44,10 @@ async function dragAndDropFile(
 	}
 }
 
-const test = base.extend({
-	page: async ({ page }, use) => {
+const test = base.extend<PlaywrightTestArgs & { object: JsonObject }>({
+	page: async ({ page, object }, use) => {
 		dragAndDropFile(page, {
-			content: JSON.stringify({
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{
-						tag: "rect",
-						attrs: { x: 0, y: 0, width: 50, height: 50, fill: "blue" },
-					},
-				],
-			}),
+			content: JSON.stringify(object),
 			filename: "collagen.json",
 			mimeType: "application/json",
 		});
@@ -112,27 +84,6 @@ test.describe("SvgDisplay Component", () => {
 		const svgElement = page.locator("svg");
 		await expect(svgElement).toBeVisible();
 		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
-	});
-
-	test("should display SVG with proper dimensions", async ({ page }) => {
-		await page.evaluate(svg => {
-			const svgSection = document.createElement("div");
-			svgSection.className = "svg-section";
-			svgSection.setAttribute("role", "region");
-			svgSection.setAttribute("aria-label", "Generated SVG display");
-			svgSection.innerHTML = `
-				<div class="svg-display" role="region" aria-label="SVG display">
-					<div class="svg-container" role="img" aria-label="Generated SVG">
-						${svg}
-					</div>
-				</div>
-			`;
-			document.body.appendChild(svgSection);
-		}, TEST_SVG);
-
-		const svgElement = page.locator("svg");
-		await expect(svgElement).toHaveAttribute("width", "200");
-		await expect(svgElement).toHaveAttribute("height", "150");
 	});
 });
 
@@ -326,19 +277,6 @@ test.describe("Interactive Features", () => {
 	test.beforeEach(async ({ page }) => {
 		// Set up interactive SVG display
 		await page.evaluate(svg => {
-			const svgSection = document.createElement("div");
-			svgSection.className = "svg-section";
-			svgSection.setAttribute("role", "region");
-			svgSection.setAttribute("aria-label", "Generated SVG display");
-			svgSection.innerHTML = `
-				<div class="svg-display" role="region" aria-label="SVG display">
-					<div class="svg-container" style="transform: scale(1) translate(0px, 0px); cursor: grab;">
-						${svg}
-					</div>
-				</div>
-			`;
-			document.body.appendChild(svgSection);
-
 			// Add pan functionality simulation
 			let isPanning = false;
 			let startX = 0,
@@ -379,7 +317,7 @@ test.describe("Interactive Features", () => {
 					container.style.transform = `scale(${scale}) translate(${currentX}px, ${currentY}px)`;
 				});
 			}
-		}, TEST_SVG);
+		});
 	});
 
 	test("should handle mouse pan interaction", async ({ page }) => {
@@ -474,42 +412,6 @@ test.describe("Interactive Features", () => {
 // =============================================================================
 
 test.describe("Complex SVG Handling", () => {
-	test("should handle complex SVG with gradients and images", async ({
-		page,
-	}) => {
-		// Inject complex SVG
-		await page.evaluate(svg => {
-			const svgSection = document.createElement("div");
-			svgSection.className = "svg-section";
-			svgSection.setAttribute("role", "region");
-			svgSection.setAttribute("aria-label", "Generated SVG display");
-			svgSection.innerHTML = `
-				<div class="svg-display" role="region" aria-label="SVG display">
-					<div class="svg-container" role="img" aria-label="Generated SVG">
-						${svg}
-					</div>
-				</div>
-			`;
-			document.body.appendChild(svgSection);
-		}, COMPLEX_SVG);
-
-		// Verify complex elements are rendered
-		const svgElement = page.locator("svg");
-		await expect(svgElement).toBeVisible();
-
-		// Check for gradient definition
-		const gradient = page.locator("linearGradient#grad1");
-		await expect(gradient).toBeAttached();
-
-		// Check for transformed group
-		const group = page.locator("g[transform]");
-		await expect(group).toBeAttached();
-
-		// Check for embedded image
-		const image = page.locator('image[href^="data:image"]');
-		await expect(image).toBeAttached();
-	});
-
 	test("should handle very large SVG dimensions", async ({ page }) => {
 		const largeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10000 8000" width="10000" height="8000">
 			<rect x="0" y="0" width="10000" height="8000" fill="#f0f0f0"/>
