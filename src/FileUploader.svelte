@@ -19,9 +19,10 @@
 	let dragOver = $state(false);
 	let files: Map<string, File> | null = $state(null);
 	let errorMessage = $state<string | null>(null);
-	let isFileUpload = $state(false); // Track if it's a single file vs folder
+	let nUploadedFiles = $state(0);
+	let nUploadedFolders = $state(0);
 
-	function handleDrop(event: DragEvent) {
+	async function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		dragOver = false;
 
@@ -34,7 +35,7 @@
 
 		const items = event.dataTransfer!.items;
 		console.log("📁 Items in drop:", items.length);
-		processFiles(items);
+		await processFilesFromDataTransfer(items);
 	}
 
 	function handleDragOver(event: DragEvent) {
@@ -52,124 +53,124 @@
 	 * Process files and/or a folder from a drag-and-drop operation.
 	 *
 	 * Behavior:
-	 * - Accepts exactly one dropped item (file or directory); otherwise sets an error and returns null.
 	 * - Uses the non‑standard webkitGetAsEntry API to walk directories recursively.
 	 * - Populates a Map keyed by relative path -> File and detects a root folder name when present.
-	 * - Sets `isFileUpload` to true for single file, false for folder drops; validates single file extension.
+	 * - Sets `isFileUpload` to true for single file, false for folder drops.
+	 * - Handles all processing internally, including error handling and success callbacks.
 	 *
 	 * @param items DataTransferItemList from a drop event.
-	 * @returns A promise resolving to `{ fileMap, rootFolderName }`, or `null` on validation error.
 	 */
 	async function processFilesFromDataTransfer(items: DataTransferItemList) {
-		console.log("🔄 Processing files from drag & drop...");
-
-		const fileMap = new Map<string, File>();
-		const rootFolderName = (() => {
-			if (items.length === 1) {
-				const item = items[0].webkitGetAsEntry();
-				if (item && item.isDirectory) {
-					return item.name;
-				}
-			}
-
-			return "";
-		})();
-
-		for (let i = 0, len = items.length; i < len; i++) {
-			const item = items[i];
-			console.log(
-				`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
-			);
-			// meaning we dragged a file (or a folder, they're both "file"), not some text
-			if (item.kind === "file") {
-				const entry = item.webkitGetAsEntry();
-
-				if (entry) {
-					console.log(
-						`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
-					);
-
-					if (entry.isDirectory) {
-						// Mark as folder upload
-						isFileUpload = false;
-						console.log("📁 Root folder detected:", rootFolderName);
-					} else {
-						// Mark as file upload
-						isFileUpload = true;
-					}
-					await processEntry(entry, "", fileMap);
-				} else {
-					const file = item.getAsFile();
-					console.log({ file, wk: item.webkitGetAsEntry() });
-					if (!file) {
-						errorMessage = `could not process file ${item.type}; ${item.kind}`;
-						throw new Error(errorMessage);
-					}
-
-					processFile(file, "", fileMap);
-				}
-			}
-		}
-
-		console.log("📊 Raw file data size:", fileMap.size, "files");
-		console.log("📂 Root folder name:", rootFolderName);
-
-		return { fileMap, rootFolderName };
-	}
-
-	function processFilesFromFileList(fileList: FileList) {
-		console.log("🔄 Processing files from file picker...");
-
-		const fileMap = new Map<string, File>();
-
-		for (const file of fileList) {
-			// Extract relative path from webkitRelativePath or use file name
-			const path = file.webkitRelativePath ?? file.name;
-			fileMap.set(path, file);
-		}
-
-		const rootFolderName = commonChunkPrefix(fileMap.keys(), "/");
-
-		return { fileMap: fileMap, rootFolderName };
-	}
-
-	async function processFiles(source: DataTransferItemList | FileList) {
-		// Clear any previous error
-		errorMessage = null;
+		clearProcessingError();
 
 		try {
-			let fileMap: Map<string, File>;
-			let rootFolderName: string;
+			console.log("🔄 Processing files from drag & drop...");
 
-			if (source instanceof DataTransferItemList) {
-				const result = await processFilesFromDataTransfer(source);
-				if (!result) return; // Early exit for validation errors
-				fileMap = result.fileMap;
-				rootFolderName = result.rootFolderName;
-			} else {
-				const result = processFilesFromFileList(source);
-				fileMap = result.fileMap;
-				rootFolderName = result.rootFolderName;
+			const fileMap = new Map<string, File>();
+			const rootFolderName = (() => {
+				if (items.length === 1) {
+					const item = items[0].webkitGetAsEntry();
+					if (item && item.isDirectory) return item.name;
+				}
+
+				return "";
+			})();
+
+			// Count top-level folders and individual files
+			let topLevelFolders = 0;
+			let topLevelFiles = 0;
+
+			// First pass: collect all entries/files synchronously while DataTransferItems
+			// are still valid. If you try to handle them one at a time asynchronously, the
+			// creation of a separate thread (or whatever) destroys the context in which
+			// they were dragged, and all items after the first become invalidated.
+			const itemsToProcess: Array<
+				| { type: "entry"; data: FileSystemEntry }
+				| { type: "file"; data: File }
+			> = [];
+			for (let i = 0, len = items.length; i < len; i++) {
+				const item = items[i];
+				console.log(
+					`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
+				);
+
+				// meaning we dragged a file or a folder (they're both "file"), not some text
+				if (item.kind === "file") {
+					const entry = item.webkitGetAsEntry();
+
+					if (entry) {
+						console.log(
+							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
+						);
+
+						if (entry.isDirectory) {
+							topLevelFolders++;
+						} else {
+							topLevelFiles++;
+						}
+
+						itemsToProcess.push({ type: "entry", data: entry });
+					} else {
+						const file = item.getAsFile();
+						if (!file) {
+							const message = `could not process file ${item.type}; ${item.kind}`;
+							throw new Error(message);
+						}
+
+						topLevelFiles++;
+						itemsToProcess.push({ type: "file", data: file });
+					}
+				}
 			}
 
-			// Strip root folder prefix from all paths if we detected one
-			const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName);
+			nUploadedFolders = topLevelFolders;
+			nUploadedFiles = topLevelFiles;
 
-			console.log(
-				"✨ Cleaned file data size:",
-				cleanedFileMap.size,
-				"files",
-			);
+			// Second pass: process everything asynchronously
+			for (const item of itemsToProcess) {
+				if (item.type === "entry") {
+					await addEntryAndChildrenToMap(item.data, "", fileMap);
+				} else {
+					addFileToMap(item.data, "", fileMap);
+				}
+			}
 
-			files = cleanedFileMap;
-			handleFilesUploaded(cleanedFileMap, rootFolderName);
+			console.log("📊 Raw file data size:", fileMap.size, "files");
+			console.log("📂 Root folder name:", rootFolderName);
+
+			handleProcessingSuccess(fileMap, rootFolderName);
 		} catch (error) {
-			console.error("❌ Error processing files:", error);
-			errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
+			handleProcessingError(error);
 		}
 	}
 
-	function processFile(
+	async function processFilesFromFileList(fileList: FileList) {
+		clearProcessingError();
+
+		try {
+			console.log("🔄 Processing files from file picker...");
+
+			const fileMap = new Map<string, File>();
+
+			for (const file of fileList) {
+				// Extract relative path from webkitRelativePath or use file name
+				const path = file.webkitRelativePath ?? file.name;
+				fileMap.set(path, file);
+			}
+
+			const rootFolderName = commonChunkPrefix(fileMap.keys(), "/");
+
+			// For file picker, we're always dealing with individual files
+			nUploadedFiles = fileList.length;
+			nUploadedFolders = 0;
+
+			handleProcessingSuccess(fileMap, rootFolderName);
+		} catch (error) {
+			handleProcessingError(error);
+		}
+	}
+
+	function addFileToMap(
 		file: File,
 		path: string,
 		fileMap: Map<string, File>,
@@ -181,26 +182,29 @@
 		resolve?.();
 	}
 
-	function processEntry(
+	function addEntryAndChildrenToMap(
 		entry: FileSystemEntry,
 		path: string,
 		fileMap: Map<string, File>,
 	) {
-		// Kind of a weird implementation. entryFile.file uses callbacks, not async, so we
-		// have to wrap it in a Promise and use resolve/reject to signal we're done
+		// entryFile.file uses callbacks, not async, so we have to wrap it in a Promise
+		// and use resolve/reject to signal we're done
 
 		return new Promise<void>((resolve, reject) => {
-			const timeout = setTimeout(() => {
-				console.error("⏰ Timeout processing entry:", entry.name);
-				reject(new Error(`Timeout processing entry: ${entry.name}`));
-			}, 30000); // 30 second timeout
-
 			if (entry.isFile) {
+				const timeout = setTimeout(() => {
+					console.error("⏰ Timeout processing entry:", entry.name);
+					reject(new Error(`Timeout processing entry: ${entry.name}`));
+				}, 1000); // 1 second timeout per file (incredibly generous)
+
 				let entryFile = entry as FileSystemFileEntry;
 				console.log(`📄 Processing file: ${entry.name}`);
 				entryFile.file(
 					file => {
-						processFile(file, path, fileMap, resolve);
+						addFileToMap(file, path, fileMap, () => {
+							clearTimeout(timeout);
+							resolve();
+						});
 					},
 					error => {
 						console.error(`❌ Error reading file ${entry.name}:`, error);
@@ -212,35 +216,43 @@
 				let entryDirectory = entry as FileSystemDirectoryEntry;
 				console.log(`📁 Processing directory: ${entry.name}`);
 				const reader = entryDirectory.createReader();
-				let exhausted = false;
-				while (!exhausted) {
+
+				// read entries until there are none left. reader.readEntries doesn't
+				// necessarily return *all* files; you may need multiple attempts. but when
+				// it returns 0, it's done. and if we're not done, we just continue trying
+				// to read (don't resolve until we get entries.length === 0)
+				const readAllEntries = () => {
 					reader.readEntries(
 						entries => {
 							console.log(
 								`📋 Directory ${entry.name} has ${entries.length} entries`,
 							);
 							if (entries.length === 0) {
-								exhausted = true;
+								resolve();
 								return;
 							}
-							const promises = entries.map(childEntry => {
+							const handleChildrenPromises = entries.map(childEntry => {
 								const childPath = path
 									? `${path}/${entry.name}`
 									: entry.name;
-								return processEntry(childEntry, childPath, fileMap);
+								return addEntryAndChildrenToMap(
+									childEntry,
+									childPath,
+									fileMap,
+								);
 							});
-							Promise.all(promises)
+							Promise.all(handleChildrenPromises)
 								.then(() => {
-									console.log(`✅ Directory processed: ${entry.name}`);
-									clearTimeout(timeout);
-									resolve();
+									console.log(
+										`✅ Directory batch processed: ${entry.name}`,
+									);
+									readAllEntries();
 								})
 								.catch(error => {
 									console.error(
 										`❌ Error processing directory ${entry.name}:`,
 										error,
 									);
-									clearTimeout(timeout);
 									reject(error);
 								});
 						},
@@ -249,15 +261,15 @@
 								`❌ Error reading directory ${entry.name}:`,
 								error,
 							);
-							clearTimeout(timeout);
 							reject(error);
 						},
 					);
-				}
+				};
+
+				readAllEntries();
 			} else {
-				console.log(`⚠️ Unknown entry type: ${entry.name}`);
-				clearTimeout(timeout);
-				resolve();
+				errorMessage = `⚠️ Unknown entry type: ${entry.name}`;
+				throw new Error(errorMessage);
 			}
 		});
 	}
@@ -265,7 +277,8 @@
 	function handleClear() {
 		files = null;
 		errorMessage = null;
-		isFileUpload = false;
+		nUploadedFiles = 0;
+		nUploadedFolders = 0;
 		handleClearFiles();
 	}
 
@@ -299,7 +312,28 @@
 		return strippedFileMap;
 	}
 
-	function validateAndProcessFiles(fileList: FileList) {
+	function clearProcessingError() {
+		errorMessage = null;
+	}
+
+	function handleProcessingSuccess(
+		fileMap: Map<string, File>,
+		rootFolderName: string,
+	) {
+		const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName);
+
+		console.log("✨ Cleaned file data size:", cleanedFileMap.size, "files");
+
+		files = cleanedFileMap;
+		handleFilesUploaded(cleanedFileMap, rootFolderName);
+	}
+
+	function handleProcessingError(error: unknown) {
+		console.error("❌ Error processing files:", error);
+		errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
+	}
+
+	async function validateAndProcessFiles(fileList: FileList) {
 		const validExtensions = [".json", ".jsonnet"];
 
 		// Clear any previous error
@@ -320,9 +354,8 @@
 			return;
 		}
 
-		// File is valid, mark as file upload and process it
-		isFileUpload = true;
-		processFiles(fileList);
+		// File is valid, process it
+		await processFilesFromFileList(fileList);
 	}
 
 	function openFolderPicker() {
@@ -421,7 +454,15 @@
 			<div class="files-uploaded">
 				<div class="upload-success">
 					<span
-						>{isFileUpload ? "File" : "Folder"} uploaded successfully.</span
+						>{nUploadedFolders === 1 && nUploadedFiles === 0
+							? "Folder"
+							: nUploadedFolders === 0 && nUploadedFiles === 1
+								? "File"
+								: nUploadedFolders > 1 && nUploadedFiles === 0
+									? "Folders"
+									: nUploadedFolders === 0 && nUploadedFiles > 1
+										? "Files"
+										: "Items"} uploaded successfully.</span
 					>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
