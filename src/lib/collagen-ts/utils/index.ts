@@ -16,6 +16,7 @@ export function base64Encode(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
+// TODO: delete
 /** Decode base64 string to bytes */
 export function base64Decode(base64: string): Uint8Array {
 	const binary = atob(base64);
@@ -43,6 +44,66 @@ export function escapeXml(text: string): string {
 /** Check if text needs XML escaping */
 export function needsXmlEscaping(text: string): boolean {
 	return /[&<>"']/.test(text);
+}
+
+/**
+ * Longest common prefix in terms of delimiter-separated segments.
+ *
+ * Examples:
+ *   commonChunkPrefix(["a/b", "a/c"])                -> "a"
+ *   commonChunkPrefix(["a", "a/c"])                  -> "a"
+ *   commonChunkPrefix(["b", "a/c"])                  -> ""
+ *   commonChunkPrefix(["/a/b", "/a/c"])              -> "/a"
+ *   commonChunkPrefix(["a/", "a/c"])                 -> "a"
+ *   commonChunkPrefix(["a/b", "a/b/c"], {includeTrailingDelimiter:true}) -> "a/b/"
+ *
+ * @param {string[]} strs
+ * @param {string} delimiter - non-empty literal delimiter (default "/")
+ * @param {{ includeTrailingDelimiter?: boolean }} [opts]
+ *   includeTrailingDelimiter: append the delimiter iff it is common after the prefix
+ * @returns {string}
+ */
+export function commonChunkPrefix(
+	strs: Iterable<string>,
+	delimiter = "/",
+	{ includeTrailingDelimiter = false } = {},
+) {
+	const parts: string[][] = [];
+	for (const s of strs) {
+		parts.push(s.split(delimiter));
+	}
+
+	if (parts.length === 0) {
+		return "";
+	}
+
+	let minLen = Infinity;
+	for (const p of parts) {
+		const len = p.length;
+		if (len < minLen) {
+			minLen = len;
+		}
+	}
+
+	let k = parts[0].length;
+	for (let i = 1; i < parts.length && k > 0; i++) {
+		const p = parts[i];
+		const limit = Math.min(p.length, k);
+		let j = 0;
+		while (j < limit && parts[0][j] === p[j]) j++;
+		k = j;
+	}
+
+	if (k === 0) return "";
+
+	let prefix = parts[0].slice(0, k).join(delimiter);
+
+	// Add the trailing delimiter only if *all* strings have another segment after k
+	if (includeTrailingDelimiter && parts.every(p => p.length > k)) {
+		prefix += delimiter;
+	}
+
+	return prefix;
 }
 
 // =============================================================================

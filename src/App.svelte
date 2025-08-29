@@ -15,7 +15,7 @@
 
 	async function handleFilesUploadedWithRoot(
 		files: Map<string, File>,
-		root?: string,
+		root: string,
 	) {
 		console.log("🔄 Starting file processing...");
 

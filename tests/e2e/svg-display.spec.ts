@@ -43,7 +43,7 @@ const SIMPLE_OBJECT = {
 				fill: "white",
 				"font-size": 14,
 			},
-			text: "Test",
+			children: "Test",
 		},
 	],
 };
@@ -175,23 +175,55 @@ async function dragAndDropFile(
 		mimeType,
 	}: { filename: string; content: string; mimeType: string },
 ) {
-	const dataTransfer = await page.evaluateHandle(
-		async ({ content, filename, mimeType }) => {
-			const dt = new DataTransfer();
-			const blob = new Blob([content], { type: mimeType });
-			const file = new File([blob], filename, { type: mimeType });
-			dt.items.add(file);
-			dt.dropEffect = "copy";
-			return dt;
+	// Create the mock file and simulate drag-and-drop using the same method as workflow tests
+	await page.evaluate(
+		({ content, filename, mimeType }) => {
+			const file = new File([content], filename, { type: mimeType });
+			window.mockProjectFiles = { [filename]: file };
 		},
 		{ content, filename, mimeType },
 	);
 
-	const dropZone = page.locator(".drop-zone");
+	// Simulate drag and drop using the working pattern from workflow.spec.ts
+	await page.evaluate(() => {
+		const dropZone = document.querySelector(
+			'[role="button"][aria-label*="upload"], .drop-zone',
+		);
+		if (dropZone && window.mockProjectFiles) {
+			// Create mock DataTransferItemList
+			const files = window.mockProjectFiles;
+			const fileKeys = Object.keys(files);
 
-	for (const event of ["dragenter", "dragover", "drop"]) {
-		await dropZone.dispatchEvent(event, { dataTransfer });
-	}
+			// Create a mock DataTransfer with the files
+			const mockItems = fileKeys.map(key => {
+				const file = files[key];
+				return {
+					kind: "file",
+					type: file.type,
+					getAsFile: () => file, // This method was missing!
+					webkitGetAsEntry: () => ({
+						name: key,
+						isDirectory: false,
+						isFile: true,
+						file: (success: (f: File) => void) => success(file),
+					}),
+				};
+			});
+
+			// Create mock drag event
+			const dragEvent = new DragEvent("drop", {
+				bubbles: true,
+				cancelable: true,
+			});
+
+			// Add mock dataTransfer
+			Object.defineProperty(dragEvent, "dataTransfer", {
+				value: { items: mockItems },
+			});
+
+			dropZone.dispatchEvent(dragEvent);
+		}
+	});
 }
 
 const test = base.extend<PlaywrightTestArgs & { object: JsonObject }>({
@@ -203,10 +235,22 @@ const test = base.extend<PlaywrightTestArgs & { object: JsonObject }>({
 			mimeType: "application/json",
 		});
 
-		await page.waitForSelector(".svg-content", {
-			state: "visible",
-			timeout: 5000,
-		});
+		// Wait for SVG processing to complete (using same logic as workflow tests)
+		await page.waitForFunction(
+			() => {
+				// Look for SVG region or alert role elements
+				const svgSection = document.querySelector(
+					'[role="region"][aria-label*="SVG"], .svg-section',
+				);
+				const errorMessage = document.querySelector(
+					'[role="alert"], .error-message',
+				);
+				const loading = document.querySelector('[role="status"], .loading');
+				// Processing is complete when we have SVG output, error, or no longer loading
+				return (svgSection || errorMessage) && !loading;
+			},
+			{ timeout: 15000 },
+		);
 
 		await use(page);
 	},
@@ -230,9 +274,9 @@ test.describe("SvgDisplay Component", () => {
 		test.use({ object: SIMPLE_OBJECT });
 
 		test("should display SVG when provided", async ({ page, object }) => {
-			// SVG should be visible
-			const svgSection = page.locator(".svg-container");
-			await expect(svgSection).toBeVisible();
+			// SVG container should be visible
+			const svgContainer = page.locator(".svg-container");
+			await expect(svgContainer).toBeVisible();
 
 			// SVG element should be present
 			const svgElement = page.locator("svg");
@@ -257,31 +301,31 @@ test.describe("SVG Controls", () => {
 	test("should display control buttons", async ({ page, object }) => {
 		// Check all control buttons are present
 		await expect(
-			page.getByRole("button", { name: /zoom in/i }),
+			page.getByRole("button", { name: /zoom in.*keyboard/i }),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /zoom out/i }),
+			page.getByRole("button", { name: /zoom out.*keyboard/i }),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /reset view/i }),
+			page.getByRole("button", { name: /reset view.*keyboard/i }),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /export svg/i }),
+			page.getByRole("button", { name: /download svg.*keyboard/i }),
 		).toBeVisible();
 
 		// Check button titles
 		await expect(
-			page.getByRole("button", { name: /zoom in/i }),
-		).toHaveAttribute("title", /Zoom In/);
+			page.getByRole("button", { name: /zoom in.*keyboard/i }),
+		).toHaveAttribute("title", "Zoom In (Keyboard: +)");
 		await expect(
-			page.getByRole("button", { name: /zoom out/i }),
-		).toHaveAttribute("title", /Zoom Out/);
+			page.getByRole("button", { name: /zoom out.*keyboard/i }),
+		).toHaveAttribute("title", "Zoom Out (Keyboard: -)");
 		await expect(
-			page.getByRole("button", { name: /reset view/i }),
-		).toHaveAttribute("title", /Reset View/);
+			page.getByRole("button", { name: /reset view.*keyboard/i }),
+		).toHaveAttribute("title", "Reset View (Keyboard: 0)");
 		await expect(
-			page.getByRole("button", { name: /export svg/i }),
-		).toHaveAttribute("title", /Export SVG/);
+			page.getByRole("button", { name: /download svg.*keyboard/i }),
+		).toHaveAttribute("title", "Download SVG (Keyboard: S)");
 	});
 
 	test("should handle zoom in action", async ({ page, object }) => {

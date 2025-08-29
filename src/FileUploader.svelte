@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { commonChunkPrefix } from "./lib/collagen-ts/utils";
+
 	let {
 		disabled = false,
 		handleFilesUploaded,
@@ -46,80 +48,112 @@
 		dragOver = false;
 	}
 
-	function checkExtension(fileLike: { name: string }) {
-		// TODO use regex
-		const validExtensions = [".json", ".jsonnet"];
-		const extension = fileLike.name
-			.toLowerCase()
-			.substring(fileLike.name.lastIndexOf("."));
-
-		if (!validExtensions.includes(extension)) {
-			errorMessage = `"${fileLike.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
-			throw new Error(errorMessage);
-		}
-	}
-
-	async function processFiles(items: DataTransferItemList) {
-		console.log("🔄 Processing files...");
-
-		// Clear any previous error
-		errorMessage = null;
-
-		// Check if multiple items were dropped
-		if (items.length > 1) {
-			errorMessage = "Please drop only one file or folder at a time.";
-			return;
-		}
+	/**
+	 * Process files and/or a folder from a drag-and-drop operation.
+	 *
+	 * Behavior:
+	 * - Accepts exactly one dropped item (file or directory); otherwise sets an error and returns null.
+	 * - Uses the non‑standard webkitGetAsEntry API to walk directories recursively.
+	 * - Populates a Map keyed by relative path -> File and detects a root folder name when present.
+	 * - Sets `isFileUpload` to true for single file, false for folder drops; validates single file extension.
+	 *
+	 * @param items DataTransferItemList from a drop event.
+	 * @returns A promise resolving to `{ fileMap, rootFolderName }`, or `null` on validation error.
+	 */
+	async function processFilesFromDataTransfer(items: DataTransferItemList) {
+		console.log("🔄 Processing files from drag & drop...");
 
 		const fileMap = new Map<string, File>();
-		let rootFolderName = "";
-
-		try {
-			for (let i = 0, len = items.length; i < len; i++) {
-				const item = items[i];
-				console.log(
-					`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
-				);
-				// meaning we dragged a file (or a folder, they're both "file"), not some text
-				if (item.kind === "file") {
-					const entry = item.webkitGetAsEntry();
-
-					if (entry) {
-						console.log(
-							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
-						);
-
-						if (entry.isDirectory) {
-							// Mark as folder upload
-							isFileUpload = false;
-
-							if (!rootFolderName) {
-								rootFolderName = entry.name;
-								console.log("📁 Root folder detected:", rootFolderName);
-							}
-						} else {
-							// Mark as file upload
-							isFileUpload = true;
-							checkExtension(entry);
-						}
-						await processEntry(entry, "", fileMap, rootFolderName);
-					} else {
-						const file = item.getAsFile();
-						if (!file) {
-							errorMessage = "could not process file";
-							throw new Error("could not process file");
-						}
-						checkExtension(file);
-						processFile(file, "", fileMap);
-					}
+		const rootFolderName = (() => {
+			if (items.length === 1) {
+				const item = items[0].webkitGetAsEntry();
+				if (item && item.isDirectory) {
+					return item.name;
 				}
 			}
 
-			console.log("📊 Raw file data size:", fileMap.size, "files");
-			console.log("📂 Root folder name:", rootFolderName);
+			return "";
+		})();
+
+		for (let i = 0, len = items.length; i < len; i++) {
+			const item = items[i];
+			console.log(
+				`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
+			);
+			// meaning we dragged a file (or a folder, they're both "file"), not some text
+			if (item.kind === "file") {
+				const entry = item.webkitGetAsEntry();
+
+				if (entry) {
+					console.log(
+						`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
+					);
+
+					if (entry.isDirectory) {
+						// Mark as folder upload
+						isFileUpload = false;
+						console.log("📁 Root folder detected:", rootFolderName);
+					} else {
+						// Mark as file upload
+						isFileUpload = true;
+					}
+					await processEntry(entry, "", fileMap);
+				} else {
+					const file = item.getAsFile();
+					console.log({ file, wk: item.webkitGetAsEntry() });
+					if (!file) {
+						errorMessage = `could not process file ${item.type}; ${item.kind}`;
+						throw new Error(errorMessage);
+					}
+
+					processFile(file, "", fileMap);
+				}
+			}
+		}
+
+		console.log("📊 Raw file data size:", fileMap.size, "files");
+		console.log("📂 Root folder name:", rootFolderName);
+
+		return { fileMap, rootFolderName };
+	}
+
+	function processFilesFromFileList(fileList: FileList) {
+		console.log("🔄 Processing files from file picker...");
+
+		const fileMap = new Map<string, File>();
+
+		for (const file of fileList) {
+			// Extract relative path from webkitRelativePath or use file name
+			const path = file.webkitRelativePath ?? file.name;
+			fileMap.set(path, file);
+		}
+
+		const rootFolderName = commonChunkPrefix(fileMap.keys(), "/");
+
+		return { fileMap: fileMap, rootFolderName };
+	}
+
+	async function processFiles(source: DataTransferItemList | FileList) {
+		// Clear any previous error
+		errorMessage = null;
+
+		try {
+			let fileMap: Map<string, File>;
+			let rootFolderName: string;
+
+			if (source instanceof DataTransferItemList) {
+				const result = await processFilesFromDataTransfer(source);
+				if (!result) return; // Early exit for validation errors
+				fileMap = result.fileMap;
+				rootFolderName = result.rootFolderName;
+			} else {
+				const result = processFilesFromFileList(source);
+				fileMap = result.fileMap;
+				rootFolderName = result.rootFolderName;
+			}
 
 			// Strip root folder prefix from all paths if we detected one
-			const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName!);
+			const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName);
 
 			console.log(
 				"✨ Cleaned file data size:",
@@ -133,35 +167,6 @@
 			console.error("❌ Error processing files:", error);
 			errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
 		}
-	}
-
-	function processFileList(fileList: FileList) {
-		// Clear any previous error since we're processing valid files
-		errorMessage = null;
-
-		const fileData = new Map<string, File>();
-		let rootFolderName = null;
-
-		for (const file of fileList) {
-			// Extract relative path from webkitRelativePath or use file name
-			const path = file.webkitRelativePath || file.name;
-
-			// Extract root folder name from first file with webkitRelativePath
-			if (file.webkitRelativePath && rootFolderName === null) {
-				const pathParts = file.webkitRelativePath.split("/");
-				if (pathParts.length > 1) {
-					rootFolderName = pathParts[0];
-				}
-			}
-
-			fileData.set(path, file);
-		}
-
-		// Strip root folder prefix from all paths if we detected one
-		const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
-
-		files = cleanedFileData;
-		handleFilesUploaded(cleanedFileData, rootFolderName);
 	}
 
 	function processFile(
@@ -180,7 +185,6 @@
 		entry: FileSystemEntry,
 		path: string,
 		fileMap: Map<string, File>,
-		rootFolderName: string | null = null,
 	) {
 		// Kind of a weird implementation. entryFile.file uses callbacks, not async, so we
 		// have to wrap it in a Promise and use resolve/reject to signal we're done
@@ -223,12 +227,7 @@
 								const childPath = path
 									? `${path}/${entry.name}`
 									: entry.name;
-								return processEntry(
-									childEntry,
-									childPath,
-									fileMap,
-									rootFolderName,
-								);
+								return processEntry(childEntry, childPath, fileMap);
 							});
 							Promise.all(promises)
 								.then(() => {
@@ -278,7 +277,7 @@
 			return fileData;
 		}
 
-		const cleanedData = new Map<string, File>();
+		const strippedFileMap = new Map<string, File>();
 		const prefix = rootFolderName + "/";
 
 		for (const [path, file] of fileData) {
@@ -286,15 +285,18 @@
 				const cleanedPath = path.substring(prefix.length);
 				if (cleanedPath) {
 					// Skip empty paths
-					cleanedData.set(cleanedPath, file);
+					strippedFileMap.set(cleanedPath, file);
 				}
 			} else {
+				errorMessage = `tried to strip prefix ${rootFolderName} from ${path}, but no such prefix found`;
+				console.warn(errorMessage);
+				throw new Error(errorMessage);
 				// Keep files that don't have the prefix (shouldn't happen but handle gracefully)
-				cleanedData.set(path, file);
+				// strippedFileMap.set(path, file);
 			}
 		}
 
-		return cleanedData;
+		return strippedFileMap;
 	}
 
 	function validateAndProcessFiles(fileList: FileList) {
@@ -320,7 +322,7 @@
 
 		// File is valid, mark as file upload and process it
 		isFileUpload = true;
-		processFileList(fileList);
+		processFiles(fileList);
 	}
 
 	function openFolderPicker() {

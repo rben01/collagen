@@ -7,90 +7,74 @@
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page } from "@playwright/test";
-import { test } from "./fixtures";
+import { expect, Page, PlaywrightTestArgs } from "@playwright/test";
+import { test as test } from "./fixtures";
 
 // =============================================================================
 // Test Setup and Utilities
 // =============================================================================
 
-/** Create mock files for testing workflows */
-async function setupMockProject(
-	page: Page,
-	projectType: "simple" | "complex" | "jsonnet" | "invalid",
-) {
-	const projects = {
-		simple: {
-			"collagen.json": JSON.stringify({
-				attrs: { viewBox: "0 0 200 100", width: 200, height: 100 },
-				children: [
-					{
-						tag: "rect",
-						attrs: {
-							x: 10,
-							y: 10,
-							width: 180,
-							height: 80,
-							fill: "#e3f2fd",
+type ProjectType = "simple" | "complex" | "jsonnet" | "invalid";
+const PROJECTS: Record<ProjectType, Record<string, string>> = {
+	simple: {
+		"collagen.json": JSON.stringify({
+			attrs: { viewBox: "0 0 200 100", width: 200, height: 100 },
+			children: [
+				{
+					tag: "rect",
+					attrs: { x: 10, y: 10, width: 180, height: 80, fill: "#e3f2fd" },
+				},
+				{
+					tag: "text",
+					attrs: { x: 100, y: 55, "text-anchor": "middle" },
+					children: ["Simple Project"],
+				},
+			],
+		}),
+	},
+	complex: {
+		"collagen.json": JSON.stringify({
+			attrs: { viewBox: "0 0 400 300" },
+			children: [
+				{
+					tag: "rect",
+					attrs: { x: 0, y: 0, width: 400, height: 300, fill: "#f5f5f5" },
+				},
+				{
+					image_path: "logo.png",
+					attrs: { x: 10, y: 10, width: 50, height: 50 },
+				},
+				{
+					tag: "g",
+					attrs: { transform: "translate(70, 10)" },
+					children: [
+						{
+							tag: "text",
+							attrs: { x: 0, y: 20, "font-size": 18 },
+							children: ["Complex Project"],
 						},
-					},
-					{
-						tag: "text",
-						attrs: { x: 100, y: 55, "text-anchor": "middle" },
-						children: ["Simple Project"],
-					},
-				],
-			}),
-		},
-		complex: {
-			"collagen.json": JSON.stringify({
-				attrs: { viewBox: "0 0 400 300" },
-				children: [
-					{
-						tag: "rect",
-						attrs: {
-							x: 0,
-							y: 0,
-							width: 400,
-							height: 300,
-							fill: "#f5f5f5",
+						{
+							tag: "text",
+							attrs: { x: 0, y: 40, "font-size": 12 },
+							children: ["With multiple elements"],
 						},
-					},
-					{
-						image_path: "logo.png",
-						attrs: { x: 10, y: 10, width: 50, height: 50 },
-					},
-					{
-						tag: "g",
-						attrs: { transform: "translate(70, 10)" },
-						children: [
-							{
-								tag: "text",
-								attrs: { x: 0, y: 20, "font-size": 18 },
-								children: ["Complex Project"],
-							},
-							{
-								tag: "text",
-								attrs: { x: 0, y: 40, "font-size": 12 },
-								children: ["With multiple elements"],
-							},
-						],
-					},
-					{
-						svg_path: "icon.svg",
-						attrs: { x: 300, y: 200, width: 80, height: 80 },
-					},
-				],
-			}),
-			// Create a minimal valid PNG data URI (1x1 transparent pixel)
-			"logo.png": atob(
-				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-			),
-			"icon.svg":
-				'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="blue"/></svg>',
-		},
-		jsonnet: {
-			"collagen.jsonnet": `
+					],
+				},
+				{
+					svg_path: "icon.svg",
+					attrs: { x: 300, y: 200, width: 80, height: 80 },
+				},
+			],
+		}),
+		// Create a minimal valid PNG data URI (1x1 transparent pixel)
+		// (We don't actually need to base64 decode this)
+		"logo.png":
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+		"icon.svg":
+			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="blue"/></svg>',
+	},
+	jsonnet: {
+		"collagen.jsonnet": `
 				local width = 300;
 				local height = 200;
 
@@ -105,104 +89,52 @@ async function setupMockProject(
 					]
 				}
 			`,
-		},
-		invalid: { "collagen.json": "{ invalid json syntax" },
-	};
-
-	await page.evaluate(projectData => {
-		window.mockProjectFiles = {};
-		Object.entries(projectData).forEach(([filename, content]) => {
-			let mimeType = "text/plain";
-			let fileContent: string | Uint8Array = content;
-
-			if (filename.endsWith(".json") || filename.endsWith(".jsonnet")) {
-				mimeType = "application/json";
-			} else if (filename.endsWith(".png")) {
-				mimeType = "image/png";
-				// Convert binary string to Uint8Array for PNG
-				const binaryString = content as string;
-				const bytes = new Uint8Array(binaryString.length);
-				for (let i = 0; i < binaryString.length; i++) {
-					bytes[i] = binaryString.charCodeAt(i);
-				}
-				fileContent = bytes;
-			} else if (filename.endsWith(".svg")) {
-				mimeType = "image/svg+xml";
-			}
-
-			const file = new File([fileContent as BlobPart], filename, {
-				type: mimeType,
-			});
-			window.mockProjectFiles[filename] = file;
-		});
-	}, projects[projectType]);
-}
+	},
+	invalid: { "collagen.json": "{ invalid json syntax" },
+};
 
 /** Simulate file upload via drag and drop */
-async function simulateFileUpload(
-	page: Page,
-	projectType: "simple" | "complex" | "jsonnet" | "invalid",
-) {
-	await setupMockProject(page, projectType);
+async function simulateFileUpload(page: Page, projectType: ProjectType) {
+	const fileContents = PROJECTS[projectType];
 
 	// Simulate drag and drop directly on the drop zone
-	await page.evaluate(() => {
-		const dropZone = document.querySelector(
-			'[role="button"][aria-label*="upload"], .drop-zone',
-		);
-		if (dropZone && window.mockProjectFiles) {
-			// Create mock DataTransferItemList
-			const files = window.mockProjectFiles;
-			const fileKeys = Object.keys(files);
+	const dataTransfer = await page.evaluateHandle(
+		({ fileContents }) => {
+			const dropZone = document.querySelector(".drop-zone");
+			if (!dropZone) {
+				throw new Error("no drop zone found!");
+			}
 
-			// Create a mock DataTransfer with the files
-			const mockItems = fileKeys.map(key => {
-				const file = files[key];
-				return {
-					kind: "file",
-					type: file.type,
-					webkitGetAsEntry: () => ({
-						name: key,
-						isDirectory: false,
-						isFile: true,
-						file: (success: (f: File) => void) => success(file),
-					}),
-				};
-			});
+			const dt = new DataTransfer();
 
-			// Create mock drag event
-			const dragEvent = new DragEvent("drop", {
-				bubbles: true,
-				cancelable: true,
-			});
+			for (const filename in fileContents) {
+				const content = fileContents[filename];
+				let type = "text/plain";
+				if (filename.endsWith(".json") || filename.endsWith(".jsonnet")) {
+					type = "application/json";
+				} else if (filename.endsWith(".png")) {
+					type = "image/png";
+				} else if (filename.endsWith(".svg")) {
+					type = "image/svg+xml";
+				}
 
-			// Add mock dataTransfer
-			Object.defineProperty(dragEvent, "dataTransfer", {
-				value: { items: mockItems },
-			});
+				const file = new File([content], filename, { type });
+				dt.items.add(file);
+			}
 
-			dropZone.dispatchEvent(dragEvent);
-		}
-	});
-}
-
-/** Wait for SVG processing to complete */
-async function waitForSvgProcessing(page: any, timeout = 5000) {
-	await page.waitForFunction(
-		() => {
-			// Look for SVG region or alert role elements
-			const svgSection = document.querySelector(
-				'[role="region"][aria-label*="SVG"], .svg-section',
-			);
-			const errorMessage = document.querySelector(
-				'[role="alert"], .error-message',
-			);
-			const loading = document.querySelector('[role="status"], .loading');
-			// Processing is complete when we have SVG output, error, or no longer loading
-			return (svgSection || errorMessage) && !loading;
+			return dt;
 		},
-		{ timeout },
+		{ fileContents },
 	);
+
+	const dropZone = page.locator(".drop-zone");
+
+	for (const event of ["dragenter", "dragover", "drop"]) {
+		await dropZone.dispatchEvent(event, { dataTransfer });
+	}
+
+	const svgContainer = page.getByLabel("Interactive SVG viewer");
+	await expect(svgContainer).toBeVisible({ timeout: 1000 });
 }
 
 // =============================================================================
@@ -221,13 +153,15 @@ test.describe("Complete User Workflows", () => {
 
 		// 2. Upload a simple project
 		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
 
 		// 3. Verify SVG is generated and displayed
-		const svgSection = page.getByRole("region", {
-			name: /generated svg display/i,
-		});
+		const svgSection = page.getByLabel("Interactive SVG viewer");
 		await expect(svgSection).toBeVisible();
+
+		const svgContent = page.getByLabel("SVG content");
+		await expect(svgContent).toBeVisible();
+
+		const initialTransform = await svgContent.getAttribute("style");
 
 		const svgElement = page.locator("svg");
 		await expect(svgElement).toBeVisible();
@@ -237,19 +171,33 @@ test.describe("Complete User Workflows", () => {
 		await expect(page.locator("rect")).toBeVisible();
 		await expect(page.locator("text")).toContainText("Simple Project");
 
-		// 5. Test zoom controls
+		// 5a Test zoom in control
 		const zoomInBtn = page.getByRole("button", {
 			name: /zoom in.*keyboard/i,
 		});
-		if (await zoomInBtn.isVisible()) {
-			await zoomInBtn.click();
-			await page.waitForTimeout(100);
-		}
+		await expect(zoomInBtn).toBeVisible();
+		await zoomInBtn.click();
+		await page.waitForTimeout(500);
+
+		const zoomedInTransform = await svgContent.getAttribute("style");
+		expect(zoomedInTransform).not.toBe(initialTransform);
+
+		// 5b Test zoom out control
+		const zoomOutBtn = page.getByRole("button", {
+			name: /zoom out.*keyboard/i,
+		});
+		await expect(zoomOutBtn).toBeVisible();
+		await zoomOutBtn.click();
+		await page.waitForTimeout(500);
+
+		const zoomedOutTransform = await svgContent.getAttribute("style");
+		expect(zoomedOutTransform).toBe(initialTransform);
 
 		// 6. Test export functionality
 		const exportBtn = page.getByRole("button", {
 			name: /download svg.*keyboard/i,
 		});
+		await expect(exportBtn).toBeVisible();
 		if (await exportBtn.isVisible()) {
 			// Mock download to avoid actual file download
 			await page.evaluate(() => {
@@ -266,19 +214,18 @@ test.describe("Complete User Workflows", () => {
 			});
 
 			await exportBtn.click();
-			await page.waitForTimeout(100);
 		}
 
 		// 7. Upload another project (clear and restart)
 		const clearBtn = page.getByRole("button", {
 			name: "Upload Another Project",
 		});
-		if (await clearBtn.isVisible()) {
-			await clearBtn.click();
-			await expect(
-				page.getByRole("button", { name: /file upload drop zone/i }),
-			).toBeVisible();
-		}
+		await expect(clearBtn).toBeVisible();
+
+		await clearBtn.click();
+		await expect(
+			page.getByRole("button", { name: /file upload drop zone/i }),
+		).toBeVisible();
 	});
 
 	test("should handle complex project with multiple assets", async ({
@@ -287,27 +234,33 @@ test.describe("Complete User Workflows", () => {
 	}) => {
 		// Upload complex project
 		await simulateFileUpload(page, "complex");
-		await waitForSvgProcessing(page, 10000);
 
 		// Check if complex project processed successfully or show appropriate error
-		const svgElement = page.locator("svg");
-		expect(svgElement).toBeVisible({ timeout: 1000 });
+		const svgElement = page.locator(".svg-content > svg");
+		await expect(svgElement).toBeVisible();
 
 		// Complex project processed successfully
 		// Should contain background rect, image, text group, and nested SVG
 		const rectCount = await page.locator("rect").count();
 		expect(rectCount).toBeGreaterThanOrEqual(1);
 
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		expect(svgContainer).toBeVisible();
+
+		const svgContent = page.getByLabel("SVG content");
+		expect(await svgContent.getAttribute("style")).toContain(
+			"translate(0px, 0px)",
+		);
 
 		// Test pan interaction
 		await svgContainer.hover();
 		await page.mouse.down();
 		await page.mouse.move(50, 30);
 		await page.mouse.up();
+
+		expect(await svgContent.getAttribute("style")).toContain(
+			"translate(50px, 30px)",
+		);
 
 		// Test wheel zoom
 		await svgContainer.hover();
@@ -410,9 +363,7 @@ test.describe("User Interaction Workflows", () => {
 
 			// Tab to SVG container
 			await page.keyboard.press("Tab");
-			const svgContainer = page.getByRole("button", {
-				name: /interactive svg viewer/i,
-			});
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
 			await expect(svgContainer).toBeFocused();
 
 			// Test keyboard shortcuts on SVG
@@ -428,9 +379,7 @@ test.describe("User Interaction Workflows", () => {
 		page,
 		isMobile,
 	}) => {
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
 
 		if (await svgContainer.isVisible()) {
 			// Test hover states
@@ -621,9 +570,7 @@ test.describe("Performance and Edge Case Workflows", () => {
 			await expect(rects).toHaveCount(200);
 
 			// Test that interactions still work with many elements
-			const svgContainer = page.getByRole("button", {
-				name: /interactive svg viewer/i,
-			});
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
 			await svgContainer.hover();
 			if (!isMobile) {
 				await page.mouse.wheel(0, -100); // Should still zoom smoothly
@@ -861,9 +808,7 @@ test.describe("Accessibility Workflows", () => {
 		const controls = page.getByRole("toolbar");
 		if (await controls.isVisible()) {
 			// Focus on SVG container directly since tab order can vary
-			const svgContainer = page.getByRole("button", {
-				name: /interactive svg viewer/i,
-			});
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
 			await svgContainer.focus();
 			await expect(svgContainer).toBeFocused();
 
