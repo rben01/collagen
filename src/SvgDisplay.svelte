@@ -300,14 +300,16 @@
 				animate:flip={{ duration: 300, easing: quintOut }}
 			>
 				<span>{toast.message}</span>
-				<button class="toast-close" onclick={() => removeToast(toast.id)} tabindex="0"
-					>✕</button
+				<button
+					class="toast-close"
+					onclick={() => removeToast(toast.id)}
+					tabindex="0">✕</button
 				>
 			</div>
 		{/each}
 	</div>
 
-	<div class="controls">
+	<div class="controls" role="toolbar" aria-label="SVG viewer controls">
 		<div class="control-group">
 			<button
 				class="control-btn zoom-in"
@@ -377,9 +379,15 @@
 					<div class="instruction-section">
 						<h5>Zoom & Pan</h5>
 						<ul>
-							<li><strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to zoom</li>
-							<li><strong>Touch</strong>: Pinch to zoom, drag to pan</li>
-							<li><strong>Shift + arrows</strong>: Pan (when viewer focused)</li>
+							<li>
+								<strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to
+								zoom
+							</li>
+							<li><strong>Touch</strong>: Drag to pan, pinch to zoom</li>
+							<li>
+								<strong>Shift + arrows</strong>: Pan (when viewer
+								focused)
+							</li>
 							<li><strong>+/-</strong> keys: Zoom in/out</li>
 							<li><strong>0</strong> key: Reset view</li>
 						</ul>
@@ -392,14 +400,13 @@
 							<li><strong>V</strong> key: Toggle code view</li>
 							<li><strong>C</strong> key: Copy SVG to clipboard</li>
 							<li><strong>S</strong> key: Download SVG file</li>
-							<li><strong>Buttons</strong>: Use the controls above for all actions</li>
 						</ul>
 					</div>
 				</div>
 
 				<p class="instructions-note">
-					💡 <strong>Tip:</strong> Click on the SVG viewer area first to enable keyboard
-					pan controls (Shift + arrow keys).
+					💡 <strong>Tip:</strong> Click on the SVG viewer area first to enable
+					keyboard pan controls (Shift + arrow keys).
 				</p>
 			</div>
 		</div>
@@ -426,6 +433,8 @@
 			<div
 				class="svg-content"
 				style="transform: translate({panX}px, {panY}px) scale({scale});"
+				role="img"
+				aria-label="SVG content"
 			>
 				<!-- can this be used maliciously? any way for untrusted input to get in there? -->
 				{@html svg}
@@ -434,11 +443,11 @@
 
 		<!-- Hidden description for screen readers -->
 		<div id="svg-controls-description" class="sr-only">
-			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset view (work
-			globally), Shift+arrow keys to pan (when viewer is focused), V to toggle code
-			view, C to copy, S to save (work globally). Mouse controls: Drag to pan,
-			Ctrl+scroll or Cmd+scroll to zoom. Touch controls: Single finger to pan, pinch to
-			zoom.
+			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
+			view (work globally), Shift+arrow keys to pan (when viewer is focused),
+			V to toggle code view, C to copy, S to save (work globally). Mouse
+			controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom. Touch
+			controls: Single finger to pan, pinch to zoom.
 		</div>
 	{/if}
 </div>

@@ -7,10 +7,10 @@
  */
 
 import {
-  MissingFileError,
-  FileReadError,
-  MissingManifestError,
-  JsonError,
+	MissingFileError,
+	FileReadError,
+	MissingManifestError,
+	JsonError,
 } from "../errors/index.js";
 import { generateSvg } from "../index.js";
 import { JsonObject } from "../jsonnet/index.js";
@@ -25,8 +25,8 @@ export type ManifestFormat = "json" | "jsonnet";
 
 /** File content representation */
 export interface FileContent {
-  bytes: Uint8Array;
-  path: string;
+	bytes: Uint8Array;
+	path: string;
 }
 
 // =============================================================================
@@ -79,38 +79,38 @@ export interface FileContent {
  * ```
  */
 export function normalizedPathJoin(...paths: string[]): string {
-  const components: string[] = [];
-  const componentRe = /[^/\\]+/g;
+	const components: string[] = [];
+	const componentRe = /[^/\\]+/g;
 
-  for (const path of paths) {
-    // Skip empty paths
-    if (!path) {
-      continue;
-    }
+	for (const path of paths) {
+		// Skip empty paths
+		if (!path) {
+			continue;
+		}
 
-    const componentMatches = path.matchAll(componentRe);
+		const componentMatches = path.matchAll(componentRe);
 
-    for (const match of componentMatches) {
-      const component = match[0];
+		for (const match of componentMatches) {
+			const component = match[0];
 
-      if (component === "" || component === ".") {
-        // Skip empty components and current directory references
-        continue;
-      } else if (component === "..") {
-        // no-op if stack is empty
-        components.pop();
-      } else {
-        components.push(component);
-      }
-    }
-  }
+			if (component === "" || component === ".") {
+				// Skip empty components and current directory references
+				continue;
+			} else if (component === "..") {
+				// no-op if stack is empty
+				components.pop();
+			} else {
+				components.push(component);
+			}
+		}
+	}
 
-  if (components.length === 0) {
-    return ".";
-  }
+	if (components.length === 0) {
+		return ".";
+	}
 
-  // Join components back together
-  return components.join("/");
+	// Join components back together
+	return components.join("/");
 }
 
 // =============================================================================
@@ -119,25 +119,25 @@ export function normalizedPathJoin(...paths: string[]): string {
 
 /** Read a File object as text */
 export async function readFileAsText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Failed to read file as text"));
-    reader.readAsText(file);
-  });
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(new Error("Failed to read file as text"));
+		reader.readAsText(file);
+	});
 }
 
 /** Read a File object as bytes */
 export async function readFileAsBytes(file: File): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const arrayBuffer = reader.result as ArrayBuffer;
-      resolve(new Uint8Array(arrayBuffer));
-    };
-    reader.onerror = () => reject(new Error("Failed to read file as bytes"));
-    reader.readAsArrayBuffer(file);
-  });
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const arrayBuffer = reader.result as ArrayBuffer;
+			resolve(new Uint8Array(arrayBuffer));
+		};
+		reader.onerror = () => reject(new Error("Failed to read file as bytes"));
+		reader.readAsArrayBuffer(file);
+	});
 }
 
 // =============================================================================
@@ -146,144 +146,150 @@ export async function readFileAsBytes(file: File): Promise<Uint8Array> {
 
 /** Implementation of InMemoryFileSystem using browser File objects */
 export class InMemoryFileSystem {
-  #files: Map<string, FileContent>;
+	#files: Map<string, FileContent>;
 
-  private constructor(files: Map<string, FileContent>) {
-    this.#files = files;
-  }
+	private constructor(files: Map<string, FileContent>) {
+		this.#files = files;
+	}
 
-  static async create(
-    files: Map<string, File>,
-    normalizePaths = true,
-  ): Promise<InMemoryFileSystem> {
-    const fs = new InMemoryFileSystem(new Map());
-    for (const [path, file] of files) {
-      await fs.addFile(path, file, normalizePaths);
-    }
-    return fs;
-  }
+	static async create(
+		files: Map<string, File>,
+		normalizePaths = true,
+	): Promise<InMemoryFileSystem> {
+		const fs = new InMemoryFileSystem(new Map());
+		for (const [path, file] of files) {
+			await fs.addFile(path, file, normalizePaths);
+		}
+		return fs;
+	}
 
-  get files(): Map<string, FileContent> {
-    return this.#files;
-  }
+	get files(): Map<string, FileContent> {
+		return this.#files;
+	}
 
-  /** Get file content synchronously (since files are pre-loaded) */
-  load(path: string, normalizePath = true): FileContent {
-    if (normalizePath) {
-      path = normalizedPathJoin(path);
-    }
+	/** Get file content synchronously (since files are pre-loaded) */
+	load(path: string, normalizePath = true): FileContent {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
 
-    const content = this.get(path);
-    if (!content) {
-      throw new MissingFileError(path);
-    }
+		const content = this.get(path);
+		if (!content) {
+			throw new MissingFileError(path);
+		}
 
-    return content;
-  }
+		return content;
+	}
 
-  /** Add a file */
-  async addFile(path: string, file: File, normalizePath = true) {
-    if (normalizePath) {
-      path = normalizedPathJoin(path);
-    }
-    try {
-      const bytes = await readFileAsBytes(file);
-      const newFile = { bytes, path };
-      this.#files.set(path, newFile);
-      return newFile;
-    } catch (error) {
-      throw new FileReadError(path, String(error));
-    }
-  }
+	/** Add a file */
+	async addFile(path: string, file: File, normalizePath = true) {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
+		try {
+			const bytes = await readFileAsBytes(file);
+			const newFile = { bytes, path };
+			this.#files.set(path, newFile);
+			return newFile;
+		} catch (error) {
+			throw new FileReadError(path, String(error));
+		}
+	}
 
-  /** Check if a file exists */
-  has(path: string, normalizePath = true) {
-    if (normalizePath) {
-      path = normalizedPathJoin(path);
-    }
-    return this.#files.has(normalizedPathJoin(path));
-  }
+	/** Check if a file exists */
+	has(path: string, normalizePath = true) {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
+		return this.#files.has(normalizedPathJoin(path));
+	}
 
-  get(path: string, normalizePath = true) {
-    if (normalizePath) {
-      path = normalizedPathJoin(path);
-    }
-    return this.#files.get(normalizedPathJoin(path));
-  }
+	get(path: string, normalizePath = true) {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
+		return this.#files.get(normalizedPathJoin(path));
+	}
 
-  /** List all available paths */
-  getPaths() {
-    return Array.from(this.#files.keys()).sort();
-  }
+	/** List all available paths */
+	getPaths() {
+		return Array.from(this.#files.keys()).sort();
+	}
 
-  /** Get total size of all files */
-  getTotalSize() {
-    let total = 0;
-    for (const content of this.#files.values()) {
-      total += content.bytes.length;
-    }
-    return total;
-  }
+	/** Get total size of all files */
+	getTotalSize() {
+		let total = 0;
+		for (const content of this.#files.values()) {
+			total += content.bytes.length;
+		}
+		return total;
+	}
 
-  /** Get number of files */
-  getFileCount() {
-    return this.#files.size;
-  }
+	/** Get number of files */
+	getFileCount() {
+		return this.#files.size;
+	}
 
-  loadManifestContents(): { format: ManifestFormat; content: FileContent } {
-    let content;
-    if ((content = this.get("collagen.jsonnet", false))) {
-      return { format: "jsonnet", content };
-    }
-    if ((content = this.get("collagen.json", false))) {
-      return { format: "json", content };
-    }
-    throw new MissingManifestError();
-  }
+	loadManifestContents(): { format: ManifestFormat; content: FileContent } {
+		let content;
+		if ((content = this.get("collagen.jsonnet", false))) {
+			return { format: "jsonnet", content };
+		}
+		if ((content = this.get("collagen.json", false))) {
+			return { format: "json", content };
+		}
+		throw new MissingManifestError();
+	}
 
-  /**
-   * Generate an unvalidated object
-   *
-   * Primarily used for testing, so we can test object loading separately from
-   * validation.
-   */
-  async generateUntypedObject() {
-    const { format: manifestFormat, content } = this.loadManifestContents();
+	/**
+	 * Generate an unvalidated object
+	 *
+	 * Primarily used for testing, so we can test object loading separately from
+	 * validation.
+	 */
+	async generateUntypedObject() {
+		const { format: manifestFormat, content } = this.loadManifestContents();
 
-    try {
-      // Convert bytes to text
-      const text = new TextDecoder().decode(content.bytes);
+		try {
+			// Convert bytes to text
+			const text = new TextDecoder().decode(content.bytes);
 
-      if (manifestFormat === "json") {
-        return JSON.parse(text) as JsonObject;
-      } else {
-        const { compileJsonnet } = await import("../jsonnet/index.js");
-        return compileJsonnet(text, this, {}, getManifestPath(manifestFormat));
-      }
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        throw new JsonError(getManifestPath(manifestFormat), error.message);
-      }
-      throw error;
-    }
-  }
+			if (manifestFormat === "json") {
+				return JSON.parse(text) as JsonObject;
+			} else {
+				const { compileJsonnet } = await import("../jsonnet/index.js");
+				return compileJsonnet(
+					text,
+					this,
+					{},
+					getManifestPath(manifestFormat),
+				);
+			}
+		} catch (error) {
+			if (error instanceof SyntaxError) {
+				throw new JsonError(getManifestPath(manifestFormat), error.message);
+			}
+			throw error;
+		}
+	}
 
-  async generateRootTag() {
-    const { format: manifestFormat, content: _ } = this.loadManifestContents();
+	async generateRootTag() {
+		const { format: manifestFormat, content: _ } =
+			this.loadManifestContents();
 
-    try {
-      return validateDocument(await this.generateUntypedObject());
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        throw new JsonError(getManifestPath(manifestFormat), error.message);
-      }
-      throw error;
-    }
-  }
+		try {
+			return validateDocument(await this.generateUntypedObject());
+		} catch (error) {
+			if (error instanceof SyntaxError) {
+				throw new JsonError(getManifestPath(manifestFormat), error.message);
+			}
+			throw error;
+		}
+	}
 
-  async generateSvg() {
-    return generateSvg(await this.generateRootTag(), this);
-  }
+	async generateSvg() {
+		return generateSvg(await this.generateRootTag(), this);
+	}
 }
 
 // =============================================================================
@@ -292,12 +298,12 @@ export class InMemoryFileSystem {
 
 /** Get manifest file path for a format */
 export function getManifestPath(format: ManifestFormat): string {
-  switch (format) {
-    case "jsonnet":
-      return "collagen.jsonnet";
-    case "json":
-      return "collagen.json";
-  }
+	switch (format) {
+		case "jsonnet":
+			return "collagen.jsonnet";
+		case "json":
+			return "collagen.json";
+	}
 }
 
 // =============================================================================
@@ -306,55 +312,55 @@ export function getManifestPath(format: ManifestFormat): string {
 
 /** Check if a path looks like an image file */
 export function isImagePath(path: string): boolean {
-  const ext = getFileExtension(path).toLowerCase();
-  return ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(ext);
+	const ext = getFileExtension(path).toLowerCase();
+	return ["jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"].includes(ext);
 }
 
 /** Check if a path looks like a font file */
 export function isFontPath(path: string): boolean {
-  const ext = getFileExtension(path).toLowerCase();
-  return ["woff", "woff2", "ttf", "otf"].includes(ext);
+	const ext = getFileExtension(path).toLowerCase();
+	return ["woff", "woff2", "ttf", "otf"].includes(ext);
 }
 
 /** Get file extension from path */
 export function getFileExtension(path: string): string {
-  const lastDot = path.lastIndexOf(".");
-  const lastSlash = path.lastIndexOf("/");
+	const lastDot = path.lastIndexOf(".");
+	const lastSlash = path.lastIndexOf("/");
 
-  if (lastDot === -1 || lastDot < lastSlash) {
-    return "";
-  }
+	if (lastDot === -1 || lastDot < lastSlash) {
+		return "";
+	}
 
-  return path.slice(lastDot + 1);
+	return path.slice(lastDot + 1);
 }
 
 /** Infer MIME type from file extension */
 export function getMimeType(path: string): string {
-  const ext = getFileExtension(path).toLowerCase();
+	const ext = getFileExtension(path).toLowerCase();
 
-  switch (ext) {
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-    case "png":
-      return "image/png";
-    case "gif":
-      return "image/gif";
-    case "webp":
-      return "image/webp";
-    case "bmp":
-      return "image/bmp";
-    case "svg":
-      return "image/svg+xml";
-    case "woff":
-      return "font/woff";
-    case "woff2":
-      return "font/woff2";
-    case "ttf":
-      return "font/ttf";
-    case "otf":
-      return "font/otf";
-    default:
-      return "application/octet-stream";
-  }
+	switch (ext) {
+		case "jpg":
+		case "jpeg":
+			return "image/jpeg";
+		case "png":
+			return "image/png";
+		case "gif":
+			return "image/gif";
+		case "webp":
+			return "image/webp";
+		case "bmp":
+			return "image/bmp";
+		case "svg":
+			return "image/svg+xml";
+		case "woff":
+			return "font/woff";
+		case "woff2":
+			return "font/woff2";
+		case "ttf":
+			return "font/ttf";
+		case "otf":
+			return "font/otf";
+		default:
+			return "application/octet-stream";
+	}
 }

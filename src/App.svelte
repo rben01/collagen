@@ -4,8 +4,8 @@
 	import {
 		toCompatibleError,
 		InMemoryFileSystem,
-		FileContent,
 	} from "./lib/collagen-ts/index.js";
+	import type { FileContent } from "./lib/collagen-ts/index.js";
 
 	let error: string | null = null;
 	let loading = false;
@@ -13,7 +13,10 @@
 	let filesData: InMemoryFileSystem | null = null;
 	let svgDisplayComponent: any = null;
 
-	async function handleFilesUploadedWithRoot(files: Map<string, File>, root?: string) {
+	async function handleFilesUploadedWithRoot(
+		files: Map<string, File>,
+		root?: string,
+	) {
 		console.log("🔄 Starting file processing...");
 
 		console.log("📁 Files received:", files.size, "files");
@@ -42,7 +45,10 @@
 			console.log("🎨 Generating SVG...");
 			svgOutput = await fs.generateSvg();
 			if (svgOutput) {
-				console.log("✅ SVG generated successfully! Length:", svgOutput.length);
+				console.log(
+					"✅ SVG generated successfully! Length:",
+					svgOutput.length,
+				);
 			}
 		} catch (err) {
 			console.error("Error processing files:", err);
@@ -73,7 +79,11 @@
 	<p>Generate SVG collages from JSON/Jsonnet manifests</p>
 
 	{#if loading}
-		<div class="loading">
+		<div
+			class="loading"
+			role="status"
+			aria-label="Processing files, please wait"
+		>
 			<p>Processing files...</p>
 		</div>
 	{/if}
@@ -88,7 +98,7 @@
 	</div>
 
 	{#if filesData}
-		<div class="files-info">
+		<div class="files-info" role="region" aria-label="File information">
 			<h3>Uploaded Files ({filesData?.getFileCount() || 0})</h3>
 
 			<!-- File size summary and warnings -->
@@ -171,7 +181,7 @@
 	{/if}
 
 	{#if svgOutput}
-		<div class="svg-section">
+		<div class="svg-section" role="region" aria-label="Generated SVG display">
 			<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
 		</div>
 	{/if}
@@ -183,8 +193,8 @@
 		margin: 0 auto;
 		padding: 2em 2em 8em 2em;
 		font-family:
-			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-			sans-serif;
+			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+			Cantarell, sans-serif;
 	}
 
 	h1 {

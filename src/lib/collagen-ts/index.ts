@@ -11,28 +11,29 @@
 
 // Export main types
 export type {
-  RootTag,
-  AnyChildTag,
-  GenericTag,
-  ImageTag,
-  TextTag,
-  ContainerTag,
-  FontTag,
-  NestedSvgTag,
-  XmlAttrs,
-  FontFace,
-  ManifestFormat,
+	RootTag,
+	AnyChildTag,
+	GenericTag,
+	ImageTag,
+	TextTag,
+	ContainerTag,
+	FontTag,
+	NestedSvgTag,
+	XmlAttrs,
+	FontFace,
+	ManifestFormat,
 } from "./types/index.js";
 
-export { InMemoryFileSystem, FileContent } from "./filesystem/index.js";
+export { InMemoryFileSystem } from "./filesystem/index.js";
+export type { FileContent } from "./filesystem/index.js";
 
 // Export filesystem utilities
 export {
-  normalizedPathJoin,
-  isImagePath,
-  isFontPath,
-  getFileExtension,
-  getMimeType,
+	normalizedPathJoin,
+	isImagePath,
+	isFontPath,
+	getFileExtension,
+	getMimeType,
 } from "./filesystem/index.js";
 
 // Export validation
@@ -43,11 +44,11 @@ export { generateSvg } from "./svg/index.js";
 
 // Export utilities
 export {
-  base64Encode,
-  base64Decode,
-  escapeXml,
-  isPlainObject,
-  ensureArray,
+	base64Encode,
+	base64Decode,
+	escapeXml,
+	isPlainObject,
+	ensureArray,
 } from "./utils/index.js";
 
 // Export errors
@@ -65,24 +66,24 @@ export type { JsonnetConfig } from "./jsonnet/sjsonnet.js";
  * Error type compatible with WASM CollagenError
  */
 export interface CollagenCompatError {
-  message: string;
-  errorType: string;
+	message: string;
+	errorType: string;
 }
 
 /**
  * Convert our errors to WASM-compatible format
  */
 export function toCompatibleError(error: unknown): CollagenCompatError {
-  if (error && typeof error === "object" && "errorType" in error) {
-    return {
-      message: String((error as any).message || error),
-      errorType: String((error as any).errorType || "Unknown"),
-    };
-  }
+	if (error && typeof error === "object" && "errorType" in error) {
+		return {
+			message: String((error as any).message || error),
+			errorType: String((error as any).errorType || "Unknown"),
+		};
+	}
 
-  if (error instanceof Error) {
-    return { message: error.message, errorType: error.constructor.name };
-  }
+	if (error instanceof Error) {
+		return { message: error.message, errorType: error.constructor.name };
+	}
 
-  return { message: String(error), errorType: "Unknown" };
+	return { message: String(error), errorType: "Unknown" };
 }

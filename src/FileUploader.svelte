@@ -6,7 +6,10 @@
 		externalError = null,
 	} = $props<{
 		disabled: boolean;
-		handleFilesUploaded: (files: Map<string, File>, root: string) => Promise<void>;
+		handleFilesUploaded: (
+			files: Map<string, File>,
+			root: string,
+		) => Promise<void>;
 		handleClearFiles: () => void;
 		externalError?: string | null;
 	}>();
@@ -43,6 +46,19 @@
 		dragOver = false;
 	}
 
+	function checkExtension(fileLike: { name: string }) {
+		// TODO use regex
+		const validExtensions = [".json", ".jsonnet"];
+		const extension = fileLike.name
+			.toLowerCase()
+			.substring(fileLike.name.lastIndexOf("."));
+
+		if (!validExtensions.includes(extension)) {
+			errorMessage = `"${fileLike.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
+			throw new Error(errorMessage);
+		}
+	}
+
 	async function processFiles(items: DataTransferItemList) {
 		console.log("🔄 Processing files...");
 
@@ -55,60 +71,64 @@
 			return;
 		}
 
-		const fileData = new Map<string, File>();
-		let rootFolderName = null;
+		const fileMap = new Map<string, File>();
+		let rootFolderName = "";
 
 		try {
 			for (let i = 0, len = items.length; i < len; i++) {
 				const item = items[i];
-				console.log(`📋 Item ${i}: kind=${item.kind}, type=${item.type}`);
-				// meaning we dragged a file, not some text
+				console.log(
+					`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
+				);
+				// meaning we dragged a file (or a folder, they're both "file"), not some text
 				if (item.kind === "file") {
 					const entry = item.webkitGetAsEntry();
+
 					if (entry) {
 						console.log(
 							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
 						);
 
-						// If it's a single file, validate its type
-						if (!entry.isDirectory) {
-							const validExtensions = [".json", ".jsonnet"];
-							const extension = entry.name
-								.toLowerCase()
-								.substring(entry.name.lastIndexOf("."));
-
-							if (!validExtensions.includes(extension)) {
-								errorMessage = `"${entry.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
-								return;
-							}
-
-							// Mark as file upload
-							isFileUpload = true;
-						} else {
+						if (entry.isDirectory) {
 							// Mark as folder upload
 							isFileUpload = false;
-						}
 
-						// Capture root folder name from first directory entry
-						if (entry.isDirectory && rootFolderName === null) {
-							rootFolderName = entry.name;
-							console.log("📁 Root folder detected:", rootFolderName);
+							if (!rootFolderName) {
+								rootFolderName = entry.name;
+								console.log("📁 Root folder detected:", rootFolderName);
+							}
+						} else {
+							// Mark as file upload
+							isFileUpload = true;
+							checkExtension(entry);
 						}
-						await processEntry(entry, "", fileData, rootFolderName!);
+						await processEntry(entry, "", fileMap, rootFolderName);
+					} else {
+						const file = item.getAsFile();
+						if (!file) {
+							errorMessage = "could not process file";
+							throw new Error("could not process file");
+						}
+						checkExtension(file);
+						processFile(file, "", fileMap);
 					}
 				}
 			}
 
-			console.log("📊 Raw file data size:", fileData.size, "files");
+			console.log("📊 Raw file data size:", fileMap.size, "files");
 			console.log("📂 Root folder name:", rootFolderName);
 
 			// Strip root folder prefix from all paths if we detected one
-			const cleanedFileData = stripFolderPrefix(fileData, rootFolderName!);
+			const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName!);
 
-			console.log("✨ Cleaned file data size:", cleanedFileData.size, "files");
+			console.log(
+				"✨ Cleaned file data size:",
+				cleanedFileMap.size,
+				"files",
+			);
 
-			files = cleanedFileData;
-			handleFilesUploaded(cleanedFileData, rootFolderName);
+			files = cleanedFileMap;
+			handleFilesUploaded(cleanedFileMap, rootFolderName);
 		} catch (error) {
 			console.error("❌ Error processing files:", error);
 			errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
@@ -144,12 +164,27 @@
 		handleFilesUploaded(cleanedFileData, rootFolderName);
 	}
 
+	function processFile(
+		file: File,
+		path: string,
+		fileMap: Map<string, File>,
+		resolve?: () => void,
+	) {
+		const fullPath = path ? `${path}/${file.name}` : file.name;
+		console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
+		fileMap.set(fullPath, file);
+		resolve?.();
+	}
+
 	function processEntry(
 		entry: FileSystemEntry,
 		path: string,
-		fileData: Map<string, File>,
+		fileMap: Map<string, File>,
 		rootFolderName: string | null = null,
 	) {
+		// Kind of a weird implementation. entryFile.file uses callbacks, not async, so we
+		// have to wrap it in a Promise and use resolve/reject to signal we're done
+
 		return new Promise<void>((resolve, reject) => {
 			const timeout = setTimeout(() => {
 				console.error("⏰ Timeout processing entry:", entry.name);
@@ -161,11 +196,7 @@
 				console.log(`📄 Processing file: ${entry.name}`);
 				entryFile.file(
 					file => {
-						const fullPath = path ? `${path}/${entry.name}` : entry.name;
-						console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
-						fileData.set(fullPath, file);
-						clearTimeout(timeout);
-						resolve();
+						processFile(file, path, fileMap, resolve);
 					},
 					error => {
 						console.error(`❌ Error reading file ${entry.name}:`, error);
@@ -177,31 +208,53 @@
 				let entryDirectory = entry as FileSystemDirectoryEntry;
 				console.log(`📁 Processing directory: ${entry.name}`);
 				const reader = entryDirectory.createReader();
-				reader.readEntries(
-					entries => {
-						console.log(`📋 Directory ${entry.name} has ${entries.length} entries`);
-						const promises = entries.map(childEntry => {
-							const childPath = path ? `${path}/${entry.name}` : entry.name;
-							return processEntry(childEntry, childPath, fileData, rootFolderName);
-						});
-						Promise.all(promises)
-							.then(() => {
-								console.log(`✅ Directory processed: ${entry.name}`);
-								clearTimeout(timeout);
-								resolve();
-							})
-							.catch(error => {
-								console.error(`❌ Error processing directory ${entry.name}:`, error);
-								clearTimeout(timeout);
-								reject(error);
+				let exhausted = false;
+				while (!exhausted) {
+					reader.readEntries(
+						entries => {
+							console.log(
+								`📋 Directory ${entry.name} has ${entries.length} entries`,
+							);
+							if (entries.length === 0) {
+								exhausted = true;
+								return;
+							}
+							const promises = entries.map(childEntry => {
+								const childPath = path
+									? `${path}/${entry.name}`
+									: entry.name;
+								return processEntry(
+									childEntry,
+									childPath,
+									fileMap,
+									rootFolderName,
+								);
 							});
-					},
-					error => {
-						console.error(`❌ Error reading directory ${entry.name}:`, error);
-						clearTimeout(timeout);
-						reject(error);
-					},
-				);
+							Promise.all(promises)
+								.then(() => {
+									console.log(`✅ Directory processed: ${entry.name}`);
+									clearTimeout(timeout);
+									resolve();
+								})
+								.catch(error => {
+									console.error(
+										`❌ Error processing directory ${entry.name}:`,
+										error,
+									);
+									clearTimeout(timeout);
+									reject(error);
+								});
+						},
+						error => {
+							console.error(
+								`❌ Error reading directory ${entry.name}:`,
+								error,
+							);
+							clearTimeout(timeout);
+							reject(error);
+						},
+					);
+				}
 			} else {
 				console.log(`⚠️ Unknown entry type: ${entry.name}`);
 				clearTimeout(timeout);
@@ -217,7 +270,10 @@
 		handleClearFiles();
 	}
 
-	function stripFolderPrefix(fileData: Map<string, File>, rootFolderName: string) {
+	function stripFolderPrefix(
+		fileData: Map<string, File>,
+		rootFolderName: string,
+	) {
 		if (!rootFolderName) {
 			return fileData;
 		}
@@ -253,7 +309,9 @@
 		}
 
 		const file = fileList[0];
-		const extension = file.name.toLowerCase().substring(file.name.lastIndexOf("."));
+		const extension = file.name
+			.toLowerCase()
+			.substring(file.name.lastIndexOf("."));
 
 		if (!validExtensions.includes(extension)) {
 			errorMessage = `"${file.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
@@ -332,8 +390,8 @@
 				<h3>Upload Collagen Project</h3>
 				<p>
 					Drag and drop a <code>collagen.json</code> or a
-					<code>collagen.jsonnet</code> manifest file, or a folder containing one of
-					those and any other resources. Or press O to
+					<code>collagen.jsonnet</code> manifest file, or a folder
+					containing one of those and any other resources. Or press O to
 					<em>open</em> the file/folder picker.
 				</p>
 
@@ -360,7 +418,9 @@
 		{:else}
 			<div class="files-uploaded">
 				<div class="upload-success">
-					<span>{isFileUpload ? "File" : "Folder"} uploaded successfully.</span>
+					<span
+						>{isFileUpload ? "File" : "Folder"} uploaded successfully.</span
+					>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
 					Upload Another Project
