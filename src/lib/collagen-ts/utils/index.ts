@@ -47,63 +47,65 @@ export function needsXmlEscaping(text: string): boolean {
 }
 
 /**
- * Longest common prefix in terms of delimiter-separated segments.
+ * Longest common prefix in terms of delimiter-separated segments. Never includes a
+ * trailing delimiter.
  *
  * Examples:
- *   commonChunkPrefix(["a/b", "a/c"])                -> "a"
- *   commonChunkPrefix(["a", "a/c"])                  -> "a"
- *   commonChunkPrefix(["b", "a/c"])                  -> ""
- *   commonChunkPrefix(["/a/b", "/a/c"])              -> "/a"
- *   commonChunkPrefix(["a/", "a/c"])                 -> "a"
- *   commonChunkPrefix(["a/b", "a/b/c"], {includeTrailingDelimiter:true}) -> "a/b/"
+ * - getCommonPathPrefix(["a/b", "a/c"])                -> "a"
+ * - getCommonPathPrefix(["a", "a/c"])                  -> "a"
+ * - getCommonPathPrefix(["b", "a/c"])                  -> ""
+ * - getCommonPathPrefix(["/a/b", "/a/c"])              -> "/a"
+ * - getCommonPathPrefix(["a/", "a/c"])                 -> "a"
  *
- * @param {string[]} strs
- * @param {string} delimiter - non-empty literal delimiter (default "/")
- * @param {{ includeTrailingDelimiter?: boolean }} [opts]
- *   includeTrailingDelimiter: append the delimiter iff it is common after the prefix
- * @returns {string}
+ * @param strs
+ * @param delimiter - string of length exactly one (default "/")
  */
-export function commonChunkPrefix(
-	strs: Iterable<string>,
-	delimiter = "/",
-	{ includeTrailingDelimiter = false } = {},
-) {
-	const parts: string[][] = [];
-	for (const s of strs) {
-		parts.push(s.split(delimiter));
+export function getCommonPathPrefix(strs: string[], delimiter = "/") {
+	const nStrs = strs.length;
+	if (nStrs <= 1) {
+		return strs[0] ?? "";
 	}
 
-	if (parts.length === 0) {
-		return "";
-	}
+	const firstStr = strs[0];
+	const strLen = firstStr.length;
 
-	let minLen = Infinity;
-	for (const p of parts) {
-		const len = p.length;
-		if (len < minLen) {
-			minLen = len;
+	// index of the character before the last delimiter seen
+	let beforeLastDelimiterPos = -1;
+
+	for (let i = 0, len = strLen; i < len; i++) {
+		let c = firstStr.charAt(i);
+
+		// if any string differs at char i, return slice up to the last delimiter
+		// (exclusive)
+		for (let j = 1; j < nStrs; j++) {
+			if (strs[j].charAt(i) !== c) {
+				return firstStr.slice(0, beforeLastDelimiterPos + 1);
+			}
+		}
+
+		// otherwise, if every string has the delimiter at i, move beforeLastDelimiterPos
+		// up to just before it (stays at -1 if all strings have the delimiter at index
+		// 0)
+		if (c === delimiter) {
+			beforeLastDelimiterPos = i - 1;
 		}
 	}
 
-	let k = parts[0].length;
-	for (let i = 1; i < parts.length && k > 0; i++) {
-		const p = parts[i];
-		const limit = Math.min(p.length, k);
-		let j = 0;
-		while (j < limit && parts[0][j] === p[j]) j++;
-		k = j;
+	// if we get here, all strings have firstStr as a prefix. firstStr itself is the
+	// common path prefix if every other string has the delimiter as its next character.
+	// otherwise the common path prefix is only up to the last delimiter (exclusive),
+	// e.g.
+	// - ["a/b", "a/b/c"] => "a/b"  // next char is '/'
+	// - ["a/b/", "a/b/c"] => "a/b" // next char is 'c'
+	// - ["a/b", "a/bat"] => "a"    // next char is 'a'
+
+	for (let j = 1; j < nStrs; j++) {
+		if (strs[j].charAt(strLen) !== delimiter) {
+			return firstStr.slice(0, beforeLastDelimiterPos + 1);
+		}
 	}
 
-	if (k === 0) return "";
-
-	let prefix = parts[0].slice(0, k).join(delimiter);
-
-	// Add the trailing delimiter only if *all* strings have another segment after k
-	if (includeTrailingDelimiter && parts.every(p => p.length > k)) {
-		prefix += delimiter;
-	}
-
-	return prefix;
+	return firstStr;
 }
 
 // =============================================================================

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { commonChunkPrefix } from "./lib/collagen-ts/utils";
+	import { getCommonPathPrefix } from "./lib/collagen-ts/utils";
 
 	let {
 		disabled = false,
@@ -67,14 +67,8 @@
 			console.log("🔄 Processing files from drag & drop...");
 
 			const fileMap = new Map<string, File>();
-			const rootFolderName = (() => {
-				if (items.length === 1) {
-					const item = items[0].webkitGetAsEntry();
-					if (item && item.isDirectory) return item.name;
-				}
 
-				return "";
-			})();
+			let itemNames: string[] = [];
 
 			// Count top-level folders and individual files
 			let topLevelFolders = 0;
@@ -99,6 +93,7 @@
 					const entry = item.webkitGetAsEntry();
 
 					if (entry) {
+						itemNames.push(entry.name);
 						console.log(
 							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
 						);
@@ -117,6 +112,8 @@
 							throw new Error(message);
 						}
 
+						itemNames.push(file.name);
+
 						topLevelFiles++;
 						itemsToProcess.push({ type: "file", data: file });
 					}
@@ -134,6 +131,8 @@
 					addFileToMap(item.data, "", fileMap);
 				}
 			}
+
+			const rootFolderName = getCommonPathPrefix(itemNames);
 
 			console.log("📊 Raw file data size:", fileMap.size, "files");
 			console.log("📂 Root folder name:", rootFolderName);
@@ -158,7 +157,7 @@
 				fileMap.set(path, file);
 			}
 
-			const rootFolderName = commonChunkPrefix(fileMap.keys(), "/");
+			const rootFolderName = getCommonPathPrefix([...fileMap.keys()], "/");
 
 			// For file picker, we're always dealing with individual files
 			nUploadedFiles = fileList.length;
@@ -291,21 +290,16 @@
 		}
 
 		const strippedFileMap = new Map<string, File>();
-		const prefix = rootFolderName + "/";
+		const rootLen = rootFolderName.length;
 
 		for (const [path, file] of fileData) {
-			if (path.startsWith(prefix)) {
-				const cleanedPath = path.substring(prefix.length);
-				if (cleanedPath) {
-					// Skip empty paths
-					strippedFileMap.set(cleanedPath, file);
-				}
+			if (path.startsWith(rootFolderName)) {
+				const cleanedPath = path.substring(rootLen);
+				strippedFileMap.set(cleanedPath, file);
 			} else {
 				errorMessage = `tried to strip prefix ${rootFolderName} from ${path}, but no such prefix found`;
 				console.warn(errorMessage);
 				throw new Error(errorMessage);
-				// Keep files that don't have the prefix (shouldn't happen but handle gracefully)
-				// strippedFileMap.set(path, file);
 			}
 		}
 
@@ -338,6 +332,7 @@
 
 		// TODO: allow multiple
 		const input = document.createElement("input");
+		input.setAttribute("id", "file-input-hidden");
 		input.type = "file";
 		input.multiple = false;
 		input.webkitdirectory = false; // Allow individual files

@@ -5,6 +5,9 @@
  * and other globals used in Playwright e2e tests.
  */
 
+export type ProjectFiles = Record<string, string>;
+export type SampleProjects = Record<string, ProjectFiles>;
+
 declare global {
 	interface Window {
 		// Test-specific properties
@@ -30,6 +33,7 @@ declare global {
 		sjsonnet?: any;
 
 		// FileUploader test properties
+		createMockFileList: (files: ProjectFiles) => FileList;
 		exposeFileUploader?: (component: any) => void;
 		__fileUploader?: {
 			processFilesFromFileList?: (fileList: FileList) => Promise<void>;
