@@ -333,34 +333,10 @@
 		errorMessage = `Error processing files: ${error instanceof Error ? error.message : "Unknown error"}`;
 	}
 
-	async function validateAndProcessFiles(fileList: FileList) {
-		const validExtensions = [".json", ".jsonnet"];
-
-		// Clear any previous error
-		errorMessage = null;
-
-		if (fileList.length !== 1) {
-			errorMessage = "Please select only one file at a time.";
-			return;
-		}
-
-		const file = fileList[0];
-		const extension = file.name
-			.toLowerCase()
-			.substring(file.name.lastIndexOf("."));
-
-		if (!validExtensions.includes(extension)) {
-			errorMessage = `"${file.name}" is not a supported file type. Please select a JSON (.json) or Jsonnet (.jsonnet) file.`;
-			return;
-		}
-
-		// File is valid, process it
-		await processFilesFromFileList(fileList);
-	}
-
 	function openFolderPicker() {
 		if (disabled) return;
 
+		// TODO: allow multiple
 		const input = document.createElement("input");
 		input.type = "file";
 		input.multiple = false;
@@ -370,7 +346,7 @@
 		input.addEventListener("change", e => {
 			const files = (e.target! as HTMLInputElement).files!;
 			if (files.length > 0) {
-				validateAndProcessFiles(files);
+				processFilesFromFileList(files);
 			}
 			document.body.removeChild(input);
 		});
@@ -454,15 +430,15 @@
 			<div class="files-uploaded">
 				<div class="upload-success">
 					<span
-						>{nUploadedFolders === 1 && nUploadedFiles === 0
-							? "Folder"
-							: nUploadedFolders === 0 && nUploadedFiles === 1
-								? "File"
-								: nUploadedFolders > 1 && nUploadedFiles === 0
-									? "Folders"
-									: nUploadedFolders === 0 && nUploadedFiles > 1
-										? "Files"
-										: "Items"} uploaded successfully.</span
+						>{nUploadedFiles === 0
+							? nUploadedFolders === 1
+								? "Folder"
+								: "Folders"
+							: nUploadedFolders === 0
+								? nUploadedFiles === 1
+									? "File"
+									: "Files"
+								: "Items"} uploaded successfully.</span
 					>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>

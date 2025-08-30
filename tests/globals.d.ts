@@ -28,6 +28,15 @@ declare global {
 
 		// Application-specific properties
 		sjsonnet?: any;
+
+		// FileUploader test properties
+		exposeFileUploader?: (component: any) => void;
+		__fileUploader?: {
+			processFilesFromFileList?: (fileList: FileList) => Promise<void>;
+			processFilesFromDataTransfer?: (
+				items: DataTransferItemList,
+			) => Promise<void>;
+		};
 	}
 
 	// Extend Element to include style property for DOM manipulation in tests
