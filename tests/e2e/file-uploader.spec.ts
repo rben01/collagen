@@ -111,6 +111,18 @@ const sampleProjects: SampleProjects = {
 	malformedJsonnet: { "collagen.jsonnet": "{ invalid jsonnet syntax }" },
 };
 
+function getMimeType(path): string {
+	return path.endsWith(".json")
+		? "application/json"
+		: path.endsWith(".jsonnet")
+			? "text/plain"
+			: path.endsWith(".png")
+				? "image/png"
+				: path.endsWith(".jpg")
+					? "image/jpeg"
+					: "text/plain";
+}
+
 // =============================================================================
 // Simple Upload Testing Utilities
 // =============================================================================
@@ -123,6 +135,8 @@ async function testFilePickerUpload(
 	projectName: keyof SampleProjects,
 ) {
 	const projectFiles = sampleProjects[projectName];
+
+	await page.exposeFunction("getMimeType", getMimeType);
 
 	// Click the browse button to trigger file picker
 	await page.locator(".browse-btn").click();
@@ -138,18 +152,14 @@ async function testFilePickerUpload(
 				throw new Error("File input not found");
 			}
 
-			// Create a new FileList from our data
+			// this block of code here is also used in testDragAndDropUpload.
+			// unfortunately, while we'd like to extract it to a function and then expose
+			// that function to the page, our options are limited because DataTransfer
+			// doesn't exist in node and File can't be moved between node and the browser
 			const dt = new DataTransfer();
-			Object.entries(fileData).forEach(([path, content]) => {
-				const type = path.endsWith(".json")
-					? "application/json"
-					: path.endsWith(".jsonnet")
-						? "text/plain"
-						: path.endsWith(".png")
-							? "image/png"
-							: path.endsWith(".jpg")
-								? "image/jpeg"
-								: "text/plain";
+			for (const path in fileData) {
+				const content = fileData[path];
+				const type = await window.getMimeType(path);
 
 				const file = new File([content], path, { type });
 				// Add webkitRelativePath for folder uploads
@@ -160,9 +170,8 @@ async function testFilePickerUpload(
 					});
 				}
 				dt.items.add(file);
-			});
+			}
 
-			// Set files and trigger change event
 			Object.defineProperty(input, "files", {
 				value: dt.files,
 				writable: false,
@@ -188,6 +197,8 @@ async function testDragAndDropUpload(
 			? sampleProjects[projectName]
 			: projectName;
 
+	await page.exposeFunction("getMimeType", getMimeType);
+
 	// Simulate drag and drop on the drop zone
 	await page.evaluate(
 		async ({ fileData }) => {
@@ -196,20 +207,14 @@ async function testDragAndDropUpload(
 				throw new Error("Drop zone not found");
 			}
 
-			// Create a DataTransfer object with files
+			// see above for why this duplicate block of code can't be deduplicated
 			const dt = new DataTransfer();
-			Object.entries(fileData).forEach(([path, content]) => {
-				const type = path.endsWith(".json")
-					? "application/json"
-					: path.endsWith(".jsonnet")
-						? "text/plain"
-						: path.endsWith(".png")
-							? "image/png"
-							: path.endsWith(".jpg")
-								? "image/jpeg"
-								: "text/plain";
+			for (const path in fileData) {
+				const content = fileData[path];
+				const type = await window.getMimeType(path);
 
 				const file = new File([content], path, { type });
+				// Add webkitRelativePath for folder uploads
 				if (path.includes("/")) {
 					Object.defineProperty(file, "webkitRelativePath", {
 						value: path,
@@ -217,7 +222,7 @@ async function testDragAndDropUpload(
 					});
 				}
 				dt.items.add(file);
-			});
+			}
 
 			dropZone.dispatchEvent(
 				new DragEvent("dragenter", {

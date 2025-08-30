@@ -33,7 +33,7 @@ declare global {
 		sjsonnet?: any;
 
 		// FileUploader test properties
-		createMockFileList: (files: ProjectFiles) => FileList;
+		getMimeType: (path: string) => Promise<string>;
 		exposeFileUploader?: (component: any) => void;
 		__fileUploader?: {
 			processFilesFromFileList?: (fileList: FileList) => Promise<void>;
