@@ -148,12 +148,30 @@ const sampleProjects = (() => {
 
 /**
  * Test file picker upload by simulating browse button click and file selection
+ *
+ * This is less faithful to the actual tests we want to perform (drag and drop) but in
+ * non-chromium browsers, this is *the only* way to upload files. Unfortunately this
+ * means you can't test dropping a folder in non-chromium browsers; you've gotta just do
+ * that by hand.
  */
-export async function uploadWithFilePicker(page: Page, project: ProjectName) {
-	const projectFiles = sampleProjects[project];
+export async function uploadWithFilePicker(
+	page: Page,
+	project: ProjectName | ProjectFiles,
+	firstRun = true,
+) {
+	const projectFiles =
+		typeof project === "string" ? sampleProjects[project] : project;
+
+	if (!firstRun) {
+		await page
+			.getByRole("button", { name: "Upload Another Project" })
+			.click({ timeout: 1000 });
+	}
 
 	// Click the browse button to trigger file picker
-	await page.locator(".browse-btn").click();
+	await page
+		.getByRole("button", { name: "Browse for file or folder" })
+		.click();
 
 	// Set files on the file input that gets created
 	await page.evaluate(
@@ -195,13 +213,22 @@ export async function uploadWithFilePicker(page: Page, project: ProjectName) {
 		{ fileData: projectFiles },
 	);
 
-	return { success: true, error: null };
+	// Wait for the upload to be processed (either success or error)
+	await page.waitForSelector(".files-uploaded, .error-message", {
+		timeout: 1500,
+	});
 }
 
 /**
  * Test drag-and-drop upload by simulating drag and drop events on the drop zone
+ *
+ * NOTE: when testing, in non-chromium browsers, the files will be have
+ * `webkitGetAsEntry()`, but the `entryFile.file(success, error)` `success` callback
+ * will always fail. So you shouldn't call this in browser-agnostic tests, which is why
+ * we have `uploadProject`, which uses the “correct” (albeit less fully tested) upload
+ * method for the browser being tested
  */
-export async function uploadWithDragAndDrop(
+async function uploadWithDragAndDrop(
 	page: Page,
 	project: ProjectName | ProjectFiles,
 ) {
@@ -263,4 +290,17 @@ export async function uploadWithDragAndDrop(
 	await page.waitForSelector(".files-uploaded, .error-message", {
 		timeout: 1500,
 	});
+}
+
+export async function uploadProject(
+	browserName: "chromium" | "webkit" | "firefox",
+	page: Page,
+	project: ProjectName | ProjectFiles,
+	firstRun = true,
+) {
+	if (browserName === "chromium") {
+		return await uploadWithDragAndDrop(page, project);
+	} else {
+		return await uploadWithFilePicker(page, project, firstRun);
+	}
 }

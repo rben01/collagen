@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { normalizedPathJoin } from "./lib/collagen-ts";
 	import { getCommonPathPrefix } from "./lib/collagen-ts/utils";
 
 	let {
@@ -49,6 +50,16 @@
 		dragOver = false;
 	}
 
+	function getRootFolderName(filenames: string[]) {
+		if (filenames.length === 1) {
+			const filename = normalizedPathJoin(filenames[0]);
+			const parent = filename.match(/(.*)\/.*$/);
+			return parent?.[1] ?? "";
+		} else {
+			return getCommonPathPrefix(filenames);
+		}
+	}
+
 	/**
 	 * Process files and/or a folder from a drag-and-drop operation.
 	 *
@@ -67,8 +78,6 @@
 			console.log("🔄 Processing files from drag & drop...");
 
 			const fileMap = new Map<string, File>();
-
-			let itemNames: string[] = [];
 
 			// Count top-level folders and individual files
 			let topLevelFolders = 0;
@@ -93,7 +102,6 @@
 					const entry = item.webkitGetAsEntry();
 
 					if (entry) {
-						itemNames.push(entry.name);
 						console.log(
 							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
 						);
@@ -112,8 +120,6 @@
 							throw new Error(message);
 						}
 
-						itemNames.push(file.name);
-
 						topLevelFiles++;
 						itemsToProcess.push({ type: "file", data: file });
 					}
@@ -126,14 +132,13 @@
 			// Second pass: process everything asynchronously
 			for (const item of itemsToProcess) {
 				if (item.type === "entry") {
-					await addEntryAndChildrenToMap(item.data, "", fileMap);
+					await addEntryAndChildrenToMap(item.data, fileMap);
 				} else {
-					addFileToMap(item.data, "", fileMap);
+					addFileToMap(item.data, item.data.name, fileMap);
 				}
 			}
 
-			const rootFolderName =
-				itemNames.length <= 1 ? "" : getCommonPathPrefix(itemNames);
+			const rootFolderName = getRootFolderName([...fileMap.keys()]);
 
 			console.log("📊 Raw file data size:", fileMap.size, "files");
 			console.log("📂 Root folder name:", rootFolderName);
@@ -154,12 +159,11 @@
 
 			for (const file of fileList) {
 				// Extract relative path from webkitRelativePath or use file name
-				const path = file.webkitRelativePath ?? file.name;
+				const path = file.webkitRelativePath || file.name;
 				fileMap.set(path, file);
 			}
 
-			const rootFolderName =
-				fileMap.size === 1 ? "" : getCommonPathPrefix([...fileMap.keys()]);
+			const rootFolderName = getRootFolderName([...fileMap.keys()]);
 
 			// For file picker, we're always dealing with individual files
 			nUploadedFiles = fileList.length;
@@ -173,11 +177,10 @@
 
 	function addFileToMap(
 		file: File,
-		path: string,
+		fullPath: string,
 		fileMap: Map<string, File>,
 		resolve?: () => void,
 	) {
-		const fullPath = path ? `${path}/${file.name}` : file.name;
 		console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
 		fileMap.set(fullPath, file);
 		resolve?.();
@@ -185,7 +188,6 @@
 
 	function addEntryAndChildrenToMap(
 		entry: FileSystemEntry,
-		path: string,
 		fileMap: Map<string, File>,
 	) {
 		// entryFile.file uses callbacks, not async, so we have to wrap it in a Promise
@@ -199,10 +201,12 @@
 				}, 1000); // 1 second timeout per file (incredibly generous)
 
 				let entryFile = entry as FileSystemFileEntry;
-				console.log(`📄 Processing file: ${entry.name}`);
+				console.log(
+					`📄 Processing file: ${entry.name} (${entryFile.fullPath})`,
+				);
 				entryFile.file(
 					file => {
-						addFileToMap(file, path, fileMap, () => {
+						addFileToMap(file, entryFile.fullPath, fileMap, () => {
 							clearTimeout(timeout);
 							resolve();
 						});
@@ -233,14 +237,7 @@
 								return;
 							}
 							const handleChildrenPromises = entries.map(childEntry => {
-								const childPath = path
-									? `${path}/${entry.name}`
-									: entry.name;
-								return addEntryAndChildrenToMap(
-									childEntry,
-									childPath,
-									fileMap,
-								);
+								return addEntryAndChildrenToMap(childEntry, fileMap);
 							});
 							Promise.all(handleChildrenPromises)
 								.then(() => {

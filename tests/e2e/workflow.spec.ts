@@ -9,14 +9,17 @@
 
 import { expect, Page } from "@playwright/test";
 import { test } from "./fixtures";
-import { uploadWithDragAndDrop } from "./upload";
+import { uploadProject } from "./upload";
 
 // =============================================================================
 // Complete Workflow Tests
 // =============================================================================
 
 test.describe("Complete User Workflows", () => {
-	test("should handle basic upload workflow", async ({ page }) => {
+	test("should handle basic upload workflow", async ({
+		page,
+		browserName,
+	}) => {
 		// 1. Start with upload interface
 		await expect(
 			page.getByRole("button", { name: /file upload drop zone/i }),
@@ -25,7 +28,7 @@ test.describe("Complete User Workflows", () => {
 			page.getByRole("heading", { name: /upload collagen project/i }),
 		).toBeVisible();
 
-		await uploadWithDragAndDrop(page, "simpleJson");
+		await uploadProject(browserName, page, "simpleJson");
 
 		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
 
@@ -46,9 +49,9 @@ test.describe("Complete User Workflows", () => {
 		).toBeVisible();
 	});
 
-	test("should handle project with assets", async ({ page }) => {
+	test("should handle project with assets", async ({ page, browserName }) => {
 		// Upload project with image assets
-		await uploadWithDragAndDrop(page, "folderWithAssets");
+		await uploadProject(browserName, page, "folderWithAssets");
 
 		// Should show folder upload success
 		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
@@ -69,9 +72,9 @@ test.describe("Complete User Workflows", () => {
 		await expect(svgElement.locator("text")).toContainText("Hello World");
 	});
 
-	test("should handle Jsonnet project", async ({ page }) => {
+	test("should handle Jsonnet project", async ({ page, browserName }) => {
 		// Upload Jsonnet project
-		await uploadWithDragAndDrop(page, "simpleJsonnet");
+		await uploadProject(browserName, page, "simpleJsonnet");
 
 		// Check if Jsonnet was processed successfully or shows appropriate error
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
@@ -85,9 +88,12 @@ test.describe("Complete User Workflows", () => {
 		expect(await rect.getAttribute("fill")).toBe("red");
 	});
 
-	test("should handle error recovery workflow", async ({ page }) => {
+	test("should handle error recovery workflow", async ({
+		page,
+		browserName,
+	}) => {
 		// 1. Upload invalid project that will fail
-		await uploadWithDragAndDrop(page, "malformedJson");
+		await uploadProject(browserName, page, "malformedJson");
 
 		// Should show error message
 		const errorMessage = page
@@ -97,7 +103,7 @@ test.describe("Complete User Workflows", () => {
 		await expect(errorMessage).toContainText(/error|invalid|json|parse/i);
 
 		// 2. Upload valid project to recover (use folder-based project that works)
-		await uploadWithDragAndDrop(page, "folderWithAssets");
+		await uploadProject(browserName, page, "folderWithAssets", false);
 
 		// Error should be cleared and SVG should be displayed
 		// Wait for successful upload before checking error clearing
@@ -119,9 +125,9 @@ test.describe("Complete User Workflows", () => {
 // =============================================================================
 
 test.describe("Interactive Workflows", () => {
-	test.beforeEach(async ({ page }) => {
+	test.beforeEach(async ({ page, browserName }) => {
 		// Set up a project for interaction testing
-		await uploadWithDragAndDrop(page, "simpleJson");
+		await uploadProject(browserName, page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer.locator("svg")).toBeVisible();
 	});
@@ -187,18 +193,18 @@ test.describe("Interactive Workflows", () => {
 		const initialTransform = await svgContent.getAttribute("style");
 
 		// Test keyboard zoom
-		await page.keyboard.press("Equal"); // Zoom in
+		await svgContainer.press("Equal"); // Zoom in
 		await page.waitForTimeout(100);
 		let currentTransform = await svgContent.getAttribute("style");
 		expect(currentTransform).not.toBe(initialTransform);
 
-		await page.keyboard.press("Minus"); // Zoom out
+		await svgContainer.press("Minus"); // Zoom out
 		await page.waitForTimeout(100);
 		currentTransform = await svgContent.getAttribute("style");
 		expect(currentTransform).toBe(initialTransform);
 
 		// Test keyboard pan
-		await page.keyboard.press("ArrowRight");
+		await svgContainer.press("Shift+ArrowRight");
 		await page.waitForTimeout(100);
 		currentTransform = await svgContent.getAttribute("style");
 		expect(currentTransform).not.toBe(initialTransform);
@@ -237,32 +243,29 @@ test.describe("Interactive Workflows", () => {
 		expect(downloadTriggered).toBe(true);
 	});
 
-	test("should support clipboard workflow", async ({ page }) => {
+	test("should support clipboard workflow", async ({
+		page,
+		context,
+		browserName,
+	}) => {
+		test.skip(
+			browserName !== "chromium",
+			"only chromium supports writing to clipboard from tests",
+		);
+		await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+		uploadProject(browserName, page, "simpleJson");
+
 		const copyBtn = page.getByRole("button", { name: /copy.*clipboard/i });
+		await copyBtn.click();
 
-		if (await copyBtn.isVisible()) {
-			// Mock clipboard API
-			await page.evaluate(() => {
-				Object.assign(navigator, {
-					clipboard: {
-						writeText: async (text: string) => {
-							(window as any).clipboardText = text;
-							return Promise.resolve();
-						},
-					},
-				});
-			});
-
-			await copyBtn.click();
-
-			// Verify SVG was copied to clipboard
-			const clipboardText = await page.evaluate(
-				() => (window as any).clipboardText,
-			);
-			expect(clipboardText).toContain("<svg");
-			// simpleJson contains only a rect element, no text content
-			expect(clipboardText).toContain("rect");
-		}
+		// Verify SVG was copied to clipboard
+		const clipboardText = await page.evaluate(() =>
+			navigator.clipboard.readText(),
+		);
+		// is attribute order stable? this appears to use the order the keys are defined in the sample project
+		expect(clipboardText).toBe(
+			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="0" y="0" width="50" height="50" fill="blue"/></svg>',
+		);
 	});
 });
 
@@ -271,15 +274,18 @@ test.describe("Interactive Workflows", () => {
 // =============================================================================
 
 test.describe("Multi-Project Workflows", () => {
-	test("should handle multiple project uploads", async ({ page }) => {
+	test("should handle multiple project uploads", async ({
+		page,
+		browserName,
+	}) => {
 		// Upload first project
-		await uploadWithDragAndDrop(page, "simpleJson");
+		await uploadProject(browserName, page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer.locator("svg")).toBeVisible();
 		// simpleJson project contains only a rect element, no text
 		await expect(svgContainer.locator("rect")).toBeVisible();
 
-		await uploadWithDragAndDrop(page, "folderWithAssets");
+		await uploadProject(browserName, page, "folderWithAssets", false);
 		await expect(svgContainer.locator("svg")).toBeVisible();
 		// folderWithAssets contains "Hello World" text
 		await expect(svgContainer.locator("text")).toContainText("Hello World");
@@ -288,14 +294,14 @@ test.describe("Multi-Project Workflows", () => {
 		await expect(svgContainer.locator("text")).toContainText("Hello World");
 	});
 
-	test("should handle rapid project switching", async ({ page }) => {
+	test("should handle rapid project switching", async ({
+		page,
+		browserName,
+	}) => {
 		// Rapidly switch between projects
 		for (let i = 0; i < 3; i++) {
-			await uploadWithDragAndDrop(page, "simpleJson");
-			await page.waitForTimeout(200);
-
-			await uploadWithDragAndDrop(page, "folderWithAssets");
-			await page.waitForTimeout(200);
+			await uploadProject(browserName, page, "simpleJson", i === 0);
+			await uploadProject(browserName, page, "folderWithAssets", false);
 		}
 
 		// Final state should be stable
@@ -309,21 +315,24 @@ test.describe("Multi-Project Workflows", () => {
 		expect(hasRect || hasText).toBe(true);
 	});
 
-	test("should maintain state after error and recovery", async ({ page }) => {
+	test("should maintain state after error and recovery", async ({
+		page,
+		browserName,
+	}) => {
 		// Upload valid project
-		await uploadWithDragAndDrop(page, "simpleJson");
+		await uploadProject(browserName, page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer.locator("svg")).toBeVisible();
 
 		// Try invalid project
-		await uploadWithDragAndDrop(page, "malformedJson");
+		await uploadProject(browserName, page, "malformedJson", false);
 		const errorMessage = page
 			.getByRole("alert")
 			.or(page.locator(".error-message"));
 		await expect(errorMessage).toBeVisible();
 
 		// Upload valid project again
-		await uploadWithDragAndDrop(page, "folderWithAssets");
+		await uploadProject(browserName, page, "folderWithAssets", false);
 
 		// Should recover completely
 		await expect(errorMessage).not.toBeVisible();
@@ -342,10 +351,13 @@ test.describe("Multi-Project Workflows", () => {
 // =============================================================================
 
 test.describe("Responsive Workflows", () => {
-	test("should work on different screen sizes", async ({ page }) => {
+	test("should work on different screen sizes", async ({
+		page,
+		browserName,
+	}) => {
 		// Test mobile workflow
 		await page.setViewportSize({ width: 375, height: 667 });
-		await uploadWithDragAndDrop(page, "simpleJson");
+		await uploadProject(browserName, page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer.locator("svg")).toBeVisible();
 		await expect(svgContainer).toBeVisible();
@@ -365,7 +377,10 @@ test.describe("Responsive Workflows", () => {
 		await expect(zoomInBtn).toBeVisible();
 	});
 
-	test("should handle touch interactions on mobile", async ({ browser }) => {
+	test("should handle touch interactions on mobile", async ({
+		browser,
+		browserName,
+	}) => {
 		const context = await browser.newContext({
 			hasTouch: true,
 			isMobile: true,
@@ -375,7 +390,7 @@ test.describe("Responsive Workflows", () => {
 
 		await mobilePage.goto("/");
 		await mobilePage.waitForSelector(".drop-zone");
-		await uploadWithDragAndDrop(mobilePage, "simpleJson");
+		await uploadProject(browserName, mobilePage, "simpleJson");
 		const svgContainer = mobilePage.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer.locator("svg")).toBeVisible();
 		if (await svgContainer.isVisible()) {

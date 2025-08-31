@@ -2,252 +2,21 @@
  * Playwright tests for SvgDisplay component
  *
  * Tests SVG rendering, zoom/pan functionality, export features,
- * and interactive controls.
+ * and interactive controls using standard sample projects.
  */
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page, PlaywrightTestArgs } from "@playwright/test";
-import { test as base } from "./fixtures";
-
-// =============================================================================
-// Test Setup and Utilities
-// =============================================================================
-
-type JsonPrimitive = string | number | boolean | null | undefined;
-type JsonObject = JsonPrimitive | JsonObject[] | { [key: string]: JsonObject };
-
-// Common test objects for various test scenarios
-const SIMPLE_OBJECT = {
-	attrs: { viewBox: "0 0 200 150" },
-	children: [
-		{
-			tag: "rect",
-			attrs: {
-				x: 10,
-				y: 10,
-				width: 180,
-				height: 130,
-				fill: "#f0f0f0",
-				stroke: "#333",
-				"stroke-width": 2,
-			},
-		},
-		{ tag: "circle", attrs: { cx: 100, cy: 75, r: 30, fill: "#007bff" } },
-		{
-			tag: "text",
-			attrs: {
-				x: 100,
-				y: 80,
-				"text-anchor": "middle",
-				fill: "white",
-				"font-size": 14,
-			},
-			children: "Test",
-		},
-	],
-};
-
-const COMPLEX_OBJECT = {
-	attrs: { viewBox: "0 0 400 300" },
-	children: [
-		{
-			tag: "defs",
-			children: [
-				{
-					tag: "linearGradient",
-					attrs: {
-						id: "gradient1",
-						x1: "0%",
-						y1: "0%",
-						x2: "100%",
-						y2: "100%",
-					},
-					children: [
-						{
-							tag: "stop",
-							attrs: { offset: "0%", "stop-color": "#ff6b6b" },
-						},
-						{
-							tag: "stop",
-							attrs: { offset: "100%", "stop-color": "#4ecdc4" },
-						},
-					],
-				},
-			],
-		},
-		{
-			tag: "g",
-			attrs: { transform: "translate(50, 50)" },
-			children: [
-				{
-					tag: "rect",
-					attrs: {
-						x: 0,
-						y: 0,
-						width: 300,
-						height: 200,
-						fill: "url(#gradient1)",
-						rx: 10,
-					},
-				},
-				{
-					tag: "circle",
-					attrs: {
-						cx: 150,
-						cy: 100,
-						r: 50,
-						fill: "rgba(255,255,255,0.8)",
-					},
-				},
-				{
-					tag: "path",
-					attrs: {
-						d: "M100,150 Q150,100 200,150 T300,150",
-						stroke: "#333",
-						"stroke-width": 3,
-						fill: "none",
-					},
-				},
-			],
-		},
-	],
-};
-
-const LARGE_OBJECT = {
-	attrs: { viewBox: "0 0 1000 800" },
-	children: Array.from({ length: 100 }, (_, i) => ({
-		tag: "circle",
-		attrs: {
-			cx: (i % 10) * 100 + 50,
-			cy: Math.floor(i / 10) * 80 + 40,
-			r: 30,
-			fill: `hsl(${i * 3.6}, 70%, 50%)`,
-		},
-	})),
-};
-
-const INTERACTIVE_OBJECT = {
-	attrs: { viewBox: "0 0 500 400" },
-	children: [
-		{
-			tag: "rect",
-			attrs: {
-				x: 50,
-				y: 50,
-				width: 400,
-				height: 300,
-				fill: "#e8e8e8",
-				stroke: "#666",
-			},
-		},
-		{
-			tag: "g",
-			attrs: { transform: "translate(250, 200)" },
-			children: [
-				{ tag: "circle", attrs: { cx: 0, cy: 0, r: 80, fill: "#ff6b6b" } },
-				{
-					tag: "circle",
-					attrs: { cx: -30, cy: -20, r: 15, fill: "white" },
-				},
-				{ tag: "circle", attrs: { cx: 30, cy: -20, r: 15, fill: "white" } },
-				{ tag: "circle", attrs: { cx: -30, cy: -20, r: 8, fill: "black" } },
-				{ tag: "circle", attrs: { cx: 30, cy: -20, r: 8, fill: "black" } },
-				{
-					tag: "path",
-					attrs: {
-						d: "M-30,30 Q0,50 30,30",
-						stroke: "black",
-						"stroke-width": 3,
-						fill: "none",
-					},
-				},
-			],
-		},
-	],
-};
-
-async function dragAndDropFile(
-	page: Page,
-	{
-		filename,
-		content,
-		mimeType,
-	}: { filename: string; content: string; mimeType: string },
-) {
-	// Create the mock file and simulate drag-and-drop using the same method as workflow tests
-	await page.evaluate(
-		({ content, filename, mimeType }) => {
-			const file = new File([content], filename, { type: mimeType });
-			window.mockProjectFiles = { [filename]: file };
-		},
-		{ content, filename, mimeType },
-	);
-
-	// Simulate drag and drop using the working pattern from workflow.spec.ts
-	await page.evaluate(() => {
-		const dropZone = document.querySelector(
-			'[role="button"][aria-label*="upload"], .drop-zone',
-		);
-		if (dropZone && window.mockProjectFiles) {
-			// Create mock DataTransferItemList
-			const files = window.mockProjectFiles;
-			const fileKeys = Object.keys(files);
-
-			// Create a mock DataTransfer with the files
-			const mockItems = fileKeys.map(key => {
-				const file = files[key];
-				return {
-					kind: "file",
-					type: file.type,
-					getAsFile: () => file, // This method was missing!
-					webkitGetAsEntry: () => ({
-						name: key,
-						isDirectory: false,
-						isFile: true,
-						file: (success: (f: File) => void) => success(file),
-					}),
-				};
-			});
-
-			// Create mock drag event
-			const dragEvent = new DragEvent("drop", {
-				bubbles: true,
-				cancelable: true,
-			});
-
-			// Add mock dataTransfer
-			Object.defineProperty(dragEvent, "dataTransfer", {
-				value: { items: mockItems },
-			});
-
-			dropZone.dispatchEvent(dragEvent);
-		}
-	});
-}
-
-const test = base.extend<PlaywrightTestArgs & { object: JsonObject }>({
-	object: [SIMPLE_OBJECT, { option: true }],
-	page: async ({ page, object }, use) => {
-		await dragAndDropFile(page, {
-			content: JSON.stringify(object),
-			filename: "collagen.json",
-			mimeType: "application/json",
-		});
-
-		await page.waitForSelector(".svg-section, .error-message");
-
-		await use(page);
-	},
-});
+import { expect } from "@playwright/test";
+import { test } from "./fixtures";
+import { uploadProject } from "./upload";
 
 // =============================================================================
 // Basic SvgDisplay Tests
 // =============================================================================
 
 test.describe("SvgDisplay Component", () => {
-	// `setup` is the `test` fixture before we drag and drop onto the drop zone
-	base("should not display initially without SVG", async ({ page }) => {
+	test("should not display initially without SVG", async ({ page }) => {
 		// SVG display section should not be visible initially
 		const svgSection = page.getByRole("region", {
 			name: /generated svg display/i,
@@ -255,24 +24,43 @@ test.describe("SvgDisplay Component", () => {
 		await expect(svgSection).not.toBeVisible();
 	});
 
-	test.describe("with simple object", () => {
-		test.use({ object: SIMPLE_OBJECT });
+	test("should display SVG when provided", async ({ page, browserName }) => {
+		// Upload a simple JSON project
+		await uploadProject(browserName, page, "simpleJson");
 
-		test("should display SVG when provided", async ({ page, object }) => {
-			// SVG container should be visible
-			const svgContainer = page.locator(".svg-container");
-			await expect(svgContainer).toBeVisible();
+		// SVG container should be visible
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).toBeVisible();
 
-			// SVG element should be present
-			const svgElement = page.locator("svg");
-			await expect(svgElement).toBeVisible();
-			await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 150");
+		// SVG element should be present with correct attributes
+		const svgElement = svgContainer.locator("svg");
+		await expect(svgElement).toBeVisible();
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
 
-			// Verify content elements are present
-			await expect(page.locator("rect")).toBeVisible();
-			await expect(page.locator("circle")).toBeVisible();
-			await expect(page.locator("text")).toBeVisible();
-		});
+		// Verify content elements are present (simpleJson has a blue rect)
+		await expect(svgElement.locator("rect")).toBeVisible();
+		const rect = svgElement.locator("rect");
+		await expect(rect).toHaveAttribute("fill", "blue");
+	});
+
+	test("should display complex SVG with multiple elements", async ({
+		page,
+		browserName,
+	}) => {
+		// Upload project with assets (has image and text)
+		await uploadProject(browserName, page, "folderWithAssets");
+
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).toBeVisible();
+
+		const svgElement = svgContainer.locator("svg");
+		await expect(svgElement).toBeVisible();
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 200");
+
+		// Verify multiple element types are present
+		await expect(svgElement.locator("image")).toBeVisible();
+		await expect(svgElement.locator("text")).toBeVisible();
+		await expect(svgElement.locator("text")).toContainText("Hello World");
 	});
 });
 
@@ -281,9 +69,14 @@ test.describe("SvgDisplay Component", () => {
 // =============================================================================
 
 test.describe("SVG Controls", () => {
-	test.use({ object: SIMPLE_OBJECT });
+	test.beforeEach(async ({ page, browserName }) => {
+		// Set up with simple JSON project for control testing
+		await uploadProject(browserName, page, "simpleJson");
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+	});
 
-	test("should display control buttons", async ({ page, object }) => {
+	test("should display control buttons", async ({ page }) => {
 		// Check all control buttons are present
 		await expect(
 			page.getByRole("button", { name: /zoom in.*keyboard/i }),
@@ -313,9 +106,9 @@ test.describe("SVG Controls", () => {
 		).toHaveAttribute("title", "Download SVG (Keyboard: S)");
 	});
 
-	test("should handle zoom in action", async ({ page, object }) => {
+	test("should handle zoom in action", async ({ page }) => {
 		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
-		const svgContent = page.getByRole("img", { name: /generated svg/i });
+		const svgContent = page.getByLabel("SVG content");
 
 		const initialTransform = await svgContent.getAttribute("style");
 
@@ -326,31 +119,44 @@ test.describe("SVG Controls", () => {
 		expect(initialTransform).not.toBe(finalTransform);
 	});
 
-	test("should handle zoom out action", async ({ page, object }) => {
-		const zoomOutBtn = page.getByRole("button", { name: /zoom out/i });
-		const svgContainer = page.getByRole("img", { name: /generated svg/i });
+	test("should handle zoom out action", async ({ page }) => {
+		const zoomOutBtn = page.getByLabel(
+			"Zoom out, keyboard shortcut minus key",
+		);
+		const svgContent = page.getByLabel("SVG content");
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Initial zoom should be 100%
+		await expect(zoomLevel).toContainText("100%");
 
 		// Get initial transform
-		const initialTransform = await svgContainer.getAttribute("style");
+		const initialTransform = await svgContent.getAttribute("style");
 
 		// Click zoom out
 		await zoomOutBtn.click();
 		await page.waitForTimeout(100);
 
 		// Transform should change (scale should decrease)
-		const finalTransform = await svgContainer.getAttribute("style");
+		const finalTransform = await svgContent.getAttribute("style");
 		expect(initialTransform).not.toBe(finalTransform);
+		await expect(zoomLevel).toContainText("83%"); // 100% / 1.2 = 83%
 	});
 
-	test("should handle reset view action", async ({ page, object }) => {
-		const svgContent = page.getByRole("img", { name: /generated svg/i });
-		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
-		const resetBtn = page.getByRole("button", { name: /reset view/i });
+	test("should handle reset view action", async ({ page }) => {
+		const svgContent = page.getByLabel("SVG content");
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		const resetBtn = page.getByLabel(
+			"Reset view, keyboard shortcut zero key",
+		);
+		const zoomLevel = page.locator(".zoom-level");
 
 		// Click zoom in twice to change the scale
 		await zoomInBtn.click();
 		await zoomInBtn.click();
 		await page.waitForTimeout(100);
+
+		// Verify zoom level changed
+		await expect(zoomLevel).toContainText("144%"); // 100% * 1.2 * 1.2 = 144%
 
 		// Get the modified transform
 		const modifiedTransform = await svgContent.getAttribute("style");
@@ -359,27 +165,29 @@ test.describe("SVG Controls", () => {
 		await resetBtn.click();
 		await page.waitForTimeout(100);
 
-		// Should reset to different transform
+		// Should reset to 100% and different transform
+		await expect(zoomLevel).toContainText("100%");
 		const resetTransform = await svgContent.getAttribute("style");
 		expect(resetTransform).not.toBe(modifiedTransform);
 	});
 
-	test("should handle export action", async ({ page, object }) => {
-		const exportBtn = page.getByRole("button", { name: /export svg/i });
+	test("should handle export action and show toast", async ({ page }) => {
+		const exportBtn = page.getByLabel(
+			"Download SVG file, keyboard shortcut S key",
+		);
 
 		// Mock download functionality
 		await page.evaluate(() => {
-			window.downloadTriggered = false;
+			(window as any).downloadTriggered = false;
 			const originalCreateElement = document.createElement.bind(document);
 			document.createElement = function (tagName: string) {
 				const element = originalCreateElement(tagName);
 				if (tagName === "a") {
 					const anchor = element as HTMLAnchorElement;
-					const originalClick = anchor.click.bind(anchor);
 					anchor.click = function () {
-						window.downloadTriggered = true;
-						window.downloadHref = anchor.href;
-						window.downloadFilename = anchor.download;
+						(window as any).downloadTriggered = true;
+						(window as any).downloadHref = anchor.href;
+						(window as any).downloadFilename = anchor.download;
 					};
 				}
 				return element;
@@ -392,17 +200,150 @@ test.describe("SVG Controls", () => {
 
 		// Check if download was triggered
 		const downloadTriggered = await page.evaluate(
-			() => window.downloadTriggered,
+			() => (window as any).downloadTriggered,
 		);
-		if (downloadTriggered) {
-			const downloadHref = await page.evaluate(() => window.downloadHref);
-			const downloadFilename = await page.evaluate(
-				() => window.downloadFilename,
-			);
+		expect(downloadTriggered).toBe(true);
 
-			expect(downloadHref).toContain("data:image/svg+xml");
-			expect(downloadFilename).toContain(".svg");
-		}
+		const downloadHref = await page.evaluate(
+			() => (window as any).downloadHref,
+		);
+		const downloadFilename = await page.evaluate(
+			() => (window as any).downloadFilename,
+		);
+
+		// Should be either data URL or blob URL
+		expect(downloadHref).toMatch(/(data:image\/svg\+xml|blob:)/);
+		expect(downloadFilename).toBe("collagen-output.svg");
+
+		// Should show toast notification
+		const toast = page.locator(".toast").first();
+		await expect(toast).toBeVisible();
+		await expect(toast).toContainText("SVG downloaded");
+	});
+
+	test("should handle copy to clipboard action", async ({ page }) => {
+		const copyBtn = page.getByLabel(
+			"Copy SVG to clipboard, keyboard shortcut C key",
+		);
+
+		// Mock clipboard API
+		await page.evaluate(() => {
+			(window as any).clipboardData = "";
+			// Define a custom clipboard object
+			Object.defineProperty(navigator, "clipboard", {
+				value: {
+					writeText: (text: string) => {
+						(window as any).clipboardData = text;
+						return Promise.resolve();
+					},
+				},
+				configurable: true,
+				writable: true,
+			});
+		});
+
+		// Click copy
+		await copyBtn.click();
+		await page.waitForTimeout(100);
+
+		// Check clipboard content
+		const clipboardData = await page.evaluate(
+			() => (window as any).clipboardData,
+		);
+		expect(clipboardData).toContain("<svg");
+		expect(clipboardData).toContain('viewBox="0 0 100 100"');
+
+		// Should show success toast
+		const toast = page.locator(".toast").first();
+		await expect(toast).toBeVisible();
+		await expect(toast).toContainText("SVG copied to clipboard");
+	});
+
+	test("should handle clipboard copy error", async ({ page }) => {
+		const copyBtn = page.getByLabel(
+			"Copy SVG to clipboard, keyboard shortcut C key",
+		);
+
+		// Mock clipboard API to fail
+		await page.evaluate(() => {
+			// Define a custom clipboard object that fails
+			Object.defineProperty(navigator, "clipboard", {
+				value: {
+					writeText: () => {
+						return Promise.reject(new Error("Clipboard access denied"));
+					},
+				},
+				configurable: true,
+				writable: true,
+			});
+		});
+
+		// Click copy
+		await copyBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should show error toast
+		const toast = page.locator(".toast").first();
+		await expect(toast).toBeVisible();
+		await expect(toast).toContainText("Failed to copy SVG to clipboard");
+		await expect(toast).toHaveClass(/toast-error/);
+	});
+
+	test("should toggle code view", async ({ page }) => {
+		const toggleBtn = page.getByLabel(
+			"Toggle between preview and code view, keyboard shortcut V key",
+		);
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+
+		// Initially should show SVG viewer
+		await expect(svgContainer).toBeVisible();
+
+		// Click toggle to show raw SVG
+		await toggleBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should show raw SVG code
+		const rawSvg = page.locator(".raw-svg");
+		await expect(rawSvg).toBeVisible();
+		await expect(rawSvg.locator("code")).toContainText("<svg");
+		await expect(svgContainer).not.toBeVisible();
+
+		// Toggle back to preview
+		await toggleBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should show SVG viewer again
+		await expect(svgContainer).toBeVisible();
+		await expect(rawSvg).not.toBeVisible();
+	});
+
+	test("should toggle usage instructions", async ({ page }) => {
+		const helpBtn = page.getByLabel(
+			"Toggle usage instructions, keyboard shortcut question mark key",
+		);
+		const instructions = page.locator(
+			".instructions[aria-label='Usage instructions']",
+		);
+
+		// Initially instructions should not be visible
+		await expect(instructions).not.toBeVisible();
+
+		// Click to show instructions
+		await helpBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should show instructions
+		await expect(instructions).toBeVisible();
+		await expect(instructions).toContainText("How to Use the SVG Viewer");
+		await expect(instructions).toContainText("Zoom & Pan");
+		await expect(instructions).toContainText("Actions");
+
+		// Toggle off
+		await helpBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should hide instructions
+		await expect(instructions).not.toBeVisible();
 	});
 });
 
@@ -411,15 +352,23 @@ test.describe("SVG Controls", () => {
 // =============================================================================
 
 test.describe("Interactive Features", () => {
-	test.use({ object: INTERACTIVE_OBJECT });
-
-	test("should handle mouse pan interaction", async ({ page, object }) => {
+	test.beforeEach(async ({ page, browserName }) => {
+		// Use project with assets for more interactive elements
+		await uploadProject(browserName, page, "folderWithAssets");
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+	});
+
+	test("should handle mouse pan interaction", async ({ page }) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgContent = page.getByLabel("SVG content");
 
 		// Get initial transform
-		const initialTransform = await svgContainer.getAttribute("style");
+		const initialTransform = await svgContent.getAttribute("style");
 
-		// Simulate pan gesture
+		// Simulate pan gesture on the container (which handles events)
 		await svgContainer.hover();
 		await page.mouse.down();
 		await page.mouse.move(100, 50); // Move 100px right, 50px down
@@ -428,36 +377,71 @@ test.describe("Interactive Features", () => {
 		// Wait for interaction
 		await page.waitForTimeout(100);
 
-		// Transform should have changed
-		const newTransform = await svgContainer.getAttribute("style");
+		// Transform should have changed (applied to svg-content)
+		const newTransform = await svgContent.getAttribute("style");
 		expect(newTransform).not.toBe(initialTransform);
+		// Verify the transform includes translation
+		expect(newTransform).toContain("translate");
 	});
 
-	test("should handle wheel zoom interaction", async ({
+	test("should handle wheel zoom with Ctrl key", async ({
 		page,
-		object,
 		isMobile,
 	}) => {
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-
-		// Get initial scale
-		const initialTransform = await svgContainer.getAttribute("style");
-
-		// Simulate wheel zoom
-		await svgContainer.hover();
 		if (!isMobile) {
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
+			const svgContent = page.getByLabel("SVG content");
+			const zoomLevel = page.locator(".zoom-level");
+
+			// Initial zoom should be 100%
+			await expect(zoomLevel).toContainText("100%");
+
+			// Get initial scale
+			const initialTransform = await svgContent.getAttribute("style");
+
+			// Simulate Ctrl+wheel zoom on the container
+			await svgContainer.hover();
+			await page.keyboard.down("Control");
 			await page.mouse.wheel(0, -100); // Zoom in
+			await page.keyboard.up("Control");
+
+			// Wait for interaction
+			await page.waitForTimeout(100);
+
+			// Transform should reflect zoom and zoom level should increase
+			const newTransform = await svgContent.getAttribute("style");
+			expect(newTransform).not.toBe(initialTransform);
+			expect(newTransform).toContain("scale");
 		}
-
-		// Wait for interaction
-		await page.waitForTimeout(100);
-
-		// Transform should reflect zoom
-		const newTransform = await svgContainer.getAttribute("style");
-		expect(newTransform).not.toBe(initialTransform);
 	});
 
-	test("should change cursor during pan", async ({ page, object }) => {
+	test("should not zoom without Ctrl key", async ({ page, isMobile }) => {
+		if (!isMobile) {
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
+			const svgContent = page.getByLabel("SVG content");
+			const zoomLevel = page.locator(".zoom-level");
+
+			// Initial zoom should be 100%
+			await expect(zoomLevel).toContainText("100%");
+
+			// Get initial scale
+			const initialTransform = await svgContent.getAttribute("style");
+
+			// Simulate wheel without Ctrl (should not zoom)
+			await svgContainer.hover();
+			await page.mouse.wheel(0, -100);
+
+			// Wait for potential interaction
+			await page.waitForTimeout(100);
+
+			// Transform and zoom level should remain unchanged
+			const newTransform = await svgContent.getAttribute("style");
+			expect(initialTransform).toBe(newTransform);
+			await expect(zoomLevel).toContainText("100%");
+		}
+	});
+
+	test("should change cursor during pan", async ({ page }) => {
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 
 		// Initial cursor should be grab
@@ -467,40 +451,100 @@ test.describe("Interactive Features", () => {
 		await svgContainer.hover();
 		await page.mouse.down();
 
-		// Cursor should change (in real implementation)
+		// Wait for cursor change
 		await page.waitForTimeout(50);
 
+		// Cursor should be grabbing during drag
+		await expect(svgContainer).toHaveCSS("cursor", "grabbing");
+
 		await page.mouse.up();
+
+		// Wait for cursor to revert
+		await page.waitForTimeout(50);
 
 		// Cursor should return to grab
 		await expect(svgContainer).toHaveCSS("cursor", "grab");
 	});
 
-	test("should handle keyboard navigation", async ({ page, object }) => {
+	test("should handle keyboard shortcuts globally", async ({ page }) => {
+		const svgContent = page.getByLabel("SVG content");
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Global shortcuts should work without focus
+		const initialTransform = await svgContent.getAttribute("style");
+		await expect(zoomLevel).toContainText("100%");
+
+		// Test global zoom shortcuts (+ and -)
+		await page.keyboard.press("Equal"); // Zoom in
+		await page.waitForTimeout(100);
+		await expect(zoomLevel).toContainText("120%");
+
+		await page.keyboard.press("Minus"); // Zoom out
+		await page.waitForTimeout(100);
+		await expect(zoomLevel).toContainText("100%");
+
+		// Test reset shortcut
+		await page.keyboard.press("Equal"); // Zoom in first
+		await page.keyboard.press("0"); // Reset
+		await page.waitForTimeout(100);
+		await expect(zoomLevel).toContainText("100%");
+
+		// Test view toggle shortcut
+		await page.keyboard.press("v");
+		await page.waitForTimeout(100);
+		const rawSvg = page.locator(".raw-svg");
+		await expect(rawSvg).toBeVisible();
+
+		// Toggle back
+		await page.keyboard.press("v");
+		await page.waitForTimeout(100);
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).toBeVisible();
+	});
+
+	test("should handle focus-required pan shortcuts", async ({ page }) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgContent = page.getByLabel("SVG content");
+
+		// Focus the container first
+		await svgContainer.focus();
+		await expect(svgContainer).toBeFocused();
+
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Test Shift+arrow key pan (focus required)
+		await page.keyboard.press("Shift+ArrowRight");
+		await page.keyboard.press("Shift+ArrowDown");
+		await page.waitForTimeout(100);
+
+		// Transform should have changed (pan applied)
+		const panTransform = await svgContent.getAttribute("style");
+		expect(panTransform).not.toBe(initialTransform);
+		expect(panTransform).toContain("translate");
+	});
+
+	test("should not pan without focus", async ({ page }) => {
+		const svgContent = page.getByLabel("SVG content");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 
-		// Focus the container
-		await svgContainer.focus();
-
-		// Test arrow key navigation
-		await page.keyboard.press("ArrowRight");
-		await page.keyboard.press("ArrowDown");
-
-		// Wait for movement
+		// Ensure nothing is focused by clicking elsewhere
+		await page.locator("body").click();
 		await page.waitForTimeout(100);
 
-		// Plus/minus for zoom
-		await page.keyboard.press("Equal"); // Zoom in
-		await page.keyboard.press("Minus"); // Zoom out
+		// Verify container is not focused
+		await expect(svgContainer).not.toBeFocused();
 
-		// Wait for zoom
+		// Get initial transform
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Try to pan without focus (should not work)
+		await page.keyboard.press("Shift+ArrowRight");
+		await page.keyboard.press("Shift+ArrowDown");
 		await page.waitForTimeout(100);
 
-		// Space to reset
-		await page.keyboard.press("Space");
-
-		// Wait for reset
-		await page.waitForTimeout(100);
+		// Transform should remain unchanged
+		const unchangedTransform = await svgContent.getAttribute("style");
+		expect(unchangedTransform).toBe(initialTransform);
 	});
 });
 
@@ -509,81 +553,163 @@ test.describe("Interactive Features", () => {
 // =============================================================================
 
 test.describe("Complex SVG Handling", () => {
-	test.describe("large dimensions", () => {
-		test.use({
-			object: {
-				attrs: { viewBox: "0 0 10000 8000" },
-				children: [
-					{
-						tag: "rect",
-						attrs: {
-							x: 0,
-							y: 0,
-							width: 10000,
-							height: 8000,
-							fill: "#f0f0f0",
-						},
-					},
-					{
-						tag: "circle",
-						attrs: { cx: 5000, cy: 4000, r: 1000, fill: "red" },
-					},
-				],
-			},
-		});
+	test("should handle multiple elements without performance issues", async ({
+		page,
+		browserName,
+	}) => {
+		// Use project with multiple files which creates multiple elements
+		await uploadProject(browserName, page, "multipleFilesValid");
 
-		test("should handle very large SVG dimensions", async ({
-			page,
-			object,
-		}) => {
-			// Large SVG should still be visible and interactable
-			const svgElement = page.locator("svg");
-			await expect(svgElement).toBeVisible();
-			await expect(svgElement).toHaveAttribute("viewBox", "0 0 10000 8000");
-		});
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+
+		// Should handle elements without performance issues
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgElement = svgContainer.locator("svg");
+		await expect(svgElement).toBeVisible();
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 150 150");
+
+		// Should contain the circle from multipleFilesValid
+		const circle = svgElement.locator("circle");
+		await expect(circle).toBeVisible();
+		await expect(circle).toHaveAttribute("fill", "purple");
+
+		// Interactive controls should still work with multiple elements
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		await zoomInBtn.click();
+		await page.waitForTimeout(100);
+
+		const zoomLevel = page.locator(".zoom-level");
+		await expect(zoomLevel).toContainText("120%");
 	});
 
-	test.describe("many elements", () => {
-		test.use({ object: LARGE_OBJECT });
+	test("should handle malformed content gracefully", async ({
+		page,
+		browserName,
+	}) => {
+		// Upload malformed JSON project
+		await uploadProject(browserName, page, "malformedJson");
 
-		test("should handle SVG with many elements", async ({ page, object }) => {
-			// Should handle many elements without performance issues
-			const svgElement = page.locator("svg");
-			await expect(svgElement).toBeVisible();
+		// Should show error message instead of success
+		const errorMessage = page
+			.getByRole("alert")
+			.or(page.locator(".error-message"));
+		await expect(errorMessage).toBeVisible();
+		await expect(errorMessage).toContainText(/error|invalid|json|parse/i);
 
-			// Count circles
-			const circles = page.locator("circle");
-			await expect(circles).toHaveCount(100);
-		});
+		// SVG should not be visible when there's an error
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).not.toBeVisible();
 	});
 
-	test.describe("malformed content", () => {
-		test.use({
-			object: {
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{
-						tag: "rect",
-						attrs: { x: 10, y: 10, width: 80, height: 80, fill: "blue" },
-					},
-					{ tag: "circle", attrs: { cx: 50, cy: 50, r: 20, fill: "red" } },
-				],
-			},
-		});
+	test("should handle projects with different viewBox dimensions", async ({
+		page,
+		browserName,
+	}) => {
+		// Test with folderWithAssets which has 200x200 viewBox
+		await uploadProject(browserName, page, "folderWithAssets");
 
-		test("should handle malformed content gracefully", async ({
-			page,
-			object,
-		}) => {
-			// Should still render the valid parts
-			const svgElement = page.locator("svg");
-			await expect(svgElement).toBeVisible();
-			await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
 
-			// Should contain the valid elements
-			await expect(page.locator("rect")).toBeVisible();
-			await expect(page.locator("circle")).toBeVisible();
-		});
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgElement = svgContainer.locator("svg");
+		await expect(svgElement).toBeVisible();
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 200");
+
+		// Should still be interactive with larger viewBox
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		await zoomInBtn.click();
+		await page.waitForTimeout(100);
+
+		// Zoom controls should work with any viewBox size
+		const zoomLevel = page.locator(".zoom-level");
+		await expect(zoomLevel).toContainText("120%");
+
+		// Pan should work with different viewBox sizes
+		const svgContent = page.getByLabel("SVG content");
+		const initialTransform = await svgContent.getAttribute("style");
+
+		await svgContainer.hover();
+		await page.mouse.down();
+		await page.mouse.move(50, 30);
+		await page.mouse.up();
+		await page.waitForTimeout(100);
+
+		const newTransform = await svgContent.getAttribute("style");
+		expect(newTransform).not.toBe(initialTransform);
+	});
+
+	test("should handle rapid interactions without breaking state", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, "simpleJson");
+
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		const zoomOutBtn = page.getByLabel(
+			"Zoom out, keyboard shortcut minus key",
+		);
+		const resetBtn = page.getByLabel(
+			"Reset view, keyboard shortcut zero key",
+		);
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Rapid clicking should not break state
+		await zoomInBtn.click();
+		await zoomInBtn.click();
+		await zoomOutBtn.click();
+		await zoomInBtn.click();
+		await resetBtn.click();
+		await page.waitForTimeout(100);
+
+		// Should end up at 100% after reset
+		await expect(zoomLevel).toContainText("100%");
+
+		// Controls should still be responsive
+		await zoomInBtn.click();
+		await page.waitForTimeout(50);
+		await expect(zoomLevel).toContainText("120%");
+	});
+
+	test("should maintain state after toggling between views", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, "simpleJson");
+
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		const toggleBtn = page.getByLabel(
+			"Toggle between preview and code view, keyboard shortcut V key",
+		);
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Zoom in first
+		await zoomInBtn.click();
+		await zoomInBtn.click();
+		await page.waitForTimeout(100);
+		await expect(zoomLevel).toContainText("144%");
+
+		// Toggle to code view
+		await toggleBtn.click();
+		await page.waitForTimeout(100);
+		const rawSvg = page.locator(".raw-svg");
+		await expect(rawSvg).toBeVisible();
+
+		// Toggle back to preview
+		await toggleBtn.click();
+		await page.waitForTimeout(100);
+
+		// Zoom level should be maintained
+		await expect(zoomLevel).toContainText("144%");
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).toBeVisible();
 	});
 });
 
@@ -592,108 +718,310 @@ test.describe("Complex SVG Handling", () => {
 // =============================================================================
 
 test.describe("Responsive and Accessibility", () => {
-	test.use({ object: SIMPLE_OBJECT });
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, "simpleJson");
+		// Verify upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+	});
 
-	test("should be responsive on different screen sizes", async ({
-		page,
-		object,
-	}) => {
+	test("should be responsive on different screen sizes", async ({ page }) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgElement = svgContainer.locator("svg");
+
 		// Test desktop
 		await page.setViewportSize({ width: 1200, height: 800 });
-		const svgDisplay = page.getByRole("region", { name: /svg display/i });
-		await expect(svgDisplay).toBeVisible();
+		await expect(svgContainer).toBeVisible();
+		await expect(svgElement).toBeVisible();
 
 		// Test tablet
 		await page.setViewportSize({ width: 768, height: 1024 });
-		await expect(svgDisplay).toBeVisible();
+		await expect(svgContainer).toBeVisible();
+		await expect(svgElement).toBeVisible();
 
 		// Test mobile
 		await page.setViewportSize({ width: 375, height: 667 });
-		await expect(svgDisplay).toBeVisible();
-
-		// SVG should remain visible at all sizes
-		const svgElement = page.locator("svg");
+		await expect(svgContainer).toBeVisible();
 		await expect(svgElement).toBeVisible();
 	});
 
-	test("should have proper ARIA labels", async ({ page, object }) => {
-		// Check control buttons have ARIA labels
+	test("should have proper ARIA labels and descriptions", async ({ page }) => {
+		// Check all control buttons have proper aria-labels
 		await expect(
-			page.getByRole("button", { name: /zoom in/i }),
-		).toHaveAttribute("title", "Zoom In");
+			page.getByLabel("Zoom in, keyboard shortcut plus key"),
+		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /zoom out/i }),
-		).toHaveAttribute("title", "Zoom Out");
+			page.getByLabel("Zoom out, keyboard shortcut minus key"),
+		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /reset view/i }),
-		).toHaveAttribute("title", "Reset View");
+			page.getByLabel("Reset view, keyboard shortcut zero key"),
+		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /export svg/i }),
-		).toHaveAttribute("title", "Export SVG");
+			page.getByLabel("Download SVG file, keyboard shortcut S key"),
+		).toBeVisible();
+		await expect(
+			page.getByLabel("Copy SVG to clipboard, keyboard shortcut C key"),
+		).toBeVisible();
+		await expect(
+			page.getByLabel(
+				"Toggle between preview and code view, keyboard shortcut V key",
+			),
+		).toBeVisible();
+		await expect(
+			page.getByLabel(
+				"Toggle usage instructions, keyboard shortcut question mark key",
+			),
+		).toBeVisible();
 
-		// SVG container should have proper label
+		// SVG container should have proper label and describedby
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await expect(svgContainer).toBeVisible();
+		await expect(svgContainer).toHaveAttribute(
+			"aria-describedby",
+			"svg-controls-description",
+		);
+
+		// SVG content should have proper role and label
+		const svgContent = page.getByLabel("SVG content");
+		await expect(svgContent).toHaveAttribute("role", "img");
+
+		// Control toolbar should have proper role and label
+		const toolbar = page.getByRole("toolbar", {
+			name: "SVG viewer controls",
+		});
+		await expect(toolbar).toBeVisible();
+
+		// Check hidden description for screen readers
+		const description = page.locator("#svg-controls-description");
+		await expect(description).toBeAttached(); // Hidden but in DOM
+		await expect(description).toContainText("Keyboard controls");
 	});
 
-	test("should be keyboard accessible", async ({ page, object }) => {
-		// Tab through controls
-		await page.keyboard.press("Tab"); // Focus first control
-		await expect(
-			page.getByRole("button", { name: /zoom in/i }),
-		).toBeFocused();
+	test("should be keyboard accessible with focusable elements", async ({
+		page,
+	}) => {
+		// Test that all controls can be focused directly
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		await zoomInBtn.focus();
+		await expect(zoomInBtn).toBeFocused();
 
-		await page.keyboard.press("Tab"); // Next control
-		await expect(
-			page.getByRole("button", { name: /zoom out/i }),
-		).toBeFocused();
+		const zoomOutBtn = page.getByLabel(
+			"Zoom out, keyboard shortcut minus key",
+		);
+		await zoomOutBtn.focus();
+		await expect(zoomOutBtn).toBeFocused();
 
-		await page.keyboard.press("Tab"); // Next control
-		await expect(
-			page.getByRole("button", { name: /reset view/i }),
-		).toBeFocused();
+		const resetBtn = page.getByLabel(
+			"Reset view, keyboard shortcut zero key",
+		);
+		await resetBtn.focus();
+		await expect(resetBtn).toBeFocused();
 
-		await page.keyboard.press("Tab"); // Next control
-		await expect(
-			page.getByRole("button", { name: /export svg/i }),
-		).toBeFocused();
+		const copyBtn = page.getByLabel(
+			"Copy SVG to clipboard, keyboard shortcut C key",
+		);
+		await copyBtn.focus();
+		await expect(copyBtn).toBeFocused();
 
-		await page.keyboard.press("Tab"); // SVG container
+		const downloadBtn = page.getByLabel(
+			"Download SVG file, keyboard shortcut S key",
+		);
+		await downloadBtn.focus();
+		await expect(downloadBtn).toBeFocused();
+
+		// Test SVG container can be focused
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeFocused();
-	});
-
-	test("should support keyboard shortcuts", async ({ page, object }) => {
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-
-		// Focus the SVG container
 		await svgContainer.focus();
-
-		// Test keyboard shortcuts
-		await page.keyboard.press("Equal"); // Zoom in
-		await page.keyboard.press("Minus"); // Zoom out
-		await page.keyboard.press("0"); // Reset zoom
-		await page.keyboard.press("ArrowLeft"); // Pan left
-		await page.keyboard.press("ArrowRight"); // Pan right
-		await page.keyboard.press("ArrowUp"); // Pan up
-		await page.keyboard.press("ArrowDown"); // Pan down
-
-		// Each action should be handled (implementation specific)
+		await expect(svgContainer).toBeFocused();
+		await expect(svgContainer).toHaveAttribute("tabindex", "0");
 	});
 
-	test("should have proper focus indicators", async ({ page, object }) => {
+	test("should support Enter key activation on buttons", async ({ page }) => {
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Focus and activate with Enter
+		await zoomInBtn.focus();
+		await expect(zoomInBtn).toBeFocused();
+		await expect(zoomLevel).toContainText("100%");
+
+		await page.keyboard.press("Enter");
+		await page.waitForTimeout(100);
+
+		// Should zoom in
+		await expect(zoomLevel).toContainText("120%");
+	});
+
+	test("should support Space key activation on buttons", async ({ page }) => {
+		const zoomOutBtn = page.getByLabel(
+			"Zoom out, keyboard shortcut minus key",
+		);
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Focus and activate with Space
+		await zoomOutBtn.focus();
+		await expect(zoomOutBtn).toBeFocused();
+		await expect(zoomLevel).toContainText("100%");
+
+		await page.keyboard.press(" "); // Space key
+		await page.waitForTimeout(100);
+
+		// Should zoom out
+		await expect(zoomLevel).toContainText("83%");
+	});
+
+	test("should support all documented keyboard shortcuts", async ({
+		page,
+	}) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const zoomLevel = page.locator(".zoom-level");
+
+		// Test global shortcuts (work without focus)
+		await expect(zoomLevel).toContainText("100%");
+
+		// Test + and = keys for zoom in
+		await page.keyboard.press("+");
+		await page.waitForTimeout(50);
+		await expect(zoomLevel).toContainText("120%");
+
+		await page.keyboard.press("="); // Also zoom in
+		await page.waitForTimeout(50);
+		await expect(zoomLevel).toContainText("144%");
+
+		// Test - key for zoom out
+		await page.keyboard.press("-");
+		await page.waitForTimeout(50);
+		await expect(zoomLevel).toContainText("120%");
+
+		// Test 0 for reset
+		await page.keyboard.press("0");
+		await page.waitForTimeout(50);
+		await expect(zoomLevel).toContainText("100%");
+
+		// Test view toggles
+		await page.keyboard.press("v"); // Toggle code view
+		await page.waitForTimeout(100);
+		const rawSvg = page.locator(".raw-svg");
+		await expect(rawSvg).toBeVisible();
+
+		await page.keyboard.press("V"); // Case insensitive
+		await page.waitForTimeout(100);
+		await expect(svgContainer).toBeVisible();
+
+		// Test help toggle
+		await page.keyboard.press("?");
+		await page.waitForTimeout(100);
+		const instructions = page.locator(
+			".instructions[aria-label='Usage instructions']",
+		);
+		await expect(instructions).toBeVisible();
+
+		// Test with focus-required shortcuts
+		await svgContainer.focus();
+		const svgContent = page.getByLabel("SVG content");
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Test Shift+Arrow for pan
+		await page.keyboard.press("Shift+ArrowRight");
+		await page.keyboard.press("Shift+ArrowDown");
+		await page.waitForTimeout(100);
+
+		const panTransform = await svgContent.getAttribute("style");
+		expect(panTransform).not.toBe(initialTransform);
+		expect(panTransform).toContain("translate");
+	});
+
+	test("should have proper focus indicators", async ({ page }) => {
 		// Focus control buttons and check for focus indicators
-		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
+		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
 		await zoomInBtn.focus();
 
-		// Should have visible focus indicator
-		await expect(zoomInBtn).toHaveCSS("outline-width", /.+/);
+		// Should have visible focus outline
+		await expect(zoomInBtn).toHaveCSS("outline-color", "rgb(37, 99, 235)"); // #2563eb
+		await expect(zoomInBtn).toHaveCSS("outline-width", "2px");
 
 		// Focus SVG container
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await svgContainer.focus();
 
-		// Should have visible focus indicator
-		await expect(svgContainer).toHaveCSS("outline-width", /[1-9]/);
+		// Should have visible box shadow focus indicator
+		const boxShadow = await svgContainer.evaluate(
+			el => window.getComputedStyle(el).boxShadow,
+		);
+		expect(boxShadow).toContain("rgb(37, 99, 235)"); // #2563eb
+
+		// Test another button has focus indicators
+		const zoomOutBtn = page.getByLabel(
+			"Zoom out, keyboard shortcut minus key",
+		);
+		await zoomOutBtn.focus();
+		await expect(zoomOutBtn).toBeFocused();
+		await expect(zoomOutBtn).toHaveCSS("outline-width", "2px");
+	});
+
+	test("should handle toast notifications accessibility", async ({ page }) => {
+		const copyBtn = page.getByLabel(
+			"Copy SVG to clipboard, keyboard shortcut C key",
+		);
+
+		// Mock clipboard
+		await page.evaluate(() => {
+			Object.defineProperty(navigator, "clipboard", {
+				value: { writeText: () => Promise.resolve() },
+				configurable: true,
+				writable: true,
+			});
+		});
+
+		// Trigger action that shows toast
+		await copyBtn.click();
+		await page.waitForTimeout(100);
+
+		// Toast should have proper ARIA role
+		const toast = page.locator(".toast").first();
+		await expect(toast).toBeVisible();
+		await expect(toast).toHaveAttribute("role", "alert");
+
+		// Toast close button should be keyboard accessible
+		const closeButton = toast.locator(".toast-close");
+		await expect(closeButton).toHaveAttribute("tabindex", "0");
+
+		// Should be closeable with keyboard
+		await closeButton.focus();
+		await page.keyboard.press("Enter");
+		await page.waitForTimeout(100);
+		await expect(toast).not.toBeVisible();
+	});
+
+	test("should support touch interactions on mobile", async ({
+		page,
+		isMobile,
+	}) => {
+		if (isMobile) {
+			const svgContainer = page.getByLabel("Interactive SVG viewer");
+			const svgContent = page.getByLabel("SVG content");
+
+			// Get initial transform
+			const initialTransform = await svgContent.getAttribute("style");
+
+			// Simulate single finger pan
+			await svgContainer.dispatchEvent("touchstart", {
+				touches: [{ clientX: 100, clientY: 100 }],
+			});
+
+			await svgContainer.dispatchEvent("touchmove", {
+				touches: [{ clientX: 150, clientY: 130 }],
+			});
+
+			await svgContainer.dispatchEvent("touchend", { touches: [] });
+
+			await page.waitForTimeout(100);
+
+			// Transform should change due to pan
+			const newTransform = await svgContent.getAttribute("style");
+			expect(newTransform).not.toBe(initialTransform);
+			expect(newTransform).toContain("translate");
+		}
 	});
 });

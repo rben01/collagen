@@ -9,11 +9,7 @@
 
 import { expect, Page } from "@playwright/test";
 import { test } from "./fixtures";
-import {
-	ProjectFiles,
-	uploadWithDragAndDrop,
-	uploadWithFilePicker,
-} from "./upload";
+import { ProjectFiles, uploadProject, uploadWithFilePicker } from "./upload";
 
 // =============================================================================
 // Basic FileUploader Interface Tests
@@ -70,7 +66,7 @@ test.describe("FileUploader Interface", () => {
 		await uploadZone.press("Escape");
 
 		// Test global 'O' key shortcut
-		await page.press("body", "o");
+		await page.keyboard.press("o");
 		await expect(input).not.toBeVisible();
 		await uploadZone.press("Escape");
 	});
@@ -196,8 +192,8 @@ test.describe("Realistic Upload Integration", () => {
 		).toBeVisible();
 	});
 
-	test("should handle single folder upload", async ({ page }) => {
-		await uploadWithDragAndDrop(page, "folderWithAssets");
+	test("should handle single folder upload", async ({ page, browserName }) => {
+		await uploadProject(browserName, page, "folderWithAssets");
 
 		// So this is an issue with how we mock. Since we don't actually have the ability
 		// to drop a folder onto the drop zone in test -- we can only drop mulitple files
@@ -232,8 +228,6 @@ test.describe("Realistic Upload Integration", () => {
 		await expect(page.getByText("Files uploaded successfully")).toBeVisible();
 	});
 });
-
-// Note: Removed FileUploader State Management tests that manipulate innerHTML instead of testing real behavior
 
 // =============================================================================
 // Edge Cases and Robustness Tests
@@ -348,15 +342,7 @@ test.describe("Edge Cases and Robustness", () => {
 			input.dispatchEvent(new Event("change", { bubbles: true }));
 		}, projectData);
 
-		// Should handle long file names gracefully
-		await page.waitForTimeout(1000);
-
-		// Should either succeed or fail gracefully (not crash)
-		const hasError = (await page.locator(".error-message").count()) > 0;
-		const hasSuccess =
-			(await page.getByText(/uploaded successfully/i).count()) > 0;
-
-		expect(hasError || hasSuccess).toBeTruthy();
+		expect(await page.getByText(/uploaded successfully/i).count()).toBe(1);
 	});
 
 	test("should handle empty files gracefully", async ({ page }) => {
@@ -433,17 +419,23 @@ test.describe("Performance and Stress Tests", () => {
 		await expect(page.getByText("Files uploaded successfully")).toBeVisible();
 	});
 
-	test("should handle deep folder structures", async ({ page }) => {
+	test("should handle deep folder structures", async ({
+		page,
+		browserName,
+	}) => {
 		// Create deeply nested folder structure - use drag and drop for folder upload
 		const deepFolderProject: ProjectFiles = {
 			"project/level1/level2/level3/level4/level5/collagen.json":
-				JSON.stringify({ attrs: { viewBox: "0 0 100 100" }, children: [] }),
-			"project/level1/level2/level3/level4/level5/assets/deep.txt":
-				"Deep file content",
+				JSON.stringify({
+					attrs: { viewBox: "0 0 100 100" },
+					children: { image_path: "assets/deep.png" },
+				}),
+			"project/level1/level2/level3/level4/level5/assets/deep.png":
+				"Fake image data",
 		};
 
 		// Use drag and drop which better supports folder structures
-		await uploadWithDragAndDrop(page, "folderWithAssets"); // Use existing folder project
+		await uploadProject(browserName, page, deepFolderProject); // Use existing folder project
 
 		// See test "should handle single folder upload" for which this is "Files" and not
 		// "Folder"
