@@ -5,9 +5,6 @@
  * and other globals used in Playwright e2e tests.
  */
 
-export type ProjectFiles = Record<string, string>;
-export type SampleProjects = Record<string, ProjectFiles>;
-
 declare global {
 	interface Window {
 		// Test-specific properties

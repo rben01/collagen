@@ -9,248 +9,11 @@
 
 import { expect, Page } from "@playwright/test";
 import { test } from "./fixtures";
-import { ProjectFiles, SampleProjects } from "../globals";
-
-// =============================================================================
-// Sample Project Definitions
-// =============================================================================
-
-const sampleProjects: SampleProjects = {
-	// Valid single file projects
-	simpleJson: {
-		"collagen.json": JSON.stringify(
-			{
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{
-						tag: "rect",
-						attrs: { x: 0, y: 0, width: 50, height: 50, fill: "blue" },
-					},
-				],
-			},
-			null,
-			2,
-		),
-	},
-
-	simpleJsonnet: {
-		"collagen.jsonnet": `{
-			attrs: { viewBox: "0 0 100 100" },
-			children: [
-				{
-					tag: "rect",
-					attrs: { x: 0, y: 0, width: 50, height: 50, fill: "red" }
-				}
-			]
-		}`,
-	},
-
-	// Valid folder projects
-	folderWithAssets: {
-		"project/collagen.json": JSON.stringify(
-			{
-				attrs: { viewBox: "0 0 200 200" },
-				children: [
-					{ image_path: "assets/test.png" },
-					{
-						tag: "text",
-						attrs: { x: 10, y: 20 },
-						children: "Hello World",
-					},
-				],
-			},
-			null,
-			2,
-		),
-		"project/assets/test.png": "fake-png-data",
-		"project/styles.css": "body { margin: 0; }",
-	},
-
-	complexFolder: {
-		"myproject/collagen.jsonnet": `local width = 300;
-			{
-			attrs: { viewBox: "0 0 %d %d" % [width, width] },
-			children: [
-				{ image_path: "images/logo.jpg" },
-				{ tag: "circle", attrs: { cx: 150, cy: 150, r: 50, fill: "green" } }
-			]
-		}`,
-		"myproject/images/logo.jpg": "fake-jpg-data",
-		"myproject/data.json": '{"config": "value"}',
-		"myproject/nested/deep/file.txt": "nested content",
-	},
-
-	// Multiple files (valid)
-	multipleFilesValid: {
-		"collagen.json": JSON.stringify({
-			attrs: { viewBox: "0 0 150 150" },
-			children: [
-				{ tag: "circle", attrs: { cx: 75, cy: 75, r: 25, fill: "purple" } },
-			],
-		}),
-		"data.txt": "some data",
-		"config.json": '{"setting": true}',
-	},
-
-	// Invalid projects - missing manifest
-	noManifest: {
-		"readme.txt": "This project has no manifest file",
-		"data.json": '{"some": "data"}',
-	},
-
-	folderNoManifest: {
-		"project/readme.txt": "No manifest in this folder",
-		"project/assets/image.png": "fake-image-data",
-	},
-
-	// Invalid projects - malformed files
-	malformedJson: {
-		"collagen.json": '{ "attrs": { "viewBox": "0 0 100 100" }, invalid json',
-	},
-
-	malformedJsonnet: { "collagen.jsonnet": "{ invalid jsonnet syntax }" },
-};
-
-function getMimeType(path): string {
-	return path.endsWith(".json")
-		? "application/json"
-		: path.endsWith(".jsonnet")
-			? "text/plain"
-			: path.endsWith(".png")
-				? "image/png"
-				: path.endsWith(".jpg")
-					? "image/jpeg"
-					: "text/plain";
-}
-
-// =============================================================================
-// Simple Upload Testing Utilities
-// =============================================================================
-
-/**
- * Test file picker upload by simulating browse button click and file selection
- */
-async function testFilePickerUpload(
-	page: Page,
-	projectName: keyof SampleProjects,
-) {
-	const projectFiles = sampleProjects[projectName];
-
-	await page.exposeFunction("getMimeType", getMimeType);
-
-	// Click the browse button to trigger file picker
-	await page.locator(".browse-btn").click();
-
-	// Set files on the file input that gets created
-	await page.evaluate(
-		async ({ fileData }) => {
-			// Find the hidden file input that was created
-			const input = document.getElementById(
-				"file-input-hidden",
-			) as HTMLInputElement;
-			if (!input) {
-				throw new Error("File input not found");
-			}
-
-			// this block of code here is also used in testDragAndDropUpload.
-			// unfortunately, while we'd like to extract it to a function and then expose
-			// that function to the page, our options are limited because DataTransfer
-			// doesn't exist in node and File can't be moved between node and the browser
-			const dt = new DataTransfer();
-			for (const path in fileData) {
-				const content = fileData[path];
-				const type = await window.getMimeType(path);
-
-				const file = new File([content], path, { type });
-				// Add webkitRelativePath for folder uploads
-				if (path.includes("/")) {
-					Object.defineProperty(file, "webkitRelativePath", {
-						value: path,
-						writable: false,
-					});
-				}
-				dt.items.add(file);
-			}
-
-			Object.defineProperty(input, "files", {
-				value: dt.files,
-				writable: false,
-			});
-
-			input.dispatchEvent(new Event("change", { bubbles: true }));
-		},
-		{ fileData: projectFiles },
-	);
-
-	return { success: true, error: null };
-}
-
-/**
- * Test drag-and-drop upload by simulating drag and drop events on the drop zone
- */
-async function testDragAndDropUpload(
-	page: Page,
-	projectName: keyof SampleProjects | ProjectFiles,
-) {
-	const projectFiles =
-		typeof projectName === "string"
-			? sampleProjects[projectName]
-			: projectName;
-
-	await page.exposeFunction("getMimeType", getMimeType);
-
-	// Simulate drag and drop on the drop zone
-	await page.evaluate(
-		async ({ fileData }) => {
-			const dropZone = document.querySelector(".drop-zone");
-			if (!dropZone) {
-				throw new Error("Drop zone not found");
-			}
-
-			// see above for why this duplicate block of code can't be deduplicated
-			const dt = new DataTransfer();
-			for (const path in fileData) {
-				const content = fileData[path];
-				const type = await window.getMimeType(path);
-
-				const file = new File([content], path, { type });
-				// Add webkitRelativePath for folder uploads
-				if (path.includes("/")) {
-					Object.defineProperty(file, "webkitRelativePath", {
-						value: path,
-						writable: false,
-					});
-				}
-				dt.items.add(file);
-			}
-
-			dropZone.dispatchEvent(
-				new DragEvent("dragenter", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-
-			dropZone.dispatchEvent(
-				new DragEvent("dragover", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-
-			dropZone.dispatchEvent(
-				new DragEvent("drop", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-		},
-		{ fileData: projectFiles },
-	);
-}
+import {
+	ProjectFiles,
+	uploadWithDragAndDrop,
+	uploadWithFilePicker,
+} from "./upload";
 
 // =============================================================================
 // Basic FileUploader Interface Tests
@@ -422,7 +185,7 @@ test.describe("Accessibility and Responsive Design", () => {
 
 test.describe("Realistic Upload Integration", () => {
 	test("should handle single JSON file upload", async ({ page }) => {
-		await testFilePickerUpload(page, "simpleJson");
+		await uploadWithFilePicker(page, "simpleJson");
 
 		// Should show success message
 		await expect(page.getByText("File uploaded successfully")).toBeVisible();
@@ -434,7 +197,7 @@ test.describe("Realistic Upload Integration", () => {
 	});
 
 	test("should handle single folder upload", async ({ page }) => {
-		await testDragAndDropUpload(page, "folderWithAssets");
+		await uploadWithDragAndDrop(page, "folderWithAssets");
 
 		// So this is an issue with how we mock. Since we don't actually have the ability
 		// to drop a folder onto the drop zone in test -- we can only drop mulitple files
@@ -444,7 +207,7 @@ test.describe("Realistic Upload Integration", () => {
 	});
 
 	test("should show error for missing manifest file", async ({ page }) => {
-		await testFilePickerUpload(page, "noManifest");
+		await uploadWithFilePicker(page, "noManifest");
 
 		await page.waitForTimeout(1000);
 
@@ -461,7 +224,7 @@ test.describe("Realistic Upload Integration", () => {
 	});
 
 	test("should handle multiple files correctly", async ({ page }) => {
-		await testFilePickerUpload(page, "multipleFilesValid");
+		await uploadWithFilePicker(page, "multipleFilesValid");
 
 		await page.waitForTimeout(1000);
 
@@ -600,7 +363,7 @@ test.describe("Edge Cases and Robustness", () => {
 		// Create a test project with empty JSON file
 		const emptyFileProject = "malformedJson"; // This has invalid JSON which will trigger an error
 
-		await testFilePickerUpload(page, emptyFileProject);
+		await uploadWithFilePicker(page, emptyFileProject);
 
 		await page.waitForTimeout(1000);
 
@@ -680,7 +443,7 @@ test.describe("Performance and Stress Tests", () => {
 		};
 
 		// Use drag and drop which better supports folder structures
-		await testDragAndDropUpload(page, "folderWithAssets"); // Use existing folder project
+		await uploadWithDragAndDrop(page, "folderWithAssets"); // Use existing folder project
 
 		// See test "should handle single folder upload" for which this is "Files" and not
 		// "Folder"

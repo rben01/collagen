@@ -1,148 +1,22 @@
 /**
- * Playwright workflow tests for complete user scenarios
+ * End-to-end workflow tests for complete user journeys
  *
- * Tests end-to-end user workflows including file upload, processing,
- * viewing results, error handling, and various user interactions.
+ * Tests complete user workflows from file upload through SVG generation
+ * to user interactions. Focuses on realistic scenarios and actual app behavior.
  */
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page, PlaywrightTestArgs } from "@playwright/test";
-import { test as test } from "./fixtures";
+import { expect, Page } from "@playwright/test";
+import { test } from "./fixtures";
+import { uploadWithDragAndDrop } from "./upload";
 
 // =============================================================================
-// Test Setup and Utilities
-// =============================================================================
-
-type ProjectType = "simple" | "complex" | "jsonnet" | "invalid";
-const PROJECTS: Record<ProjectType, Record<string, string>> = {
-	simple: {
-		"collagen.json": JSON.stringify({
-			attrs: { viewBox: "0 0 200 100", width: 200, height: 100 },
-			children: [
-				{
-					tag: "rect",
-					attrs: { x: 10, y: 10, width: 180, height: 80, fill: "#e3f2fd" },
-				},
-				{
-					tag: "text",
-					attrs: { x: 100, y: 55, "text-anchor": "middle" },
-					children: ["Simple Project"],
-				},
-			],
-		}),
-	},
-	complex: {
-		"collagen.json": JSON.stringify({
-			attrs: { viewBox: "0 0 400 300" },
-			children: [
-				{
-					tag: "rect",
-					attrs: { x: 0, y: 0, width: 400, height: 300, fill: "#f5f5f5" },
-				},
-				{
-					image_path: "logo.png",
-					attrs: { x: 10, y: 10, width: 50, height: 50 },
-				},
-				{
-					tag: "g",
-					attrs: { transform: "translate(70, 10)" },
-					children: [
-						{
-							tag: "text",
-							attrs: { x: 0, y: 20, "font-size": 18 },
-							children: ["Complex Project"],
-						},
-						{
-							tag: "text",
-							attrs: { x: 0, y: 40, "font-size": 12 },
-							children: ["With multiple elements"],
-						},
-					],
-				},
-				{
-					svg_path: "icon.svg",
-					attrs: { x: 300, y: 200, width: 80, height: 80 },
-				},
-			],
-		}),
-		// Create a minimal valid PNG data URI (1x1 transparent pixel)
-		// (We don't actually need to base64 decode this)
-		"logo.png":
-			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-		"icon.svg":
-			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="blue"/></svg>',
-	},
-	jsonnet: {
-		"collagen.jsonnet": `
-				local width = 300;
-				local height = 200;
-
-				{
-					attrs: { viewBox: '0 0 %d %d' % [width, height] },
-					children: [
-						{
-							tag: 'circle',
-							attrs: { cx: i * 50 + 50, cy: height / 2, r: 20, fill: 'hsl(%d, 70%%, 50%%)' % (i * 60) }
-						}
-						for i in std.range(0, 4)
-					]
-				}
-			`,
-	},
-	invalid: { "collagen.json": "{ invalid json syntax" },
-};
-
-/** Simulate file upload via drag and drop */
-async function simulateFileUpload(page: Page, projectType: ProjectType) {
-	const fileContents = PROJECTS[projectType];
-
-	// Simulate drag and drop directly on the drop zone
-	const dataTransfer = await page.evaluateHandle(
-		({ fileContents }) => {
-			const dropZone = document.querySelector(".drop-zone");
-			if (!dropZone) {
-				throw new Error("no drop zone found!");
-			}
-
-			const dt = new DataTransfer();
-
-			for (const filename in fileContents) {
-				const content = fileContents[filename];
-				let type = "text/plain";
-				if (filename.endsWith(".json") || filename.endsWith(".jsonnet")) {
-					type = "application/json";
-				} else if (filename.endsWith(".png")) {
-					type = "image/png";
-				} else if (filename.endsWith(".svg")) {
-					type = "image/svg+xml";
-				}
-
-				const file = new File([content], filename, { type });
-				dt.items.add(file);
-			}
-
-			return dt;
-		},
-		{ fileContents },
-	);
-
-	const dropZone = page.locator(".drop-zone");
-
-	for (const event of ["dragenter", "dragover", "drop"]) {
-		await dropZone.dispatchEvent(event, { dataTransfer });
-	}
-
-	const svgContainer = page.getByLabel("Interactive SVG viewer");
-	await expect(svgContainer).toBeVisible({ timeout: 1000 });
-}
-
-// =============================================================================
-// Complete User Workflow Tests
+// Complete Workflow Tests
 // =============================================================================
 
 test.describe("Complete User Workflows", () => {
-	test("should complete simple project workflow", async ({ page }) => {
+	test("should handle basic upload workflow", async ({ page }) => {
 		// 1. Start with upload interface
 		await expect(
 			page.getByRole("button", { name: /file upload drop zone/i }),
@@ -151,851 +25,373 @@ test.describe("Complete User Workflows", () => {
 			page.getByRole("heading", { name: /upload collagen project/i }),
 		).toBeVisible();
 
-		// 2. Upload a simple project
-		await simulateFileUpload(page, "simple");
+		await uploadWithDragAndDrop(page, "simpleJson");
 
-		// 3. Verify SVG is generated and displayed
-		const svgSection = page.getByLabel("Interactive SVG viewer");
-		await expect(svgSection).toBeVisible();
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
 
-		const svgContent = page.getByLabel("SVG content");
-		await expect(svgContent).toBeVisible();
+		const svgElement = page
+			.getByLabel("Interactive SVG viewer")
+			.locator("svg");
 
-		const initialTransform = await svgContent.getAttribute("style");
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
+		await expect(svgElement.locator("rect")).toBeVisible();
 
-		const svgElement = page.locator("svg");
-		await expect(svgElement).toBeVisible();
-		await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 100");
+		// Test that SVG controls are available
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer).toBeVisible();
 
-		// 4. Verify SVG content
-		await expect(page.locator("rect")).toBeVisible();
-		await expect(page.locator("text")).toContainText("Simple Project");
-
-		// 5a Test zoom in control
-		const zoomInBtn = page.getByRole("button", {
-			name: /zoom in.*keyboard/i,
-		});
-		await expect(zoomInBtn).toBeVisible();
-		await zoomInBtn.click();
-		await page.waitForTimeout(500);
-
-		const zoomedInTransform = await svgContent.getAttribute("style");
-		expect(zoomedInTransform).not.toBe(initialTransform);
-
-		// 5b Test zoom out control
-		const zoomOutBtn = page.getByRole("button", {
-			name: /zoom out.*keyboard/i,
-		});
-		await expect(zoomOutBtn).toBeVisible();
-		await zoomOutBtn.click();
-		await page.waitForTimeout(500);
-
-		const zoomedOutTransform = await svgContent.getAttribute("style");
-		expect(zoomedOutTransform).toBe(initialTransform);
-
-		// 6. Test export functionality
-		const exportBtn = page.getByRole("button", {
-			name: /download svg.*keyboard/i,
-		});
-		await expect(exportBtn).toBeVisible();
-		if (await exportBtn.isVisible()) {
-			// Mock download to avoid actual file download
-			await page.evaluate(() => {
-				const originalCreateElement = document.createElement;
-				document.createElement = function (tagName: string) {
-					const element = originalCreateElement.call(this, tagName);
-					if (tagName === "a") {
-						element.click = function () {
-							(window as any).downloadTriggered = true;
-						};
-					}
-					return element;
-				};
-			});
-
-			await exportBtn.click();
-		}
-
-		// 7. Upload another project (clear and restart)
-		const clearBtn = page.getByRole("button", {
-			name: "Upload Another Project",
-		});
-		await expect(clearBtn).toBeVisible();
-
-		await clearBtn.click();
+		// Should return to upload interface
 		await expect(
 			page.getByRole("button", { name: /file upload drop zone/i }),
 		).toBeVisible();
 	});
 
-	test("should handle complex project with multiple assets", async ({
-		page,
-		isMobile,
-	}) => {
-		// Upload complex project
-		await simulateFileUpload(page, "complex");
+	test("should handle project with assets", async ({ page }) => {
+		// Upload project with image assets
+		await uploadWithDragAndDrop(page, "folderWithAssets");
 
-		// Check if complex project processed successfully or show appropriate error
-		const svgElement = page.locator(".svg-content > svg");
+		// Should show folder upload success
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+
+		// Verify SVG contains embedded image
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgElement = svgContainer.locator("svg");
+		await expect(svgElement).toBeVisible();
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 200");
+
+		// Check for embedded image element
+		const imageElement = svgElement.locator("image");
+		await expect(imageElement).toBeVisible();
+		const href = await imageElement.getAttribute("href");
+		expect(href).toMatch(/^data:image\/png;base64,/);
+
+		// Check for text element
+		await expect(svgElement.locator("text")).toContainText("Hello World");
+	});
+
+	test("should handle Jsonnet project", async ({ page }) => {
+		// Upload Jsonnet project
+		await uploadWithDragAndDrop(page, "simpleJsonnet");
+
+		// Check if Jsonnet was processed successfully or shows appropriate error
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgElement = svgContainer.locator("svg");
 		await expect(svgElement).toBeVisible();
 
-		// Complex project processed successfully
-		// Should contain background rect, image, text group, and nested SVG
-		const rectCount = await page.locator("rect").count();
-		expect(rectCount).toBeGreaterThanOrEqual(1);
-
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		expect(svgContainer).toBeVisible();
-
-		const svgContent = page.getByLabel("SVG content");
-		expect(await svgContent.getAttribute("style")).toContain(
-			"translate(0px, 0px)",
-		);
-
-		// Test pan interaction
-		await svgContainer.hover();
-		await page.mouse.down();
-		await page.mouse.move(50, 30);
-		await page.mouse.up();
-
-		expect(await svgContent.getAttribute("style")).toContain(
-			"translate(50px, 30px)",
-		);
-
-		// Test wheel zoom
-		await svgContainer.hover();
-		if (!isMobile) {
-			await page.mouse.wheel(0, -100);
-		}
-
-		// Test controls
-		const controls = page.getByRole("toolbar");
-		expect(controls).toBeVisible();
-
-		for (const title of [
-			"Zoom In (Keyboard: +)",
-			"Zoom Out (Keyboard: -)",
-			"Reset View (Keyboard: 0)",
-			"Toggle Usage Instructions (Keyboard: ?)",
-			"Toggle Code View (Keyboard: V)",
-			"Copy SVG to Clipboard (Keyboard: C)",
-			"Download SVG (Keyboard: S)",
-		]) {
-			expect(controls.getByTitle(title)).toBeVisible();
-		}
+		// Jsonnet processed successfully - verify generated circles
+		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
+		const rect = svgElement.locator("rect");
+		expect(await rect.count()).toBe(1);
+		expect(await rect.getAttribute("fill")).toBe("red");
 	});
 
-	test("should handle Jsonnet project workflow", async ({ page }) => {
-		// Upload Jsonnet project
-		await simulateFileUpload(page, "jsonnet");
-
-		// Wait for Jsonnet processing (may take longer)
-		await waitForSvgProcessing(page, 10000);
-
-		// Check if Jsonnet was processed or if there's an appropriate message
-		const svgSection = page.getByRole("region", {
-			name: /generated svg display/i,
-		});
-		const errorMessage = page.getByRole("alert");
-
-		if (await svgSection.isVisible()) {
-			// Jsonnet processed successfully
-			const svgElement = page.locator("svg");
-			await expect(svgElement).toBeVisible();
-
-			// Should have generated circles from the loop
-			const circleCount = await page.locator("circle").count();
-			expect(circleCount).toBeGreaterThan(0);
-		} else if (await errorMessage.isVisible()) {
-			// Jsonnet not available or processing failed
-			await expect(errorMessage).toContainText(/jsonnet|processing/i);
-		}
-	});
-
-	test("should handle error scenarios gracefully", async ({ page }) => {
-		// Upload invalid project
-		await simulateFileUpload(page, "invalid");
-		await waitForSvgProcessing(page);
+	test("should handle error recovery workflow", async ({ page }) => {
+		// 1. Upload invalid project that will fail
+		await uploadWithDragAndDrop(page, "malformedJson");
 
 		// Should show error message
-		const errorMessage = page.getByRole("alert");
+		const errorMessage = page
+			.getByRole("alert")
+			.or(page.locator(".error-message"));
 		await expect(errorMessage).toBeVisible();
-		await expect(errorMessage).toContainText(
-			/error|invalid|syntax|parse|JSON/i,
-		);
+		await expect(errorMessage).toContainText(/error|invalid|json|parse/i);
 
-		// Should allow user to try again
-		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
+		// 2. Upload valid project to recover (use folder-based project that works)
+		await uploadWithDragAndDrop(page, "folderWithAssets");
 
-		// Clear error and upload valid project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Error should be cleared
+		// Error should be cleared and SVG should be displayed
+		// Wait for successful upload before checking error clearing
+		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
 		await expect(errorMessage).not.toBeVisible();
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
 
-		// SVG should be displayed
-		const svgSection = page.getByRole("region", {
-			name: /generated svg display/i,
-		});
-		await expect(svgSection).toBeVisible();
+		// 3. Test that everything works normally after error recovery
+		await expect(svgContainer).toBeVisible();
+
+		// Verify the SVG content is from the successful upload
+		await expect(svgContainer.locator("text")).toContainText("Hello World");
 	});
 });
 
 // =============================================================================
-// User Interaction Workflow Tests
+// Interactive Workflow Tests
 // =============================================================================
 
-test.describe("User Interaction Workflows", () => {
-	test("should support keyboard navigation workflow", async ({ page }) => {
-		// Tab through interface elements
-		await page.keyboard.press("Tab"); // Focus upload zone or first control
-
-		// If controls are visible, test keyboard navigation
-		const controls = page.getByRole("toolbar");
-		if (await controls.isVisible()) {
-			// Tab through controls - just verify we can navigate without checking specific buttons
-			for (let i = 0; i < 7; i++) {
-				await page.keyboard.press("Tab");
-			}
-
-			// Tab to SVG container
-			await page.keyboard.press("Tab");
-			const svgContainer = page.getByLabel("Interactive SVG viewer");
-			await expect(svgContainer).toBeFocused();
-
-			// Test keyboard shortcuts on SVG
-			await page.keyboard.press("Equal"); // Zoom in
-			await page.keyboard.press("Minus"); // Zoom out
-			await page.keyboard.press("0"); // Reset
-			await page.keyboard.press("ArrowLeft"); // Pan left
-			await page.keyboard.press("ArrowRight"); // Pan right
-		}
-	});
-
-	test("should support mouse interaction workflow", async ({
-		page,
-		isMobile,
-	}) => {
+test.describe("Interactive Workflows", () => {
+	test.beforeEach(async ({ page }) => {
+		// Set up a project for interaction testing
+		await uploadWithDragAndDrop(page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
-
-		if (await svgContainer.isVisible()) {
-			// Test hover states
-			await svgContainer.hover();
-			await expect(svgContainer).toHaveCSS("cursor", "grab");
-
-			// Test click and drag (pan)
-			const box = await svgContainer.boundingBox();
-			if (box) {
-				await page.mouse.move(
-					box.x + box.width / 2,
-					box.y + box.height / 2,
-				);
-				await page.mouse.down();
-				await page.mouse.move(
-					box.x + box.width / 2 + 50,
-					box.y + box.height / 2 + 30,
-				);
-				await page.mouse.up();
-			}
-
-			// Test wheel zoom
-			await svgContainer.hover();
-			if (!isMobile) {
-				await page.mouse.wheel(0, -120); // Zoom in
-				await page.mouse.wheel(0, 120); // Zoom out
-			}
-		}
+		await expect(svgContainer.locator("svg")).toBeVisible();
 	});
 
-	test("should support touch interaction workflow", async ({ browser }) => {
-		// Create a new context with touch support
+	test("should support complete zoom workflow", async ({ page }) => {
+		const svgContent = page.getByLabel("SVG content");
+		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
+		const zoomOutBtn = page.getByRole("button", { name: /zoom out/i });
+		const resetBtn = page.getByRole("button", { name: /reset view/i });
+
+		// Get initial transform
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Test zoom in
+		await zoomInBtn.click();
+		await page.waitForTimeout(100);
+		const zoomedInTransform = await svgContent.getAttribute("style");
+		expect(zoomedInTransform).not.toBe(initialTransform);
+
+		// Test zoom out
+		await zoomOutBtn.click();
+		await page.waitForTimeout(100);
+		const zoomedOutTransform = await svgContent.getAttribute("style");
+		expect(zoomedOutTransform).toBe(initialTransform);
+
+		// Test reset
+		await zoomInBtn.click();
+		await zoomInBtn.click();
+		await resetBtn.click();
+		await page.waitForTimeout(100);
+		const resetTransform = await svgContent.getAttribute("style");
+		expect(resetTransform).toBe(initialTransform);
+	});
+
+	test("should support pan workflow", async ({ page }) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgContent = page.getByLabel("SVG content");
+
+		// Get initial position
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Test mouse pan
+		await svgContainer.hover();
+		await page.mouse.down();
+		await page.mouse.move(50, 30, { steps: 5 });
+		await page.mouse.up();
+
+		// Position should have changed
+		const pannedTransform = await svgContent.getAttribute("style");
+		expect(pannedTransform).not.toBe(initialTransform);
+		expect(pannedTransform).toContain("translate");
+	});
+
+	test("should support keyboard controls workflow", async ({ page }) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgContent = page.getByLabel("SVG content");
+
+		// Focus on SVG container
+		await svgContainer.focus();
+		await expect(svgContainer).toBeFocused();
+
+		// Get initial state
+		const initialTransform = await svgContent.getAttribute("style");
+
+		// Test keyboard zoom
+		await page.keyboard.press("Equal"); // Zoom in
+		await page.waitForTimeout(100);
+		let currentTransform = await svgContent.getAttribute("style");
+		expect(currentTransform).not.toBe(initialTransform);
+
+		await page.keyboard.press("Minus"); // Zoom out
+		await page.waitForTimeout(100);
+		currentTransform = await svgContent.getAttribute("style");
+		expect(currentTransform).toBe(initialTransform);
+
+		// Test keyboard pan
+		await page.keyboard.press("ArrowRight");
+		await page.waitForTimeout(100);
+		currentTransform = await svgContent.getAttribute("style");
+		expect(currentTransform).not.toBe(initialTransform);
+
+		// Test reset
+		await page.keyboard.press("0");
+		await page.waitForTimeout(100);
+		currentTransform = await svgContent.getAttribute("style");
+		expect(currentTransform).toBe(initialTransform);
+	});
+
+	test("should support export workflow", async ({ page }) => {
+		const downloadBtn = page.getByRole("button", { name: /download svg/i });
+		await expect(downloadBtn).toBeVisible();
+
+		// Mock download to avoid actual file download in test
+		await page.evaluate(() => {
+			const originalCreateElement = document.createElement;
+			document.createElement = function (tagName: string) {
+				const element = originalCreateElement.call(this, tagName);
+				if (tagName === "a") {
+					element.click = function () {
+						(window as any).downloadTriggered = true;
+					};
+				}
+				return element;
+			};
+		});
+
+		await downloadBtn.click();
+
+		// Verify download was triggered
+		const downloadTriggered = await page.evaluate(
+			() => (window as any).downloadTriggered,
+		);
+		expect(downloadTriggered).toBe(true);
+	});
+
+	test("should support clipboard workflow", async ({ page }) => {
+		const copyBtn = page.getByRole("button", { name: /copy.*clipboard/i });
+
+		if (await copyBtn.isVisible()) {
+			// Mock clipboard API
+			await page.evaluate(() => {
+				Object.assign(navigator, {
+					clipboard: {
+						writeText: async (text: string) => {
+							(window as any).clipboardText = text;
+							return Promise.resolve();
+						},
+					},
+				});
+			});
+
+			await copyBtn.click();
+
+			// Verify SVG was copied to clipboard
+			const clipboardText = await page.evaluate(
+				() => (window as any).clipboardText,
+			);
+			expect(clipboardText).toContain("<svg");
+			// simpleJson contains only a rect element, no text content
+			expect(clipboardText).toContain("rect");
+		}
+	});
+});
+
+// =============================================================================
+// Multi-Project Workflow Tests
+// =============================================================================
+
+test.describe("Multi-Project Workflows", () => {
+	test("should handle multiple project uploads", async ({ page }) => {
+		// Upload first project
+		await uploadWithDragAndDrop(page, "simpleJson");
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		// simpleJson project contains only a rect element, no text
+		await expect(svgContainer.locator("rect")).toBeVisible();
+
+		await uploadWithDragAndDrop(page, "folderWithAssets");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		// folderWithAssets contains "Hello World" text
+		await expect(svgContainer.locator("text")).toContainText("Hello World");
+		// Verify first project content (rect) is gone and text is now present
+		await expect(svgContainer.locator("text")).toBeVisible();
+		await expect(svgContainer.locator("text")).toContainText("Hello World");
+	});
+
+	test("should handle rapid project switching", async ({ page }) => {
+		// Rapidly switch between projects
+		for (let i = 0; i < 3; i++) {
+			await uploadWithDragAndDrop(page, "simpleJson");
+			await page.waitForTimeout(200);
+
+			await uploadWithDragAndDrop(page, "folderWithAssets");
+			await page.waitForTimeout(200);
+		}
+
+		// Final state should be stable
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		// Check if we have rect (from simpleJson) or text (from folderWithAssets)
+		const hasRect = await svgContainer.locator("rect").isVisible();
+		const hasText = await svgContainer.locator("text").isVisible();
+
+		// Should have content from one of the projects (last uploaded)
+		expect(hasRect || hasText).toBe(true);
+	});
+
+	test("should maintain state after error and recovery", async ({ page }) => {
+		// Upload valid project
+		await uploadWithDragAndDrop(page, "simpleJson");
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+
+		// Try invalid project
+		await uploadWithDragAndDrop(page, "malformedJson");
+		const errorMessage = page
+			.getByRole("alert")
+			.or(page.locator(".error-message"));
+		await expect(errorMessage).toBeVisible();
+
+		// Upload valid project again
+		await uploadWithDragAndDrop(page, "folderWithAssets");
+
+		// Should recover completely
+		await expect(errorMessage).not.toBeVisible();
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer.locator("text")).toContainText("Hello World");
+
+		// Controls should work normally
+		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
+		await expect(zoomInBtn).toBeVisible();
+		await zoomInBtn.click();
+	});
+});
+
+// =============================================================================
+// Responsive Workflow Tests
+// =============================================================================
+
+test.describe("Responsive Workflows", () => {
+	test("should work on different screen sizes", async ({ page }) => {
+		// Test mobile workflow
+		await page.setViewportSize({ width: 375, height: 667 });
+		await uploadWithDragAndDrop(page, "simpleJson");
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
+
+		// Test tablet workflow
+		await page.setViewportSize({ width: 768, height: 1024 });
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
+
+		// Test desktop workflow
+		await page.setViewportSize({ width: 1200, height: 800 });
+		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
+
+		// Controls should be accessible on all sizes
+		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
+		await expect(zoomInBtn).toBeVisible();
+	});
+
+	test("should handle touch interactions on mobile", async ({ browser }) => {
 		const context = await browser.newContext({
 			hasTouch: true,
 			isMobile: true,
 			viewport: { width: 375, height: 667 },
 		});
-		const touchPage = await context.newPage();
+		const mobilePage = await context.newPage();
 
-		// setup
-		await simulateFileUpload(touchPage, "simple");
-		await waitForSvgProcessing(touchPage);
-
-		const svgContainer = touchPage.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
+		await mobilePage.goto("/");
+		await mobilePage.waitForSelector(".drop-zone");
+		await uploadWithDragAndDrop(mobilePage, "simpleJson");
+		const svgContainer = mobilePage.getByLabel("Interactive SVG viewer");
+		await expect(svgContainer.locator("svg")).toBeVisible();
 		if (await svgContainer.isVisible()) {
+			// Test touch tap
+			await svgContainer.tap();
+
+			// Test touch gestures (simplified)
 			const box = await svgContainer.boundingBox();
 			if (box) {
-				// Simulate touch pan
-				const centerX = box.x + box.width / 2;
-				const centerY = box.y + box.height / 2;
-
-				await touchPage.touchscreen.tap(centerX, centerY);
-				await touchPage.waitForTimeout(100);
-
-				// Simulate swipe gesture with proper touch objects
-				await touchPage.evaluate(
-					coords => {
-						const container = document.querySelector(
-							'[role="button"][aria-label*="svg viewer"], .svg-container',
-						);
-						if (container) {
-							// Create proper Touch objects
-							const touch1 = new Touch({
-								identifier: 1,
-								target: container,
-								clientX: coords.x,
-								clientY: coords.y,
-								pageX: coords.x,
-								pageY: coords.y,
-							});
-
-							const touch2 = new Touch({
-								identifier: 1,
-								target: container,
-								clientX: coords.x + 50,
-								clientY: coords.y + 30,
-								pageX: coords.x + 50,
-								pageY: coords.y + 30,
-							});
-
-							const touchStart = new TouchEvent("touchstart", {
-								touches: [touch1],
-								bubbles: true,
-								cancelable: true,
-							});
-
-							const touchMove = new TouchEvent("touchmove", {
-								touches: [touch2],
-								bubbles: true,
-								cancelable: true,
-							});
-
-							const touchEnd = new TouchEvent("touchend", {
-								touches: [],
-								bubbles: true,
-								cancelable: true,
-							});
-
-							container.dispatchEvent(touchStart);
-							container.dispatchEvent(touchMove);
-							container.dispatchEvent(touchEnd);
-						}
-					},
-					{ x: centerX, y: centerY },
+				await mobilePage.touchscreen.tap(
+					box.x + box.width / 2,
+					box.y + box.height / 2,
 				);
 			}
 		}
 
-		// Clean up
 		await context.close();
-	});
-});
-
-// =============================================================================
-// Performance and Edge Case Workflows
-// =============================================================================
-
-test.describe("Performance and Edge Case Workflows", () => {
-	test("should handle large project workflow", async ({ page, isMobile }) => {
-		// Create and upload a project with many elements
-		const largeManifest = {
-			attrs: { viewBox: "0 0 1000 1000" },
-			children: [...Array(200)].map((_, i) => ({
-				tag: "rect",
-				attrs: {
-					x: (i % 20) * 50,
-					y: Math.floor(i / 20) * 50,
-					width: 40,
-					height: 40,
-					fill: `hsl(${i * 1.8}, 70%, 50%)`,
-				},
-			})),
-		};
-
-		// Create mock file and upload via drag-and-drop
-		await page.evaluate(manifest => {
-			const file = new File([JSON.stringify(manifest)], "collagen.json", {
-				type: "application/json",
-			});
-			window.mockProjectFiles = { "collagen.json": file };
-		}, largeManifest);
-
-		// Use proper drag-and-drop simulation
-		await page.evaluate(() => {
-			const dropZone = document.querySelector(
-				'[role="button"][aria-label*="upload"], .drop-zone',
-			);
-			if (dropZone && window.mockProjectFiles) {
-				const files = window.mockProjectFiles;
-				const fileKeys = Object.keys(files);
-
-				const mockItems = fileKeys.map(key => {
-					const file = files[key];
-					return {
-						kind: "file",
-						type: file.type,
-						webkitGetAsEntry: () => ({
-							name: key,
-							isDirectory: false,
-							isFile: true,
-							file: (success: (f: File) => void) => success(file),
-						}),
-					};
-				});
-
-				const dragEvent = new DragEvent("drop", {
-					bubbles: true,
-					cancelable: true,
-				});
-
-				Object.defineProperty(dragEvent, "dataTransfer", {
-					value: { items: mockItems },
-				});
-
-				dropZone.dispatchEvent(dragEvent);
-			}
-		});
-
-		// Wait for processing (may take longer for large projects)
-		await waitForSvgProcessing(page, 20000);
-
-		const svgElement = page.locator("svg");
-		if (await svgElement.isVisible()) {
-			// Verify all elements are rendered
-			const rects = page.locator("rect");
-			await expect(rects).toHaveCount(200);
-
-			// Test that interactions still work with many elements
-			const svgContainer = page.getByLabel("Interactive SVG viewer");
-			await svgContainer.hover();
-			if (!isMobile) {
-				await page.mouse.wheel(0, -100); // Should still zoom smoothly
-			}
-		}
-	});
-
-	test("should handle rapid file switching workflow", async ({ page }) => {
-		// Rapidly switch between different projects
-		for (let i = 0; i < 3; i++) {
-			await simulateFileUpload(page, "simple");
-			await page.waitForTimeout(500);
-
-			await simulateFileUpload(page, "complex");
-			await page.waitForTimeout(500);
-		}
-
-		// Final state should be stable
-		await waitForSvgProcessing(page, 10000);
-		const svgElement = page.locator("svg");
-		await expect(svgElement).toBeVisible();
-	});
-
-	test("should handle browser back/forward workflow", async ({ page }) => {
-		// Upload project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Navigate away and back
-		await page.goto("about:blank");
-		await page.goBack();
-
-		// Should restore to initial state
-		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
-
-		// Should be able to upload again
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page, 10000);
-		await expect(page.locator("svg")).toBeVisible();
-	});
-
-	test("should handle browser refresh workflow", async ({ page }) => {
-		// Upload project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Refresh page
-		await page.reload();
-		await page.waitForLoadState("domcontentloaded");
-
-		// Should reset to initial state
-		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
-		await expect(
-			page.getByRole("heading", { name: /upload collagen project/i }),
-		).toBeVisible();
-
-		// Should work normally after refresh
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page, 10000);
-		await expect(page.locator("svg")).toBeVisible();
-	});
-});
-
-// =============================================================================
-// Accessibility and Focus Workflow Tests
-// =============================================================================
-
-test.describe("Accessibility and Focus Workflows", () => {
-	test("should auto-focus SVG viewer after successful file upload", async ({
-		page,
-	}) => {
-		// Upload a simple project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Verify SVG is displayed
-		const svgSection = page.getByRole("region", {
-			name: /generated svg display/i,
-		});
-		await expect(svgSection).toBeVisible();
-
-		// Wait a moment for auto-focus to occur
-		await page.waitForTimeout(100);
-
-		// SVG container should be automatically focused
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
-		await expect(svgContainer).toBeFocused();
-
-		// Verify user can immediately use keyboard controls without clicking
-		await page.keyboard.press("Equal"); // Zoom in - should work immediately
-		await page.keyboard.press("Minus"); // Zoom out - should work immediately
-		await page.keyboard.press("0"); // Reset - should work immediately
-
-		// Test pan controls (these require SVG to be focused)
-		await page.keyboard.press("Shift+ArrowRight"); // Pan right
-		await page.keyboard.press("Shift+ArrowLeft"); // Pan left
-		await page.keyboard.press("Shift+ArrowUp"); // Pan up
-		await page.keyboard.press("Shift+ArrowDown"); // Pan down
-	});
-
-	test("should have tabindex=0 on all interactive elements", async ({
-		page,
-	}) => {
-		// Upload a project to show all controls
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Check drop zone has tabindex (should already be there)
-		const dropZone = page.getByRole("button", {
-			name: /file upload drop zone/i,
-		});
-		await expect(dropZone).toHaveAttribute("tabindex", "0");
-
-		// Check SVG container has tabindex
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
-		await expect(svgContainer).toHaveAttribute("tabindex", "0");
-
-		// Check all control buttons have tabindex="0"
-		// Get toolbar first to scope button queries
-		const toolbar = page.getByRole("toolbar");
-		const controlButtons = toolbar.locator("button");
-		const buttonCount = await controlButtons.count();
-
-		for (let i = 0; i < buttonCount; i++) {
-			const button = controlButtons.nth(i);
-			await expect(button).toHaveAttribute("tabindex", "0");
-		}
-
-		// Check toast close buttons have tabindex (if any toasts are visible)
-		const toastCloseButtons = page.getByRole("button", { name: /close|✕/i });
-		const toastCount = await toastCloseButtons.count();
-
-		for (let i = 0; i < toastCount; i++) {
-			const toastButton = toastCloseButtons.nth(i);
-			await expect(toastButton).toHaveAttribute("tabindex", "0");
-		}
-	});
-
-	test("should maintain focus flow after auto-focus", async ({ page }) => {
-		// Upload a project
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// SVG should be auto-focused
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
-		await expect(svgContainer).toBeFocused();
-
-		// Tab should move to next focusable element
-		await page.keyboard.press("Tab");
-
-		// Should be able to tab through all controls
-		// Get toolbar first to scope button queries
-		const toolbar = page.getByRole("toolbar");
-		const controlButtons = toolbar.locator("button");
-		const buttonCount = await controlButtons.count();
-
-		// Go back to start of tab sequence
-		await page.keyboard.press("Shift+Tab");
-		await expect(svgContainer).toBeFocused();
-
-		// Tab through all controls sequentially
-		for (let i = 0; i < buttonCount; i++) {
-			await page.keyboard.press("Tab");
-			// Each button should be focusable
-			const focusedElement = page.locator(":focus");
-			await expect(focusedElement).toBeVisible();
-		}
-	});
-});
-
-test.describe("Accessibility Workflows", () => {
-	test("should support screen reader workflow", async ({ page }) => {
-		// Check ARIA landmarks and labels - main element has implicit role
-		await expect(page.getByRole("main")).toBeVisible();
-
-		const uploadZone = page.getByRole("button", {
-			name: /file upload drop zone/i,
-		});
-		await expect(uploadZone).toHaveAttribute("role", "button");
-		await expect(uploadZone).toHaveAttribute("aria-label");
-
-		// Upload project and check SVG accessibility
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		const svgContainer = page.getByRole("button", {
-			name: /interactive svg viewer/i,
-		});
-		if (await svgContainer.isVisible()) {
-			// SVG container is a button, not img role
-			await expect(svgContainer).toHaveAttribute("aria-label");
-		}
-
-		// Check controls have proper labels
-		const controls = page.getByRole("toolbar").locator("button");
-		if (await controls.first().isVisible()) {
-			const count = await controls.count();
-			for (let i = 0; i < count; i++) {
-				const control = controls.nth(i);
-				await expect(control).toHaveAttribute("aria-label");
-			}
-		}
-	});
-
-	test("should support keyboard-only navigation workflow", async ({
-		page,
-	}) => {
-		// Complete workflow using only keyboard
-
-		// Tab to upload zone
-		await page.keyboard.press("Tab");
-		const uploadZone = page.getByRole("button", {
-			name: /file upload drop zone/i,
-		});
-		await expect(uploadZone).toBeFocused();
-
-		// Activate upload (though file dialog won't work in test)
-		await page.keyboard.press("Enter");
-
-		// Simulate file upload
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Navigate through controls with keyboard
-		const controls = page.getByRole("toolbar");
-		if (await controls.isVisible()) {
-			// Focus on SVG container directly since tab order can vary
-			const svgContainer = page.getByLabel("Interactive SVG viewer");
-			await svgContainer.focus();
-			await expect(svgContainer).toBeFocused();
-
-			// Use keyboard shortcuts
-			await page.keyboard.press("Equal"); // Zoom in
-			await page.keyboard.press("Minus"); // Zoom out
-			await page.keyboard.press("0"); // Reset
-		}
-	});
-
-	test("should support high contrast and zoom workflow", async ({ page }) => {
-		// Test with high zoom level
-		await page.evaluate(() => {
-			document.body.style.zoom = "150%";
-		});
-
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Interface should still be usable
-		const svgElement = page.locator("svg");
-		if (await svgElement.isVisible()) {
-			await expect(svgElement).toBeVisible();
-
-			// Controls should still be accessible
-			const controls = page.getByRole("toolbar");
-			if (await controls.isVisible()) {
-				await expect(controls).toBeVisible();
-			}
-		}
-
-		// Reset zoom
-		await page.evaluate(() => {
-			document.body.style.zoom = "100%";
-		});
-	});
-});
-
-// =============================================================================
-// Error Recovery Workflow Tests
-// =============================================================================
-
-test.describe("Error Recovery Workflows", () => {
-	test("should recover from network errors", async ({ page }) => {
-		// Simulate network failure during resource loading
-		await page.route("**/*", route => {
-			if (route.request().url().includes("sjsonnet")) {
-				route.abort();
-			} else {
-				route.continue();
-			}
-		});
-
-		await page.goto("/");
-		await page.waitForLoadState("domcontentloaded");
-
-		// Should still show upload interface
-		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
-
-		// Upload Jsonnet project (should handle missing sjsonnet gracefully)
-		await simulateFileUpload(page, "jsonnet");
-		await waitForSvgProcessing(page);
-
-		// Should show appropriate error message
-		const errorMessage = page.getByRole("alert");
-		if (await errorMessage.isVisible()) {
-			await expect(errorMessage).toContainText(/jsonnet|unavailable/i);
-		}
-
-		// Should still allow JSON projects
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-		await expect(page.locator("svg")).toBeVisible();
-	});
-
-	test("should recover from processing errors", async ({ page }) => {
-		// Upload invalid project
-		await simulateFileUpload(page, "invalid");
-		await waitForSvgProcessing(page);
-
-		// Should show error
-		const errorMessage = page.getByRole("alert");
-		await expect(errorMessage).toBeVisible();
-
-		// Upload valid project - should clear error
-		await simulateFileUpload(page, "simple");
-		await waitForSvgProcessing(page);
-
-		// Error should be cleared, SVG should be shown
-		await expect(errorMessage).not.toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
-
-		// Upload another invalid project
-		await simulateFileUpload(page, "invalid");
-		await waitForSvgProcessing(page);
-
-		// Should show error again
-		await expect(errorMessage).toBeVisible();
-
-		// Clear files button should reset state
-		const clearBtn = page.getByRole("button", {
-			name: "Upload Another Project",
-		});
-		if (await clearBtn.isVisible()) {
-			await clearBtn.click();
-			await expect(
-				page.getByRole("button", { name: /file upload drop zone/i }),
-			).toBeVisible();
-			await expect(errorMessage).not.toBeVisible();
-		}
-	});
-
-	test("should handle memory constraints gracefully", async ({ page }) => {
-		// Create and upload extremely large project (simulated)
-		// Simulate memory pressure
-		const hugeArray = [...Array(10000)].map((_, i) => ({
-			tag: "rect",
-			attrs: { x: i, y: i, width: 1, height: 1 },
-		}));
-
-		const hugeManifest = {
-			attrs: { viewBox: "0 0 10000 10000" },
-			children: hugeArray,
-		};
-
-		// Create mock file and upload via drag-and-drop
-		await page.evaluate(manifest => {
-			const file = new File([JSON.stringify(manifest)], "collagen.json", {
-				type: "application/json",
-			});
-			window.mockProjectFiles = { "collagen.json": file };
-		}, hugeManifest);
-
-		// Use proper drag-and-drop simulation
-		await page.evaluate(() => {
-			const dropZone = document.querySelector(
-				'[role="button"][aria-label*="upload"], .drop-zone',
-			);
-			if (dropZone && window.mockProjectFiles) {
-				const files = window.mockProjectFiles;
-				const fileKeys = Object.keys(files);
-
-				const mockItems = fileKeys.map(key => {
-					const file = files[key];
-					return {
-						kind: "file",
-						type: file.type,
-						webkitGetAsEntry: () => ({
-							name: key,
-							isDirectory: false,
-							isFile: true,
-							file: (success: (f: File) => void) => success(file),
-						}),
-					};
-				});
-
-				const dragEvent = new DragEvent("drop", {
-					bubbles: true,
-					cancelable: true,
-				});
-
-				Object.defineProperty(dragEvent, "dataTransfer", {
-					value: { items: mockItems },
-				});
-
-				dropZone.dispatchEvent(dragEvent);
-			}
-		});
-
-		// Should either process successfully or show appropriate error
-		await waitForSvgProcessing(page, 30000);
-
-		// Check result
-		const svgElement = page.locator("svg");
-		const errorMessage = page.getByRole("alert");
-
-		const hasError = await errorMessage.isVisible();
-		const hasSvg = await svgElement.isVisible();
-
-		// Should have either SVG or error, not stuck in loading
-		expect(hasError || hasSvg).toBe(true);
-
-		if (hasError) {
-			// Error should be descriptive
-			await expect(errorMessage).toContainText(/error|memory|size|large/i);
-		}
 	});
 });

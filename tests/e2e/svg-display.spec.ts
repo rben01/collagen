@@ -235,22 +235,7 @@ const test = base.extend<PlaywrightTestArgs & { object: JsonObject }>({
 			mimeType: "application/json",
 		});
 
-		// Wait for SVG processing to complete (using same logic as workflow tests)
-		await page.waitForFunction(
-			() => {
-				// Look for SVG region or alert role elements
-				const svgSection = document.querySelector(
-					'[role="region"][aria-label*="SVG"], .svg-section',
-				);
-				const errorMessage = document.querySelector(
-					'[role="alert"], .error-message',
-				);
-				const loading = document.querySelector('[role="status"], .loading');
-				// Processing is complete when we have SVG output, error, or no longer loading
-				return (svgSection || errorMessage) && !loading;
-			},
-			{ timeout: 15000 },
-		);
+		await page.waitForSelector(".svg-section, .error-message");
 
 		await use(page);
 	},
