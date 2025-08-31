@@ -132,7 +132,8 @@
 				}
 			}
 
-			const rootFolderName = getCommonPathPrefix(itemNames);
+			const rootFolderName =
+				itemNames.length <= 1 ? "" : getCommonPathPrefix(itemNames);
 
 			console.log("📊 Raw file data size:", fileMap.size, "files");
 			console.log("📂 Root folder name:", rootFolderName);
@@ -157,7 +158,8 @@
 				fileMap.set(path, file);
 			}
 
-			const rootFolderName = getCommonPathPrefix([...fileMap.keys()], "/");
+			const rootFolderName =
+				fileMap.size === 1 ? "" : getCommonPathPrefix([...fileMap.keys()]);
 
 			// For file picker, we're always dealing with individual files
 			nUploadedFiles = fileList.length;
