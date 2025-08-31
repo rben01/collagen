@@ -473,7 +473,7 @@ test.describe("Interactive Features", () => {
 		// Global shortcuts should work without focus
 		const initialTransform = await svgContent.getAttribute("style");
 		let previousTransform = initialTransform;
-		let thisTransform: string;
+		let thisTransform: string | null = null;
 		await expect(zoomLevel).toContainText("100%");
 
 		// Test global zoom shortcuts (+ and -)

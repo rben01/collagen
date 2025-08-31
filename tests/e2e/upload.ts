@@ -104,8 +104,14 @@ const _sampleProjectContents = {
 };
 export type ProjectName = keyof typeof _sampleProjectContents;
 
-function projectify<T extends string>(project: Record<T, string>) {
-	const o = {} as Record<T, Record<string, string>>;
+// magic to make { [f1]: content } | { [f2]: content } => { [f1]: { content, type } } | { [f2]: { content, type } }
+// and *not* { [f1] | [f2]: content }
+type Projectified<T> = T extends any
+	? { [K in keyof T]: { content: T[K]; type: string } }
+	: never;
+
+function projectify<T extends Record<string, string>>(project: T) {
+	const o = {} as Record<keyof T, { content: string; type: string }>;
 
 	const mimeTypes = {
 		json: "application/json",
@@ -117,27 +123,31 @@ function projectify<T extends string>(project: Record<T, string>) {
 	};
 
 	for (const path in project) {
-		const content: string = project[path];
+		const content = project[path];
 
 		const extn = path.match(/.+\.([^.]+)$/);
 		const type =
-			extn === null ? mimeTypes.txt : (mimeTypes[extn[1]] ?? mimeTypes.txt);
+			extn === null
+				? mimeTypes.txt
+				: (mimeTypes[extn[1] as keyof typeof mimeTypes] ?? mimeTypes.txt);
 
 		o[path] = { content, type };
 	}
 
-	return o as Record<T, { content: string; type: string }>;
+	return o as Projectified<T>;
 }
 
 const sampleProjects = (() => {
-	const o = {};
-	for (const projectName in _sampleProjectContents) {
-		o[projectName] = projectify(_sampleProjectContents[projectName]);
-	}
-	return o as Record<
+	const o = {} as Record<
 		ProjectName,
 		Record<string, { content: string; type: string }>
 	>;
+	for (const projectName in _sampleProjectContents) {
+		o[projectName as ProjectName] = projectify(
+			_sampleProjectContents[projectName as ProjectName],
+		);
+	}
+	return o;
 })();
 
 // =============================================================================
