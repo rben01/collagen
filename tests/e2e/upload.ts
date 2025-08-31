@@ -104,9 +104,8 @@ const _sampleProjectContents = {
 };
 export type ProjectName = keyof typeof _sampleProjectContents;
 
-const sampleProjects = (() => {
-	type ProjectContents = Record<string, { content: string; type: string }>;
-	const o: Record<string, ProjectContents> = {};
+function projectify<T extends string>(project: Record<T, string>) {
+	const o = {} as Record<T, Record<string, string>>;
 
 	const mimeTypes = {
 		json: "application/json",
@@ -117,28 +116,27 @@ const sampleProjects = (() => {
 		txt: "text/plain",
 	};
 
-	for (const projectName in _sampleProjectContents) {
-		o[projectName] = {};
+	for (const path in project) {
+		const content: string = project[path];
 
-		const projectContents =
-			_sampleProjectContents[projectName as ProjectName];
+		const extn = path.match(/.+\.([^.]+)$/);
+		const type =
+			extn === null ? mimeTypes.txt : (mimeTypes[extn[1]] ?? mimeTypes.txt);
 
-		for (const path in projectContents) {
-			const content: string = projectContents[path];
-
-			const extn = path.match(/.+\.([^.]+)$/);
-			const type =
-				extn === null
-					? mimeTypes.txt
-					: (mimeTypes[extn[1]] ?? mimeTypes.txt);
-
-			o[projectName][path] = { content, type };
-		}
+		o[path] = { content, type };
 	}
 
-	return o as unknown as Record<
+	return o as Record<T, { content: string; type: string }>;
+}
+
+const sampleProjects = (() => {
+	const o = {};
+	for (const projectName in _sampleProjectContents) {
+		o[projectName] = projectify(_sampleProjectContents[projectName]);
+	}
+	return o as Record<
 		ProjectName,
-		{ content: string; type: string }
+		Record<string, { content: string; type: string }>
 	>;
 })();
 
@@ -160,7 +158,9 @@ export async function uploadWithFilePicker(
 	firstRun = true,
 ) {
 	const projectFiles =
-		typeof project === "string" ? sampleProjects[project] : project;
+		typeof project === "string"
+			? sampleProjects[project]
+			: projectify(project);
 
 	if (!firstRun) {
 		await page
@@ -233,7 +233,9 @@ async function uploadWithDragAndDrop(
 	project: ProjectName | ProjectFiles,
 ) {
 	const projectFiles =
-		typeof project === "string" ? sampleProjects[project] : project;
+		typeof project === "string"
+			? sampleProjects[project]
+			: projectify(project);
 
 	// Simulate drag and drop on the drop zone
 	await page.evaluate(

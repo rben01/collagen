@@ -7,7 +7,7 @@
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { test } from "./fixtures";
 import { uploadProject } from "./upload";
 

@@ -472,22 +472,40 @@ test.describe("Interactive Features", () => {
 
 		// Global shortcuts should work without focus
 		const initialTransform = await svgContent.getAttribute("style");
+		let previousTransform = initialTransform;
+		let thisTransform: string;
 		await expect(zoomLevel).toContainText("100%");
 
 		// Test global zoom shortcuts (+ and -)
 		await page.keyboard.press("Equal"); // Zoom in
 		await page.waitForTimeout(100);
 		await expect(zoomLevel).toContainText("120%");
+		thisTransform = await svgContent.getAttribute("style");
+		expect(thisTransform).not.toEqual(previousTransform);
+		previousTransform = thisTransform;
 
 		await page.keyboard.press("Minus"); // Zoom out
 		await page.waitForTimeout(100);
 		await expect(zoomLevel).toContainText("100%");
+		thisTransform = await svgContent.getAttribute("style");
+		expect(thisTransform).not.toEqual(previousTransform);
+		previousTransform = thisTransform;
+
+		await page.keyboard.press("Minus"); // Zoom in
+		await page.waitForTimeout(100);
+		await expect(zoomLevel).toContainText("83%");
+		thisTransform = await svgContent.getAttribute("style");
+		expect(thisTransform).not.toEqual(previousTransform);
+		previousTransform = thisTransform;
 
 		// Test reset shortcut
 		await page.keyboard.press("Equal"); // Zoom in first
 		await page.keyboard.press("0"); // Reset
 		await page.waitForTimeout(100);
 		await expect(zoomLevel).toContainText("100%");
+		thisTransform = await svgContent.getAttribute("style");
+		expect(thisTransform).not.toEqual(previousTransform);
+		previousTransform = thisTransform;
 
 		// Test view toggle shortcut
 		await page.keyboard.press("v");

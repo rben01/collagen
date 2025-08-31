@@ -7,7 +7,7 @@
 
 /// <reference path="../globals.d.ts" />
 
-import { expect, Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { test } from "./fixtures";
 import { ProjectFiles, uploadProject, uploadWithFilePicker } from "./upload";
 
@@ -440,6 +440,9 @@ test.describe("Performance and Stress Tests", () => {
 		// See test "should handle single folder upload" for which this is "Files" and not
 		// "Folder"
 		await expect(page.getByText("Files uploaded successfully")).toBeVisible();
+
+		const svg = page.locator("svg");
+		expect(await svg.getAttribute("viewBox")).toBe("0 0 100 100");
 	});
 });
 
