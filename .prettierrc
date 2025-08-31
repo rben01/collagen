@@ -8,5 +8,8 @@
 	"singleQuote": false,
 	"tabWidth": 3,
 	"trailingComma": "all",
-	"useTabs": true
+	"useTabs": true,
+	"overrides": [
+		{ "files": "*.md", "options": { "useTabs": false, "tabWidth": 2 } }
+	]
 }

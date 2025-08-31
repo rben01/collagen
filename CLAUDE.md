@@ -12,9 +12,9 @@ collages from JSON/Jsonnet manifest files. The project consists of:
   full Collagen functionality
 - **Web frontend**: Svelte application providing drag-and-drop interface for
   creating SVG collages
-- **Backup implementation**: Rust crate in `rust/` directory (legacy, not
-  actively used)
 - **Comprehensive test suite**: Unit tests (Vitest) and E2E tests (Playwright)
+- **Archive**: Rust crate in `rust/` directory (legacy, not actively used, and
+  you should NEVER read these files unless explicitly asked to)
 
 ### Project rationale
 
@@ -36,7 +36,7 @@ npm run dev
 # Build for production
 npm run build
 
-# Start production server
+# Start production server (after building)
 npm run start
 
 # Run unit tests
@@ -51,17 +51,14 @@ npm run test:run
 # Run E2E tests
 npm run test:e2e
 
-# Run E2E tests with UI
+# Run E2E tests with UI (for human use only)
 npm run test:e2e:ui
 
-# Debug E2E tests
+# Debug E2E tests (for human use only)
 npm run test:e2e:debug
 
 # Format code
 npm run format
-
-# Check formatting
-npm run format:check
 ```
 
 ### Running Individual Tests
@@ -81,16 +78,25 @@ npm run test -- --run -t "validates basic root tag structure"
 
 ### TypeScript Core Modules (`src/lib/collagen-ts/`)
 
-- **`index.ts`**: Main API providing `generateSvgFromObject()` and other entry
-  points
-- **`filesystem/`**: File system abstraction and path utilities
-- **`types/`**: TypeScript definitions for all SVG tag types and document
-  structure
-- **`validation/`**: Schema validation and type checking for manifest documents
-- **`svg/`**: SVG generation from typed document structure
-- **`jsonnet/`**: Jsonnet compilation using sjsonnet WASM library
-- **`utils/`**: Common utilities (base64, XML escaping, etc.)
-- **`errors/`**: Error types and handling
+- **`index.ts`**: Main API providing re-exports and general error type
+- **`filesystem/index.ts`**: File system abstraction with `InMemoryFileSystem`
+  class for browser File objects, path normalization utilities, and manifest
+  detection
+- **`types/index.ts`**: TypeScript definitions for all SVG tag types (`RootTag`,
+  `AnyChildTag`, `ImageTag`, etc.) using discriminated unions
+- **`validation/index.ts`**: Schema validation and type checking for manifest
+  documents, converting untyped objects to typed structures
+- **`svg/index.ts`**: SVG generation from typed document structure with
+  recursive tag processing and asset embedding
+- **`jsonnet/index.ts`**: Jsonnet compilation integration with sjsonnet.js,
+  providing `compileJsonnet()` function with filesystem callbacks
+  - **`jsonnet/sjsonnet.js`**: Pre-compiled sjsonnet JavaScript library
+    (Scala.js output) for client-side Jsonnet evaluation
+  - **`jsonnet/sjsonnet.d.ts`**: TypeScript definitions for sjsonnet.js API
+- **`utils/index.ts`**: Common utilities (base64 encoding/decoding, XML
+  escaping, object type checking)
+- **`errors/index.ts`**: Typed error classes (`MissingFileError`,
+  `JsonnetError`, `ValidationError`, etc.)
 
 ### Key Types
 
@@ -104,10 +110,14 @@ npm run test -- --run -t "validates basic root tag structure"
 
 1. Files uploaded via browser file picker or drag-and-drop
 2. `InMemoryFileSystem.create()` converts File objects to `InMemoryFileSystem`
-3. `loadManifest()` detects and parses JSON or Jsonnet manifest
-4. `validateDocument()` validates and creates typed `RootTag` structure
-5. `generateSvg()` recursively builds SVG with embedded assets (base64-encoded
-   images/fonts)
+   1. `fs.loadManifestContents()` detects and loads JSON or Jsonnet manifest
+      file
+   2. `fs.generateUntypedObject()` parses JSON or compiles Jsonnet using 1
+      sjsonnet.js
+   3. `generateSvg()` recursively builds SVG with embedded assets
+      (base64-encoded images/fonts)
+3. `validateDocument()` validates untyped object (output of
+   `fs.generateUntypedObject()`) and creates typed `RootTag`
 
 ## Development Notes
 
@@ -128,8 +138,52 @@ adding new tag types:
 The `InMemoryFileSystem` class provides browser-compatible file access:
 
 - Handles both individual files and directories from drag-and-drop
-- Normalizes paths using forward slashes across platforms
+- Normalizes paths in the following way:
+  - Uses forward slashes across platforms
+  - Removes redundant path separators, including leading and trailing slashes
 - Provides utilities for detecting file types (images, fonts) by extension
+
+### Jsonnet Integration with sjsonnet.js
+
+The TypeScript implementation uses **sjsonnet.js** for client-side Jsonnet
+compilation. This is a pre-compiled JavaScript file available for download from
+[sjsonnet](https://github.com/databricks/sjsonnet):
+
+- **`sjsonnet.js`**: Pre-compiled JavaScript library with no dependencies
+- **`sjsonnet.d.ts`**: TypeScript definitions for the sjsonnet API
+- **Integration**: The `compileJsonnet()` function in `jsonnet/index.ts`
+  provides a bridge between Collagen's file system and sjsonnet's compilation
+
+#### How sjsonnet.js Works
+
+1. **No Build Step**: sjsonnet.js is included as a regular JavaScript file
+2. **File Resolution**: Collagen provides resolver and loader callbacks to
+   sjsonnet for handling `import` statements
+3. **Path Normalization**: All paths are normalized through Collagen's
+   `normalizedPathJoin()` before being passed to sjsonnet
+4. sjsonnet allows the user to provide configuration, but we do not use this
+   feature
+5. **Error Handling**: sjsonnet compilation errors are caught and wrapped in
+   Collagen's `JsonnetError` class
+
+#### Example Usage
+
+```typescript
+import { compileJsonnet } from "./jsonnet/index.js";
+import { InMemoryFileSystem } from "./filesystem/index.js";
+
+const result = compileJsonnet(
+  jsonnetCode,
+  filesystem, // InMemoryFileSystem instance
+  config, // Jsonnet configuration, which is supported by sjsonnet but which we never use ourselves
+  manifestPath, // For error reporting
+);
+```
+
+The resolver callback handles import paths, turning them into strings that are
+the resolved path. The loader callback takes these resolved paths and reads file
+contents from the in-memory file system, enabling Jsonnet files to import other
+Jsonnet files.
 
 ### Test Structure
 
@@ -142,27 +196,24 @@ The `InMemoryFileSystem` class provides browser-compatible file access:
 - Tests verify that generated SVG matches expected output
   character-for-character
 
-#### Playwright Element Selection
-
-When using Playwright to look for elements, prefer in this order:
-
-1. `page.getByLabel()` - Most accessible, uses aria-label or associated labels
-2. `page.getByRole()` - Semantic roles like button, textbox, etc.
-3. `page.locator()` - Least preferred, use only when necessary for CSS selectors
+When writing or editing Playwright tests, ALWAYS use the agent
+playwright-test-writer.
 
 ### Manifest Formats
 
 - **JSON**: `collagen.json` - Standard JSON format
-- **Jsonnet**: `collagen.jsonnet` - Preferred when both exist, provides
+- **Jsonnet**: `collagen.jsonnet` - Preferred when both exist; provides
   variables, functions, loops, and imports
-- The TypeScript implementation uses sjsonnet.js (WASM-compiled jsonnet) for
-  client-side evaluation
+  - The TypeScript implementation uses sjsonnet.js for client-side evaluation
 
 ### Code Style
 
 - **TypeScript**: Strict mode enabled with comprehensive linting
-- **Performance**: Avoid creating temporary arrays; use `for...of` loops instead
-  of chained `array.map(...).filter(...)`
+- **Performance**: Avoid creating temporary arrays:
+  - Use `for...of` loops instead of chained `array.map(...).filter(...)`
+  - Use `for...in` loops instead of `Object.entries` or `Object.fromEntries`
+  - To create an array of length `n` from a function, use
+    `Array.from({length: n}, (_, index => func(index)))`
 - **Path handling**: Always use forward slashes (`/`) in paths, normalized by
   the filesystem layer
 - **Imports**: Use explicit `.js` extensions for ESM compatibility
@@ -176,8 +227,21 @@ When using Playwright to look for elements, prefer in this order:
   generation
 - **`FileUploader.svelte`**: Drag-and-drop file upload component with folder
   support
+  - Supports both drag and drop, and a file picker via a hidden `<input>`
+  - Drag and drop exposes a different `File` API than the `<input>`; dragged and
+    dropped files (and folders) have a `webkitGetAsEntry()` that offers richer
+    features than a simple `File` object, including recursive traversal of
+    dropped folders.
 - **`SvgDisplay.svelte`**: Interactive SVG viewer with zoom, pan, and export
   functionality
+  - Element hierarchy: `div.svg-display` contains `button.svg-container`
+    contains `div.svg-content` contains the generated `<svg></svg>`.
+  - It is the `button.svg-container` that's interactive and responds to user
+    gestures, keyboard keys, etc.
+  - It is the `div.svg-content` that has a transform applied to it when the user
+    interacts with the SVG.
+  - Reminder: in tests, refer to these by their `aria-label`, not their
+    selector!
 - **`main.js`**: Application entry point using Svelte 5's `mount()` API
 
 ### Key Features
@@ -190,32 +254,37 @@ When using Playwright to look for elements, prefer in this order:
 - **Error Handling**: Comprehensive error display with typed error messages
 - **Manifest Detection**: Automatically detects and prefers `collagen.jsonnet`
   over `collagen.json`
-- **Client-side Jsonnet**: Uses sjsonnet.js WASM library for Jsonnet compilation
-  in browser
+- **Client-side Jsonnet**: Uses sjsonnet.js for Jsonnet compilation in browser
+  - Source: <https://github.com/databricks/sjsonnet>
 
 ### Data Flow
 
 1. **File Collection**: `FileUploader` handles drag-and-drop and folder
    selection
-2. **TypeScript Processing**: Files are passed to `generateSvgFromObject()` from
-   the TypeScript library
-3. **In-Memory FS**: Browser File objects are converted to `InMemoryFileSystem`
-4. **Processing**: Pure TypeScript implementation processes manifest and assets
-5. **Display**: Generated SVG is rendered in `SvgDisplay` with interactive
+2. **File System Creation**: Browser File objects are converted to
+   `InMemoryFileSystem` via `InMemoryFileSystem.create()`
+3. **Manifest Processing**: `fs.loadManifestContents()` detects manifest format
+   and loads content; Jsonnet files are compiled using sjsonnet.js
+4. **Validation**: `validateDocument()` converts untyped objects to typed
+   `RootTag` structures
+5. **SVG Generation**: `fs.generateSvg()` recursively builds SVG with embedded
+   base64-encoded assets
+6. **Display**: Generated SVG is rendered in `SvgDisplay` with interactive
    controls
 
 ### Browser Compatibility
 
 - Uses modern browser APIs: `File`, `FileReader`, `drag-and-drop`,
   `webkitdirectory`
-- Jsonnet support via sjsonnet.js WASM (pre-compiled, included in bundle)
+- Jsonnet support via sjsonnet.js, which is included as a regular JS file
 - No server-side processing required - fully client-side application
 - Works in all modern browsers with ES2020+ support
 
 ## Legacy Rust Implementation
 
 The `rust/` directory contains the original Rust implementation which served as
-the reference for the TypeScript port. This implementation:
+the reference for the TypeScript port. You should never reference this
+implementation. But for posterity, this implementation:
 
 - Is not actively used but maintained for reference
 - Contains the same test examples in `rust/tests/examples/`
