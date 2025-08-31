@@ -1,8 +1,7 @@
 /**
  * Main API for Collagen TypeScript implementation
  *
- * This module provides the main entry point for the TypeScript version of Collagen,
- * designed to be a drop-in replacement for the WASM implementation.
+ * This module provides the main entry point for the TypeScript version of Collagen.
  */
 
 // =============================================================================
@@ -63,9 +62,9 @@ export type { JsonnetConfig } from "./jsonnet/sjsonnet.js";
 // =============================================================================
 
 /**
- * Error type compatible with WASM CollagenError
+ * General error type
  */
-export interface CollagenCompatError {
+export interface CollagenError {
 	message: string;
 	errorType: string;
 }
@@ -73,7 +72,7 @@ export interface CollagenCompatError {
 /**
  * Convert our errors to WASM-compatible format
  */
-export function toCompatibleError(error: unknown): CollagenCompatError {
+export function toCollagenError(error: unknown): CollagenError {
 	if (error && typeof error === "object" && "errorType" in error) {
 		return {
 			message: String((error as any).message || error),

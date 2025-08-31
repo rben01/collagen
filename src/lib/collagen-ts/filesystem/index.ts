@@ -258,12 +258,7 @@ export class InMemoryFileSystem {
 				return JSON.parse(text) as JsonObject;
 			} else {
 				const { compileJsonnet } = await import("../jsonnet/index.js");
-				return compileJsonnet(
-					text,
-					this,
-					{},
-					getManifestPath(manifestFormat),
-				);
+				return compileJsonnet(text, this, getManifestPath(manifestFormat));
 			}
 		} catch (error) {
 			if (error instanceof SyntaxError) {

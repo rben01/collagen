@@ -2,7 +2,7 @@
 	import FileUploader from "./FileUploader.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import {
-		toCompatibleError,
+		toCollagenError,
 		InMemoryFileSystem,
 	} from "./lib/collagen-ts/index.js";
 	import type { FileContent } from "./lib/collagen-ts/index.js";
@@ -52,7 +52,7 @@
 			}
 		} catch (err) {
 			console.error("Error processing files:", err);
-			const compatError = toCompatibleError(err);
+			const compatError = toCollagenError(err);
 			error = compatError.message;
 		} finally {
 			loading = false;
