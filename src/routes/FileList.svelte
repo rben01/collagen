@@ -99,7 +99,6 @@
 		background: #f9fafb;
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
-		margin-bottom: 4em;
 	}
 
 	.file-list-header {

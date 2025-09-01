@@ -140,9 +140,9 @@
 					</div>
 				{:else if error}
 					<div class="error-state">
-						<div class="error-content">
+						<div class="error-content error-message">
 							<span class="error-icon">⚠️</span>
-							<p>{error}</p>
+							<p class="error-description">{error}</p>
 						</div>
 					</div>
 				{:else}
@@ -157,17 +157,13 @@
 
 <style>
 	main {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 2em;
+		--v-margin: 2em;
+
+		max-width: calc(min(1200px, 90vw));
+		margin: var(--v-margin) auto;
 		font-family:
 			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
-	}
-
-	/* Add bottom padding only when showing initial state */
-	main:has(.upload-section) {
-		padding-bottom: 8em;
 	}
 
 	h1 {
@@ -198,16 +194,11 @@
 		margin-bottom: 1em;
 	}
 
-	/* App layout for side-by-side view */
 	.app-layout {
 		display: flex;
 		gap: 2em;
 		margin: auto 0;
-		position: absolute;
-		left: 4em;
-		right: 4em;
-		top: 4em;
-		bottom: 4em;
+		height: calc(100vh - 2 * var(--v-margin));
 		box-sizing: border-box;
 	}
 
@@ -222,7 +213,7 @@
 		flex: 1;
 		min-height: 0;
 		display: flex;
-		flex-direction: column;
+		justify-items: stretch;
 	}
 
 	.svg-section {
@@ -298,11 +289,12 @@
 
 	@media (max-width: 768px) {
 		main {
-			padding: 1em;
+			margin: 1em auto;
 		}
 
 		.app-layout {
 			gap: 1em;
+			height: auto;
 		}
 
 		.sidebar {

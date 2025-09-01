@@ -156,7 +156,7 @@ const sampleProjects = (() => {
 
 async function waitForUpload(page: Page, { timeout } = { timeout: 3000 }) {
 	await page
-		.locator(".files-uploaded, .error-message")
+		.locator(".file-list, .error-message")
 		.first()
 		.waitFor({ state: "visible", timeout });
 }
