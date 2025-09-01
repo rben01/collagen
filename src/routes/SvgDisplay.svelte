@@ -642,13 +642,14 @@
 		height: 100%;
 		flex: 1;
 		font-family: inherit;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 	}
 
 	.svg-container:focus {
-		outline: none;
-		box-shadow: 0 0 0 2px #2563eb;
-		margin: 2px;
-		width: calc(100% - 4px);
+		outline: 2px solid #2563eb;
+		outline-offset: -2px;
 	}
 
 	.sr-only {
@@ -668,11 +669,16 @@
 		transition: transform 0.1s ease-out;
 		text-align: center;
 		padding: 2em;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		width: 100%;
+		height: 100%;
 	}
 
 	.svg-content :global(svg) {
 		max-width: 100%;
-		height: auto;
+		max-height: 100%;
 		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 		border-radius: 0.25em;
 		background: white;
