@@ -12,6 +12,7 @@
 		handleFilesUploaded,
 		handleClearFiles,
 		externalError = null,
+		compact = false,
 	}: {
 		disabled: boolean;
 		handleFilesUploaded: (
@@ -20,6 +21,7 @@
 		) => Promise<void>;
 		handleClearFiles: () => void;
 		externalError?: string | null;
+		compact?: boolean;
 	} = $props();
 
 	let dragOver = $state(false);
@@ -397,11 +399,12 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 
-<div class="uploader">
+<div class="uploader" class:compact>
 	<div
 		class="drop-zone"
 		class:drag-over={dragOver}
 		class:disabled
+		class:compact
 		ondragenter={handleDragEnter}
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}
@@ -422,13 +425,18 @@
 
 		{#if !files}
 			<div class="upload-content">
-				<h3>Upload Collagen Project</h3>
-				<p>
-					Drag and drop a <code>collagen.json</code> or a
-					<code>collagen.jsonnet</code> manifest file, or a folder
-					containing one of those and any other resources. Or press O to
-					<em>open</em> the file/folder picker.
-				</p>
+				{#if !compact}
+					<h3>Upload Collagen Project</h3>
+					<p>
+						Drag and drop a <code>collagen.json</code> or a
+						<code>collagen.jsonnet</code> manifest file, or a folder
+						containing one of those and any other resources. Or press O to
+						<em>open</em> the file/folder picker.
+					</p>
+				{:else}
+					<h4>Upload Different Project</h4>
+					<p>Drop files or click to browse</p>
+				{/if}
 
 				<button
 					class="browse-btn"
@@ -457,7 +465,7 @@
 					>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
-					Upload Another Project
+					Upload Different Project
 				</button>
 			</div>
 		{/if}
@@ -477,6 +485,11 @@
 		background: #fafafa;
 		transition: all 0.3s ease;
 		cursor: pointer;
+	}
+
+	.drop-zone.compact {
+		padding: 1.5em 1em;
+		border-radius: 0.5em;
 	}
 
 	.drop-zone:hover:not(.disabled) {
@@ -509,12 +522,24 @@
 		font-size: 1.3em;
 	}
 
+	.upload-content h4 {
+		margin: 0.5em 0 0.25em 0;
+		color: #374151;
+		font-size: 1.1em;
+		font-weight: 600;
+	}
+
 	.upload-content p {
 		color: #6b7280;
 		margin: auto;
 		margin-bottom: 1.5em;
 		line-height: 1.5;
 		max-width: min(80%, 640px);
+	}
+
+	.compact .upload-content p {
+		margin-bottom: 1em;
+		font-size: 0.9em;
 	}
 
 	.error-message {

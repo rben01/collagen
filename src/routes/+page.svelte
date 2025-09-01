@@ -1,11 +1,11 @@
 <script lang="ts">
 	import FileUploader from "./FileUploader.svelte";
+	import FileList from "./FileList.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import {
 		toCollagenError,
 		InMemoryFileSystem,
 	} from "../lib/collagen-ts/index.js";
-	import type { FileContent } from "../lib/collagen-ts/index.js";
 	import { tick } from "svelte";
 
 	let error: string | null = $state(null);
@@ -80,8 +80,11 @@
 </svelte:head>
 
 <main>
-	<h1>Collagen Web</h1>
-	<p>Generate SVG collages from JSON/Jsonnet manifests</p>
+	{#if !filesData && !svgOutput}
+		<!-- Show title section only when no files are uploaded -->
+		<h1>Collagen Web</h1>
+		<p>Generate SVG collages from JSON/Jsonnet manifests</p>
+	{/if}
 
 	{#if loading}
 		<div
@@ -93,101 +96,61 @@
 		</div>
 	{/if}
 
-	<div class="upload-section">
-		<FileUploader
-			handleFilesUploaded={handleFilesUploadedWithRoot}
-			{handleClearFiles}
-			disabled={loading}
-			externalError={error}
-		/>
-	</div>
-
-	{#if filesData}
-		<div class="files-info" role="region" aria-label="File information">
-			<h3>Uploaded Files ({filesData?.getFileCount() || 0})</h3>
-
-			<!-- File size summary and warnings -->
-			{#each [(() => {
-					try {
-						if (!filesData) {
-							return { totalSize: 0, warnings: [] };
-						}
-
-						let totalSize = 0;
-						const largeFiles: FileContent[] = [];
-
-						for (const file of filesData.files.values()) {
-							// Ensure file exists and has size property
-							if (file && typeof file.bytes.length === "number") {
-								totalSize += file.bytes.length;
-								if (file.bytes.length > 5 * 1024 * 1024) {
-									// > 5MB
-									largeFiles.push(file);
-								}
-							}
-						}
-
-						const warnings = [];
-
-						if (totalSize > 25 * 1024 * 1024) {
-							// > 25MB warning
-							warnings.push( { type: "warning", message: `Total size: ${(totalSize / (1024 * 1024)).toFixed(1)}MB. Large uploads may fail due to memory limits.` }, );
-						}
-
-						if (largeFiles.length > 0) {
-							warnings.push( { type: "info", message: `${largeFiles.length} large file(s) detected.` }, );
-						}
-
-						return { totalSize, warnings };
-					} catch (e) {
-						console.error("Error calculating file summary:", e);
-						return { totalSize: 0, warnings: [] };
-					}
-				})()] as fileSummary}
-				<div class="file-summary">
-					<span class="total-size">
-						<!-- TODO: this returns the wrong size -->
-						Total: {(fileSummary.totalSize / 1024).toFixed(1)}KB
-					</span>
-
-					{#each fileSummary.warnings as warning}
-						<div class="file-warning {warning.type}">
-							{#if warning.type === "warning"}⚠️{:else}💡{/if}
-							{warning.message}
-						</div>
-					{/each}
-				</div>
-			{/each}
-
-			<ul>
-				{#each filesData.files || [] as [path, file]}
-					<li class="file-item">
-						<span class="file-path">{path}</span>
-						<span class="file-size">
-							{#if file && typeof file.bytes.length === "number"}
-								{#if file.bytes.length > 1024 * 1024}
-									{(file.bytes.length / (1024 * 1024)).toFixed(1)}MB
-								{:else if file.bytes.length > 1024}
-									{(file.bytes.length / 1024).toFixed(0)}KB
-								{:else}
-									{file.bytes.length}B
-								{/if}
-								{#if file.bytes.length > 10 * 1024 * 1024}
-									<span class="size-warning">⚠️</span>
-								{/if}
-							{:else}
-								Unknown size
-							{/if}
-						</span>
-					</li>
-				{/each}
-			</ul>
+	{#if !filesData && !svgOutput}
+		<!-- Initial state: show full-width uploader -->
+		<div class="upload-section">
+			<FileUploader
+				handleFilesUploaded={handleFilesUploadedWithRoot}
+				{handleClearFiles}
+				disabled={loading}
+			/>
 		</div>
-	{/if}
+	{:else}
+		<!-- Files uploaded state: show side-by-side layout -->
+		<div class="app-layout">
+			<!-- Left sidebar with files -->
+			<div class="sidebar">
+				<div class="upload-section-compact">
+					<FileUploader
+						handleFilesUploaded={handleFilesUploadedWithRoot}
+						{handleClearFiles}
+						disabled={loading}
+						compact={true}
+					/>
+				</div>
 
-	{#if svgOutput}
-		<div class="svg-section" role="region" aria-label="Generated SVG display">
-			<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
+				{#if filesData}
+					<FileList {filesData} />
+				{/if}
+			</div>
+
+			<!-- Right main content area with SVG -->
+			<div class="main-content">
+				{#if svgOutput}
+					<div
+						class="svg-section"
+						role="region"
+						aria-label="Generated SVG display"
+					>
+						<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
+					</div>
+				{:else if loading}
+					<div class="loading-state">
+						<p>Processing files...</p>
+					</div>
+				{:else if error}
+					<div class="error-state">
+						<div class="error-content">
+							<span class="error-icon">⚠️</span>
+							<p>{error}</p>
+						</div>
+					</div>
+				{:else}
+					<div class="waiting-state">
+						<p>Waiting for SVG generation...</p>
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </main>
@@ -196,10 +159,15 @@
 	main {
 		max-width: 1200px;
 		margin: 0 auto;
-		padding: 2em 2em 8em 2em;
+		padding: 2em;
 		font-family:
 			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
+	}
+
+	/* Add bottom padding only when showing initial state */
+	main:has(.upload-section) {
+		padding-bottom: 8em;
 	}
 
 	h1 {
@@ -216,15 +184,6 @@
 		margin-bottom: 2em;
 	}
 
-	.error {
-		background: #fee2e2;
-		border: 1px solid #fecaca;
-		color: #dc2626;
-		padding: 1em;
-		border-radius: 0.5em;
-		margin-bottom: 1em;
-	}
-
 	.loading {
 		text-align: center;
 		padding: 2em;
@@ -235,94 +194,119 @@
 		margin-bottom: 2em;
 	}
 
-	.files-info {
-		background: #f9fafb;
-		border: 1px solid #e5e7eb;
-		border-radius: 0.5em;
-		padding: 1em;
-		margin-bottom: 2em;
-	}
-
-	.files-info h3 {
-		margin: 0 0 0.5em 0;
-		color: #374151;
-	}
-
-	.file-summary {
+	.upload-section-compact {
 		margin-bottom: 1em;
-		padding: 0.75em;
-		background: #ffffff;
-		border-radius: 0.375em;
-		border: 1px solid #d1d5db;
 	}
 
-	.total-size {
-		font-weight: 600;
-		color: #374151;
-		font-size: 0.9em;
-	}
-
-	.file-warning {
-		margin-top: 0.5em;
-		padding: 0.5em;
-		border-radius: 0.25em;
-		font-size: 0.85em;
-		line-height: 1.4;
-	}
-
-	.file-warning.warning {
-		background: #fef3c7;
-		border: 1px solid #f59e0b;
-		color: #92400e;
-	}
-
-	.file-warning.info {
-		background: #dbeafe;
-		border: 1px solid #3b82f6;
-		color: #1e40af;
-	}
-
-	.files-info ul {
-		list-style-type: none;
-		padding: 0;
-		margin: 0;
-	}
-
-	.file-item {
-		padding: 0.375em 0;
+	/* App layout for side-by-side view */
+	.app-layout {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		border-bottom: 1px solid #f3f4f6;
+		gap: 2em;
+		margin: auto 0;
+		position: absolute;
+		left: 4em;
+		right: 4em;
+		top: 4em;
+		bottom: 4em;
+		box-sizing: border-box;
 	}
 
-	.file-item:last-child {
-		border-bottom: none;
+	.sidebar {
+		flex: 0 0 350px;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
 	}
 
-	.file-path {
-		color: #6b7280;
-		font-family: monospace;
-		font-size: 0.9em;
+	.main-content {
 		flex: 1;
-	}
-
-	.file-size {
-		color: #9ca3af;
-		font-size: 0.8em;
-		font-weight: 500;
+		min-height: 0;
 		display: flex;
-		align-items: center;
-		gap: 0.25em;
-	}
-
-	.size-warning {
-		color: #f59e0b;
-		font-size: 1.1em;
+		flex-direction: column;
 	}
 
 	.svg-section {
-		border-top: 1px solid #e5e7eb;
-		padding-top: 2em;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.loading-state,
+	.waiting-state,
+	.error-state {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: #f9fafb;
+		border: 1px solid #e5e7eb;
+		border-radius: 0.5em;
+		color: #6b7280;
+		font-size: 1.1em;
+	}
+
+	.error-state {
+		background: #fef2f2;
+		border-color: #fecaca;
+		color: #dc2626;
+	}
+
+	.error-content {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75em;
+		text-align: center;
+		max-width: 600px;
+		padding: 1em;
+	}
+
+	.error-content .error-icon {
+		font-size: 1.5em;
+		flex-shrink: 0;
+	}
+
+	.error-content p {
+		margin: 0;
+		line-height: 1.4;
+		font-size: 1em;
+	}
+
+	/* Responsive design */
+	@media (max-width: 1024px) {
+		.app-layout {
+			flex-direction: column;
+			height: auto;
+			min-height: 0;
+		}
+
+		.sidebar {
+			flex: none;
+			order: 2;
+		}
+
+		.main-content {
+			flex: none;
+			order: 1;
+			min-height: 400px;
+		}
+
+		.svg-section {
+			flex: none;
+			height: 400px;
+		}
+	}
+
+	@media (max-width: 768px) {
+		main {
+			padding: 1em;
+		}
+
+		.app-layout {
+			gap: 1em;
+		}
+
+		.sidebar {
+			flex: none;
+		}
 	}
 </style>

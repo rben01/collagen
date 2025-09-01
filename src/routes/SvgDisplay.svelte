@@ -455,8 +455,10 @@
 		overflow: hidden;
 		background: white;
 		position: relative;
-		width: 80%;
-		margin: 0 auto;
+		width: 100%;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.toast-container {
@@ -637,6 +639,8 @@
 		border: none;
 		padding: 0;
 		width: 100%;
+		height: 100%;
+		flex: 1;
 		font-family: inherit;
 	}
 
@@ -675,7 +679,7 @@
 	}
 
 	.raw-svg {
-		max-height: 500px;
+		flex: 1;
 		overflow: auto;
 		background: #f8f9fa;
 	}
