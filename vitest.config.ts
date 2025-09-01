@@ -12,14 +12,6 @@ export default defineConfig({
 		exclude: ["node_modules/**", "src/lib/collagen-ts/**/*.d.ts"],
 		pool: "threads",
 		poolOptions: { threads: { maxThreads: 2, useAtomics: true } },
-		deps: {
-			optimizer: {
-				ssr: {
-					exclude: ["src/lib/collagen-ts/jsonnet/sjsonnet.js"],
-					needsInterop: ["src/lib/collagen-ts/jsonnet/sjsonnet.js"],
-				},
-			},
-		},
 	},
 	resolve: {
 		alias: {
