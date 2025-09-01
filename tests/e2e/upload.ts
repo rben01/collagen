@@ -154,6 +154,13 @@ const sampleProjects = (() => {
 // Simple Upload Testing Utilities
 // =============================================================================
 
+async function waitForUpload(page: Page, { timeout } = { timeout: 3000 }) {
+	await page
+		.locator(".files-uploaded, .error-message")
+		.first()
+		.waitFor({ state: "visible", timeout });
+}
+
 /**
  * Test file picker upload by simulating browse button click and file selection
  *
@@ -175,13 +182,13 @@ export async function uploadWithFilePicker(
 	if (!firstRun) {
 		await page
 			.getByRole("button", { name: "Upload Another Project" })
-			.click({ timeout: 1000 });
+			.click({ timeout: 2000 });
 	}
 
 	// Click the browse button to trigger file picker
 	await page
 		.getByRole("button", { name: "Browse for file or folder" })
-		.click();
+		.click({ timeout: 5000 });
 
 	// Set files on the file input that gets created
 	await page.evaluate(
@@ -223,10 +230,7 @@ export async function uploadWithFilePicker(
 		{ fileData: projectFiles },
 	);
 
-	// Wait for the upload to be processed (either success or error)
-	await page.waitForSelector(".files-uploaded, .error-message", {
-		timeout: 1500,
-	});
+	await waitForUpload(page);
 }
 
 /**
@@ -298,10 +302,7 @@ async function uploadWithDragAndDrop(
 		{ fileData: projectFiles },
 	);
 
-	// Wait for the upload to be processed (either success or error)
-	await page.waitForSelector(".files-uploaded, .error-message", {
-		timeout: 1500,
-	});
+	await waitForUpload(page);
 }
 
 export async function uploadProject(

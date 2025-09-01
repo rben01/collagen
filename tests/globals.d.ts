@@ -11,7 +11,6 @@ declare global {
 		testFiles?: Record<string, File>;
 		uploadCallbackTriggered?: boolean;
 		uploadedFileCount?: number;
-		handleFilesUploaded?: (files: any) => void;
 		mockUploadedFiles?: Record<string, { size: number }>;
 		mockLargeFiles?: Record<string, { size: number }>;
 		uploadedFiles?: Record<string, { size: number }>;
@@ -26,18 +25,7 @@ declare global {
 
 		generatedSvg?: string;
 
-		// Application-specific properties
-		sjsonnet?: any;
-
-		// FileUploader test properties
-		getMimeType: (path: string) => Promise<string>;
-		exposeFileUploader?: (component: any) => void;
-		__fileUploader?: {
-			processFilesFromFileList?: (fileList: FileList) => Promise<void>;
-			processFilesFromDataTransfer?: (
-				items: DataTransferItemList,
-			) => Promise<void>;
-		};
+		fileUploaderMounted?: boolean;
 	}
 
 	// Extend Element to include style property for DOM manipulation in tests

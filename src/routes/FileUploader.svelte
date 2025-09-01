@@ -1,13 +1,18 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
 	import { getCommonPathPrefix } from "$lib/collagen-ts/utils";
+
+	onMount(() => {
+		window.fileUploaderMounted = true;
+	});
 
 	let {
 		disabled = false,
 		handleFilesUploaded,
 		handleClearFiles,
 		externalError = null,
-	} = $props<{
+	}: {
 		disabled: boolean;
 		handleFilesUploaded: (
 			files: Map<string, File>,
@@ -15,7 +20,7 @@
 		) => Promise<void>;
 		handleClearFiles: () => void;
 		externalError?: string | null;
-	}>();
+	} = $props();
 
 	let dragOver = $state(false);
 	let files: Map<string, File> | null = $state(null);
@@ -37,6 +42,13 @@
 		const items = event.dataTransfer!.items;
 		console.log("📁 Items in drop:", items.length);
 		await processFilesFromDataTransfer(items);
+	}
+
+	function handleDragEnter(event: DragEvent) {
+		event.preventDefault();
+		if (!disabled) {
+			dragOver = true;
+		}
 	}
 
 	function handleDragOver(event: DragEvent) {
@@ -361,6 +373,26 @@
 			openFolderPicker();
 		}
 	}
+
+	function handleBrowseClick(event: Event) {
+		event.stopPropagation();
+		openFolderPicker();
+	}
+
+	function handleBrowseKeyDown(event: KeyboardEvent) {
+		if (event.key === "Enter" && !disabled) {
+			event.preventDefault();
+			event.stopPropagation();
+			openFolderPicker();
+		}
+	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if ((event.key === "Enter" || event.key === " ") && !disabled) {
+			event.preventDefault();
+			openFolderPicker();
+		}
+	}
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -370,18 +402,16 @@
 		class="drop-zone"
 		class:drag-over={dragOver}
 		class:disabled
-		ondrop={handleDrop}
+		ondragenter={handleDragEnter}
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}
+		ondrop={handleDrop}
 		onclick={openFolderPicker}
+		onkeydown={handleKeyDown}
 		role="button"
 		aria-label="File upload drop zone - drag and drop files, click to browse, or press Enter when focused"
 		title="Drop files here or click to browse (Enter when focused, O when nothing is focused)"
 		tabindex="0"
-		onkeydown={e =>
-			(e.key === "Enter" || e.key === " ") && !disabled
-				? (e.preventDefault(), openFolderPicker())
-				: null}
 	>
 		{#if errorMessage || externalError}
 			<div class="error-message">
@@ -402,17 +432,8 @@
 
 				<button
 					class="browse-btn"
-					onclick={e => {
-						e.stopPropagation();
-						openFolderPicker();
-					}}
-					onkeydown={e => {
-						if (e.key === "Enter" && !disabled) {
-							e.preventDefault();
-							e.stopPropagation();
-							openFolderPicker();
-						}
-					}}
+					onclick={handleBrowseClick}
+					onkeydown={handleBrowseKeyDown}
 					title="Browse for file or folder (Enter to open when focused, O when nothing is focused)"
 					aria-label="Browse for file or folder - press Enter to open file picker"
 					{disabled}

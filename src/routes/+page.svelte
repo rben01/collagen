@@ -6,12 +6,13 @@
 		InMemoryFileSystem,
 	} from "../lib/collagen-ts/index.js";
 	import type { FileContent } from "../lib/collagen-ts/index.js";
+	import { tick } from "svelte";
 
-	let error: string | null = null;
-	let loading = false;
-	let svgOutput: string | null = null;
-	let filesData: InMemoryFileSystem | null = null;
-	let svgDisplayComponent: any = null;
+	let error: string | null = $state(null);
+	let loading = $state(false);
+	let svgOutput: string | null = $state(null);
+	let filesData: InMemoryFileSystem | null = $state(null);
+	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
 	async function handleFilesUploadedWithRoot(
 		files: Map<string, File>,
@@ -60,12 +61,11 @@
 	}
 
 	// Auto-focus SVG viewer when SVG is generated
-	$: if (svgOutput && svgDisplayComponent) {
-		// Use setTimeout to ensure the DOM is updated first
-		setTimeout(() => {
-			svgDisplayComponent.focus();
-		}, 0);
-	}
+	$effect(() => {
+		if (svgOutput && svgDisplayComponent) {
+			tick().then(() => svgDisplayComponent!.focus());
+		}
+	});
 
 	function handleClearFiles() {
 		filesData = null;

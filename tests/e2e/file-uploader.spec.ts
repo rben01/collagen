@@ -81,21 +81,47 @@ test.describe("FileUploader Interface", () => {
 		// Initial state - no drag over
 		await expect(uploadZone).not.toHaveClass(/drag-over/);
 
-		// Simulate drag over
+		// Wait for Svelte to mount and bind event handlers
+		await page.waitForTimeout(500);
+
+		// Simulate drag over (following the same pattern as upload.ts)
 		await page.evaluate(() => {
 			const dropZone = document.querySelector(".drop-zone") as HTMLElement;
+			const dt = new DataTransfer();
+
+			// Dispatch dragenter first (like upload.ts does)
 			dropZone.dispatchEvent(
-				new DragEvent("dragover", { bubbles: true, cancelable: true }),
+				new DragEvent("dragenter", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+
+			// Then dispatch dragover
+			dropZone.dispatchEvent(
+				new DragEvent("dragover", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
 			);
 		});
 
+		// Wait a moment for the reactive class to be applied
+		await page.waitForTimeout(50);
 		await expect(uploadZone).toHaveClass(/drag-over/);
 
 		// Simulate drag leave
 		await page.evaluate(() => {
 			const dropZone = document.querySelector(".drop-zone") as HTMLElement;
+			const dt = new DataTransfer();
 			dropZone.dispatchEvent(
-				new DragEvent("dragleave", { bubbles: true, cancelable: true }),
+				new DragEvent("dragleave", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
 			);
 		});
 
@@ -316,33 +342,7 @@ test.describe("Edge Cases and Robustness", () => {
 			}),
 		};
 
-		// Click the browse button to trigger file picker
-		await page.locator(".browse-btn").click();
-
-		// Set files with long names on the file input that gets created
-		await page.evaluate(async fileData => {
-			const input = document.querySelector(
-				'input[type="file"]',
-			) as HTMLInputElement;
-			if (!input) {
-				throw new Error("File input not found");
-			}
-
-			const dt = new DataTransfer();
-			Object.entries(fileData).forEach(([path, content]) => {
-				const file = new File([content], path, {
-					type: "application/json",
-				});
-				dt.items.add(file);
-			});
-
-			Object.defineProperty(input, "files", {
-				value: dt.files,
-				writable: false,
-			});
-
-			input.dispatchEvent(new Event("change", { bubbles: true }));
-		}, projectData);
+		await uploadWithFilePicker(page, projectData);
 
 		expect(await page.getByText(/uploaded successfully/i).count()).toBe(1);
 	});
@@ -366,7 +366,10 @@ test.describe("Edge Cases and Robustness", () => {
 // =============================================================================
 
 test.describe("Performance and Stress Tests", () => {
-	test("should handle moderately large number of files", async ({ page }) => {
+	test("should handle moderately large number of files", async ({
+		page,
+		browserName,
+	}) => {
 		// Create project with many files
 		const manyFilesProject: ProjectFiles = {
 			"collagen.json": JSON.stringify({
@@ -386,30 +389,7 @@ test.describe("Performance and Stress Tests", () => {
 		// Test using DOM-based approach with timing
 		const startTime = performance.now();
 
-		await page.evaluate(async fileData => {
-			const input = document.querySelector(
-				'input[type="file"]',
-			) as HTMLInputElement;
-			if (!input) {
-				throw new Error("File input not found");
-			}
-
-			const dt = new DataTransfer();
-			Object.entries(fileData).forEach(([path, content]) => {
-				const type = path.endsWith(".json")
-					? "application/json"
-					: "text/plain";
-				const file = new File([content], path, { type });
-				dt.items.add(file);
-			});
-
-			Object.defineProperty(input, "files", {
-				value: dt.files,
-				writable: false,
-			});
-
-			input.dispatchEvent(new Event("change", { bubbles: true }));
-		}, manyFilesProject);
+		await uploadProject(browserName, page, manyFilesProject);
 
 		const endTime = performance.now();
 		const duration = endTime - startTime;
