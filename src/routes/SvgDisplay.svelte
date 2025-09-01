@@ -2,26 +2,24 @@
 	import { flip } from "svelte/animate";
 	import { quintInOut, quintOut } from "svelte/easing";
 
-	export let svg: string;
-
 	// Expose focus method for parent components
 	export function focus() {
-		if (svgContainer) {
-			svgContainer.focus();
-		}
+		if (svgContainer) svgContainer.focus();
 	}
 
-	let showRawSvg = false;
-	let showInstructions = false;
-	let scale = 1;
-	let panX = 0;
-	let panY = 0;
-	let isDragging = false;
-	let lastMouseX = 0;
-	let lastMouseY = 0;
-	let svgContainer: HTMLElement;
-	let lastTouchDistance = 0;
-	let toasts: { id: number; message: string; type: string }[] = [];
+	let { svg }: { svg: string } = $props();
+
+	let showRawSvg = $state(false);
+	let showInstructions = $state(false);
+	let scale = $state(1);
+	let panX = $state(0);
+	let panY = $state(0);
+	let isDragging = $state(false);
+	let lastMouseX = $state(0);
+	let lastMouseY = $state(0);
+	let svgContainer: HTMLElement | null = $state(null);
+	let lastTouchDistance = $state(0);
+	let toasts: { id: number; message: string; type: string }[] = $state([]);
 
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
@@ -90,7 +88,7 @@
 			isDragging = true;
 			lastMouseX = event.touches[0].clientX;
 			lastMouseY = event.touches[0].clientY;
-			svgContainer.style.cursor = "grabbing";
+			if (svgContainer) svgContainer.style.cursor = "grabbing";
 		}
 	}
 
@@ -122,9 +120,7 @@
 		if (event.touches.length === 0) {
 			isDragging = false;
 			lastTouchDistance = 0;
-			if (svgContainer) {
-				svgContainer.style.cursor = "grab";
-			}
+			if (svgContainer) svgContainer.style.cursor = "grab";
 		} else if (event.touches.length === 1) {
 			// Reset touch distance when going from 2 touches to 1
 			lastTouchDistance = 0;
@@ -145,7 +141,7 @@
 		isDragging = true;
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
-		svgContainer.style.cursor = "grabbing";
+		if (svgContainer) svgContainer!.style.cursor = "grabbing";
 	}
 
 	function handleMouseMove(event: MouseEvent) {
@@ -163,9 +159,7 @@
 
 	function handleMouseUp() {
 		isDragging = false;
-		if (svgContainer) {
-			svgContainer.style.cursor = "grab";
-		}
+		if (svgContainer) svgContainer.style.cursor = "grab";
 	}
 
 	function copyToClipboard() {
@@ -583,6 +577,8 @@
 	}
 
 	.control-btn .btn-content {
+		-webkit-mask-image: var(--btn-bg);
+		mask-image: var(--btn-bg);
 		background-color: #374151;
 		min-width: 20px;
 		min-height: 20px;
@@ -594,34 +590,32 @@
 		background-color: white;
 	}
 
-	/* This CSS file is in /build where assets lives in top level(ish).  We can't use
-	/assets because GH pages has the repo name in the path. */
 	.control-btn.zoom-in .btn-content {
-		mask-image: url("$lib/icons/zoom-in.svg");
+		--btn-bg: url("$lib/icons/zoom-in.svg");
 	}
 
 	.control-btn.zoom-out .btn-content {
-		mask-image: url("$lib/icons/zoom-out.svg");
+		--btn-bg: url("$lib/icons/zoom-out.svg");
 	}
 
 	.control-btn.reset-view .btn-content {
-		mask-image: url("$lib/icons/focus-centered.svg");
+		--btn-bg: url("$lib/icons/focus-centered.svg");
 	}
 
 	.control-btn.help-btn .btn-content {
-		mask-image: url("$lib/icons/help.svg");
+		--btn-bg: url("$lib/icons/help.svg");
 	}
 
 	.control-btn.toggle-view .btn-content {
-		mask-image: url("$lib/icons/code.svg");
+		--btn-bg: url("$lib/icons/code.svg");
 	}
 
 	.control-btn.copy-btn .btn-content {
-		mask-image: url("$lib/icons/clipboard-copy.svg");
+		--btn-bg: url("$lib/icons/clipboard-copy.svg");
 	}
 
 	.control-btn.export-btn .btn-content {
-		mask-image: url("$lib/icons/file-download.svg");
+		--btn-bg: url("$lib/icons/file-download.svg");
 	}
 
 	.zoom-level {
