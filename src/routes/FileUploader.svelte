@@ -194,7 +194,7 @@
 		resolve?: () => void,
 	) {
 		console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
-		fileMap.set(fullPath, file);
+		fileMap.set(normalizedPathJoin(fullPath), file);
 		resolve?.();
 	}
 
