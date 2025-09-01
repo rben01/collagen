@@ -6,11 +6,12 @@
  * test reliability across the entire test suite.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
 	createFileFromBytes,
 	generateSvgFromFiles as generateSvgFromObjectFs,
 } from "./test-utils";
+import type { JsonObject } from "../jsonnet";
 
 // =============================================================================
 // Test Data Generators
@@ -88,12 +89,17 @@ export class ManifestGenerator {
 		const chars =
 			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
 		const length = this.generateRandomNumber(minLength, maxLength);
-		return [...Array(length)]
-			.map(() => chars[Math.floor(Math.random() * chars.length)])
-			.join("");
+
+		let s = "";
+		for (let i = 0; i < length; i++) {
+			s += chars[Math.floor(Math.random() * chars.length)];
+		}
+		return s;
 	}
 
-	static generateRandomAttributes(tag: string): Record<string, any> {
+	static generateRandomAttributes(
+		tag: string,
+	): Record<string, string | number> {
 		const common = {
 			id: `${tag}-${this.generateRandomNumber(1000, 9999)}`,
 			class: `class-${this.generateRandomNumber(1, 10)}`,
@@ -160,14 +166,19 @@ export class ManifestGenerator {
 		}
 	}
 
-	static generateRandomElement(maxDepth = 3, currentDepth = 0): any {
+	static generateRandomElement(maxDepth = 3, currentDepth = 0) {
 		const tag = this.generateRandomTag();
-		const element: any = { tag, attrs: this.generateRandomAttributes(tag) };
+
+		const element = { tag, attrs: this.generateRandomAttributes(tag) } as {
+			tag: string;
+			attrs: Record<string, string | number>;
+			children?: Array<string | JsonObject>;
+		};
 
 		// Add children for container elements
 		if (["g", "defs"].includes(tag) && currentDepth < maxDepth) {
 			const childCount = this.generateRandomNumber(1, 4);
-			element.children = [...Array(childCount)].map(() =>
+			element.children = Array.from({ length: childCount }, () =>
 				this.generateRandomElement(maxDepth, currentDepth + 1),
 			);
 		}
@@ -180,14 +191,11 @@ export class ManifestGenerator {
 		return element;
 	}
 
-	static generateRandomManifest(
-		elementCount = 10,
-		complexity = "medium",
-	): any {
+	static generateRandomManifest(elementCount = 10, complexity = "medium") {
 		const maxDepth =
 			complexity === "simple" ? 1 : complexity === "medium" ? 3 : 5;
 
-		const children = [...Array(elementCount)].map(() =>
+		const children = Array.from({ length: elementCount }, () =>
 			this.generateRandomElement(maxDepth),
 		);
 
@@ -218,7 +226,7 @@ export class TestFileGenerator {
 		const header = headers[format];
 		const data = [
 			...header,
-			...[...Array(size - header.length)].map(() =>
+			...Array.from({ length: size - header.length }, () =>
 				Math.floor(Math.random() * 256),
 			),
 		];
@@ -244,11 +252,9 @@ export class TestFileGenerator {
 		const header = headers[format];
 		const data = [
 			...header,
-			...[
-				...Array(size - header.length).map(() =>
-					Math.floor(Math.random() * 256),
-				),
-			],
+			...Array.from({ length: size - header.length }, () =>
+				Math.floor(Math.random() * 256),
+			),
 		];
 
 		return createFileFromBytes(
@@ -301,7 +307,7 @@ export class TestFileGenerator {
 			case "minimal":
 				return { "collagen.json": "{}" };
 
-			case "standard":
+			case "standard": {
 				const manifest = ManifestGenerator.generateRandomManifest(
 					5,
 					"medium",
@@ -311,8 +317,8 @@ export class TestFileGenerator {
 					"image.png": this.generateImageFile("png"),
 					"icon.svg": this.generateSvgFile("simple"),
 				};
-
-			case "complex":
+			}
+			case "complex": {
 				const complexManifest = {
 					attrs: { viewBox: "0 0 800 600" },
 					children: [
@@ -328,6 +334,7 @@ export class TestFileGenerator {
 							.children,
 					],
 				};
+
 				return {
 					"collagen.json": JSON.stringify(complexManifest),
 					"background.jpg": this.generateImageFile("jpg", 2000),
@@ -337,7 +344,7 @@ export class TestFileGenerator {
 					"image2.webp": this.generateImageFile("webp"),
 					"icons/arrow.svg": this.generateSvgFile("medium"),
 				};
-
+			}
 			case "invalid":
 				return {
 					"collagen.json": "{ invalid json content",
@@ -349,110 +356,6 @@ export class TestFileGenerator {
 			default:
 				throw new Error(`Unknown project type: ${type}`);
 		}
-	}
-}
-
-// =============================================================================
-// Test Environment Management
-// =============================================================================
-
-/** Manage test environment and cleanup */
-export class TestEnvironment {
-	private static mockConsole: { [K in keyof Console]?: any } = {};
-	private static originalConsole: { [K in keyof Console]?: any } = {};
-
-	static setupMocks() {
-		// Mock console methods to reduce noise in tests
-		this.originalConsole.log = console.log;
-		this.originalConsole.warn = console.warn;
-		this.originalConsole.error = console.error;
-
-		this.mockConsole.log = vi.fn();
-		this.mockConsole.warn = vi.fn();
-		this.mockConsole.error = vi.fn();
-
-		console.log = this.mockConsole.log;
-		console.warn = this.mockConsole.warn;
-		console.error = this.mockConsole.error;
-	}
-
-	static restoreMocks() {
-		console.log = this.originalConsole.log || console.log;
-		console.warn = this.originalConsole.warn || console.warn;
-		console.error = this.originalConsole.error || console.error;
-	}
-
-	static getConsoleCalls() {
-		return {
-			log: this.mockConsole.log.mock?.calls || [],
-			warn: this.mockConsole.warn.mock?.calls || [],
-			error: this.mockConsole.error.mock?.calls || [],
-		};
-	}
-
-	static mockPerformance() {
-		if (typeof performance === "undefined") {
-			(global as any).performance = {
-				now: () => Date.now(),
-				mark: vi.fn(),
-				measure: vi.fn(),
-				getEntriesByName: vi.fn(() => []),
-				memory: { usedJSHeapSize: 1000000, totalJSHeapSize: 2000000 },
-			};
-		}
-	}
-
-	static mockFileAPI() {
-		if (typeof File === "undefined") {
-			(global as any).File = class MockFile {
-				name: string;
-				size: number;
-				type: string;
-
-				constructor(bits: any[], filename: string, options: any = {}) {
-					this.name = filename;
-					this.type = options.type || "text/plain";
-					this.size = bits.reduce(
-						(acc, bit) => acc + (bit.length || bit.size || 1),
-						0,
-					);
-				}
-
-				text() {
-					return Promise.resolve("mock file content");
-				}
-
-				arrayBuffer() {
-					return Promise.resolve(new ArrayBuffer(this.size));
-				}
-			};
-		}
-
-		if (typeof Blob === "undefined") {
-			(global as any).Blob = class MockBlob {
-				size: number;
-				type: string;
-
-				constructor(bits: any[], options: any = {}) {
-					this.type = options.type || "text/plain";
-					this.size = bits.reduce(
-						(acc, bit) => acc + (bit.length || 1),
-						0,
-					);
-				}
-			};
-		}
-	}
-
-	static setup() {
-		this.setupMocks();
-		this.mockPerformance();
-		this.mockFileAPI();
-	}
-
-	static cleanup() {
-		this.restoreMocks();
-		vi.clearAllMocks();
 	}
 }
 
@@ -517,14 +420,6 @@ export class PropertyTesting {
 // =============================================================================
 
 describe("Test Infrastructure", () => {
-	beforeEach(() => {
-		TestEnvironment.setup();
-	});
-
-	afterEach(() => {
-		TestEnvironment.cleanup();
-	});
-
 	describe("ManifestGenerator", () => {
 		it("should generate valid random manifests", () => {
 			for (let i = 0; i < 10; i++) {
@@ -536,7 +431,7 @@ describe("Test Infrastructure", () => {
 				expect(manifest.children.length).toBeGreaterThan(0);
 
 				// All children should have valid structure
-				manifest.children.forEach((child: any) => {
+				manifest.children.forEach(child => {
 					if (typeof child === "object" && child.tag) {
 						expect(child.tag).toBeDefined();
 						expect(child.attrs).toBeDefined();
@@ -642,25 +537,6 @@ describe("Test Infrastructure", () => {
 			);
 		});
 	});
-
-	describe("TestEnvironment", () => {
-		it("should mock console methods", () => {
-			console.log("test message");
-			console.warn("test warning");
-			console.error("test error");
-
-			const calls = TestEnvironment.getConsoleCalls();
-			expect(calls.log).toContainEqual(["test message"]);
-			expect(calls.warn).toContainEqual(["test warning"]);
-			expect(calls.error).toContainEqual(["test error"]);
-		});
-
-		it("should provide performance mocking", () => {
-			expect(typeof performance.now).toBe("function");
-			expect(typeof performance.mark).toBe("function");
-			expect(typeof performance.measure).toBe("function");
-		});
-	});
 });
 
 // =============================================================================
@@ -686,7 +562,7 @@ describe("Test Infrastructure Integration", () => {
 
 	it("should handle stress testing with generated data", async () => {
 		// Generate multiple projects and process them
-		const projects = [...Array(5)].map(() =>
+		const projects = Array.from({ length: 5 }, () =>
 			TestFileGenerator.generateProjectFiles("standard"),
 		);
 
@@ -703,7 +579,7 @@ describe("Test Infrastructure Integration", () => {
 
 	it("should verify test data consistency", () => {
 		// Generate the same type multiple times - should have consistent structure
-		const projects = [...Array(3)].map(() =>
+		const projects = Array.from({ length: 3 }, () =>
 			TestFileGenerator.generateProjectFiles("minimal"),
 		);
 

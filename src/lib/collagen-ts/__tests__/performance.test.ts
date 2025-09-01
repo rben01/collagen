@@ -19,7 +19,7 @@ import type { JsonObject } from "../jsonnet/index.js";
 
 /** Generate a large test manifest with many elements */
 function generateLargeManifest(elementCount: number) {
-	const children = [...Array(elementCount)].map((_, i) => ({
+	const children = Array.from({ length: elementCount }, (_, i) => ({
 		tag: "rect",
 		attrs: {
 			x: (i % 100) * 10,
@@ -55,7 +55,7 @@ function generateNestedStructure(depth: number, childrenPerLevel: number) {
 				id: `level-${currentDepth}`,
 				transform: `translate(${currentDepth * 5}, ${currentDepth * 5})`,
 			},
-			children: [...Array(childrenPerLevel)].map(() => nextLevel),
+			children: Array.from({ length: childrenPerLevel }, () => nextLevel),
 		};
 	}
 
@@ -80,7 +80,7 @@ function createLargeBinaryFiles(
 	const files: Record<string, File> = {};
 
 	for (let i = 0; i < count; i++) {
-		const data = [...Array(sizeBytes)].map((_, j) => (i + j) % 256);
+		const data = Array.from({ length: sizeBytes }, (_, j) => (i + j) % 256);
 		files[`image-${i}.png`] = createFileFromBytes(
 			new Uint8Array(data),
 			`image-${i}.png`,
@@ -161,7 +161,7 @@ describe("Scale and Volume Performance", () => {
 		const imageSizes = [1024, 10240, 102400]; // 1KB, 10KB, 100KB
 
 		for (const size of imageSizes) {
-			const imageData = [...Array(size)].map((_, i) => i % 256);
+			const imageData = Array.from({ length: size }, (_, i) => i % 256);
 			const files = {
 				"collagen.json": JSON.stringify({
 					children: [{ image_path: "large.png" }],
@@ -190,7 +190,7 @@ describe("Scale and Volume Performance", () => {
 		const fileCounts = [5, 10, 20];
 
 		for (const count of fileCounts) {
-			const children = [...Array(count)].map((_, i) => ({
+			const children = Array.from({ length: count }, (_, i) => ({
 				image_path: `image-${i}.png`,
 			}));
 
@@ -271,7 +271,7 @@ describe("Memory Usage Performance", () => {
 		// Test with content that creates very long strings
 		const longTextContent = "A".repeat(10000);
 		const manifest = {
-			children: [...Array(100)].map((_, i) => ({
+			children: Array.from({ length: 100 }, (_, i) => ({
 				tag: "text",
 				attrs: { x: i * 10, y: 20 },
 				children: [longTextContent],
@@ -298,7 +298,7 @@ describe("Memory Usage Performance", () => {
 describe("Concurrent Operations Performance", () => {
 	it("should handle multiple simultaneous processing requests", async () => {
 		const projectCount = 10;
-		const projects = [...Array(projectCount)].map((_, i) => ({
+		const projects = Array.from({ length: projectCount }, (_, i) => ({
 			"collagen.json": JSON.stringify(generateLargeManifest(50 + i * 10)),
 		}));
 
@@ -325,7 +325,7 @@ describe("Concurrent Operations Performance", () => {
 		const fileCount = 100;
 		const files: Record<string, string | File> = {
 			"collagen.json": JSON.stringify({
-				children: [...Array(fileCount)].map((_, i) => ({
+				children: Array.from({ length: fileCount }, (_, i) => ({
 					image_path: `img-${i}.png`,
 				})),
 			}),
@@ -391,7 +391,10 @@ describe("Edge Case Performance", () => {
 				return {
 					tag: "rect",
 					attrs: Object.fromEntries(
-						[...Array(20)].map((_, i) => [`prop-${i}`, `value-${i}`]),
+						Array.from({ length: 20 }, (_, i) => [
+							`prop-${i}`,
+							`value-${i}`,
+						]),
 					),
 				};
 			}
@@ -399,9 +402,11 @@ describe("Edge Case Performance", () => {
 			return {
 				tag: "g",
 				attrs: Object.fromEntries(
-					[...Array(10)].map((_, i) => [`attr-${i}`, `val-${i}`]),
+					Array.from({ length: 10 }, (_, i) => [`attr-${i}`, `val-${i}`]),
 				),
-				children: [...Array(3)].map(() => createComplexObject(depth - 1)),
+				children: Array.from({ length: 3 }, () =>
+					createComplexObject(depth - 1),
+				),
 			};
 		}
 
@@ -519,7 +524,7 @@ describe("Performance Regression Prevention", () => {
 	it("should detect performance regressions in parsing", async () => {
 		const complexManifest = {
 			attrs: { viewBox: "0 0 1000 1000", width: 1000, height: 1000 },
-			children: [...Array(500)].map((_, i) => ({
+			children: Array.from({ length: 500 }, (_, i) => ({
 				tag: "g",
 				attrs: {
 					id: `group-${i}`,

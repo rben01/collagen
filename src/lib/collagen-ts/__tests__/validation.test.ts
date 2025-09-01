@@ -16,7 +16,11 @@ import {
 	InvalidFieldTypeError,
 	InvalidSchemaError,
 } from "../errors/index.js";
-import type { AnyChildTag, GenericTag } from "../types/index.js";
+import type {
+	AnyChildTag,
+	GenericTag,
+	UserProvidedFontFace,
+} from "../types/index.js";
 
 // =============================================================================
 // Test Utilities
@@ -32,15 +36,14 @@ function assertTagType<T extends AnyChildTag["type"]>(
 }
 
 /** Helper to test validation that should fail */
-function expectValidationError(fn: () => any, errorType?: any) {
+function expectValidationError(fn: () => unknown, errorType: unknown) {
 	try {
 		fn();
 		expect.fail("Expected validation to throw an error");
 	} catch (error) {
+		console.log({ error });
 		expect(null).toBeNull(); // we need to check that we actually got here
-		if (errorType) {
-			expect(error).toBeInstanceOf(errorType);
-		}
+		expect(error).toBeInstanceOf(errorType);
 	}
 }
 
@@ -474,7 +477,7 @@ describe("Font Tag Validation", () => {
 
 		assertTagType(result, "font");
 		expect(result.fonts).toHaveLength(1);
-		const font = result.fonts[0] as any;
+		const font = result.fonts[0] as UserProvidedFontFace;
 		expect(font.name).toBe("CustomFont");
 		expect(font.path).toBe("fonts/custom.woff2");
 		expect(errors.isEmpty()).toBe(true);
@@ -821,7 +824,10 @@ describe("Complex Validation Scenarios", () => {
 			unexpected: "root key",
 		};
 
-		expectValidationError(() => validateDocument(invalidDocument));
+		expectValidationError(
+			() => validateDocument(invalidDocument),
+			InvalidSchemaError,
+		);
 	});
 
 	it("should handle empty arrays and null children", () => {
@@ -888,8 +894,9 @@ describe("Complex Validation Scenarios", () => {
 			children: [],
 		};
 
-		expectValidationError(() =>
-			validateDocument({ children: [alreadyTransformedObject] }),
+		expectValidationError(
+			() => validateDocument({ children: [alreadyTransformedObject] }),
+			InvalidSchemaError,
 		);
 	});
 });

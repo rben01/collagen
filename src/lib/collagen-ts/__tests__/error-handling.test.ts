@@ -87,7 +87,7 @@ describe("Validation Errors", () => {
 		});
 
 		it("should handle circular references safely", () => {
-			const obj: any = { a: 1 };
+			const obj = { a: 1 } as { a: 1; circular: typeof obj };
 			obj.circular = obj;
 
 			// Should not throw due to circular reference
