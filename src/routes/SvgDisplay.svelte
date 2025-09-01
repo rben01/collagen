@@ -426,14 +426,16 @@
 			aria-label="Interactive SVG viewer"
 			aria-describedby="svg-controls-description"
 		>
-			<div
-				class="svg-content"
-				style="transform: translate({panX}px, {panY}px) scale({scale});"
-				role="img"
-				aria-label="SVG content"
-			>
-				<!-- can this be used maliciously? any way for untrusted input to get in there? -->
-				{@html svg}
+			<div class="svg-content-mask">
+				<div
+					class="svg-content"
+					style="--pan-x: {panX}px; --pan-y: {panY}px; --scale: {scale}"
+					role="img"
+					aria-label="SVG content"
+				>
+					<!-- can this be used maliciously? any way for untrusted input to get in there? -->
+					{@html svg}
+				</div>
 			</div>
 		</button>
 
@@ -450,6 +452,8 @@
 
 <style>
 	.svg-display {
+		--focus-indicator-thickness: 2px;
+
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
 		overflow: hidden;
@@ -459,6 +463,7 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+		box-sizing: border-box;
 	}
 
 	.toast-container {
@@ -648,8 +653,7 @@
 	}
 
 	.svg-container:focus {
-		outline: 2px solid #2563eb;
-		outline-offset: -2px;
+		outline: none;
 	}
 
 	.sr-only {
@@ -664,16 +668,35 @@
 		border: 0;
 	}
 
+	.svg-content-mask {
+		position: relative;
+		place-self: center;
+		width: calc(100% - 4px);
+		height: calc(100% - 4px);
+		overflow: hidden;
+	}
+
+	.svg-container:focus .svg-content-mask {
+		box-sizing: content-box;
+		border: var(--focus-indicator-thickness) solid #2563eb;
+		border-radius: 0 0 6px 6px;
+	}
+
 	.svg-content {
+		--size-deficit: 2%;
+		--padding: 2em;
+		transform: translate(
+				calc(var(--pan-x) - var(--padding) + var(--size-deficit) / 2),
+				calc(var(--pan-y) - var(--padding) + var(--size-deficit) / 2)
+			)
+			scale(var(--scale));
 		transform-origin: center;
 		transition: transform 0.1s ease-out;
 		text-align: center;
-		padding: 2em;
+		padding: var(--padding);
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		width: 100%;
-		height: 100%;
 	}
 
 	.svg-content :global(svg) {
@@ -682,6 +705,7 @@
 		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 		border-radius: 0.25em;
 		background: white;
+		padding: var(--size-deficit);
 	}
 
 	.raw-svg {

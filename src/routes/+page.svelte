@@ -221,6 +221,7 @@
 	.svg-section {
 		flex: 1;
 		min-height: 0;
+		max-width: 100%;
 	}
 
 	.loading-state,
@@ -284,7 +285,6 @@
 		}
 
 		.svg-section {
-			flex: none;
 			height: 400px;
 		}
 	}
