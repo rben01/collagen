@@ -13,8 +13,6 @@ collages from JSON/Jsonnet manifest files. The project consists of:
 - **Web frontend**: Svelte application providing drag-and-drop interface for
   creating SVG collages
 - **Comprehensive test suite**: Unit tests (Vitest) and E2E tests (Playwright)
-- **Archive**: Rust crate in `rust/` directory (legacy, not actively used, and
-  you should NEVER read these files unless explicitly asked to)
 
 ### Project rationale
 
@@ -279,14 +277,3 @@ playwright-test-writer.
 - Jsonnet support via sjsonnet.js, which is included as a regular JS file
 - No server-side processing required - fully client-side application
 - Works in all modern browsers with ES2020+ support
-
-## Legacy Rust Implementation
-
-The `rust/` directory contains the original Rust implementation which served as
-the reference for the TypeScript port. You should never reference this
-implementation. But for posterity, this implementation:
-
-- Is not actively used but maintained for reference
-- Contains the same test examples in `rust/tests/examples/`
-- Uses the original CLI interface (`cargo run -- -i skeleton -o output.svg`)
-- Does not support WebAssembly compilation (removed)
