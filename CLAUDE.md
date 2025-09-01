@@ -54,8 +54,10 @@ npm run test:unit:ui
 # Run unit tests once and exit
 npm run test:unit:run
 
-# Run E2E tests
-npm run test:e2e
+# Run E2e tests, without opening the report after.
+# By not launching a server, the playwright process
+# finishes when it's done instead of hanging forever.
+PW_TEST_HTML_REPORT_OPEN='never' npm run test:e2e
 
 # Run E2E tests with UI (for human use only)
 npm run test:e2e:ui
@@ -79,8 +81,12 @@ npm run test:unit -- src/lib/collagen-ts/__tests__/basic.test.ts
 # Run tests matching pattern
 npm run test:unit -- --run filesystem
 
-# Run single test by name
+# Run single unit test by name
 npm run test:unit -- --run -t "validates basic root tag structure"
+
+# Run single e2e test by name, without opening the report after
+# By not launching a server, the playwright process finishes when it's done instead of hanging forever
+PW_TEST_HTML_REPORT_OPEN='never' npm run test:e2e -- --project chromium -g "validates basic root tag structure"
 ```
 
 ## Architecture
