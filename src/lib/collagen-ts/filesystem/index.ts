@@ -25,7 +25,7 @@ export type ManifestFormat = "json" | "jsonnet";
 
 /** File content representation */
 export interface FileContent {
-	bytes: Uint8Array;
+	bytes: Uint8Array<ArrayBuffer>;
 	path: string;
 }
 
@@ -128,7 +128,9 @@ export async function readFileAsText(file: File): Promise<string> {
 }
 
 /** Read a File object as bytes */
-export async function readFileAsBytes(file: File): Promise<Uint8Array> {
+export async function readFileAsBytes(
+	file: File,
+): Promise<Uint8Array<ArrayBuffer>> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
 		reader.onload = () => {

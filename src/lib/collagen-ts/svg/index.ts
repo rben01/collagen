@@ -27,7 +27,7 @@ import {
 	XmlError,
 } from "../errors/index.js";
 
-import impactB64Url from "$lib/fonts/impact.woff2.b64.txt?url";
+import impactB64Url from "$lib/fonts/impact.woff2?url";
 
 // =============================================================================
 // SVG Generation Context
@@ -136,7 +136,7 @@ async function generateImageTag(
 		const imageKind = tag.kind || inferImageKind(tag.imagePath);
 
 		// Encode as base64
-		const base64Data = base64Encode(fileContent.bytes);
+		const base64Data = await base64Encode(fileContent.bytes);
 		const dataUri = `data:image/${imageKind};base64,${base64Data}`;
 
 		// Create image attributes
@@ -435,17 +435,17 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 
 	let fontDataB64;
 
-	// font files in /public/assets/fonts are already base64-encoded, so no need to
-	// base64 encode here.
 	if (typeof process === "object") {
 		const { readFile } = await import("node:fs/promises");
 		const path = await import("node:path");
 
-		fontDataB64 = await readFile(path.join(process.cwd(), impactB64Url), {
-			encoding: "ascii",
-		});
+		const fontDataBuffer = await readFile(
+			path.join(process.cwd(), impactB64Url),
+		);
+		fontDataB64 = fontDataBuffer.toString("base64");
 	} else {
-		fontDataB64 = await (await fetch(impactB64Url)).text();
+		const fontDataBytes = await (await fetch(impactB64Url)).bytes();
+		fontDataB64 = base64Encode(fontDataBytes);
 	}
 
 	return fontDataB64;

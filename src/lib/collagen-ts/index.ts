@@ -42,13 +42,7 @@ export { validateDocument, validateAnyChildTag } from "./validation/index.js";
 export { generateSvg } from "./svg/index.js";
 
 // Export utilities
-export {
-	base64Encode,
-	base64Decode,
-	escapeXml,
-	isPlainObject,
-	ensureArray,
-} from "./utils/index.js";
+export { base64Encode, escapeXml, ensureArray } from "./utils/index.js";
 
 // Export errors
 export * from "./errors/index.js";
