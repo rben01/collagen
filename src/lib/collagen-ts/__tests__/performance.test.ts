@@ -11,6 +11,7 @@ import {
 	createFileSystem,
 	createFileFromBytes,
 } from "./test-utils.js";
+import type { JsonObject } from "../jsonnet/index.js";
 
 // =============================================================================
 // Test Utilities
@@ -42,7 +43,7 @@ function generateLargeManifest(elementCount: number) {
 
 /** Generate nested group structure */
 function generateNestedStructure(depth: number, childrenPerLevel: number) {
-	function createLevel(currentDepth: number): any {
+	function createLevel(currentDepth: number): JsonObject {
 		if (currentDepth === 0) {
 			return { tag: "circle", attrs: { cx: 10, cy: 10, r: 5, fill: "red" } };
 		}
@@ -219,7 +220,7 @@ describe("Scale and Volume Performance", () => {
 
 describe("Memory Usage Performance", () => {
 	it("should not leak memory with repeated operations", async () => {
-		const initialMemory = (performance as any).memory?.usedJSHeapSize || 0;
+		const initialMemory = process.memoryUsage().heapUsed;
 
 		// Perform many operations
 		for (let i = 0; i < 50; i++) {
@@ -234,7 +235,7 @@ describe("Memory Usage Performance", () => {
 			}
 		}
 
-		const finalMemory = (performance as any).memory?.usedJSHeapSize || 0;
+		const finalMemory = process.memoryUsage().heapUsed;
 
 		// Memory usage should not grow excessively
 
@@ -385,7 +386,7 @@ describe("Edge Case Performance", () => {
 
 	it("should handle complex nested data structures", async () => {
 		// Create deeply nested object with many properties
-		function createComplexObject(depth: number): any {
+		function createComplexObject(depth: number): JsonObject {
 			if (depth === 0) {
 				return {
 					tag: "rect",
