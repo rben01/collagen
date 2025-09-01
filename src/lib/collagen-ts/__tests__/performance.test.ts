@@ -117,7 +117,6 @@ describe("Scale and Volume Performance", () => {
 			});
 
 			results.push({ count, duration });
-			console.log(`${count} elements: ${duration.toFixed(2)}ms`);
 
 			// Performance should scale reasonably (not exponentially)
 			expect(duration).toBeLessThan(count * 2); // Max 2ms per element is generous
@@ -146,8 +145,6 @@ describe("Scale and Volume Performance", () => {
 			const { result, duration } = await measureTime(async () => {
 				return generateSvgFromFiles(files);
 			});
-
-			console.log(`Depth ${depth}: ${duration.toFixed(2)}ms`);
 
 			// Should complete successfully even with deep nesting
 			expect(result).toContain("<svg");
@@ -179,8 +176,6 @@ describe("Scale and Volume Performance", () => {
 				return generateSvgFromFiles(files);
 			});
 
-			console.log(`${size} bytes: ${duration.toFixed(2)}ms`);
-
 			// Should handle large files
 			expect(result).toContain("<image");
 			expect(result).toContain("data:image/png;base64,");
@@ -206,8 +201,6 @@ describe("Scale and Volume Performance", () => {
 			const { result, duration } = await measureTime(async () =>
 				generateSvgFromFiles(files),
 			);
-
-			console.log(`${count} files: ${duration.toFixed(2)}ms`);
 
 			// Should handle all files
 			expect(result).toContain("<svg");
@@ -246,9 +239,6 @@ describe("Memory Usage Performance", () => {
 		// Memory usage should not grow excessively
 
 		const memoryGrowth = finalMemory - initialMemory;
-		console.log(
-			`Memory growth: ${(memoryGrowth / 1024 / 1024).toFixed(2)}MB`,
-		);
 
 		// Should not leak more than 50MB (generous threshold)
 		expect(memoryGrowth).toBeLessThan(50 * 1024 * 1024);
@@ -265,10 +255,6 @@ describe("Memory Usage Performance", () => {
 			const { result, duration } = await measureTime(async () => {
 				return generateSvgFromFiles(files);
 			});
-
-			console.log(
-				`Huge project (${hugeElementCount} elements): ${duration.toFixed(2)}ms`,
-			);
 
 			// Should either complete successfully or throw appropriate error
 			expect(result).toContain("<svg");
@@ -297,8 +283,6 @@ describe("Memory Usage Performance", () => {
 			return generateSvgFromFiles(files);
 		});
 
-		console.log(`Long strings: ${duration.toFixed(2)}ms`);
-
 		// Should handle long strings efficiently
 		expect(result).toContain("<svg");
 		expect(result).toContain(longTextContent);
@@ -323,10 +307,6 @@ describe("Concurrent Operations Performance", () => {
 				await Promise.all(
 					projects.map(async files => await generateSvgFromFiles(files)),
 				),
-		);
-
-		console.log(
-			`${projectCount} concurrent projects: ${duration.toFixed(2)}ms`,
 		);
 
 		// All should complete successfully
@@ -370,8 +350,6 @@ describe("Concurrent Operations Performance", () => {
 			return { manifest, svg };
 		});
 
-		console.log(`${fileCount} file operations: ${duration.toFixed(2)}ms`);
-
 		// Should handle many files efficiently
 		expect(duration).toBeLessThan(fileCount * 20); // Max 20ms per file
 	}, 15000);
@@ -398,8 +376,6 @@ describe("Edge Case Performance", () => {
 		const { result, duration } = await measureTime(async () => {
 			return generateSvgFromFiles(files);
 		});
-
-		console.log(`Long attribute: ${duration.toFixed(2)}ms`);
 
 		// Should handle long attributes
 		expect(result).toContain("<svg");
@@ -436,8 +412,6 @@ describe("Edge Case Performance", () => {
 			return generateSvgFromFiles(files);
 		});
 
-		console.log(`Complex nesting: ${duration.toFixed(2)}ms`);
-
 		// Should handle complex structures
 		expect(result).toContain("<svg");
 		expect(result).toContain("<g");
@@ -461,10 +435,6 @@ describe("Edge Case Performance", () => {
 		const { result, duration } = await measureTime(async () => {
 			return generateSvgFromFiles(files);
 		});
-
-		console.log(
-			`${repeatCount} identical elements: ${duration.toFixed(2)}ms`,
-		);
 
 		// Should handle repetition efficiently
 		expect(result).toContain("<svg");
@@ -495,8 +465,6 @@ describe("Edge Case Performance", () => {
 		const { result, duration } = await measureTime(async () => {
 			return generateSvgFromFiles(files);
 		});
-
-		console.log(`Unicode content: ${duration.toFixed(2)}ms`);
 
 		// Should handle unicode efficiently
 		expect(result).toContain("<svg");
@@ -541,10 +509,6 @@ describe("Performance Regression Prevention", () => {
 			const { duration } = await measureTime(async () => {
 				return generateSvgFromFiles(files);
 			});
-
-			console.log(
-				`${test.name}: ${duration.toFixed(2)}ms (max: ${test.expectedMaxTime}ms)`,
-			);
 
 			// Should not exceed baseline expectations
 			expect(duration).toBeLessThan(test.expectedMaxTime);
@@ -591,8 +555,6 @@ describe("Performance Regression Prevention", () => {
 		const { result, duration } = await measureTime(async () => {
 			return generateSvgFromFiles(files);
 		});
-
-		console.log(`Complex parsing: ${duration.toFixed(2)}ms`);
 
 		// Verify correctness
 		expect(result).toContain("<svg");

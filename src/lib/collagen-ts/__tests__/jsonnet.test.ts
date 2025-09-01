@@ -6,8 +6,8 @@ import { describe, it, expect } from "vitest";
 import { generateSvgFromFiles, TEST_IMAGE_PNG } from "./test-utils.js";
 
 describe("Jsonnet Support", () => {
-  it("should handle simple Jsonnet compilation", async () => {
-    const jsonnetManifest = `
+	it("should handle simple Jsonnet compilation", async () => {
+		const jsonnetManifest = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -24,12 +24,12 @@ describe("Jsonnet Support", () => {
 			}
 		`;
 
-    const files = { "collagen.jsonnet": jsonnetManifest };
-    expect(generateSvgFromFiles(files)).resolves.toContain("<svg");
-  }, 1000);
+		const files = { "collagen.jsonnet": jsonnetManifest };
+		await expect(generateSvgFromFiles(files)).resolves.toContain("<svg");
+	}, 1000);
 
-  it("should handle Jsonnet with variables", async () => {
-    const jsonnetManifest = `
+	it("should handle Jsonnet with variables", async () => {
+		const jsonnetManifest = `
 			local width = 200;
 			local height = 200;
 
@@ -50,13 +50,15 @@ describe("Jsonnet Support", () => {
 			}
 		`;
 
-    const files = { "collagen.jsonnet": jsonnetManifest };
+		const files = { "collagen.jsonnet": jsonnetManifest };
 
-    expect(generateSvgFromFiles(files)).resolves.toContain('"0 0 200 200"');
-  }, 1000);
+		await expect(generateSvgFromFiles(files)).resolves.toContain(
+			'"0 0 200 200"',
+		);
+	}, 1000);
 
-  it("should handle Jsonnet with loops (pinwheel example)", async () => {
-    const pinwheelJsonnet = `
+	it("should handle Jsonnet with loops (pinwheel example)", async () => {
+		const pinwheelJsonnet = `
 			local width = 400;
 			local height = width;
 			local n_spokes = 16;
@@ -92,16 +94,16 @@ describe("Jsonnet Support", () => {
 			}
 		`;
 
-    const files = { "collagen.jsonnet": pinwheelJsonnet };
+		const files = { "collagen.jsonnet": pinwheelJsonnet };
 
-    // check the output, this is one of the spokes
-    expect(generateSvgFromFiles(files)).resolves.toContain(
-      '<line stroke="hsl(180, 100%, 50%)" stroke-linecap="round" stroke-width="5" x1="200" x2="200" y1="350" y2="50"',
-    );
-  }, 1000);
+		// check the output, this is one of the spokes
+		await expect(generateSvgFromFiles(files)).resolves.toContain(
+			'<line stroke="hsl(180, 100%, 50%)" stroke-linecap="round" stroke-width="5" x1="200" x2="200" y1="350" y2="50"',
+		);
+	}, 1000);
 
-  it("should handle Jsonnet with image references", async () => {
-    const jsonnetManifest = `
+	it("should handle Jsonnet with image references", async () => {
+		const jsonnetManifest = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -112,26 +114,28 @@ describe("Jsonnet Support", () => {
 			}
 		`;
 
-    const files = {
-      "collagen.jsonnet": jsonnetManifest,
-      "test.png": new File([TEST_IMAGE_PNG], "test.png", { type: "image/png" }),
-    };
+		const files = {
+			"collagen.jsonnet": jsonnetManifest,
+			"test.png": new File([TEST_IMAGE_PNG], "test.png", {
+				type: "image/png",
+			}),
+		};
 
-    // This is that test png, base64 encoded
-    expect(generateSvgFromFiles(files)).resolves.toContain(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4DwAAAQABXHKoZgAAAABJRU5ErkJggg==",
-    );
-  }, 1000);
+		// This is that test png, base64 encoded
+		await expect(generateSvgFromFiles(files)).resolves.toContain(
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4DwAAAQABXHKoZgAAAABJRU5ErkJggg==",
+		);
+	}, 1000);
 
-  it("should prefer jsonnet over json when both exist", async () => {
-    const jsonManifest = JSON.stringify({
-      attrs: { viewBox: "0 0 100 100" },
-      children: [
-        { tag: "circle", attrs: { cx: 50, cy: 50, r: 20, fill: "red" } },
-      ],
-    });
+	it("should prefer jsonnet over json when both exist", async () => {
+		const jsonManifest = JSON.stringify({
+			attrs: { viewBox: "0 0 100 100" },
+			children: [
+				{ tag: "circle", attrs: { cx: 50, cy: 50, r: 20, fill: "red" } },
+			],
+		});
 
-    const jsonnetManifest = `
+		const jsonnetManifest = `
 			{
 				attrs: { viewBox: "0 0 100 100" },
 				children: [
@@ -148,11 +152,13 @@ describe("Jsonnet Support", () => {
 			}
 		`;
 
-    const files = {
-      "collagen.json": jsonManifest,
-      "collagen.jsonnet": jsonnetManifest,
-    };
+		const files = {
+			"collagen.json": jsonManifest,
+			"collagen.jsonnet": jsonnetManifest,
+		};
 
-    expect(generateSvgFromFiles(files)).resolves.toContain('fill="blue"');
-  }, 1000);
+		await expect(generateSvgFromFiles(files)).resolves.toContain(
+			'fill="blue"',
+		);
+	}, 1000);
 });

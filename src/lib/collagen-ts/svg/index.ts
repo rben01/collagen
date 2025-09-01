@@ -433,20 +433,21 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 		throw new BundledFontNotFoundError(fontName);
 	}
 
-	let fontDataB64;
+	let fontBuffer;
 
-	if (typeof process === "object") {
+	if (import.meta.env.MODE === "test") {
 		const { readFile } = await import("node:fs/promises");
 		const path = await import("node:path");
 
-		const fontDataBuffer = await readFile(
+		fontBuffer = (await readFile(
 			path.join(process.cwd(), impactB64Url),
-		);
-		fontDataB64 = fontDataBuffer.toString("base64");
+		)) as Uint8Array<ArrayBuffer>;
 	} else {
-		const fontDataBytes = await (await fetch(impactB64Url)).bytes();
-		fontDataB64 = base64Encode(fontDataBytes);
+		// TODO we've missed the await here before -- test this
+		fontBuffer = await fetch(impactB64Url).then(resp => resp.bytes());
 	}
+
+	const fontDataB64 = await base64Encode(fontBuffer);
 
 	return fontDataB64;
 }
