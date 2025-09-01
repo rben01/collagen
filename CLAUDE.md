@@ -5,14 +5,16 @@ code in this repository.
 
 ## Project Overview
 
-Collagen is primarily a TypeScript/Svelte web application that generates SVG
+Collagen is primarily a TypeScript/SvelteKit web application that generates SVG
 collages from JSON/Jsonnet manifest files. The project consists of:
 
 - **Primary implementation**: TypeScript library in `src/lib/collagen-ts/` with
   full Collagen functionality
-- **Web frontend**: Svelte application providing drag-and-drop interface for
-  creating SVG collages
+- **Web frontend**: SvelteKit application with Vite providing drag-and-drop
+  interface for creating SVG collages
 - **Comprehensive test suite**: Unit tests (Vitest) and E2E tests (Playwright)
+- **Archive**: Rust crate in `rust/` directory (legacy, not actively used, and
+  you should NEVER read these files unless explicitly asked to)
 
 ### Project rationale
 
@@ -35,16 +37,22 @@ npm run dev
 npm run build
 
 # Preview production build (Vite)
-npm run start
+npm run preview
+
+# Type checking and SvelteKit sync
+npm run check
+
+# Type checking in watch mode
+npm run check:watch
 
 # Run unit tests
 npm run test
 
-# Run tests in watch mode (interactive)
-npm run test:ui
+# Run unit tests in watch mode (interactive)
+npm run test:unit:ui
 
-# Run tests once and exit
-npm run test:run
+# Run unit tests once and exit
+npm run test:unit:run
 
 # Run E2E tests
 npm run test:e2e
@@ -57,19 +65,22 @@ npm run test:e2e:debug
 
 # Format code
 npm run format
+
+# Lint code
+npm run lint
 ```
 
 ### Running Individual Tests
 
 ```bash
 # Run specific test file
-npm run test src/lib/collagen-ts/__tests__/basic.test.ts
+npm run test:unit -- src/lib/collagen-ts/__tests__/basic.test.ts
 
 # Run tests matching pattern
-npm run test -- --run filesystem
+npm run test:unit -- --run filesystem
 
 # Run single test by name
-npm run test -- --run -t "validates basic root tag structure"
+npm run test:unit -- --run -t "validates basic root tag structure"
 ```
 
 ## Architecture
@@ -110,9 +121,9 @@ npm run test -- --run -t "validates basic root tag structure"
 2. `InMemoryFileSystem.create()` converts File objects to `InMemoryFileSystem`
    1. `fs.loadManifestContents()` detects and loads JSON or Jsonnet manifest
       file
-   2. `fs.generateUntypedObject()` parses JSON or compiles Jsonnet using 1
+   2. `fs.generateUntypedObject()` parses JSON or compiles Jsonnet using
       sjsonnet.js
-   3. `generateSvg()` recursively builds SVG with embedded assets
+   3. `fs.generateSvg()` recursively builds SVG with embedded assets
       (base64-encoded images/fonts)
 3. `validateDocument()` validates untyped object (output of
    `fs.generateUntypedObject()`) and creates typed `RootTag`
@@ -197,6 +208,31 @@ Jsonnet files.
 When writing or editing Playwright tests, ALWAYS use the agent
 playwright-test-writer.
 
+### SvelteKit Development
+
+The project uses SvelteKit with static site generation:
+
+- **Route-based architecture**: Pages are defined in `src/routes/` following
+  SvelteKit conventions
+- **Static prerendering**: Pages are pre-rendered at build time using
+  `export const prerender = true` in `+page.ts`
+- **Import aliases**: Use `$lib/` for imports from `src/lib/` (e.g.,
+  `import { foo } from '$lib/collagen-ts/index.js'`)
+- **Vite configuration**: Build optimizations in `vite.config.ts` including
+  exclusion of sjsonnet.js from optimization
+- **Type checking**: Use `npm run check` for SvelteKit-aware TypeScript checking
+
+### Svelte 5 Syntax
+
+Components use modern Svelte 5 runes:
+
+- **Props**: Use `let { prop1, prop2 } = $props<{ prop1: Type; prop2: Type }>()`
+  instead of `export let`
+- **State**: Use `let value = $state(initialValue)` instead of regular `let` for
+  reactive state
+- **Derived**: Use `$derived()` for computed values
+- **Effects**: Use `$effect()` for side effects
+
 ### Manifest Formats
 
 - **JSON**: `collagen.json` - Standard JSON format
@@ -206,7 +242,18 @@ playwright-test-writer.
 
 ### Code Style
 
-- **TypeScript**: Strict mode enabled with comprehensive linting
+- **TypeScript**: Strict mode enabled with comprehensive ESLint 9+ linting
+- **SvelteKit conventions**:
+  - Use `$lib/` import aliases for `src/lib/` (e.g.,
+    `import { foo } from '$lib/collagen-ts/index.js'`)
+  - Follow SvelteKit file-based routing (`+page.svelte`, `+page.ts`,
+    `+layout.svelte`, etc.)
+  - Use `export const prerender = true` for static page generation
+- **Svelte 5 syntax**:
+  - Use `$props<{ ... }>()` instead of `export let` for component props
+  - Use `$state()` for reactive state variables
+  - Use `$derived()` for computed values
+  - Use `$effect()` for side effects
 - **Performance**: Avoid creating temporary arrays:
   - Use `for...of` loops instead of chained `array.map(...).filter(...)`
   - Use `for...in` loops instead of `Object.entries` or `Object.fromEntries`
@@ -219,19 +266,21 @@ playwright-test-writer.
 
 ## Frontend Architecture
 
-### Core Components (`src/`)
+### Core Components
 
-- **`App.svelte`**: Main application component orchestrating file upload and SVG
-  generation
-- **`FileUploader.svelte`**: Drag-and-drop file upload component with folder
-  support
+- **`src/routes/+page.svelte`**: Main application page component orchestrating
+  file upload and SVG generation (SvelteKit route)
+- **`src/routes/+page.ts`**: Page configuration with static prerendering enabled
+- **`src/routes/FileUploader.svelte`**: Drag-and-drop file upload component with
+  folder support
   - Supports both drag and drop, and a file picker via a hidden `<input>`
   - Drag and drop exposes a different `File` API than the `<input>`; dragged and
     dropped files (and folders) have a `webkitGetAsEntry()` that offers richer
     features than a simple `File` object, including recursive traversal of
     dropped folders.
-- **`SvgDisplay.svelte`**: Interactive SVG viewer with zoom, pan, and export
-  functionality
+  - Uses Svelte 5 runes (`$props`, `$state`) for reactive state management
+- **`src/routes/SvgDisplay.svelte`**: Interactive SVG viewer with zoom, pan, and
+  export functionality
   - Element hierarchy: `div.svg-display` contains `button.svg-container`
     contains `div.svg-content` contains the generated `<svg></svg>`.
   - It is the `button.svg-container` that's interactive and responds to user
@@ -240,10 +289,16 @@ playwright-test-writer.
     interacts with the SVG.
   - Reminder: in tests, refer to these by their `aria-label`, not their
     selector!
-- **`main.js`**: Application entry point using Svelte 5's `mount()` API
+- **`src/app.html`**: SvelteKit HTML template with placeholders
+  (`%sveltekit.assets%`, `%sveltekit.head%`, `%sveltekit.body%`)
+- **`src/global.css`**: Global CSS styles for the application
 
 ### Key Features
 
+- **Static Site Generation**: Built with SvelteKit using
+  `@sveltejs/adapter-static` for static deployment
+- **Modern Build System**: Vite-powered development and build process with Hot
+  Module Replacement (HMR)
 - **Folder Upload**: Supports drag-and-drop of entire project folders and
   browser folder picker
 - **Real-time Processing**: Files are processed immediately after upload using
@@ -257,23 +312,27 @@ playwright-test-writer.
 
 ### Data Flow
 
-1. **File Collection**: `FileUploader` handles drag-and-drop and folder
-   selection
-2. **File System Creation**: Browser File objects are converted to
+1. **SvelteKit Route Loading**: `+page.svelte` loads as the main route with
+   static prerendering
+2. **File Collection**: `FileUploader` component handles drag-and-drop and
+   folder selection
+3. **File System Creation**: Browser File objects are converted to
    `InMemoryFileSystem` via `InMemoryFileSystem.create()`
-3. **Manifest Processing**: `fs.loadManifestContents()` detects manifest format
+4. **Manifest Processing**: `fs.loadManifestContents()` detects manifest format
    and loads content; Jsonnet files are compiled using sjsonnet.js
-4. **Validation**: `validateDocument()` converts untyped objects to typed
+5. **Validation**: `validateDocument()` converts untyped objects to typed
    `RootTag` structures
-5. **SVG Generation**: `fs.generateSvg()` recursively builds SVG with embedded
+6. **SVG Generation**: `fs.generateSvg()` recursively builds SVG with embedded
    base64-encoded assets
-6. **Display**: Generated SVG is rendered in `SvgDisplay` with interactive
-   controls
+7. **Display**: Generated SVG is rendered in `SvgDisplay` component with
+   interactive controls
 
 ### Browser Compatibility
 
 - Uses modern browser APIs: `File`, `FileReader`, `drag-and-drop`,
   `webkitdirectory`
 - Jsonnet support via sjsonnet.js, which is included as a regular JS file
-- No server-side processing required - fully client-side application
+- No server-side processing required - fully client-side application with
+  SvelteKit static adapter
 - Works in all modern browsers with ES2020+ support
+- Vite optimizes bundle for modern browsers with automatic polyfill detection
