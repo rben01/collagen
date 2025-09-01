@@ -10,8 +10,8 @@ import { normalizedPathJoin } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
 import {
 	SjsonnetMain,
-	JsonnetResolverCallback,
-	JsonnetLoaderCallback,
+	type JsonnetResolverCallback,
+	type JsonnetLoaderCallback,
 } from "./sjsonnet.js";
 
 // technically not true (JSON cannot be `undefined`) but close enough to true to be
@@ -40,7 +40,7 @@ export function compileJsonnet(
 		const loaderCallback: JsonnetLoaderCallback = (path, _) => {
 			try {
 				return new TextDecoder().decode(filesystem.load(path).bytes);
-			} catch (error) {
+			} catch (_) {
 				// If the file doesn't exist, throw a more descriptive error
 				throw new Error(`Failed to load Jsonnet import: ${path}`);
 			}

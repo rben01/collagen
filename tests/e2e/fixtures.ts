@@ -4,7 +4,7 @@ export const test = base.extend({
 	page: async ({ page }, use) => {
 		await page.goto("/");
 		await page.waitForLoadState("domcontentloaded");
-		await page.waitForSelector("#app", { timeout: 2000 });
+		await page.waitForSelector("body", { timeout: 2000 });
 		await use(page);
 	},
 });

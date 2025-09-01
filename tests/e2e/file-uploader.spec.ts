@@ -5,11 +5,13 @@
  * FileSystemEntry mocking, error handling, success cases, and UI state management.
  */
 
-/// <reference path="../globals.d.ts" />
-
 import { expect } from "@playwright/test";
 import { test } from "./fixtures";
-import { ProjectFiles, uploadProject, uploadWithFilePicker } from "./upload";
+import {
+	type ProjectFiles,
+	uploadProject,
+	uploadWithFilePicker,
+} from "./upload";
 
 // =============================================================================
 // Basic FileUploader Interface Tests

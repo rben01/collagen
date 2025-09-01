@@ -27,6 +27,8 @@ import {
 	XmlError,
 } from "../errors/index.js";
 
+import impactB64Url from "$lib/fonts/impact.woff2.b64.txt?url";
+
 // =============================================================================
 // SVG Generation Context
 // =============================================================================
@@ -276,10 +278,13 @@ async function generateAnyChildTag(
 			return generateFontTag(tag, context);
 		case "nested-svg":
 			return generateNestedSvgTag(tag, context);
-		default:
+		default: {
 			// TypeScript exhaustiveness check
 			const _exhaustive: never = tag;
-			throw new Error(`Unknown tag type: ${(_exhaustive as any).type}`);
+			throw new Error(
+				`Unknown tag type: ${(_exhaustive as unknown as AnyChildTag).type}`,
+			);
+		}
 	}
 }
 
@@ -421,8 +426,8 @@ function inferImageKind(imagePath: string): string {
 
 /** Get bundled font data (placeholder - would be populated with actual fonts) */
 async function getBundledFontDataBase64(fontName: string): Promise<string> {
-	const fontPaths: Record<string, string> = { IMPACT: "impact.woff2.b64.txt" };
-	const fontBase64File: string | undefined = fontPaths[fontName.toUpperCase()];
+	const fontUrls: Record<string, string> = { IMPACT: impactB64Url };
+	const fontBase64File: string | undefined = fontUrls[fontName.toUpperCase()];
 
 	if (fontBase64File === undefined) {
 		throw new BundledFontNotFoundError(fontName);
@@ -436,14 +441,11 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 		const { readFile } = await import("node:fs/promises");
 		const path = await import("node:path");
 
-		fontDataB64 = await readFile(
-			path.join(process.cwd(), `/public/assets/fonts/${fontBase64File}`),
-			{ encoding: "ascii" },
-		);
+		fontDataB64 = await readFile(path.join(process.cwd(), impactB64Url), {
+			encoding: "ascii",
+		});
 	} else {
-		fontDataB64 = await (
-			await fetch(`/assets/fonts/${fontBase64File}`)
-		).text();
+		fontDataB64 = await (await fetch(impactB64Url)).text();
 	}
 
 	return fontDataB64;

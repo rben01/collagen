@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { normalizedPathJoin } from "./lib/collagen-ts";
-	import { getCommonPathPrefix } from "./lib/collagen-ts/utils";
+	import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
+	import { getCommonPathPrefix } from "$lib/collagen-ts/utils";
 
 	let {
 		disabled = false,

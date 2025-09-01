@@ -4,8 +4,8 @@
 	import {
 		toCollagenError,
 		InMemoryFileSystem,
-	} from "./lib/collagen-ts/index.js";
-	import type { FileContent } from "./lib/collagen-ts/index.js";
+	} from "../lib/collagen-ts/index.js";
+	import type { FileContent } from "../lib/collagen-ts/index.js";
 
 	let error: string | null = null;
 	let loading = false;
@@ -73,6 +73,11 @@
 		error = null;
 	}
 </script>
+
+<svelte:head>
+	<title>Collagen: The Collage Generator</title>
+	<meta name="description" content="An easier way to generate SVG" />
+</svelte:head>
 
 <main>
 	<h1>Collagen Web</h1>

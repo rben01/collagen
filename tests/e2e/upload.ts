@@ -1,4 +1,4 @@
-import { Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 
 export type ProjectFiles = Record<string, string>;
 
@@ -106,7 +106,7 @@ export type ProjectName = keyof typeof _sampleProjectContents;
 
 // magic to make { [f1]: content } | { [f2]: content } => { [f1]: { content, type } } | { [f2]: { content, type } }
 // and *not* { [f1] | [f2]: content }
-type Projectified<T> = T extends any
+type Projectified<T> = T extends unknown
 	? { [K in keyof T]: { content: T[K]; type: string } }
 	: never;
 

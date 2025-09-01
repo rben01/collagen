@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { flip } from "svelte/animate";
-	import { quintOut } from "svelte/easing";
+	import { quintInOut, quintOut } from "svelte/easing";
 
 	export let svg: string;
 
@@ -40,6 +40,7 @@
 		setTimeout(() => removeToast(id), 3000);
 	}
 
+	// TODO: make toast animate from its y position, not from the top
 	function removeToast(id: number) {
 		toasts = toasts.filter(t => t.id !== id);
 	}
@@ -297,7 +298,7 @@
 				role="alert"
 				in:slideIn={{ duration: 300 }}
 				out:slideOut={{ duration: 300 }}
-				animate:flip={{ duration: 300, easing: quintOut }}
+				animate:flip={{ duration: 300, easing: quintInOut }}
 			>
 				<span>{toast.message}</span>
 				<button
@@ -413,7 +414,8 @@
 	{/if}
 
 	{#if showRawSvg}
-		<div class="raw-svg">
+		<!-- TODO: format SVG? -->
+		<div class="raw-svg" role="region" aria-label="The raw SVG code">
 			<pre><code>{svg}</code></pre>
 		</div>
 	{:else}
@@ -595,31 +597,31 @@
 	/* This CSS file is in /build where assets lives in top level(ish).  We can't use
 	/assets because GH pages has the repo name in the path. */
 	.control-btn.zoom-in .btn-content {
-		mask-image: url("../assets/icons/zoom-in.svg");
+		mask-image: url("$lib/icons/zoom-in.svg");
 	}
 
 	.control-btn.zoom-out .btn-content {
-		mask-image: url("../assets/icons/zoom-out.svg");
+		mask-image: url("$lib/icons/zoom-out.svg");
 	}
 
 	.control-btn.reset-view .btn-content {
-		mask-image: url("../assets/icons/focus-centered.svg");
+		mask-image: url("$lib/icons/focus-centered.svg");
 	}
 
 	.control-btn.help-btn .btn-content {
-		mask-image: url("../assets/icons/help.svg");
+		mask-image: url("$lib/icons/help.svg");
 	}
 
 	.control-btn.toggle-view .btn-content {
-		mask-image: url("../assets/icons/code.svg");
+		mask-image: url("$lib/icons/code.svg");
 	}
 
 	.control-btn.copy-btn .btn-content {
-		mask-image: url("../assets/icons/clipboard-copy.svg");
+		mask-image: url("$lib/icons/clipboard-copy.svg");
 	}
 
 	.control-btn.export-btn .btn-content {
-		mask-image: url("../assets/icons/file-download.svg");
+		mask-image: url("$lib/icons/file-download.svg");
 	}
 
 	.zoom-level {

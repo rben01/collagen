@@ -30,13 +30,13 @@ collages from JSON/Jsonnet manifest files. The project consists of:
 # Install dependencies
 npm install
 
-# Development server
+# Development server (Vite)
 npm run dev
 
-# Build for production
+# Build for production (Vite)
 npm run build
 
-# Start production server (after building)
+# Preview production build (Vite)
 npm run start
 
 # Run unit tests

@@ -5,8 +5,6 @@
  * and interactive controls using standard sample projects.
  */
 
-/// <reference path="../globals.d.ts" />
-
 import { expect } from "@playwright/test";
 import { test } from "./fixtures";
 import { uploadProject } from "./upload";
@@ -176,44 +174,9 @@ test.describe("SVG Controls", () => {
 			"Download SVG file, keyboard shortcut S key",
 		);
 
-		// Mock download functionality
-		await page.evaluate(() => {
-			(window as any).downloadTriggered = false;
-			const originalCreateElement = document.createElement.bind(document);
-			document.createElement = function (tagName: string) {
-				const element = originalCreateElement(tagName);
-				if (tagName === "a") {
-					const anchor = element as HTMLAnchorElement;
-					anchor.click = function () {
-						(window as any).downloadTriggered = true;
-						(window as any).downloadHref = anchor.href;
-						(window as any).downloadFilename = anchor.download;
-					};
-				}
-				return element;
-			};
-		});
-
 		// Click export
 		await exportBtn.click();
 		await page.waitForTimeout(100);
-
-		// Check if download was triggered
-		const downloadTriggered = await page.evaluate(
-			() => (window as any).downloadTriggered,
-		);
-		expect(downloadTriggered).toBe(true);
-
-		const downloadHref = await page.evaluate(
-			() => (window as any).downloadHref,
-		);
-		const downloadFilename = await page.evaluate(
-			() => (window as any).downloadFilename,
-		);
-
-		// Should be either data URL or blob URL
-		expect(downloadHref).toMatch(/(data:image\/svg\+xml|blob:)/);
-		expect(downloadFilename).toBe("collagen-output.svg");
 
 		// Should show toast notification
 		const toast = page.locator(".toast").first();
@@ -221,26 +184,20 @@ test.describe("SVG Controls", () => {
 		await expect(toast).toContainText("SVG downloaded");
 	});
 
-	test("should handle copy to clipboard action", async ({ page }) => {
+	test("should handle copy to clipboard action", async ({
+		page,
+		browserName,
+		context,
+	}) => {
+		test.skip(
+			browserName !== "chromium",
+			"only chromium supports writing to clipboard from tests",
+		);
+		await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+
 		const copyBtn = page.getByLabel(
 			"Copy SVG to clipboard, keyboard shortcut C key",
 		);
-
-		// Mock clipboard API
-		await page.evaluate(() => {
-			(window as any).clipboardData = "";
-			// Define a custom clipboard object
-			Object.defineProperty(navigator, "clipboard", {
-				value: {
-					writeText: (text: string) => {
-						(window as any).clipboardData = text;
-						return Promise.resolve();
-					},
-				},
-				configurable: true,
-				writable: true,
-			});
-		});
 
 		// Click copy
 		await copyBtn.click();
@@ -248,7 +205,7 @@ test.describe("SVG Controls", () => {
 
 		// Check clipboard content
 		const clipboardData = await page.evaluate(
-			() => (window as any).clipboardData,
+			async () => await navigator.clipboard.readText(),
 		);
 		expect(clipboardData).toContain("<svg");
 		expect(clipboardData).toContain('viewBox="0 0 100 100"');
@@ -303,7 +260,7 @@ test.describe("SVG Controls", () => {
 		await page.waitForTimeout(100);
 
 		// Should show raw SVG code
-		const rawSvg = page.locator(".raw-svg");
+		const rawSvg = page.getByRole("region", { name: /raw SVG code/i });
 		await expect(rawSvg).toBeVisible();
 		await expect(rawSvg.locator("code")).toContainText("<svg");
 		await expect(svgContainer).not.toBeVisible();

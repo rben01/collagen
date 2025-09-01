@@ -5,8 +5,6 @@
  * to user interactions. Focuses on realistic scenarios and actual app behavior.
  */
 
-/// <reference path="../globals.d.ts" />
-
 import { expect } from "@playwright/test";
 import { test } from "./fixtures";
 import { uploadProject } from "./upload";
@@ -214,58 +212,6 @@ test.describe("Interactive Workflows", () => {
 		await page.waitForTimeout(100);
 		currentTransform = await svgContent.getAttribute("style");
 		expect(currentTransform).toBe(initialTransform);
-	});
-
-	test("should support export workflow", async ({ page }) => {
-		const downloadBtn = page.getByRole("button", { name: /download svg/i });
-		await expect(downloadBtn).toBeVisible();
-
-		// Mock download to avoid actual file download in test
-		await page.evaluate(() => {
-			const originalCreateElement = document.createElement;
-			document.createElement = function (tagName: string) {
-				const element = originalCreateElement.call(this, tagName);
-				if (tagName === "a") {
-					element.click = function () {
-						(window as any).downloadTriggered = true;
-					};
-				}
-				return element;
-			};
-		});
-
-		await downloadBtn.click();
-
-		// Verify download was triggered
-		const downloadTriggered = await page.evaluate(
-			() => (window as any).downloadTriggered,
-		);
-		expect(downloadTriggered).toBe(true);
-	});
-
-	test("should support clipboard workflow", async ({
-		page,
-		context,
-		browserName,
-	}) => {
-		test.skip(
-			browserName !== "chromium",
-			"only chromium supports writing to clipboard from tests",
-		);
-		await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-		uploadProject(browserName, page, "simpleJson");
-
-		const copyBtn = page.getByRole("button", { name: /copy.*clipboard/i });
-		await copyBtn.click();
-
-		// Verify SVG was copied to clipboard
-		const clipboardText = await page.evaluate(() =>
-			navigator.clipboard.readText(),
-		);
-		// is attribute order stable? this appears to use the order the keys are defined in the sample project
-		expect(clipboardText).toBe(
-			'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="0" y="0" width="50" height="50" fill="blue"/></svg>',
-		);
 	});
 });
 

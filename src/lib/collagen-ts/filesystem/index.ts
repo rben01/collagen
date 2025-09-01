@@ -13,7 +13,7 @@ import {
 	JsonError,
 } from "../errors/index.js";
 import { generateSvg } from "../index.js";
-import { JsonObject } from "../jsonnet/index.js";
+import { type JsonObject } from "../jsonnet/index.js";
 import { validateDocument } from "../validation/index.js";
 
 // =============================================================================

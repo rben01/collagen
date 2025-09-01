@@ -2,44 +2,42 @@
 
 ## Project Structure & Module Organization
 
-- `src/`: Svelte UI (`App.svelte`, `FileUploader.svelte`, `SvgDisplay.svelte`)
-  and TypeScript library under `src/lib/collagen-ts` (unit tests in
-  `__tests__`).
+- `src/`: SvelteKit app shell and routes. Key files:
+  - `src/app.html` (app template), `src/global.css` (global styles)
+  - Routes under `src/routes/` (e.g., `+page.svelte`, `+page.ts`)
+  - UI files used by the page (e.g., `FileUploader.svelte`, `SvgDisplay.svelte`)
+  - TypeScript library under `src/lib/collagen-ts` (unit tests in `__tests__`)
+- `static/`: Public/static assets copied verbatim to the build.
+- `build/`: Static output from SvelteKit (`@sveltejs/adapter-static`).
 - `tests/e2e/`: Playwright end-to-end tests and fixtures.
-- `public/`: Static assets; Rollup outputs to `public/build/`.
-- `rust/` (archival): Historical Rust crate. Do not reference, edit, build, or
-  test.
-- `assets/`, `schemas/`, `docs/`: Shared assets, JSON/JSONNet schemas,
-  documentation.
+- `rust/` (archival): Historical Rust crate. Do not reference, edit, build, or test.
+- `assets/`, `schemas/`, `docs/`: Shared assets, JSON/JSONNet schemas, documentation.
 
 ## Build, Test, and Development Commands
 
-- `npm run dev`: Start Rollup in watch mode and serve app on `:8080`.
-- `npm run build`: Build Svelte/TS to `public/build/` (minified in production).
-- `npm start`: Serve `public/` via `sirv`.
-- `npm test` / `npm run test:run`: Vitest unit tests (headless, CI-friendly).
-- `npm run test:ui`: Vitest UI runner.
-- `npm run test:e2e` / `:ui` / `:debug`: Playwright tests (spins server via
-  config).
-- `npm run format` / `format:check`: Prettier write/check.
+- `npm run dev`: Start SvelteKit (Vite) dev server. Default port `:5173`.
+- `npm run build`: Build SvelteKit app to `build/` (adapter-static, minified).
+- `npm run preview`: Serve the built app locally (tests use `:8080`).
+- `npm test`: Run unit tests (Vitest) and then E2E tests (Playwright).
+- `npm run test:unit`: Vitest unit tests; add `-- --run` for headless CI.
+- `npm run test:unit:ui`: Vitest UI runner.
+- `npm run test:e2e` / `:ui` / `:debug`: Playwright tests (builds then previews on port `8080`).
+- `npm run format`: Prettier write.
+- `npm run lint`: Prettier check + ESLint.
 - Note: Rust is archival; do not run `cargo` commands.
 
 ## Coding Style & Naming Conventions
 
-- Formatting: Prettier (tabs, width 3, semicolons, double quotes, trailing
-  commas). Run `npm run format` before pushing.
-- TypeScript: strict mode; use path aliases `@/*` and `@collagen/*` (see
-  `tsconfig.json`).
-- Files: Svelte components `PascalCase.svelte`; TS modules `kebab-case` or
-  `index.ts` within folders.
+- Formatting: Prettier (tabs, width 3, semicolons, double quotes, trailing commas). Run `npm run format` before pushing.
+- Linting: ESLint (flat config `eslint.config.js`) with strict TS/Svelte rules.
+- TypeScript: strict mode; primary path aliases: `@/*` and `$lib/*` (see `vitest.config.ts` and `tsconfig.json`).
+- Files: Svelte components `PascalCase.svelte`; SvelteKit routes `+page.svelte`/`+layout.svelte`; TS modules `kebab-case` or `index.ts` within folders.
 - Rust: N/A — archival; do not edit.
 
 ## Testing Guidelines
 
-- Unit: Vitest in `src/lib/collagen-ts/__tests__` named `*.test.ts`. Example:
-  `npm test`.
-- E2E: Playwright in `tests/e2e` (base URL `http://localhost:8080`). Example:
-  `npm run test:e2e`.
+- Unit: Vitest in `src/lib/collagen-ts/__tests__` named `*.test.ts`. Examples: `npm run test:unit -- --run` or `npm test`.
+- E2E: Playwright in `tests/e2e`. Uses `npm run build && npm run preview -- --port 8080`; base URL `http://localhost:8080`. Example: `npm run test:e2e`.
 - Rust: Do not add, run, or modify tests.
 
 ## Commit & Pull Request Guidelines

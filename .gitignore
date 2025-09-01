@@ -2,9 +2,30 @@
 target
 .vscode/settings.json
 spellright.dict
-node_modules
-test-results/.last-run.json
-test-results
-test-results.json
 playwright-report
 public/build
+
+test-results
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
