@@ -4,7 +4,7 @@
 		FileContent,
 	} from "$lib/collagen-ts/index.js";
 
-	let { filesData }: { filesData: InMemoryFileSystem } = $props();
+	let { filesData }: { filesData: { fs: InMemoryFileSystem } } = $props();
 
 	// Calculate file statistics
 	const fileStats = $derived(() => {
@@ -15,7 +15,7 @@
 		let totalSize = 0;
 		const largeFiles: FileContent[] = [];
 
-		for (const file of filesData.files.values()) {
+		for (const file of filesData.fs.files.values()) {
 			if (file && typeof file.bytes.length === "number") {
 				totalSize += file.bytes.length;
 				if (file.bytes.length > 5 * 1024 * 1024) {
@@ -56,7 +56,7 @@
 
 <div class="file-list" role="region" aria-label="File information">
 	<div class="file-list-header">
-		<h3>Files ({filesData.getFileCount()})</h3>
+		<h3>Files ({filesData.fs.getFileCount()})</h3>
 
 		<div class="file-summary">
 			<div class="total-size">
@@ -73,7 +73,7 @@
 	</div>
 
 	<div class="files-container">
-		{#each filesData.files || [] as [path, file]}
+		{#each filesData.fs.files as [path, file]}
 			<div class="file-item">
 				<div class="file-path" title={path}>{path}</div>
 				<div class="file-size">

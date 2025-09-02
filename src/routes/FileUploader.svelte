@@ -434,8 +434,11 @@
 						<em>open</em> the file/folder picker.
 					</p>
 				{:else}
-					<h4>Upload Different Project</h4>
-					<p>Drop files or click to browse</p>
+					<h4>Add More Files</h4>
+					<p>
+						Drop files or click to browse - new files will be added to
+						your project
+					</p>
 				{/if}
 
 				<button
@@ -452,8 +455,8 @@
 		{:else}
 			<div class="files-uploaded">
 				<div class="upload-success">
-					<span
-						>{nUploadedFiles === 0
+					<div>
+						{nUploadedFiles === 0
 							? nUploadedFolders === 1
 								? "Folder"
 								: "Folders"
@@ -461,11 +464,11 @@
 								? nUploadedFiles === 1
 									? "File"
 									: "Files"
-								: "Items"} uploaded successfully.</span
-					>
+								: "Items"} uploaded successfully.
+					</div>
 				</div>
 				<button class="clear-btn" onclick={handleClear}>
-					Upload Different Project
+					Clear All Files
 				</button>
 			</div>
 		{/if}

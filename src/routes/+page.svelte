@@ -11,7 +11,8 @@
 	let error: string | null = $state(null);
 	let loading = $state(false);
 	let svgOutput: string | null = $state(null);
-	let filesData: InMemoryFileSystem | null = $state(null);
+	// packing it in an object is a trick to get svelte to re-render downstream
+	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
 	async function handleFilesUploadedWithRoot(
@@ -25,7 +26,15 @@
 			console.log("📂 Root folder:", root);
 		}
 
-		await handleFiles(await InMemoryFileSystem.create(files));
+		// If we already have a filesystem, merge the new files into it
+		if (filesData) {
+			console.log("📂 Merging files into existing filesystem...");
+			await filesData.fs.mergeFiles(files);
+			await handleFiles(filesData.fs);
+		} else {
+			// First upload - create new filesystem
+			await handleFiles(await InMemoryFileSystem.create(files));
+		}
 	}
 
 	async function handleFiles(fs: InMemoryFileSystem) {
@@ -33,7 +42,7 @@
 
 		try {
 			loading = true;
-			filesData = fs;
+			filesData = { fs };
 			svgOutput = null;
 			error = null;
 
