@@ -10,7 +10,6 @@
 	let {
 		disabled = false,
 		handleFilesUploaded,
-		handleClearFiles,
 		externalError = null,
 		compact = false,
 	}: {
@@ -25,10 +24,7 @@
 	} = $props();
 
 	let dragOver = $state(false);
-	let files: Map<string, File> | null = $state(null);
 	let errorMessage = $state<string | null>(null);
-	let nUploadedFiles = $state(0);
-	let nUploadedFolders = $state(0);
 
 	async function handleDrop(event: DragEvent) {
 		event.preventDefault();
@@ -140,9 +136,6 @@
 				}
 			}
 
-			nUploadedFolders = topLevelFolders;
-			nUploadedFiles = topLevelFiles;
-
 			// Second pass: process everything asynchronously
 			for (const item of itemsToProcess) {
 				if (item.type === "entry") {
@@ -178,10 +171,6 @@
 			}
 
 			const rootFolderName = getRootFolderName([...fileMap.keys()]);
-
-			// For file picker, we're always dealing with individual files
-			nUploadedFiles = fileList.length;
-			nUploadedFolders = 0;
 
 			handleProcessingSuccess(fileMap, rootFolderName);
 		} catch (error) {
@@ -286,14 +275,6 @@
 		});
 	}
 
-	function handleClear() {
-		files = null;
-		errorMessage = null;
-		nUploadedFiles = 0;
-		nUploadedFolders = 0;
-		handleClearFiles();
-	}
-
 	function stripFolderPrefix(
 		fileData: Map<string, File>,
 		rootFolderName: string,
@@ -331,7 +312,6 @@
 
 		console.log("✨ Cleaned file data size:", cleanedFileMap.size, "files");
 
-		files = cleanedFileMap;
 		handleFilesUploaded(cleanedFileMap, rootFolderName);
 	}
 
@@ -423,55 +403,34 @@
 			</div>
 		{/if}
 
-		{#if !files}
-			<div class="upload-content">
-				{#if !compact}
-					<h3>Upload Collagen Project</h3>
-					<p>
-						Drag and drop a <code>collagen.json</code> or a
-						<code>collagen.jsonnet</code> manifest file, or a folder
-						containing one of those and any other resources. Or press O to
-						<em>open</em> the file/folder picker.
-					</p>
-				{:else}
-					<h4>Add More Files</h4>
-					<p>
-						Drop files or click to browse - new files will be added to
-						your project
-					</p>
-				{/if}
+		<div class="upload-content">
+			{#if !compact}
+				<h3>Upload Collagen Project</h3>
+				<p>
+					Drag and drop a <code>collagen.json</code> or a
+					<code>collagen.jsonnet</code> manifest file, or a folder
+					containing one of those and any other resources. Or press O to
+					<em>open</em> the file/folder picker.
+				</p>
+			{:else}
+				<h4>Add More Files</h4>
+				<p>
+					Drop files or click to browse - new files will be added to your
+					project
+				</p>
+			{/if}
 
-				<button
-					class="browse-btn"
-					onclick={handleBrowseClick}
-					onkeydown={handleBrowseKeyDown}
-					title="Browse for file or folder (Enter to open when focused, O when nothing is focused)"
-					aria-label="Browse for file or folder - press Enter to open file picker"
-					{disabled}
-				>
-					Browse
-				</button>
-			</div>
-		{:else}
-			<div class="files-uploaded">
-				<div class="upload-success">
-					<div>
-						{nUploadedFiles === 0
-							? nUploadedFolders === 1
-								? "Folder"
-								: "Folders"
-							: nUploadedFolders === 0
-								? nUploadedFiles === 1
-									? "File"
-									: "Files"
-								: "Items"} uploaded successfully.
-					</div>
-				</div>
-				<button class="clear-btn" onclick={handleClear}>
-					Clear All Files
-				</button>
-			</div>
-		{/if}
+			<button
+				class="browse-btn"
+				onclick={handleBrowseClick}
+				onkeydown={handleBrowseKeyDown}
+				title="Browse for file or folder (Enter to open when focused, O when nothing is focused)"
+				aria-label="Browse for file or folder - press Enter to open file picker"
+				{disabled}
+			>
+				Browse
+			</button>
+		</div>
 	</div>
 </div>
 
@@ -586,35 +545,5 @@
 	.browse-btn:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
-	}
-
-	.files-uploaded {
-		padding: 1em;
-	}
-
-	.upload-success {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5em;
-		margin-bottom: 1em;
-		color: #059669;
-		font-size: 1.1em;
-		font-weight: 500;
-	}
-
-	.clear-btn {
-		background: #6b7280;
-		color: white;
-		border: none;
-		padding: 0.5em 1em;
-		border-radius: 0.5em;
-		font-size: 0.9em;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.clear-btn:hover {
-		background: #4b5563;
 	}
 </style>
