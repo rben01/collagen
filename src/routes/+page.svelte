@@ -208,7 +208,6 @@
 		flex-direction: column;
 		min-height: 0;
 		max-height: 100%;
-		overflow: scroll;
 	}
 
 	.main-content {

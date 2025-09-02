@@ -99,6 +99,7 @@
 		background: #f9fafb;
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
+		overflow-y: auto;
 	}
 
 	.file-list-header {
@@ -148,7 +149,6 @@
 
 	.files-container {
 		flex: 1;
-		overflow-y: auto;
 		padding: 0.5em;
 	}
 
