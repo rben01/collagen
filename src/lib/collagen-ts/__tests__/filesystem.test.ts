@@ -570,6 +570,117 @@ describe("Manifest Handling", () => {
 			expect(toText(fs.load("shared.txt"))).toBe("updated content");
 		});
 	});
+
+	describe("removeFile", () => {
+		it("should remove existing files and return the File object", async () => {
+			// Create initial filesystem
+			const fs = await createFileSystem({
+				"collagen.json": '{"test": "value"}',
+				"file1.txt": "content1",
+				"file2.txt": "content2",
+			});
+
+			expect(fs.getFileCount()).toBe(3);
+			expect(fs.has("file1.txt")).toBe(true);
+
+			// Remove a file
+			const removedFile = fs.removeFile("file1.txt");
+
+			// Should return the original File object
+			expect(removedFile).toBeInstanceOf(File);
+			expect(removedFile!.name).toBe("file1.txt");
+
+			// File should be removed from filesystem
+			expect(fs.getFileCount()).toBe(2);
+			expect(fs.has("file1.txt")).toBe(false);
+			expect(fs.has("file2.txt")).toBe(true);
+			expect(fs.has("collagen.json")).toBe(true);
+		});
+
+		it("should return undefined for non-existent files", async () => {
+			const fs = await createFileSystem({
+				"collagen.json": '{"test": "value"}',
+			});
+
+			const result = fs.removeFile("nonexistent.txt");
+			expect(result).toBeUndefined();
+			expect(fs.getFileCount()).toBe(1); // No change
+		});
+
+		it("should handle path normalization when removing files", async () => {
+			const fs = await createFileSystem({
+				"subdir/nested.txt": "nested content",
+			});
+
+			expect(fs.has("subdir/nested.txt")).toBe(true);
+
+			// Remove with different path formats
+			const removedFile = fs.removeFile("/subdir//nested.txt");
+
+			expect(removedFile).toBeInstanceOf(File);
+			expect(fs.has("subdir/nested.txt")).toBe(false);
+			expect(fs.getFileCount()).toBe(0);
+		});
+
+		it("should handle removing manifest files without special treatment", async () => {
+			const fs = await createFileSystem({
+				"collagen.json": '{"test": "value"}',
+				"collagen.jsonnet": '{ test: "jsonnet" }',
+				"other.txt": "other content",
+			});
+
+			// Remove JSON manifest
+			const removedJsonFile = fs.removeFile("collagen.json");
+			expect(removedJsonFile).toBeInstanceOf(File);
+			expect(fs.has("collagen.json")).toBe(false);
+			expect(fs.getFileCount()).toBe(2);
+
+			// Remove Jsonnet manifest
+			const removedJsonnetFile = fs.removeFile("collagen.jsonnet");
+			expect(removedJsonnetFile).toBeInstanceOf(File);
+			expect(fs.has("collagen.jsonnet")).toBe(false);
+			expect(fs.getFileCount()).toBe(1);
+
+			// Other file should still exist
+			expect(fs.has("other.txt")).toBe(true);
+		});
+
+		it("should update file count and total size after removal", async () => {
+			const fs = await createFileSystem({
+				"small.txt": "small",
+				"large.txt": "A".repeat(1000),
+			});
+
+			const initialCount = fs.getFileCount();
+			const initialSize = fs.getTotalSize();
+
+			const removedFile = fs.removeFile("large.txt");
+
+			expect(removedFile).toBeInstanceOf(File);
+			expect(fs.getFileCount()).toBe(initialCount - 1);
+			expect(fs.getTotalSize()).toBeLessThan(initialSize);
+			expect(fs.getTotalSize()).toBe("small".length); // Only small.txt remains
+		});
+
+		it("should handle removing files with special characters in paths", async () => {
+			const fs = await createFileSystem({
+				"file with spaces.txt": "content with spaces",
+				"path-with-dashes/file_with_underscores.txt": "underscore content",
+			});
+
+			const removedFile1 = fs.removeFile("file with spaces.txt");
+			expect(removedFile1).toBeInstanceOf(File);
+			expect(fs.has("file with spaces.txt")).toBe(false);
+
+			const removedFile2 = fs.removeFile(
+				"path-with-dashes/file_with_underscores.txt",
+			);
+			expect(removedFile2).toBeInstanceOf(File);
+			expect(fs.has("path-with-dashes/file_with_underscores.txt")).toBe(
+				false,
+			);
+		});
+	});
 });
 
 // =============================================================================

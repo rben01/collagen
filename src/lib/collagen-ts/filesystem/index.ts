@@ -198,6 +198,17 @@ export class InMemoryFileSystem {
 		}
 	}
 
+	addFileContents(
+		path: string,
+		fileContents: FileContent,
+		normalizePath = true,
+	) {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
+		this.#files.set(path, fileContents);
+	}
+
 	/** Merge new files into existing filesystem */
 	async mergeFiles(
 		files: Iterable<[string, File]>,
@@ -206,6 +217,20 @@ export class InMemoryFileSystem {
 		for (const [path, file] of files) {
 			await this.addFile(path, file, normalizePaths);
 		}
+	}
+
+	/** Remove a file and return the removed File object if it existed */
+	removeFile(path: string, normalizePath = true): FileContent | undefined {
+		if (normalizePath) {
+			path = normalizedPathJoin(path);
+		}
+
+		const fileContent = this.#files.get(path);
+		if (fileContent) {
+			this.#files.delete(path);
+			return fileContent;
+		}
+		return undefined;
 	}
 
 	/** Check if a file exists */

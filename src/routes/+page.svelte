@@ -81,6 +81,42 @@
 		svgOutput = null;
 		error = null;
 	}
+
+	async function handleRemoveFile(path: string) {
+		if (!filesData) return;
+
+		// Remove the file from the filesystem
+		const removedFile = filesData.fs.removeFile(path);
+		if (removedFile) {
+			handleFilesystemChange();
+		}
+
+		return removedFile;
+	}
+
+	async function handleFilesystemChange() {
+		if (!filesData) return;
+
+		filesData = { fs: filesData.fs };
+
+		// Attempt to regenerate SVG
+		try {
+			loading = true;
+			svgOutput = null;
+			error = null;
+
+			svgOutput = await filesData.fs.generateSvg();
+			if (svgOutput) {
+				console.log("✅ SVG regenerated after filesystem change");
+			}
+		} catch (err) {
+			console.error("Error regenerating SVG after filesystem change:", err);
+			const compatError = toCollagenError(err);
+			error = compatError.message;
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -119,7 +155,11 @@
 				</div>
 
 				{#if filesData}
-					<FileList {filesData} />
+					<FileList
+						{filesData}
+						{handleRemoveFile}
+						{handleFilesystemChange}
+					/>
 				{/if}
 			</div>
 
@@ -177,12 +217,6 @@
 		color: #6b7280;
 		font-size: 1.1em;
 		margin-bottom: 2em;
-	}
-
-	.loading {
-		text-align: center;
-		padding: 2em;
-		color: #6b7280;
 	}
 
 	.upload-section {

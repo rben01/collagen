@@ -5,7 +5,15 @@
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
 
-	let { filesData }: { filesData: { fs: InMemoryFileSystem } } = $props();
+	let {
+		filesData,
+		handleRemoveFile,
+		handleFilesystemChange,
+	}: {
+		filesData: { fs: InMemoryFileSystem };
+		handleRemoveFile: (path: string) => Promise<FileContent | undefined>;
+		handleFilesystemChange: () => Promise<void>;
+	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
 	const largeTotalSizeWarningThreshold = 16 * MB;
@@ -46,6 +54,67 @@
 
 		return { totalSize, warnings };
 	});
+
+	// Unified trash system
+	interface TrashedFile {
+		file: FileContent;
+		path: string;
+	}
+
+	const trashUndoTime = 5000; // milliseconds
+	let trashedFiles: TrashedFile[] = $state([]);
+	let countdownInterval: NodeJS.Timeout | null = $state(null);
+	let countdownValue = $state(trashUndoTime);
+
+	$effect(() => {
+		if (countdownValue <= 0) {
+			trashedFiles = [];
+			if (countdownInterval) clearInterval(countdownInterval);
+			countdownInterval = null;
+		}
+	});
+
+	// Handle file deletion
+	async function deleteFile(path: string) {
+		const removedFile = await handleRemoveFile(path);
+		if (removedFile) {
+			// Add to trash
+			trashedFiles.push({ file: removedFile, path });
+
+			// Reset the shared timer
+			if (countdownInterval) {
+				clearInterval(countdownInterval);
+			}
+
+			// Start new 7-second countdown
+			countdownValue = trashUndoTime;
+			const startTime = Date.now();
+
+			countdownInterval = setInterval(() => {
+				const elapsed = Date.now() - startTime;
+				countdownValue = trashUndoTime - elapsed;
+			}, 250);
+		}
+	}
+
+	// Handle undo - restore all trashed files
+	async function undoAllDeletions() {
+		if (countdownInterval) {
+			clearInterval(countdownInterval);
+			countdownInterval = null;
+		}
+
+		// Re-add all files to filesystem
+		for (const { file, path } of trashedFiles) {
+			filesData.fs.addFileContents(path, file, true);
+		}
+
+		// Clear trash and trigger reactivity
+		trashedFiles = [];
+
+		// Trigger SVG regeneration in parent component
+		await handleFilesystemChange();
+	}
 </script>
 
 <div class="file-list" role="region" aria-label="File information">
@@ -74,19 +143,44 @@
 		{#each filesData.fs.files as [path, file]}
 			<div class="file-item">
 				<div class="file-path" title={path}>{path}</div>
-				<div class="file-size">
-					{#if file && typeof file.bytes.length === "number"}
-						{formatFileSize(file.bytes.length)}
-						{#if file.bytes.length > largeFileSizeWarningThreshold}
-							<span class="size-warning" title="Large file">⚠️</span>
+				<div class="file-actions">
+					<div class="file-size">
+						{#if file && typeof file.bytes.length === "number"}
+							{formatFileSize(file.bytes.length)}
+							{#if file.bytes.length > largeFileSizeWarningThreshold}
+								<span class="size-warning" title="Large file">⚠️</span>
+							{/if}
+						{:else}
+							Unknown size
 						{/if}
-					{:else}
-						Unknown size
-					{/if}
+					</div>
+					<button
+						class="delete-button"
+						aria-label="Remove {path}"
+						title="Remove file"
+						onclick={() => deleteFile(path)}
+					>
+						<!-- TODO: better icon -->
+						🗑️
+					</button>
 				</div>
 			</div>
 		{/each}
 	</div>
+
+	<!-- Undo UI - Fixed to bottom of file list -->
+	{#if trashedFiles.length > 0}
+		<div class="undo-bar">
+			<div class="undo-message">
+				Removed {trashedFiles.length} file{trashedFiles.length > 1
+					? "s"
+					: ""}
+			</div>
+			<button class="undo-button" onclick={undoAllDeletions}>
+				Undo ({Math.ceil(countdownValue / 1000)}s)
+			</button>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -221,5 +315,86 @@
 
 	.files-container::-webkit-scrollbar-thumb:hover {
 		background: #94a3b8;
+	}
+
+	.file-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
+	}
+
+	.delete-button {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0.25em;
+		border-radius: 0.25em;
+		font-size: 0.9em;
+		opacity: 0.6;
+		transition: all 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 1.5em;
+		min-height: 1.5em;
+	}
+
+	.delete-button:hover {
+		opacity: 1;
+		background: #fee2e2;
+		transform: scale(1.1);
+	}
+
+	.delete-button:focus {
+		outline: 2px solid #ef4444;
+		outline-offset: 1px;
+		opacity: 1;
+	}
+
+	.undo-bar {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: #374151;
+		color: white;
+		padding: 0.75em;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-radius: 0 0 0.5em 0.5em;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+		z-index: 10;
+	}
+
+	.undo-message {
+		font-size: 0.875em;
+		font-weight: 500;
+	}
+
+	.undo-button {
+		background: #ef4444;
+		color: white;
+		border: none;
+		padding: 0.375em 0.75em;
+		border-radius: 0.375em;
+		font-size: 0.8em;
+		font-weight: 600;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+
+	.undo-button:hover {
+		background: #dc2626;
+	}
+
+	.undo-button:focus {
+		outline: 2px solid white;
+		outline-offset: 1px;
+	}
+
+	/* Update file-list to be position relative for absolute positioning of undo-bar */
+	.file-list {
+		position: relative;
 	}
 </style>
