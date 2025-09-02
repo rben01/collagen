@@ -108,6 +108,23 @@ export function getCommonPathPrefix(strs: string[], delimiter = "/") {
 }
 
 // =============================================================================
+// File Size Utilities
+// =============================================================================
+
+export const KB = 1024;
+export const MB = 1024 * KB;
+
+export function formatFileSize(bytes: number): string {
+	if (bytes > MB) {
+		return `${(bytes / MB).toFixed(1)}MB`;
+	} else if (bytes > KB) {
+		return `${(bytes / KB).toFixed(0)}KB`;
+	} else {
+		return `${bytes}B`;
+	}
+}
+
+// =============================================================================
 // Array Utilities
 // =============================================================================
 

@@ -3,11 +3,15 @@
 		InMemoryFileSystem,
 		FileContent,
 	} from "$lib/collagen-ts/index.js";
+	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
 
 	let { filesData }: { filesData: { fs: InMemoryFileSystem } } = $props();
 
+	const largeFileSizeWarningThreshold = 2 * MB;
+	const largeTotalSizeWarningThreshold = 16 * MB;
+
 	// Calculate file statistics
-	const fileStats = $derived(() => {
+	const fileStats = $derived.by(() => {
 		if (!filesData) {
 			return { totalSize: 0, warnings: [] };
 		}
@@ -18,7 +22,7 @@
 		for (const file of filesData.fs.files.values()) {
 			if (file && typeof file.bytes.length === "number") {
 				totalSize += file.bytes.length;
-				if (file.bytes.length > 5 * 1024 * 1024) {
+				if (file.bytes.length > largeFileSizeWarningThreshold) {
 					largeFiles.push(file);
 				}
 			}
@@ -26,10 +30,10 @@
 
 		const warnings = [];
 
-		if (totalSize > 25 * 1024 * 1024) {
+		if (totalSize > largeTotalSizeWarningThreshold) {
 			warnings.push({
 				type: "warning",
-				message: `Total size: ${(totalSize / (1024 * 1024)).toFixed(1)}MB. Large uploads may fail due to memory limits.`,
+				message: `Total size: ${formatFileSize(totalSize)}. You may start to run into memory issues.`,
 			});
 		}
 
@@ -42,34 +46,28 @@
 
 		return { totalSize, warnings };
 	});
-
-	function formatFileSize(bytes: number): string {
-		if (bytes > 1024 * 1024) {
-			return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-		} else if (bytes > 1024) {
-			return `${(bytes / 1024).toFixed(0)}KB`;
-		} else {
-			return `${bytes}B`;
-		}
-	}
 </script>
 
 <div class="file-list" role="region" aria-label="File information">
 	<div class="file-list-header">
-		<h3>Files ({filesData.fs.getFileCount()})</h3>
-
-		<div class="file-summary">
-			<div class="total-size">
-				Total: {(fileStats().totalSize / 1024).toFixed(1)}KB
-			</div>
-
-			{#each fileStats().warnings as warning}
-				<div class="file-warning {warning.type}">
-					{#if warning.type === "warning"}⚠️{:else}💡{/if}
-					{warning.message}
+		<div class="file-list-header-stats">
+			<h3>Files ({filesData.fs.getFileCount()})</h3>
+			<div class="file-summary">
+				<div class="total-size">
+					Total: {formatFileSize(fileStats.totalSize)}
 				</div>
-			{/each}
+			</div>
 		</div>
+		{#if fileStats.warnings.length > 0}
+			<div class="file-list-warnings">
+				{#each fileStats.warnings as warning}
+					<div class="file-warning {warning.type}">
+						{#if warning.type === "warning"}⚠️{:else}💡{/if}
+						{warning.message}
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div class="files-container">
@@ -79,7 +77,7 @@
 				<div class="file-size">
 					{#if file && typeof file.bytes.length === "number"}
 						{formatFileSize(file.bytes.length)}
-						{#if file.bytes.length > 10 * 1024 * 1024}
+						{#if file.bytes.length > largeFileSizeWarningThreshold}
 							<span class="size-warning" title="Large file">⚠️</span>
 						{/if}
 					{:else}
@@ -103,15 +101,22 @@
 	}
 
 	.file-list-header {
-		padding: 1em;
+		padding: 1em 1em 0.75em 1em;
 		border-bottom: 1px solid #e5e7eb;
 		background: #ffffff;
 		border-radius: 0.5em 0.5em 0 0;
 		flex-shrink: 0;
 	}
 
+	.file-list-header-stats {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		margin-bottom: 0.25em;
+	}
+
 	.file-list-header h3 {
-		margin: 0 0 0.75em 0;
+		margin: 0;
 		color: #374151;
 		font-size: 1.1em;
 		font-weight: 600;
@@ -124,7 +129,10 @@
 	.total-size {
 		font-weight: 600;
 		color: #374151;
-		margin-bottom: 0.5em;
+	}
+
+	.file-list-warnings {
+		margin-top: 0.5em;
 	}
 
 	.file-warning {
