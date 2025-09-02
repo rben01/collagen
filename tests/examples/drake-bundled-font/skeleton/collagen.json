@@ -1,20 +1,8 @@
 {
 	"attrs": { "viewBox": "0 0 800 650" },
 	"children": [
-		{
-			"fonts": [
-				{
-					"bundled": true,
-					"name": "Impact"
-				}
-			]
-		},
-		{
-			"image_path": "./drake-small.jpg",
-			"attrs": {
-				"width": 800
-			}
-		},
+		{ "fonts": [{ "bundled": true, "name": "Impact" }] },
+		{ "image_path": "./drake-small.jpg", "attrs": { "width": 800 } },
 		{
 			"tag": "text",
 			"attrs": {
@@ -29,35 +17,23 @@
 			"children": [
 				{
 					"tag": "tspan",
-					"attrs": {
-						"x": 550,
-						"dy": 0
-					},
+					"attrs": { "x": 550, "dy": 0 },
 					"children": [{ "text": "Using SVG-based text," }]
 				},
 
 				{
 					"tag": "tspan",
-					"attrs": {
-						"x": 550,
-						"dy": 50
-					},
+					"attrs": { "x": 550, "dy": 50 },
 					"children": [{ "text": "which is infinitely" }]
 				},
 				{
 					"tag": "tspan",
-					"attrs": {
-						"x": 550,
-						"dy": 50
-					},
+					"attrs": { "x": 550, "dy": 50 },
 					"children": [{ "text": "zoomable and has" }]
 				},
 				{
 					"tag": "tspan",
-					"attrs": {
-						"x": 550,
-						"dy": 50
-					},
+					"attrs": { "x": 550, "dy": 50 },
 					"children": [{ "text": "no artifacts" }]
 				}
 			]

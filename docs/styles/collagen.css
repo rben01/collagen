@@ -328,7 +328,7 @@ pre {
 
 /** Set consistent quote types. */
 q {
-	quotes: "\201C""\201D""\2018""\2019";
+	quotes: "\201C" "\201D" "\2018" "\2019";
 }
 
 /** Address inconsistent and variable font size in all browsers. */
@@ -1231,7 +1231,8 @@ kbd:not(.keyseq) {
 	border-bottom: 1px solid var(--kbd-not-keyseq-border-color);
 	border-right: 1px solid var(--kbd-not-keyseq-border-color);
 	border-radius: 3px;
-	box-shadow: 0 0 1px 2px var(--kbd-not-keyseq-box-shadow-color),
+	box-shadow:
+		0 0 1px 2px var(--kbd-not-keyseq-box-shadow-color),
 		0 0.5px 1px 1px var(--kbd-not-keyseq-box-shadow-alt-color);
 	margin: 0.02em 0.2em 0;
 	padding: 0.2em 0.34em max(calc(0.3em - 0.5ex), 0px);
@@ -1556,8 +1557,25 @@ h6 > a.link:hover {
 	margin-bottom: 1.25em;
 }
 
-:is(.admonitionblock
-		td.content, .exampleblock, .imageblock, .videoblock, .listingblock, .literalblock, .openblock, .paragraph, .quoteblock, .sidebarblock, .tableblock, .verseblock, .dlist, .olist, .ulist, .qlist, .hdlist)
+:is(
+		.admonitionblock td.content,
+		.exampleblock,
+		.imageblock,
+		.videoblock,
+		.listingblock,
+		.literalblock,
+		.openblock,
+		.paragraph,
+		.quoteblock,
+		.sidebarblock,
+		.tableblock,
+		.verseblock,
+		.dlist,
+		.olist,
+		.ulist,
+		.qlist,
+		.hdlist
+	)
 	> .title {
 	text-align: left;
 	font-weight: var(--bold-font-weight);
@@ -2045,7 +2063,9 @@ ul > li p {
 	margin-bottom: 0.3em;
 }
 
-:is(ol, ul) > li > :is(p:first-child, .paragraph > p, .paragraph:last-child > p) {
+:is(ol, ul)
+	> li
+	> :is(p:first-child, .paragraph > p, .paragraph:last-child > p) {
 	margin-bottom: 0.7em;
 }
 

@@ -4,11 +4,7 @@
 		{
 			"tag": "g",
 			"attrs": { "transform": "rotate(-45)" },
-			"children": [
-				{
-					"clgn_path": "B"
-				}
-			]
+			"children": [{ "clgn_path": "B" }]
 		}
 	]
 }

@@ -198,6 +198,16 @@ export class InMemoryFileSystem {
 		}
 	}
 
+	/** Merge new files into existing filesystem */
+	async mergeFiles(
+		files: Iterable<[string, File]>,
+		normalizePaths = true,
+	): Promise<void> {
+		for (const [path, file] of files) {
+			await this.addFile(path, file, normalizePaths);
+		}
+	}
+
 	/** Check if a file exists */
 	has(path: string, normalizePath = true) {
 		if (normalizePath) {
