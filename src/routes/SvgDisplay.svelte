@@ -17,9 +17,55 @@
 	let isDragging = $state(false);
 	let lastMouseX = $state(0);
 	let lastMouseY = $state(0);
+	let transitionDuration = $state(0); // seconds
 	let svgContainer: HTMLElement | null = $state(null);
 	let lastTouchDistance = $state(0);
 	let toasts: { id: number; message: string; type: string }[] = $state([]);
+	let containerWidth = $state(0);
+	let containerHeight = $state(0);
+	let svgConstrainedWidth: number | null = $state(null);
+	let svgConstrainedHeight: number | null = $state(null);
+
+	const SVG_PADDING = 8; // px
+
+	// Parse SVG viewBox to get native dimensions and aspect ratio
+	const svgDimensions = $derived.by(() => {
+		const viewBoxMatch = svg.match(/viewBox="([^"]*)"/);
+		if (!viewBoxMatch) return null;
+
+		const viewBoxValues = viewBoxMatch[1].trim().split(/\s+/g).map(Number);
+		if (viewBoxValues.length !== 4) return null;
+
+		const [x, y, width, height] = viewBoxValues;
+		return { x, y, width, height, aspectRatio: width / height };
+	});
+
+	$effect(() => {
+		const containerAspectRatio = containerWidth / containerHeight;
+
+		if (
+			!svgDimensions ||
+			containerAspectRatio === 0 ||
+			!isFinite(containerAspectRatio) ||
+			isNaN(containerAspectRatio)
+		) {
+			svgConstrainedWidth = containerWidth;
+			svgConstrainedHeight = containerHeight;
+			return;
+		}
+
+		if (containerAspectRatio < svgDimensions.aspectRatio) {
+			// container is narrower than SVG (relatively speaking)
+			svgConstrainedWidth = containerWidth - SVG_PADDING;
+			svgConstrainedHeight =
+				containerWidth / svgDimensions.aspectRatio - SVG_PADDING;
+		} else {
+			// container is wider than SVG (relatively speaking)
+			svgConstrainedWidth =
+				containerHeight * svgDimensions.aspectRatio - SVG_PADDING;
+			svgConstrainedHeight = containerHeight - SVG_PADDING;
+		}
+	});
 
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
@@ -56,18 +102,28 @@
 		showToast("SVG downloaded.");
 	}
 
+	function withTransition(fn: () => void, duration = 0.1) {
+		transitionDuration = duration;
+		setTimeout(() => {
+			transitionDuration = 0;
+		}, duration * 1000);
+		fn();
+	}
+
 	function resetView() {
-		scale = 1;
-		panX = 0;
-		panY = 0;
+		withTransition(() => {
+			scale = 1;
+			panX = 0;
+			panY = 0;
+		});
 	}
 
 	function zoomIn() {
-		scale = Math.min(scale * 1.2, 5);
+		withTransition(() => (scale = Math.min(scale * 1.2, 5)));
 	}
 
 	function zoomOut() {
-		scale = Math.max(scale / 1.2, 0.1);
+		withTransition(() => (scale = Math.max(scale / 1.2, 0.1)));
 	}
 
 	function getTouchDistance(touches: TouchList): number {
@@ -426,10 +482,22 @@
 			aria-label="Interactive SVG viewer"
 			aria-describedby="svg-controls-description"
 		>
-			<div class="svg-content-mask">
+			<div
+				class="svg-content-mask"
+				style="--content-mask-padding: {SVG_PADDING / 2}px;"
+				bind:clientWidth={containerWidth}
+				bind:clientHeight={containerHeight}
+			>
 				<div
 					class="svg-content"
-					style="--pan-x: {panX}px; --pan-y: {panY}px; --scale: {scale}"
+					style="
+						--pan-x: {panX}px;
+						--pan-y: {panY}px;
+						--scale: {scale};
+						--constrained-width: {svgConstrainedWidth}px;
+						--constrained-height: {svgConstrainedHeight}px;
+						--transition-duration: {transitionDuration}s;
+					"
 					role="img"
 					aria-label="SVG content"
 				>
@@ -671,9 +739,12 @@
 	.svg-content-mask {
 		position: relative;
 		place-self: center;
-		width: calc(100% - 4px);
-		height: calc(100% - 4px);
+		width: calc(100% - var(--content-mask-padding));
+		height: calc(100% - var(--content-mask-padding));
 		overflow: hidden;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.svg-container:focus .svg-content-mask {
@@ -683,29 +754,21 @@
 	}
 
 	.svg-content {
-		--size-deficit: 2%;
-		--padding: 2em;
-		transform: translate(
-				calc(var(--pan-x) - var(--padding) + var(--size-deficit) / 2),
-				calc(var(--pan-y) - var(--padding) + var(--size-deficit) / 2)
-			)
+		position: absolute;
+		transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
 			scale(var(--scale));
 		transform-origin: center;
-		transition: transform 0.1s ease-out;
-		text-align: center;
-		padding: var(--padding);
-		display: flex;
-		justify-content: center;
-		align-items: center;
+		transition: transform var(--transition-duration) ease-out;
+		width: var(--constrained-width);
+		height: var(--constrained-height);
 	}
 
 	.svg-content :global(svg) {
 		max-width: 100%;
 		max-height: 100%;
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-		border-radius: 0.25em;
+		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.15);
+		border-radius: 6px;
 		background: white;
-		padding: var(--size-deficit);
 	}
 
 	.raw-svg {
