@@ -95,16 +95,6 @@
 		<p>Generate SVG collages from JSON/Jsonnet manifests</p>
 	{/if}
 
-	{#if loading}
-		<div
-			class="loading"
-			role="status"
-			aria-label="Processing files, please wait"
-		>
-			<p>Processing files...</p>
-		</div>
-	{/if}
-
 	{#if !filesData && !svgOutput}
 		<!-- Initial state: show full-width uploader -->
 		<div class="upload-section">
