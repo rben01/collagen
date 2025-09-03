@@ -572,7 +572,7 @@ describe("Manifest Handling", () => {
 	});
 
 	describe("removeFile", () => {
-		it("should remove existing files and return the File object", async () => {
+		it("should remove existing files and return the file content", async () => {
 			// Create initial filesystem
 			const fs = await createFileSystem({
 				"collagen.json": '{"test": "value"}',
@@ -586,9 +586,9 @@ describe("Manifest Handling", () => {
 			// Remove a file
 			const removedFile = fs.removeFile("file1.txt");
 
-			// Should return the original File object
-			expect(removedFile).toBeInstanceOf(File);
-			expect(removedFile!.name).toBe("file1.txt");
+			expect(removedFile).toBeDefined();
+			const removedText = new TextDecoder().decode(removedFile!.bytes);
+			expect(removedText).toBe("content1");
 
 			// File should be removed from filesystem
 			expect(fs.getFileCount()).toBe(2);
@@ -617,7 +617,7 @@ describe("Manifest Handling", () => {
 			// Remove with different path formats
 			const removedFile = fs.removeFile("/subdir//nested.txt");
 
-			expect(removedFile).toBeInstanceOf(File);
+			expect(removedFile).toBeDefined();
 			expect(fs.has("subdir/nested.txt")).toBe(false);
 			expect(fs.getFileCount()).toBe(0);
 		});
@@ -631,13 +631,13 @@ describe("Manifest Handling", () => {
 
 			// Remove JSON manifest
 			const removedJsonFile = fs.removeFile("collagen.json");
-			expect(removedJsonFile).toBeInstanceOf(File);
+			expect(removedJsonFile).toBeDefined();
 			expect(fs.has("collagen.json")).toBe(false);
 			expect(fs.getFileCount()).toBe(2);
 
 			// Remove Jsonnet manifest
 			const removedJsonnetFile = fs.removeFile("collagen.jsonnet");
-			expect(removedJsonnetFile).toBeInstanceOf(File);
+			expect(removedJsonnetFile).toBeDefined();
 			expect(fs.has("collagen.jsonnet")).toBe(false);
 			expect(fs.getFileCount()).toBe(1);
 
@@ -656,7 +656,7 @@ describe("Manifest Handling", () => {
 
 			const removedFile = fs.removeFile("large.txt");
 
-			expect(removedFile).toBeInstanceOf(File);
+			expect(removedFile).toBeDefined();
 			expect(fs.getFileCount()).toBe(initialCount - 1);
 			expect(fs.getTotalSize()).toBeLessThan(initialSize);
 			expect(fs.getTotalSize()).toBe("small".length); // Only small.txt remains
@@ -669,13 +669,13 @@ describe("Manifest Handling", () => {
 			});
 
 			const removedFile1 = fs.removeFile("file with spaces.txt");
-			expect(removedFile1).toBeInstanceOf(File);
+			expect(removedFile1).toBeDefined();
 			expect(fs.has("file with spaces.txt")).toBe(false);
 
 			const removedFile2 = fs.removeFile(
 				"path-with-dashes/file_with_underscores.txt",
 			);
-			expect(removedFile2).toBeInstanceOf(File);
+			expect(removedFile2).toBeDefined();
 			expect(fs.has("path-with-dashes/file_with_underscores.txt")).toBe(
 				false,
 			);
