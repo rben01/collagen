@@ -1,6 +1,7 @@
 # Repository Guidelines
 
-This file provides guidance to Coding agents when working with code in this repository.
+This file provides guidance to Coding agents when working with code in this
+repository.
 
 ## Project Overview
 
@@ -25,67 +26,34 @@ collages from JSON/Jsonnet manifest files. The project consists of:
 
 ### Building and Testing
 
+Refer to @package.json for a list of npm commands. The main ones you'll need
+are:
+
 ```bash
-# Install dependencies
-npm install
-
-# Development server (Vite)
-npm run dev
-
-# Build for production (Vite)
-npm run build
-
-# Preview production build (Vite)
-npm run preview
-
 # Type checking and SvelteKit sync
 npm run check
-
-# Type checking in watch mode
-npm run check:watch
-
-# Run unit tests
-npm run test
-
-# Run unit tests in watch mode (interactive)
-npm run test:unit:ui
 
 # Run unit tests once and exit
 npm run test:unit:run
 
-# Run E2e tests, without opening the report after.
-# By not launching a server, the playwright process
-# finishes when it's done instead of hanging forever.
-PW_TEST_HTML_REPORT_OPEN='never' npm run test:e2e
-
-# Run E2E tests with UI (for human use only)
-npm run test:e2e:ui
-
-# Debug E2E tests (for human use only)
-npm run test:e2e:debug
-
-# Format code
-npm run format
-
-# Lint code
-npm run lint
+# Run e2e tests in chromium once and exit (faster because it tests fewer browsers)
+npm run test:e2e:run:chromium
 ```
 
 ### Running Individual Tests
 
 ```bash
 # Run specific test file
-npm run test:unit -- src/lib/collagen-ts/__tests__/basic.test.ts
+npm run test:unit:run -- src/lib/collagen-ts/__tests__/basic.test.ts
 
 # Run tests matching pattern
-npm run test:unit -- --run filesystem
+npm run test:unit:run -- --run filesystem
 
 # Run single unit test by name
-npm run test:unit -- --run -t "validates basic root tag structure"
+npm run test:unit:run -- --run -t "validates basic root tag structure"
 
-# Run single e2e test by name, without opening the report after
-# By not launching a server, the playwright process finishes when it's done instead of hanging forever
-PW_TEST_HTML_REPORT_OPEN='never' npm run test:e2e -- --project chromium -g "validates basic root tag structure"
+# Run single e2e test by name
+npm run test:e2e:run -- --project chromium -g "validates basic root tag structure"
 ```
 
 ## Architecture
@@ -189,7 +157,6 @@ import { InMemoryFileSystem } from "./filesystem/index.js";
 const result = compileJsonnet(
   jsonnetCode,
   filesystem, // InMemoryFileSystem instance
-  config, // Jsonnet configuration, which is supported by sjsonnet but which we never use ourselves
   manifestPath, // For error reporting
 );
 ```
@@ -209,9 +176,6 @@ Jsonnet files.
   `out.svg` for validation
 - Tests verify that generated SVG matches expected output
   character-for-character
-
-When writing or editing Playwright tests, ALWAYS use the agent
-playwright-test-writer.
 
 ### SvelteKit Development
 
