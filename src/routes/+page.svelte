@@ -236,15 +236,16 @@
 	}
 
 	.sidebar {
-		flex: 0 0 350px;
+		flex: 1 0 280px;
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
 		max-height: 100%;
+		max-width: 25vw;
 	}
 
 	.main-content {
-		flex: 1;
+		flex: 4 0 580px;
 		min-height: 0;
 		display: flex;
 		justify-items: stretch;
@@ -306,6 +307,7 @@
 		}
 
 		.sidebar {
+			max-width: none;
 			flex: none;
 			order: 2;
 		}

@@ -276,7 +276,7 @@
 		font-family: monospace;
 		font-size: 0.875em;
 		flex: 1;
-		margin-right: 0.75em;
+		margin-right: 1em;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
