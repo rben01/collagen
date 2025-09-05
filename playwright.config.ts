@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 8080;
+const port = 8081;
 
 /**
  * @see https://playwright.dev/docs/test-configuration

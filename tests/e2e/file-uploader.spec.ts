@@ -212,10 +212,14 @@ test.describe("Realistic Upload Integration", () => {
 		await uploadWithFilePicker(page, "simpleJson");
 
 		// Should show the file list indicating successful upload
-		await expect(page.locator(".file-list")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
 
 		// Should show the generated SVG
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible({
+			timeout: 5000,
+		});
 
 		// Should show compact uploader for adding more files
 		await expect(
@@ -230,8 +234,12 @@ test.describe("Realistic Upload Integration", () => {
 		// to drop a folder onto the drop zone in test -- we can only drop mulitple files
 		// with the same root path -- we have to compromise and check for the file list
 		// and SVG as success indicators
-		await expect(page.locator(".file-list")).toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible({
+			timeout: 5000,
+		});
 	});
 
 	test("should show error for missing manifest file", async ({ page }) => {
@@ -257,8 +265,12 @@ test.describe("Realistic Upload Integration", () => {
 		await page.waitForTimeout(1000);
 
 		// Should show file list and SVG for multiple files
-		await expect(page.locator(".file-list")).toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible({
+			timeout: 5000,
+		});
 	});
 });
 
@@ -345,13 +357,18 @@ test.describe("Edge Cases and Robustness", () => {
 				attrs: { viewBox: "0 0 100 100" },
 				children: [],
 			}),
+			"collagen.json": JSON.stringify({}),
 		};
 
 		await uploadWithFilePicker(page, projectData);
 
 		// Verify successful upload by checking for file list and SVG
-		await expect(page.locator(".file-list")).toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible({
+			timeout: 5000,
+		});
 	});
 
 	test("should handle empty files gracefully", async ({ page }) => {
@@ -391,7 +408,9 @@ test.describe("Performance and Stress Tests", () => {
 		}
 
 		// Click the browse button to trigger file picker
-		await page.locator(".browse-btn").click();
+		await page
+			.getByRole("button", { name: /browse for file or folder/i })
+			.click();
 
 		// Test using DOM-based approach with timing
 		const startTime = performance.now();
@@ -405,8 +424,10 @@ test.describe("Performance and Stress Tests", () => {
 		expect(duration).toBeLessThan(5000);
 
 		// Should show file list and SVG as success indicators
-		await expect(page.locator(".file-list")).toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible();
 	});
 
 	test("should handle deep folder structures", async ({
@@ -428,10 +449,12 @@ test.describe("Performance and Stress Tests", () => {
 		await uploadProject(browserName, page, deepFolderProject); // Use existing folder project
 
 		// Check for successful upload indicators
-		await expect(page.locator(".file-list")).toBeVisible();
-		await expect(page.locator("svg")).toBeVisible();
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 
-		const svg = page.locator("svg");
+		const svg = page.getByLabel("SVG content").locator("svg");
 		expect(await svg.getAttribute("viewBox")).toBe("0 0 100 100");
 	});
 });

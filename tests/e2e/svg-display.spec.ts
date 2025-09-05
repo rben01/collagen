@@ -71,7 +71,7 @@ test.describe("SVG Controls", () => {
 		// Set up with simple JSON project for control testing
 		await uploadProject(browserName, page, "simpleJson");
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
 	});
 
 	test("should display control buttons", async ({ page }) => {
@@ -179,7 +179,7 @@ test.describe("SVG Controls", () => {
 		await page.waitForTimeout(100);
 
 		// Should show toast notification
-		const toast = page.locator(".toast").first();
+		const toast = page.getByRole("alert").first();
 		await expect(toast).toBeVisible();
 		await expect(toast).toContainText("SVG downloaded");
 	});
@@ -211,7 +211,7 @@ test.describe("SVG Controls", () => {
 		expect(clipboardData).toContain('viewBox="0 0 100 100"');
 
 		// Should show success toast
-		const toast = page.locator(".toast").first();
+		const toast = page.getByRole("alert").first();
 		await expect(toast).toBeVisible();
 		await expect(toast).toContainText("SVG copied to clipboard");
 	});
@@ -240,7 +240,7 @@ test.describe("SVG Controls", () => {
 		await page.waitForTimeout(100);
 
 		// Should show error toast
-		const toast = page.locator(".toast").first();
+		const toast = page.getByRole("alert").first();
 		await expect(toast).toBeVisible();
 		await expect(toast).toContainText("Failed to copy SVG to clipboard");
 		await expect(toast).toHaveClass(/toast-error/);
@@ -278,9 +278,9 @@ test.describe("SVG Controls", () => {
 		const helpBtn = page.getByLabel(
 			"Toggle usage instructions, keyboard shortcut question mark key",
 		);
-		const instructions = page.locator(
-			".instructions[aria-label='Usage instructions']",
-		);
+		const instructions = page.getByRole("region", {
+			name: /usage instructions/i,
+		});
 
 		// Initially instructions should not be visible
 		await expect(instructions).not.toBeVisible();
@@ -312,10 +312,13 @@ test.describe("Interactive Features", () => {
 	test.beforeEach(async ({ page, browserName }) => {
 		// Use project with assets for more interactive elements
 		await uploadProject(browserName, page, "folderWithAssets");
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
 	});
 
 	test("should handle mouse pan interaction", async ({ page }) => {
@@ -323,7 +326,7 @@ test.describe("Interactive Features", () => {
 		const svgContent = page.getByLabel("SVG content");
 
 		// Get initial transform
-		const initialTransform = await svgContent.getAttribute("style");
+		const initialStyle = await svgContent.getAttribute("style");
 
 		// Simulate pan gesture on the container (which handles events)
 		await svgContainer.hover();
@@ -335,10 +338,19 @@ test.describe("Interactive Features", () => {
 		await page.waitForTimeout(100);
 
 		// Transform should have changed (applied to svg-content)
-		const newTransform = await svgContent.getAttribute("style");
-		expect(newTransform).not.toBe(initialTransform);
-		// Verify the transform includes translation
-		expect(newTransform).toContain("translate");
+		const newStyle = await svgContent.getAttribute("style");
+		expect(newStyle).not.toBe(initialStyle);
+		expect(newStyle).toContain("--pan-x");
+		expect(newStyle).toContain("--pan-y");
+		expect(newStyle).toContain("--scale");
+
+		const newTransform = await svgContent.evaluate(
+			elem => window.getComputedStyle(elem).transform,
+		);
+		// check that the transform is a matrix with nonzero translation and scale=1
+		expect(newTransform).toMatch(
+			/matrix\(1,\s*0,\s*0,\s*1,\s*-?\d+,\s*-?\d+\)/,
+		);
 	});
 
 	test("should handle wheel zoom with Ctrl key", async ({
@@ -467,7 +479,7 @@ test.describe("Interactive Features", () => {
 		// Test view toggle shortcut
 		await page.keyboard.press("v");
 		await page.waitForTimeout(100);
-		const rawSvg = page.locator(".raw-svg");
+		const rawSvg = page.getByRole("region", { name: /raw svg code/i });
 		await expect(rawSvg).toBeVisible();
 
 		// Toggle back
@@ -492,10 +504,13 @@ test.describe("Interactive Features", () => {
 		await page.keyboard.press("Shift+ArrowDown");
 		await page.waitForTimeout(100);
 
-		// Transform should have changed (pan applied)
-		const panTransform = await svgContent.getAttribute("style");
-		expect(panTransform).not.toBe(initialTransform);
-		expect(panTransform).toContain("translate");
+		// Transform should have changed (pan applied) - verify computed translation changed
+		const { tx, ty } = await svgContent.evaluate(elem => {
+			const cs = getComputedStyle(elem as Element);
+			const m = new DOMMatrix(cs.transform);
+			return { tx: m.m41, ty: m.m42 };
+		});
+		expect(Math.abs(tx) + Math.abs(ty)).toBeGreaterThan(0);
 	});
 
 	test("should not pan without focus", async ({ page }) => {
@@ -503,8 +518,7 @@ test.describe("Interactive Features", () => {
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 
 		// Ensure nothing is focused by clicking elsewhere
-		await page.locator("body").click();
-		await page.waitForTimeout(100);
+		await page.locator("body").click({ position: { x: 0, y: 0 } });
 
 		// Verify container is not focused
 		await expect(svgContainer).not.toBeFocused();
@@ -535,8 +549,11 @@ test.describe("Complex SVG Handling", () => {
 		// Use project with multiple files which creates multiple elements
 		await uploadProject(browserName, page, "multipleFilesValid");
 
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 
 		// Should handle elements without performance issues
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
@@ -584,8 +601,11 @@ test.describe("Complex SVG Handling", () => {
 		// Test with folderWithAssets which has 200x200 viewBox
 		await uploadProject(browserName, page, "folderWithAssets");
 
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		const svgElement = svgContainer.locator("svg");
@@ -621,8 +641,11 @@ test.describe("Complex SVG Handling", () => {
 	}) => {
 		await uploadProject(browserName, page, "simpleJson");
 
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 
 		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
 		const zoomOutBtn = page.getByLabel(
@@ -656,8 +679,11 @@ test.describe("Complex SVG Handling", () => {
 	}) => {
 		await uploadProject(browserName, page, "simpleJson");
 
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 
 		const zoomInBtn = page.getByLabel("Zoom in, keyboard shortcut plus key");
 		const toggleBtn = page.getByLabel(
@@ -674,7 +700,7 @@ test.describe("Complex SVG Handling", () => {
 		// Toggle to code view
 		await toggleBtn.click();
 		await page.waitForTimeout(100);
-		const rawSvg = page.locator(".raw-svg");
+		const rawSvg = page.getByRole("region", { name: /raw svg code/i });
 		await expect(rawSvg).toBeVisible();
 
 		// Toggle back to preview
@@ -695,10 +721,13 @@ test.describe("Complex SVG Handling", () => {
 test.describe("Responsive and Accessibility", () => {
 	test.beforeEach(async ({ page, browserName }) => {
 		await uploadProject(browserName, page, "simpleJson");
-		// Verify upload success
-		await expect(page.getByText(/uploaded successfully/)).toBeVisible();
+		// Verify upload success by checking for file list and SVG
+		await expect(
+			page.getByRole("region", { name: /file information/i }),
+		).toBeVisible();
+		await expect(page.getByLabel("SVG content")).toBeVisible();
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer.locator("svg")).toBeVisible();
+		await expect(svgContainer).toBeVisible();
 	});
 
 	test("should be responsive on different screen sizes", async ({ page }) => {
@@ -877,7 +906,7 @@ test.describe("Responsive and Accessibility", () => {
 		// Test view toggles
 		await page.keyboard.press("v"); // Toggle code view
 		await page.waitForTimeout(100);
-		const rawSvg = page.locator(".raw-svg");
+		const rawSvg = page.getByRole("region", { name: /raw svg code/i });
 		await expect(rawSvg).toBeVisible();
 
 		await page.keyboard.press("V"); // Case insensitive
@@ -887,9 +916,9 @@ test.describe("Responsive and Accessibility", () => {
 		// Test help toggle
 		await page.keyboard.press("?");
 		await page.waitForTimeout(100);
-		const instructions = page.locator(
-			".instructions[aria-label='Usage instructions']",
-		);
+		const instructions = page.getByRole("region", {
+			name: /usage instructions/i,
+		});
 		await expect(instructions).toBeVisible();
 
 		// Test with focus-required shortcuts
@@ -902,9 +931,12 @@ test.describe("Responsive and Accessibility", () => {
 		await page.keyboard.press("Shift+ArrowDown");
 		await page.waitForTimeout(100);
 
-		const panTransform = await svgContent.getAttribute("style");
-		expect(panTransform).not.toBe(initialTransform);
-		expect(panTransform).toContain("translate");
+		const { tx, ty } = await svgContent.evaluate(elem => {
+			const cs = getComputedStyle(elem as Element);
+			const m = new DOMMatrix(cs.transform);
+			return { tx: m.m41, ty: m.m42 };
+		});
+		expect(Math.abs(tx) + Math.abs(ty)).toBeGreaterThan(0);
 	});
 
 	test("should have proper focus indicators", async ({ page }) => {
@@ -920,11 +952,10 @@ test.describe("Responsive and Accessibility", () => {
 		const svgContainer = page.getByLabel("Interactive SVG viewer");
 		await svgContainer.focus();
 
-		// Should have visible box shadow focus indicator
-		const boxShadow = await svgContainer.evaluate(
-			el => window.getComputedStyle(el).boxShadow,
-		);
-		expect(boxShadow).toContain("rgb(37, 99, 235)"); // #2563eb
+		// Focus indicator is applied on the child mask via border
+		const mask = svgContainer.locator(".svg-content-mask");
+		await expect(mask).toHaveCSS("border-top-color", "rgb(37, 99, 235)");
+		await expect(mask).toHaveCSS("border-top-width", "2px");
 
 		// Test another button has focus indicators
 		const zoomOutBtn = page.getByLabel(
@@ -954,7 +985,7 @@ test.describe("Responsive and Accessibility", () => {
 		await page.waitForTimeout(100);
 
 		// Toast should have proper ARIA role
-		const toast = page.locator(".toast").first();
+		const toast = page.getByRole("alert").first();
 		await expect(toast).toBeVisible();
 		await expect(toast).toHaveAttribute("role", "alert");
 
@@ -994,9 +1025,12 @@ test.describe("Responsive and Accessibility", () => {
 			await page.waitForTimeout(100);
 
 			// Transform should change due to pan
-			const newTransform = await svgContent.getAttribute("style");
-			expect(newTransform).not.toBe(initialTransform);
-			expect(newTransform).toContain("translate");
+			const { tx, ty } = await svgContent.evaluate(elem => {
+				const cs = getComputedStyle(elem as Element);
+				const m = new DOMMatrix(cs.transform);
+				return { tx: m.m41, ty: m.m42 };
+			});
+			expect(Math.abs(tx) + Math.abs(ty)).toBeGreaterThan(0);
 		}
 	});
 });

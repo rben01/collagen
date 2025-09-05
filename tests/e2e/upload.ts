@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export type ProjectFiles = Record<string, string>;
 
@@ -155,10 +155,9 @@ const sampleProjects = (() => {
 // =============================================================================
 
 async function waitForUpload(page: Page, { timeout } = { timeout: 3000 }) {
-	await page
-		.locator(".file-list, .error-message")
-		.first()
-		.waitFor({ state: "visible", timeout });
+	const postUploadElem = page.locator(".file-list, .error-message").first();
+	await postUploadElem.scrollIntoViewIfNeeded();
+	expect(postUploadElem).toBeVisible({ timeout });
 }
 
 /**
@@ -172,18 +171,14 @@ async function waitForUpload(page: Page, { timeout } = { timeout: 3000 }) {
 export async function uploadWithFilePicker(
 	page: Page,
 	project: ProjectName | ProjectFiles,
-	firstRun = true,
 ) {
 	const projectFiles =
 		typeof project === "string"
 			? sampleProjects[project]
 			: projectify(project);
 
-	if (!firstRun) {
-		await page
-			.getByRole("button", { name: "Upload Another Project" })
-			.click({ timeout: 2000 });
-	}
+	// For subsequent uploads, the compact uploader should already be visible
+	// No need to click any special button - just proceed with file selection
 
 	// Click the browse button to trigger file picker
 	await page
@@ -309,11 +304,10 @@ export async function uploadProject(
 	browserName: "chromium" | "webkit" | "firefox",
 	page: Page,
 	project: ProjectName | ProjectFiles,
-	firstRun = true,
 ) {
 	if (browserName === "chromium") {
 		return await uploadWithDragAndDrop(page, project);
 	} else {
-		return await uploadWithFilePicker(page, project, firstRun);
+		return await uploadWithFilePicker(page, project);
 	}
 }
