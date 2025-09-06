@@ -19,7 +19,7 @@
 		"//test:e2e:run": "echo 'runs playwright tests without opening the reporter at the end'",
 		"test:e2e:run": "PW_TEST_HTML_REPORT_OPEN='never' npm run test:e2e",
 		"//test:e2e:run:chromium": "echo 'runs playwright tests without opening the reporter at the end, only testing chromium'",
-		"test:e2e:run:chromium": "npm run test:e2e:run -- --project chromium",
+		"test:e2e:run:chromium": "npm run test:e2e:run -- -- --project=chromium",
 		"test:e2e:ui": "npm run test:e2e -- --ui",
 		"test:e2e:debug": "npm run test:e2e -- --debug",
 		"format": "prettier --write .",
