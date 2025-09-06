@@ -185,13 +185,15 @@
 
 <style>
 	.file-list {
-		height: 100%;
+		/* Fill available space in sidebar without forcing parent to grow */
+		flex: 1;
+		min-height: 0;
+		height: calc(100vh - 2 * var(--v-margin));
 		display: flex;
 		flex-direction: column;
 		background: #f9fafb;
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
-		overflow-y: auto;
 	}
 
 	.file-list-header {
@@ -251,7 +253,9 @@
 
 	.files-container {
 		flex: 1;
+		min-height: 0;
 		padding: 0.5em;
+		overflow-y: auto;
 	}
 
 	.file-item {
@@ -352,10 +356,8 @@
 	}
 
 	.undo-bar {
-		position: absolute;
+		position: sticky;
 		bottom: 0;
-		left: 0;
-		right: 0;
 		background: #374151;
 		color: white;
 		padding: 0.75em;
@@ -391,10 +393,5 @@
 	.undo-button:focus {
 		outline: 2px solid white;
 		outline-offset: 1px;
-	}
-
-	/* Update file-list to be position relative for absolute positioning of undo-bar */
-	.file-list {
-		position: relative;
 	}
 </style>

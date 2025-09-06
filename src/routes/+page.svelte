@@ -236,12 +236,17 @@
 	}
 
 	.sidebar {
-		flex: 1 0 280px;
+		/* Fix sidebar width to 25vw so it doesn't change as content changes */
+		flex: 0 0 25vw;
+		width: 25vw;
+		min-width: 25vw;
+		max-width: 25vw;
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
 		max-height: 100%;
-		max-width: 25vw;
+		height: 100%;
+		box-sizing: border-box;
 	}
 
 	.main-content {
@@ -307,8 +312,11 @@
 		}
 
 		.sidebar {
-			max-width: none;
+			/* In stacked layout, allow sidebar to take full width */
 			flex: none;
+			width: auto;
+			min-width: 0;
+			max-width: none;
 			order: 2;
 		}
 

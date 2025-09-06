@@ -40,6 +40,8 @@ npm run test:unit:run
 npm run test:e2e:run:chromium
 ```
 
+You must NEVER run an `npx` command. Only ever run `npm run ...`.
+
 ### Running Individual Tests
 
 ```bash
