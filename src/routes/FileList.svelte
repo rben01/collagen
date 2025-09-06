@@ -367,8 +367,7 @@
 	}
 
 	.undo-bar {
-		position: sticky;
-		bottom: 0;
+		flex-shrink: 0;
 		background: #374151;
 		color: white;
 		padding: 0.75em;
