@@ -18,6 +18,17 @@
 	const largeFileSizeWarningThreshold = 2 * MB;
 	const largeTotalSizeWarningThreshold = 16 * MB;
 
+	// TODO: this is kind of expensive? should we maintain the sorted array and use binary
+	// search to insert/delete?
+	const filesSorted = $derived.by(() => {
+		if (!filesData) {
+			return [];
+		}
+		return Array.from(filesData.fs.files.entries()).sort(
+			([path1, _fc1], [path2, _fc2]) => path1.localeCompare(path2),
+		);
+	});
+
 	// Calculate file statistics
 	const fileStats = $derived.by(() => {
 		if (!filesData) {
@@ -140,7 +151,7 @@
 	</div>
 
 	<div class="files-container">
-		{#each filesData.fs.files as [path, file]}
+		{#each filesSorted as [path, file] (path)}
 			<div class="file-item">
 				<div class="file-path" title={path}>{path}</div>
 				<div class="file-actions">
