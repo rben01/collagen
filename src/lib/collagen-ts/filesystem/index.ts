@@ -200,13 +200,13 @@ export class InMemoryFileSystem {
 
 	addFileContents(
 		path: string,
-		fileContents: FileContent,
+		byteContents: Uint8Array<ArrayBuffer>,
 		normalizePath = true,
 	) {
 		if (normalizePath) {
 			path = normalizedPathJoin(path);
 		}
-		this.#files.set(path, fileContents);
+		this.#files.set(path, { bytes: byteContents, path });
 	}
 
 	/** Merge new files into existing filesystem */

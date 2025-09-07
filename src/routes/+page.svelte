@@ -25,7 +25,13 @@
 	const textEncoder = new TextEncoder();
 	const textDecoder = new TextDecoder();
 
-	function startLoading({ clearSvg, clearError = true }: { clearSvg: boolean; clearError?: boolean }) {
+	function startLoading({
+		clearSvg,
+		clearError = true,
+	}: {
+		clearSvg: boolean;
+		clearError?: boolean;
+	}) {
 		// Reset error and optionally clear SVG (for first loads)
 		if (clearError) error = null;
 		if (clearSvg) svgOutput = null;
@@ -96,7 +102,7 @@
 		if (!filesData || !editorPath || editorText === null) return;
 		try {
 			const bytes = textEncoder.encode(editorText);
-			filesData.fs.addFileContents(editorPath, { bytes, path: editorPath });
+			filesData.fs.addFileContents(editorPath, bytes);
 			lastPersistAt = Date.now();
 			await handleFilesystemChange();
 		} catch (err) {
@@ -234,7 +240,7 @@
 					<SvgDisplay
 						svg={svgOutput}
 						bind:this={svgDisplayComponent}
-						controlsVisible={controlsVisible}
+						{controlsVisible}
 					/>
 				{:else if error}
 					<div class="error-state">

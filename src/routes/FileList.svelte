@@ -84,10 +84,10 @@
 		path: string;
 	}
 
-	const trashUndoTime = 5000; // milliseconds
+	const TRASH_UNDO_TIME = 5000; // milliseconds
 	let trashedFiles: TrashedFile[] = $state([]);
 	let countdownInterval: NodeJS.Timeout | null = $state(null);
-	let countdownValue = $state(trashUndoTime);
+	let countdownValue = $state(TRASH_UNDO_TIME);
 	let dragOver = $state(false);
 
 	$effect(() => {
@@ -135,13 +135,13 @@
 				clearInterval(countdownInterval);
 			}
 
-			// Start new 7-second countdown
-			countdownValue = trashUndoTime;
+			// Start new countdown
+			countdownValue = TRASH_UNDO_TIME;
 			const startTime = Date.now();
 
 			countdownInterval = setInterval(() => {
 				const elapsed = Date.now() - startTime;
-				countdownValue = trashUndoTime - elapsed;
+				countdownValue = TRASH_UNDO_TIME - elapsed;
 			}, 250);
 		}
 	}
@@ -155,7 +155,7 @@
 
 		// Re-add all files to filesystem
 		for (const { file, path } of trashedFiles) {
-			filesData.fs.addFileContents(path, file, true);
+			filesData.fs.addFileContents(path, file.bytes, true);
 		}
 
 		// Clear trash and trigger reactivity
