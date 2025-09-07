@@ -497,8 +497,6 @@ test.describe("Interactive Features", () => {
 		await svgContainer.focus();
 		await expect(svgContainer).toBeFocused();
 
-		const initialTransform = await svgContent.getAttribute("style");
-
 		// Test Shift+arrow key pan (focus required)
 		await page.keyboard.press("Shift+ArrowRight");
 		await page.keyboard.press("Shift+ArrowDown");
@@ -924,7 +922,6 @@ test.describe("Responsive and Accessibility", () => {
 		// Test with focus-required shortcuts
 		await svgContainer.focus();
 		const svgContent = page.getByLabel("SVG content");
-		const initialTransform = await svgContent.getAttribute("style");
 
 		// Test Shift+Arrow for pan
 		await page.keyboard.press("Shift+ArrowRight");
@@ -1007,9 +1004,6 @@ test.describe("Responsive and Accessibility", () => {
 		if (isMobile) {
 			const svgContainer = page.getByLabel("Interactive SVG viewer");
 			const svgContent = page.getByLabel("SVG content");
-
-			// Get initial transform
-			const initialTransform = await svgContent.getAttribute("style");
 
 			// Simulate single finger pan
 			await svgContainer.dispatchEvent("touchstart", {

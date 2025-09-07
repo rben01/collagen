@@ -63,19 +63,18 @@ export interface CollagenError {
 	errorType: string;
 }
 
-/**
- * Convert our errors to WASM-compatible format
- */
 export function toCollagenError(error: unknown): CollagenError {
-	if (error && typeof error === "object" && "errorType" in error) {
-		return {
-			message: String((error as any).message || error),
-			errorType: String((error as any).errorType || "Unknown"),
-		};
-	}
-
 	if (error instanceof Error) {
 		return { message: error.message, errorType: error.constructor.name };
+	}
+
+	const typedError = error as Partial<CollagenError>;
+
+	if (typedError && typeof typedError === "object") {
+		return {
+			message: String(typedError.message || typedError),
+			errorType: String(typedError.errorType || "Unknown"),
+		};
 	}
 
 	return { message: String(error), errorType: "Unknown" };
