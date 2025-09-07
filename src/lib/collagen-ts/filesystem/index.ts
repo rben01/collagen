@@ -371,6 +371,7 @@ export function getMimeType(path: string): string {
 	const ext = getFileExtension(path).toLowerCase();
 
 	switch (ext) {
+		// Images
 		case "jpg":
 		case "jpeg":
 			return "image/jpeg";
@@ -384,6 +385,7 @@ export function getMimeType(path: string): string {
 			return "image/bmp";
 		case "svg":
 			return "image/svg+xml";
+		// Fonts
 		case "woff":
 			return "font/woff";
 		case "woff2":
@@ -392,7 +394,49 @@ export function getMimeType(path: string): string {
 			return "font/ttf";
 		case "otf":
 			return "font/otf";
+		// Common text formats
+		case "txt":
+			return "text/plain";
+		case "md":
+			return "text/markdown";
+		case "csv":
+			return "text/csv";
+		case "html":
+			return "text/html";
+		case "css":
+			return "text/css";
+		case "js":
+			return "application/javascript";
+		case "ts":
+			return "application/typescript";
+		case "xml":
+			return "application/xml";
+		case "yaml":
+		case "yml":
+			return "application/yaml";
+		case "json":
+			return "application/json";
+		case "jsonnet":
+			// Not a registered MIME; use a descriptive type
+			return "application/jsonnet";
 		default:
 			return "application/octet-stream";
+	}
+}
+
+/** Determine if a given path should be treated as a text file */
+export function isTextPath(path: string): boolean {
+	const mime = getMimeType(path);
+	if (mime.startsWith("text/")) return true;
+	switch (mime) {
+		case "application/json":
+		case "application/jsonnet":
+		case "application/xml":
+		case "application/yaml":
+		case "application/javascript":
+		case "application/typescript":
+			return true;
+		default:
+			return false;
 	}
 }

@@ -2,6 +2,7 @@
 	import FileUploader from "./FileUploader.svelte";
 	import FileList from "./FileList.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
+	import TextEditor from "./TextEditor.svelte";
 	import {
 		toCollagenError,
 		InMemoryFileSystem,
@@ -13,8 +14,16 @@
 	let showLoading = $state(false);
 	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
+	let editorPath: string | null = $state(null);
+	let editorText: string | null = $state(null);
+	// Debounced editor persistence state
+	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
+	let lastPersistAt = $state(0);
+	const PERSIST_MS = 200; // ~5 writes/sec, persist within 0.2s
 
 	const LOADING_DELAY_MS = 500;
+	const textEncoder = new TextEncoder();
+	const textDecoder = new TextDecoder();
 
 	function startLoading({ clearSvg }: { clearSvg: boolean }) {
 		// Reset error and optionally clear SVG (for first loads)
@@ -43,6 +52,60 @@
 	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
+	function handleOpenTextFile(path: string) {
+		editorPath = path;
+		if (!filesData) return;
+		const file = filesData.fs.load(path);
+		editorText = textDecoder.decode(file.bytes);
+	}
+
+	function handleCloseEditor() {
+		if (persistTimer) {
+			clearTimeout(persistTimer);
+			persistTimer = null;
+		}
+		persistEditorChanges().finally(() => {
+			editorPath = null;
+			editorText = null;
+		});
+	}
+
+	function onUpdateText(newText: string) {
+		editorText = newText;
+		schedulePersist();
+	}
+
+	function schedulePersist() {
+		const now = Date.now();
+		const elapsed = now - lastPersistAt;
+		if (elapsed >= PERSIST_MS) {
+			// Leading edge: persist immediately
+			void persistEditorChanges();
+			return;
+		}
+		if (!persistTimer) {
+			const delay = Math.max(0, PERSIST_MS - elapsed);
+			persistTimer = setTimeout(async () => {
+				persistTimer = null;
+				await persistEditorChanges();
+			}, delay);
+		}
+	}
+
+	async function persistEditorChanges() {
+		if (!filesData || !editorPath || editorText === null) return;
+		try {
+			const bytes = textEncoder.encode(editorText);
+			filesData.fs.addFileContents(editorPath, { bytes, path: editorPath });
+			lastPersistAt = Date.now();
+			await handleFilesystemChange();
+		} catch (err) {
+			console.error("Failed to persist editor changes:", err);
+		}
+	}
+
+	// TODO: I'm pretty sure most of these "handle" functions can be replaced by Svelte's
+	// own reactivity
 	async function handleFilesUploadedWithRoot(
 		files: Map<string, File>,
 		root: string,
@@ -96,7 +159,7 @@
 
 	// Auto-focus SVG viewer when SVG is generated
 	$effect(() => {
-		if (svgOutput && svgDisplayComponent) {
+		if (svgOutput && svgDisplayComponent && !editorPath) {
 			tick().then(() => svgDisplayComponent!.focus());
 		}
 	});
@@ -166,21 +229,54 @@
 	{:else}
 		<!-- Files uploaded state: show side-by-side layout -->
 		<div class="app-layout">
-			<!-- Left sidebar with files -->
-			<div class="sidebar">
+			<!-- Left sidebar: file list (and compact SVG when editing) -->
+			<div class="sidebar" class:editing={!!editorPath}>
 				{#if filesData}
-					<FileList
-						{filesData}
-						{handleRemoveFile}
-						{handleFilesystemChange}
-						handleFilesUploaded={handleFilesUploadedWithRoot}
-					/>
+					{#if editorPath}
+						<div class="sidebar-top">
+							<FileList
+								{filesData}
+								{handleRemoveFile}
+								{handleFilesystemChange}
+								handleFilesUploaded={handleFilesUploadedWithRoot}
+								{handleOpenTextFile}
+							/>
+						</div>
+						{#if svgOutput}
+							<div
+								class="sidebar-bottom compact-svg"
+								role="region"
+								aria-label="Generated SVG display (compact)"
+							>
+								<SvgDisplay
+									svg={svgOutput}
+									bind:this={svgDisplayComponent}
+									controlsVisible={false}
+								/>
+							</div>
+						{/if}
+					{:else}
+						<FileList
+							{filesData}
+							{handleRemoveFile}
+							{handleFilesystemChange}
+							handleFilesUploaded={handleFilesUploadedWithRoot}
+							{handleOpenTextFile}
+						/>
+					{/if}
 				{/if}
 			</div>
 
-			<!-- Right main content area with SVG -->
+			<!-- Right main content area: SVG viewer (default) or text editor (when editing) -->
 			<div class="main-content">
-				{#if svgOutput}
+				{#if editorPath}
+					<TextEditor
+						path={editorPath}
+						bind:text={editorText}
+						{onUpdateText}
+						{handleCloseEditor}
+					/>
+				{:else if svgOutput}
 					<div
 						class="svg-section"
 						role="region"
@@ -258,6 +354,29 @@
 		max-height: 100%;
 		height: 100%;
 		box-sizing: border-box;
+	}
+
+	.sidebar.editing {
+		flex: 0 0 35vw;
+		width: 35vw;
+		min-width: 35vw;
+		max-width: 35vw;
+	}
+
+	.sidebar-top,
+	.sidebar-bottom {
+		flex: 1 1 50%;
+		min-height: 0;
+		max-height: 50%;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.sidebar-bottom.compact-svg {
+		margin-top: 0.75em;
+		border: 1px solid #e5e7eb;
+		border-radius: 0.5em;
+		background: #fff;
 	}
 
 	.main-content {

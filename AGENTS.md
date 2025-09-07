@@ -181,7 +181,7 @@ Jsonnet files.
 
 ### SvelteKit Development
 
-The project uses SvelteKit with static site generation:
+The project uses SvelteKit with Svelte 5 and static site generation:
 
 - **Route-based architecture**: Pages are defined in `src/routes/` following
   SvelteKit conventions
@@ -199,10 +199,13 @@ Components use modern Svelte 5 runes:
 
 - **Props**: Use `let { prop1, prop2 } = $props<{ prop1: Type; prop2: Type }>()`
   instead of `export let`
-- **State**: Use `let value = $state(initialValue)` instead of regular `let` for
-  reactive state
-- **Derived**: Use `$derived()` for computed values
+- **State**: Use `let value = $state(initialValue)` instead of regular `let` or
+  `$: let` for reactive state
+- **Derived**: Use `$derived(expr)` for computed values, or `$derived.by(func)`
+  for more complex derived values
 - **Effects**: Use `$effect()` for side effects
+- **Event handlers**: Use `onEVENT` not `on:EVENT`, e.g. `onclick` not
+  `on:click`.
 
 ### Manifest Formats
 
@@ -234,6 +237,11 @@ Components use modern Svelte 5 runes:
   the filesystem layer
 - **Imports**: Use explicit `.js` extensions for ESM compatibility
 - **Error handling**: Use typed error classes from `src/lib/collagen-ts/errors/`
+
+### Other
+
+- You can safely ignore errors referencing `@opentelemetry/api`. You should not
+  even mention such errors.
 
 ## Frontend Architecture
 

@@ -33,6 +33,7 @@ export {
 	isFontPath,
 	getFileExtension,
 	getMimeType,
+	isTextPath,
 } from "./filesystem/index.js";
 
 // Export validation

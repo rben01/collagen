@@ -4,6 +4,7 @@
 		FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
+	import { isTextPath } from "$lib/collagen-ts/index.js";
 	import {
 		collectFromDataTransfer,
 		stripFolderPrefix,
@@ -14,6 +15,7 @@
 		handleRemoveFile,
 		handleFilesystemChange,
 		handleFilesUploaded,
+		handleOpenTextFile,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleRemoveFile: (path: string) => Promise<FileContent | undefined>;
@@ -22,6 +24,7 @@
 			files: Map<string, File>,
 			root: string,
 		) => Promise<void>;
+		handleOpenTextFile: (path: string) => void;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -161,6 +164,12 @@
 		// Trigger SVG regeneration in parent component
 		await handleFilesystemChange();
 	}
+
+	function maybeOpen(path: string) {
+		if (isTextPath(path)) {
+			handleOpenTextFile(path);
+		}
+	}
 </script>
 
 <div
@@ -169,7 +178,7 @@
 	role="region"
 	aria-label="File information"
 	aria-describedby="file-list-hint"
-	title="Drop files below to add to your project"
+	title="Drop files and folders below to add to your project. Click a text file to edit it."
 	ondragenter={handleDragEnter}
 	ondragover={handleDragOver}
 	ondragleave={handleDragLeave}
@@ -202,7 +211,7 @@
 
 	<div class="files-container">
 		{#each filesSorted as [path, file] (path)}
-			<div class="file-item">
+			{#snippet fileListItem()}
 				<div class="file-path" title={path}>{path}</div>
 				<div class="file-actions">
 					<div class="file-size">
@@ -219,13 +228,42 @@
 						class="delete-button"
 						aria-label="Remove {path}"
 						title="Remove file"
-						onclick={() => deleteFile(path)}
+						onclick={e => {
+							e.stopPropagation();
+							deleteFile(path);
+						}}
 					>
 						<!-- TODO: better icon -->
 						🗑️
 					</button>
 				</div>
-			</div>
+			{/snippet}
+
+			{#if isTextPath(path)}
+				<div
+					class="file-item clickable"
+					onclick={() => maybeOpen(path)}
+					onkeydown={e => {
+						if (
+							e.key === "Enter" ||
+							e.key === " " ||
+							e.code === "Space"
+						) {
+							e.preventDefault();
+							maybeOpen(path);
+						}
+					}}
+					role="button"
+					tabindex="0"
+					aria-label={`Edit ${path}`}
+				>
+					{@render fileListItem()}
+				</div>
+			{:else}
+				<div class="file-item" aria-label={`File ${path}`}>
+					{@render fileListItem()}
+				</div>
+			{/if}
 		{/each}
 	</div>
 
@@ -249,7 +287,7 @@
 		/* Fill available space in sidebar without forcing parent to grow */
 		flex: 1;
 		min-height: 0;
-		height: calc(100vh - 2 * var(--v-margin));
+		height: 100%;
 		display: flex;
 		flex-direction: column;
 		background: #f9fafb;
@@ -345,6 +383,10 @@
 	.file-item:hover {
 		background: #f8f9fa;
 		border-color: #e5e7eb;
+	}
+
+	.file-item.clickable {
+		cursor: pointer;
 	}
 
 	.file-path {

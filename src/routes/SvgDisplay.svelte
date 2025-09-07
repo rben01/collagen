@@ -7,7 +7,7 @@
 		if (svgContainer) svgContainer.focus();
 	}
 
-	let { svg }: { svg: string } = $props();
+	let { svg, controlsVisible = true }: { svg: string; controlsVisible?: boolean } = $props();
 
 	let showRawSvg = $state(false);
 	let showInstructions = $state(false);
@@ -256,6 +256,7 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
+		if (!controlsVisible) return;
 		const panAmount = 20;
 		let handled = false;
 		const hasSvgFocus = document.activeElement === svgContainer;
@@ -360,6 +361,7 @@
 		{/each}
 	</div>
 
+	{#if controlsVisible}
 	<div class="controls" role="toolbar" aria-label="SVG viewer controls">
 		<div class="control-group">
 			<button
@@ -419,6 +421,7 @@
 			>
 		</div>
 	</div>
+	{/if}
 
 	<!-- Usage Instructions -->
 	{#if showInstructions && !showRawSvg}
