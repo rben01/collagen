@@ -10,7 +10,35 @@
 
 	let error: string | null = $state(null);
 	let loading = $state(false);
+	let showLoading = $state(false);
+	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
+
+	const LOADING_DELAY_MS = 500;
+
+	function startLoading({ clearSvg }: { clearSvg: boolean }) {
+		// Reset error and optionally clear SVG (for first loads)
+		error = null;
+		if (clearSvg) svgOutput = null;
+		loading = true;
+		// Defer showing the loading UI to avoid flicker on fast ops
+		if (loadingTimer) clearTimeout(loadingTimer);
+		showLoading = false;
+		loadingTimer = setTimeout(() => (showLoading = true), LOADING_DELAY_MS);
+	}
+
+	function stopLoading() {
+		loading = false;
+		if (loadingTimer) clearTimeout(loadingTimer);
+		loadingTimer = null;
+		showLoading = false;
+	}
+
+	function setErrorState(err: unknown) {
+		const compatError = toCollagenError(err);
+		error = compatError.message;
+		svgOutput = null;
+	}
 	// packing it in an object is a trick to get svelte to re-render downstream
 	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
@@ -41,10 +69,8 @@
 		console.log("🔄 Processing files...");
 
 		try {
-			loading = true;
 			filesData = { fs };
-			svgOutput = null;
-			error = null;
+			startLoading({ clearSvg: true });
 
 			// Normalize paths to ensure leading slash for TypeScript implementation
 			console.log("🗺️ Normalizing file paths...");
@@ -62,10 +88,9 @@
 			}
 		} catch (err) {
 			console.error("Error processing files:", err);
-			const compatError = toCollagenError(err);
-			error = compatError.message;
+			setErrorState(err);
 		} finally {
-			loading = false;
+			stopLoading();
 		}
 	}
 
@@ -101,9 +126,8 @@
 
 		// Attempt to regenerate SVG
 		try {
-			loading = true;
-			svgOutput = null;
-			error = null;
+			// Avoid flicker: keep current SVG while we regenerate
+			startLoading({ clearSvg: false });
 
 			svgOutput = await filesData.fs.generateSvg();
 			if (svgOutput) {
@@ -111,10 +135,9 @@
 			}
 		} catch (err) {
 			console.error("Error regenerating SVG after filesystem change:", err);
-			const compatError = toCollagenError(err);
-			error = compatError.message;
+			setErrorState(err);
 		} finally {
-			loading = false;
+			stopLoading();
 		}
 	}
 </script>
@@ -165,7 +188,7 @@
 					>
 						<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
 					</div>
-				{:else if loading}
+				{:else if showLoading}
 					<div class="loading-state">
 						<p>Processing files...</p>
 					</div>
