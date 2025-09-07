@@ -25,9 +25,9 @@
 	const textEncoder = new TextEncoder();
 	const textDecoder = new TextDecoder();
 
-	function startLoading({ clearSvg }: { clearSvg: boolean }) {
+	function startLoading({ clearSvg, clearError = true }: { clearSvg: boolean; clearError?: boolean }) {
 		// Reset error and optionally clear SVG (for first loads)
-		error = null;
+		if (clearError) error = null;
 		if (clearSvg) svgOutput = null;
 		loading = true;
 		// Defer showing the loading UI to avoid flicker on fast ops
@@ -133,7 +133,7 @@
 
 		try {
 			filesData = { fs };
-			startLoading({ clearSvg: true });
+			startLoading({ clearSvg: true, clearError: true });
 
 			// Normalize paths to ensure leading slash for TypeScript implementation
 			console.log("🗺️ Normalizing file paths...");
@@ -189,8 +189,8 @@
 
 		// Attempt to regenerate SVG
 		try {
-			// Avoid flicker: keep current SVG while we regenerate
-			startLoading({ clearSvg: false });
+			// Avoid flicker: keep current SVG and existing error while we regenerate
+			startLoading({ clearSvg: false, clearError: false });
 
 			svgOutput = await filesData.fs.generateSvg();
 			if (svgOutput) {
@@ -229,6 +229,30 @@
 	{:else}
 		<!-- Files uploaded state: show side-by-side layout -->
 		<div class="app-layout">
+			{#snippet svgViewerContent(controlsVisible: boolean)}
+				{#if svgOutput}
+					<SvgDisplay
+						svg={svgOutput}
+						bind:this={svgDisplayComponent}
+						controlsVisible={controlsVisible}
+					/>
+				{:else if error}
+					<div class="error-state">
+						<div class="error-content error-message">
+							<span class="error-icon">⚠️</span>
+							<p class="error-description">{error}</p>
+						</div>
+					</div>
+				{:else if showLoading}
+					<div class="loading-state">
+						<p>Processing files...</p>
+					</div>
+				{:else}
+					<div class="waiting-state">
+						<p>Waiting for SVG generation...</p>
+					</div>
+				{/if}
+			{/snippet}
 			<!-- Left sidebar: file list (and compact SVG when editing) -->
 			<div class="sidebar" class:editing={!!editorPath}>
 				{#if filesData}
@@ -242,19 +266,13 @@
 								{handleOpenTextFile}
 							/>
 						</div>
-						{#if svgOutput}
-							<div
-								class="sidebar-bottom compact-svg"
-								role="region"
-								aria-label="Generated SVG display (compact)"
-							>
-								<SvgDisplay
-									svg={svgOutput}
-									bind:this={svgDisplayComponent}
-									controlsVisible={false}
-								/>
-							</div>
-						{/if}
+						<div
+							class="sidebar-bottom compact-svg"
+							role="region"
+							aria-label="Generated SVG display (compact)"
+						>
+							{@render svgViewerContent(false)}
+						</div>
 					{:else}
 						<FileList
 							{filesData}
@@ -276,28 +294,13 @@
 						{onUpdateText}
 						{handleCloseEditor}
 					/>
-				{:else if svgOutput}
+				{:else}
 					<div
 						class="svg-section"
 						role="region"
 						aria-label="Generated SVG display"
 					>
-						<SvgDisplay svg={svgOutput} bind:this={svgDisplayComponent} />
-					</div>
-				{:else if showLoading}
-					<div class="loading-state">
-						<p>Processing files...</p>
-					</div>
-				{:else if error}
-					<div class="error-state">
-						<div class="error-content error-message">
-							<span class="error-icon">⚠️</span>
-							<p class="error-description">{error}</p>
-						</div>
-					</div>
-				{:else}
-					<div class="waiting-state">
-						<p>Waiting for SVG generation...</p>
+						{@render svgViewerContent(true)}
 					</div>
 				{/if}
 			</div>
