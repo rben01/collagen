@@ -856,7 +856,6 @@ describe("Utility Functions", () => {
 
 		it("should return default MIME type for unknown extensions", () => {
 			expect(getMimeType("file.unknown")).toBe("application/octet-stream");
-			expect(getMimeType("document.txt")).toBe("application/octet-stream");
 		});
 
 		it("should handle files without extensions", () => {

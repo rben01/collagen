@@ -49,6 +49,8 @@ export function needsXmlEscaping(text: string): boolean {
  * Longest common prefix in terms of delimiter-separated segments. Never includes a
  * trailing delimiter.
  *
+ * Precondition: the strings have already had `normalizedPathJoin` called on them
+ *
  * Examples:
  * - getCommonPathPrefix(["a/b", "a/c"])    -> "a"
  * - getCommonPathPrefix(["a", "a/c"])      -> "a"
@@ -115,9 +117,9 @@ export const KB = 1024;
 export const MB = 1024 * KB;
 
 export function formatFileSize(bytes: number): string {
-	if (bytes > MB) {
+	if (bytes >= MB) {
 		return `${(bytes / MB).toFixed(1)}MB`;
-	} else if (bytes > KB) {
+	} else if (bytes >= KB) {
 		return `${(bytes / KB).toFixed(0)}KB`;
 	} else {
 		return `${bytes}B`;

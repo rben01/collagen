@@ -1,10 +1,13 @@
 import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
 import { getCommonPathPrefix } from "$lib/collagen-ts/utils";
 
+/* Get root folder name from a list of filenames
+ *
+ * Precondition: filenames have already had `normalizedPathJoin` called on them
+ */
 export function getRootFolderName(filenames: string[]) {
 	if (filenames.length === 1) {
-		const filename = normalizedPathJoin(filenames[0]);
-		const parent = filename.match(/(.*)\/.*$/);
+		const parent = filenames[0].match(/(.*)\/.*$/);
 		return parent?.[1] ?? "";
 	} else {
 		return getCommonPathPrefix(filenames);
@@ -125,7 +128,7 @@ export async function collectFromFileList(fileList: FileList) {
 	const fileMap = new Map<string, File>();
 	for (const file of fileList) {
 		const path = file.webkitRelativePath || file.name;
-		fileMap.set(path, file);
+		addFileToMap(file, path, fileMap);
 	}
 	const root = getRootFolderName([...fileMap.keys()]);
 	return { fileMap, root };
