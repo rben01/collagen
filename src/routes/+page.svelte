@@ -399,6 +399,7 @@
 		flex: 1;
 		min-height: 0;
 		max-width: 100%;
+		display: flex;
 	}
 
 	.loading-state,
