@@ -311,3 +311,60 @@ export async function uploadProject(
 		return await uploadWithFilePicker(page, project);
 	}
 }
+
+/**
+ * Drop additional files directly onto the file list panel after an initial upload.
+ * Chromium-only (uses DataTransfer + DragEvent path).
+ */
+export async function uploadMoreToFileList(
+	page: Page,
+	project: ProjectName | ProjectFiles,
+) {
+	const projectFiles =
+		typeof project === "string"
+			? sampleProjects[project]
+			: projectify(project);
+
+	await page.evaluate(
+		async ({ fileData }) => {
+			const fileList = document.querySelector(".file-list");
+			if (!fileList) throw new Error(".file-list not found");
+			const dt = new DataTransfer();
+			for (const path in fileData) {
+				const { content, type } = fileData[path];
+				const file = new File([content], path, { type });
+				if (path.includes("/")) {
+					Object.defineProperty(file, "webkitRelativePath", {
+						value: path,
+						writable: false,
+					});
+				}
+				dt.items.add(file);
+			}
+			fileList.dispatchEvent(
+				new DragEvent("dragenter", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+			fileList.dispatchEvent(
+				new DragEvent("dragover", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+			fileList.dispatchEvent(
+				new DragEvent("drop", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+		},
+		{ fileData: projectFiles },
+	);
+
+	await waitForUpload(page);
+}

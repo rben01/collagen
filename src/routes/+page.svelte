@@ -145,20 +145,12 @@
 		<div class="app-layout">
 			<!-- Left sidebar with files -->
 			<div class="sidebar">
-				<div class="upload-section-compact">
-					<FileUploader
-						handleFilesUploaded={handleFilesUploadedWithRoot}
-						{handleClearFiles}
-						disabled={loading}
-						compact={true}
-					/>
-				</div>
-
 				{#if filesData}
 					<FileList
 						{filesData}
 						{handleRemoveFile}
 						{handleFilesystemChange}
+						handleFilesUploaded={handleFilesUploadedWithRoot}
 					/>
 				{/if}
 			</div>
@@ -221,10 +213,6 @@
 
 	.upload-section {
 		margin-bottom: 2em;
-	}
-
-	.upload-section-compact {
-		margin-bottom: 1em;
 	}
 
 	.app-layout {

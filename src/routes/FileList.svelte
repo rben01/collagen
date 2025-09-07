@@ -4,15 +4,24 @@
 		FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
+	import {
+		collectFromDataTransfer,
+		stripFolderPrefix,
+	} from "./upload-helpers";
 
 	let {
 		filesData,
 		handleRemoveFile,
 		handleFilesystemChange,
+		handleFilesUploaded,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleRemoveFile: (path: string) => Promise<FileContent | undefined>;
 		handleFilesystemChange: () => Promise<void>;
+		handleFilesUploaded: (
+			files: Map<string, File>,
+			root: string,
+		) => Promise<void>;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -76,6 +85,7 @@
 	let trashedFiles: TrashedFile[] = $state([]);
 	let countdownInterval: NodeJS.Timeout | null = $state(null);
 	let countdownValue = $state(trashUndoTime);
+	let dragOver = $state(false);
 
 	$effect(() => {
 		if (countdownValue <= 0) {
@@ -84,6 +94,31 @@
 			countdownInterval = null;
 		}
 	});
+
+	function handleDragEnter(event: DragEvent) {
+		event.preventDefault();
+		dragOver = true;
+	}
+
+	function handleDragOver(event: DragEvent) {
+		event.preventDefault();
+		dragOver = true;
+	}
+
+	function handleDragLeave() {
+		dragOver = false;
+	}
+
+	async function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		dragOver = false;
+		if (!event.dataTransfer) return;
+		const { fileMap, root } = await collectFromDataTransfer(
+			event.dataTransfer.items,
+		);
+		const cleaned = stripFolderPrefix(fileMap, root);
+		await handleFilesUploaded(cleaned, root);
+	}
 
 	// Handle file deletion
 	async function deleteFile(path: string) {
@@ -128,7 +163,18 @@
 	}
 </script>
 
-<div class="file-list" role="region" aria-label="File information">
+<div
+	class="file-list"
+	class:drag-over={dragOver}
+	role="region"
+	aria-label="File information"
+	aria-describedby="file-list-hint"
+	title="Drop files below to add to your project"
+	ondragenter={handleDragEnter}
+	ondragover={handleDragOver}
+	ondragleave={handleDragLeave}
+	ondrop={handleDrop}
+>
 	<div class="file-list-header">
 		<div class="file-list-header-stats">
 			<h3>Files ({filesData.fs.getFileCount()})</h3>
@@ -148,6 +194,10 @@
 				{/each}
 			</div>
 		{/if}
+
+		<div id="file-list-hint" class="file-list-hint" aria-hidden="true">
+			Drop files here to add them to your project
+		</div>
 	</div>
 
 	<div class="files-container">
@@ -207,6 +257,11 @@
 		border-radius: 0.5em;
 	}
 
+	.file-list.drag-over {
+		outline: 2px dashed #2563eb;
+		background: #eff6ff;
+	}
+
 	.file-list-header {
 		padding: 1em 1em 0.75em 1em;
 		border-bottom: 1px solid #e5e7eb;
@@ -220,6 +275,12 @@
 		justify-content: space-between;
 		align-items: baseline;
 		margin-bottom: 0.25em;
+	}
+
+	.file-list-hint {
+		margin-top: 0.25em;
+		font-size: 0.8em;
+		color: #6b7280;
 	}
 
 	.file-list-header h3 {

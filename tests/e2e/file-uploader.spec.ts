@@ -221,10 +221,11 @@ test.describe("Realistic Upload Integration", () => {
 			timeout: 5000,
 		});
 
-		// Should show compact uploader for adding more files
+		// After initial upload, the file list becomes the drop zone
 		await expect(
-			page.getByRole("button", { name: /browse for file or folder/i }),
+			page.getByRole("region", { name: /file information/i }),
 		).toBeVisible();
+		await expect(page.getByText(/drop files here/i)).toBeVisible();
 	});
 
 	test("should handle single folder upload", async ({ page, browserName }) => {

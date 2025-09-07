@@ -4,7 +4,11 @@
 
 import { expect } from "@playwright/test";
 import { test } from "./fixtures";
-import { uploadProject, type ProjectFiles } from "./upload";
+import {
+	uploadProject,
+	type ProjectFiles,
+	uploadMoreToFileList,
+} from "./upload";
 
 function makeManyFilesProject(count: number): ProjectFiles {
 	const proj: ProjectFiles = {
@@ -103,6 +107,96 @@ test.describe("FileList Scrolling and Undo Bar", () => {
 			(el: HTMLElement) => el.scrollTop,
 		);
 		expect(finalScrollTop).toBeGreaterThanOrEqual(baseScrollTop);
+	});
+});
+
+// =============================================================================
+// Drop on FileList After Initial Upload
+// =============================================================================
+
+test.describe("Post-upload FileList Drop", () => {
+	test.skip(
+		({ browserName }) => browserName !== "chromium",
+		"drag-and-drop folder upload is chromium-only in tests",
+	);
+
+	test("dropping files on file list adds them", async ({
+		page,
+		browserName,
+	}) => {
+		await page.setViewportSize({ width: 1200, height: 700 });
+		await uploadProject(browserName, page, makeManyFilesProject(5));
+
+		const fileList = page.getByRole("region", { name: /file information/i });
+		await expect(fileList).toBeVisible();
+		const countBeforeText = await fileList.locator("h3").innerText();
+		const countBefore = Number(
+			countBeforeText.match(/Files \((\d+)\)/)?.[1] || "0",
+		);
+
+		await uploadMoreToFileList(page, {
+			"extra-1.txt": "1",
+			"folder/extra-2.txt": "2",
+		});
+
+		const countAfterText = await fileList.locator("h3").innerText();
+		const countAfter = Number(
+			countAfterText.match(/Files \((\d+)\)/)?.[1] || "0",
+		);
+		expect(countAfter).toBeGreaterThan(countBefore);
+	});
+
+	test("file list shows drag-over state and is accessible", async ({
+		page,
+		browserName,
+	}) => {
+		await page.setViewportSize({ width: 1200, height: 700 });
+		await uploadProject(browserName, page, makeManyFilesProject(5));
+
+		const fileList = page.getByRole("region", { name: /file information/i });
+		await expect(fileList).toBeVisible();
+
+		// Accessibility: hint present and referenced via aria-describedby
+		const hint = page.locator("#file-list-hint");
+		await expect(hint).toBeVisible();
+		await expect(fileList).toHaveAttribute(
+			"aria-describedby",
+			/file-list-hint/,
+		);
+
+		// Simulate drag-over / drag-leave and verify class changes
+		await page.evaluate(() => {
+			const panel = document.querySelector(".file-list")!;
+			const dt = new DataTransfer();
+			panel.dispatchEvent(
+				new DragEvent("dragenter", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+			panel.dispatchEvent(
+				new DragEvent("dragover", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+		});
+		await expect(page.locator(".file-list")).toHaveClass(/drag-over/);
+
+		await page.evaluate(() => {
+			const panel = document.querySelector(".file-list")!;
+			const dt = new DataTransfer();
+			panel.dispatchEvent(
+				new DragEvent("dragleave", {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: dt,
+				}),
+			);
+		});
+		await expect(page.locator(".file-list")).not.toHaveClass(/drag-over/);
 	});
 });
 

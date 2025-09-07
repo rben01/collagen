@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
-	import { getCommonPathPrefix } from "$lib/collagen-ts/utils";
+
+	import {
+		collectFromDataTransfer,
+		collectFromFileList,
+		stripFolderPrefix as helperStripFolderPrefix,
+	} from "./upload-helpers";
 
 	onMount(() => {
 		window.fileUploaderMounted = true;
@@ -60,16 +64,6 @@
 		dragOver = false;
 	}
 
-	function getRootFolderName(filenames: string[]) {
-		if (filenames.length === 1) {
-			const filename = normalizedPathJoin(filenames[0]);
-			const parent = filename.match(/(.*)\/.*$/);
-			return parent?.[1] ?? "";
-		} else {
-			return getCommonPathPrefix(filenames);
-		}
-	}
-
 	/**
 	 * Process files and/or a folder from a drag-and-drop operation.
 	 *
@@ -83,74 +77,10 @@
 	 */
 	async function processFilesFromDataTransfer(items: DataTransferItemList) {
 		clearProcessingError();
-
 		try {
 			console.log("🔄 Processing files from drag & drop...");
-
-			const fileMap = new Map<string, File>();
-
-			// Count top-level folders and individual files
-			let topLevelFolders = 0;
-			let topLevelFiles = 0;
-
-			// First pass: collect all entries/files synchronously while DataTransferItems
-			// are still valid. If you try to handle them one at a time asynchronously, the
-			// creation of a separate thread (or whatever) destroys the context in which
-			// they were dragged, and all items after the first become invalidated.
-			const itemsToProcess: Array<
-				| { type: "entry"; data: FileSystemEntry }
-				| { type: "file"; data: File }
-			> = [];
-			for (let i = 0, len = items.length; i < len; i++) {
-				const item = items[i];
-				console.log(
-					`📋 Item ${i}: kind=${item.kind}, name=${item.getAsFile()?.name}, type=${item.type}`,
-				);
-
-				// meaning we dragged a file or a folder (they're both "file"), not some text
-				if (item.kind === "file") {
-					const entry = item.webkitGetAsEntry();
-
-					if (entry) {
-						console.log(
-							`📂 Entry: name=${entry.name}, isDirectory=${entry.isDirectory}`,
-						);
-
-						if (entry.isDirectory) {
-							topLevelFolders++;
-						} else {
-							topLevelFiles++;
-						}
-
-						itemsToProcess.push({ type: "entry", data: entry });
-					} else {
-						const file = item.getAsFile();
-						if (!file) {
-							const message = `could not process file ${item.type}; ${item.kind}`;
-							throw new Error(message);
-						}
-
-						topLevelFiles++;
-						itemsToProcess.push({ type: "file", data: file });
-					}
-				}
-			}
-
-			// Second pass: process everything asynchronously
-			for (const item of itemsToProcess) {
-				if (item.type === "entry") {
-					await addEntryAndChildrenToMap(item.data, fileMap);
-				} else {
-					addFileToMap(item.data, item.data.name, fileMap);
-				}
-			}
-
-			const rootFolderName = getRootFolderName([...fileMap.keys()]);
-
-			console.log("📊 Raw file data size:", fileMap.size, "files");
-			console.log("📂 Root folder name:", rootFolderName);
-
-			handleProcessingSuccess(fileMap, rootFolderName);
+			const { fileMap, root } = await collectFromDataTransfer(items);
+			handleProcessingSuccess(fileMap, root);
 		} catch (error) {
 			handleProcessingError(error);
 		}
@@ -158,147 +88,18 @@
 
 	async function processFilesFromFileList(fileList: FileList) {
 		clearProcessingError();
-
 		try {
 			console.log("🔄 Processing files from file picker...");
-
-			const fileMap = new Map<string, File>();
-
-			for (const file of fileList) {
-				// Extract relative path from webkitRelativePath or use file name
-				const path = file.webkitRelativePath || file.name;
-				fileMap.set(path, file);
-			}
-
-			const rootFolderName = getRootFolderName([...fileMap.keys()]);
-
-			handleProcessingSuccess(fileMap, rootFolderName);
+			const { fileMap, root } = await collectFromFileList(fileList);
+			handleProcessingSuccess(fileMap, root);
 		} catch (error) {
 			handleProcessingError(error);
 		}
 	}
 
-	function addFileToMap(
-		file: File,
-		fullPath: string,
-		fileMap: Map<string, File>,
-		resolve?: () => void,
-	) {
-		console.log(`✅ File processed: ${fullPath} (${file.size} bytes)`);
-		fileMap.set(normalizedPathJoin(fullPath), file);
-		resolve?.();
-	}
+	// File entry traversal is implemented in upload-helpers
 
-	function addEntryAndChildrenToMap(
-		entry: FileSystemEntry,
-		fileMap: Map<string, File>,
-	) {
-		// entryFile.file uses callbacks, not async, so we have to wrap it in a Promise
-		// and use resolve/reject to signal we're done
-
-		return new Promise<void>((resolve, reject) => {
-			if (entry.isFile) {
-				const timeout = setTimeout(() => {
-					console.error("⏰ Timeout processing entry:", entry.name);
-					reject(new Error(`Timeout processing entry: ${entry.name}`));
-				}, 1000); // 1 second timeout per file (incredibly generous)
-
-				let entryFile = entry as FileSystemFileEntry;
-				console.log(
-					`📄 Processing file: ${entry.name} (${entryFile.fullPath})`,
-				);
-				entryFile.file(
-					file => {
-						addFileToMap(file, entryFile.fullPath, fileMap, () => {
-							clearTimeout(timeout);
-							resolve();
-						});
-					},
-					error => {
-						console.error(`❌ Error reading file ${entry.name}:`, error);
-						clearTimeout(timeout);
-						reject(error);
-					},
-				);
-			} else if (entry.isDirectory) {
-				let entryDirectory = entry as FileSystemDirectoryEntry;
-				console.log(`📁 Processing directory: ${entry.name}`);
-				const reader = entryDirectory.createReader();
-
-				// read entries until there are none left. reader.readEntries doesn't
-				// necessarily return *all* files; you may need multiple attempts. but when
-				// it returns 0, it's done. and if we're not done, we just continue trying
-				// to read (don't resolve until we get entries.length === 0)
-				const readAllEntries = () => {
-					reader.readEntries(
-						entries => {
-							console.log(
-								`📋 Directory ${entry.name} has ${entries.length} entries`,
-							);
-							if (entries.length === 0) {
-								resolve();
-								return;
-							}
-							const handleChildrenPromises = entries.map(childEntry => {
-								return addEntryAndChildrenToMap(childEntry, fileMap);
-							});
-							Promise.all(handleChildrenPromises)
-								.then(() => {
-									console.log(
-										`✅ Directory batch processed: ${entry.name}`,
-									);
-									readAllEntries();
-								})
-								.catch(error => {
-									console.error(
-										`❌ Error processing directory ${entry.name}:`,
-										error,
-									);
-									reject(error);
-								});
-						},
-						error => {
-							console.error(
-								`❌ Error reading directory ${entry.name}:`,
-								error,
-							);
-							reject(error);
-						},
-					);
-				};
-
-				readAllEntries();
-			} else {
-				errorMessage = `⚠️ Unknown entry type: ${entry.name}`;
-				throw new Error(errorMessage);
-			}
-		});
-	}
-
-	function stripFolderPrefix(
-		fileData: Map<string, File>,
-		rootFolderName: string,
-	) {
-		if (!rootFolderName) {
-			return fileData;
-		}
-
-		const strippedFileMap = new Map<string, File>();
-		const rootLen = rootFolderName.length;
-
-		for (const [path, file] of fileData) {
-			if (path.startsWith(rootFolderName)) {
-				const cleanedPath = path.substring(rootLen);
-				strippedFileMap.set(cleanedPath, file);
-			} else {
-				errorMessage = `tried to strip prefix ${rootFolderName} from ${path}, but no such prefix found`;
-				console.warn(errorMessage);
-				throw new Error(errorMessage);
-			}
-		}
-
-		return strippedFileMap;
-	}
+	const stripFolderPrefix = helperStripFolderPrefix;
 
 	function clearProcessingError() {
 		errorMessage = null;
