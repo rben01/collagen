@@ -9,6 +9,7 @@
 		collectFromDataTransfer,
 		stripFolderPrefix,
 	} from "./upload-helpers";
+	import ButtonIcon from "./ButtonIcon.svelte";
 
 	let {
 		filesData,
@@ -234,8 +235,7 @@
 							deleteFile(path);
 						}}
 					>
-						<!-- TODO: better icon -->
-						🗑️
+						<ButtonIcon action="trash" />
 					</button>
 				</div>
 			{/snippet}
@@ -373,7 +373,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.5em 0.75em;
+		padding: 0.5em 0.5em 0.5em 0.75em;
 		margin-bottom: 0.125em;
 		background: #ffffff;
 		border: 1px solid #f3f4f6;
@@ -449,7 +449,7 @@
 		padding: 0.25em;
 		border-radius: 0.25em;
 		font-size: 0.9em;
-		opacity: 0.6;
+		opacity: 0;
 		transition: all 0.2s;
 		display: flex;
 		align-items: center;
@@ -458,7 +458,11 @@
 		min-height: 1.5em;
 	}
 
-	.delete-button:hover {
+	.file-item:hover .delete-button {
+		opacity: 0.6;
+	}
+
+	.file-item:hover .delete-button:hover {
 		opacity: 1;
 		background: #fee2e2;
 		transform: scale(1.1);

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import ButtonIcon from "./ButtonIcon.svelte";
+
 	let {
 		path,
 		text = $bindable(),
@@ -23,7 +25,8 @@
 		<button
 			class="close-btn"
 			onclick={handleCloseEditor}
-			aria-label="Close editor">❌</button
+			aria-label="Close editor"
+			><ButtonIcon action="minimize-editor" /></button
 		>
 	</div>
 	<textarea

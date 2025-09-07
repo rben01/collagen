@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { flip } from "svelte/animate";
 	import { quintInOut, quintOut } from "svelte/easing";
+	import ButtonIcon from "./ButtonIcon.svelte";
 
 	// Expose focus method for parent components
 	export function focus() {
 		if (svgContainer) svgContainer.focus();
 	}
 
-	let { svg, controlsVisible = true }: { svg: string; controlsVisible?: boolean } = $props();
+	let {
+		svg,
+		controlsVisible = true,
+	}: { svg: string; controlsVisible?: boolean } = $props();
 
 	let showRawSvg = $state(false);
 	let showInstructions = $state(false);
@@ -362,65 +366,67 @@
 	</div>
 
 	{#if controlsVisible}
-	<div class="controls" role="toolbar" aria-label="SVG viewer controls">
-		<div class="control-group">
-			<button
-				class="control-btn zoom-in"
-				onclick={zoomIn}
-				title="Zoom In (Keyboard: +)"
-				aria-label="Zoom in, keyboard shortcut plus key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<button
-				class="control-btn zoom-out"
-				onclick={zoomOut}
-				title="Zoom Out (Keyboard: -)"
-				aria-label="Zoom out, keyboard shortcut minus key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<button
-				class="control-btn reset-view"
-				onclick={resetView}
-				title="Reset View (Keyboard: 0)"
-				aria-label="Reset view, keyboard shortcut zero key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<span class="zoom-level">{Math.round(scale * 100)}%</span>
-		</div>
+		<div class="controls" role="toolbar" aria-label="SVG viewer controls">
+			<div class="control-group">
+				<button
+					class="control-btn"
+					onclick={zoomIn}
+					title="Zoom In (Keyboard: +)"
+					aria-label="Zoom in, keyboard shortcut plus key"
+					tabindex="0"><ButtonIcon action="zoom-in" /></button
+				>
+				<button
+					class="control-btn"
+					onclick={zoomOut}
+					title="Zoom Out (Keyboard: -)"
+					aria-label="Zoom out, keyboard shortcut minus key"
+					tabindex="0"><ButtonIcon action="zoom-out" /></button
+				>
+				<button
+					class="control-btn"
+					onclick={resetView}
+					title="Reset View (Keyboard: 0)"
+					aria-label="Reset view, keyboard shortcut zero key"
+					tabindex="0"><ButtonIcon action="reset-view" /></button
+				>
+				<span class="zoom-level">{Math.round(scale * 100)}%</span>
+			</div>
 
-		<div class="control-group">
-			<button
-				class="control-btn help-btn"
-				onclick={toggleInstructions}
-				class:active={showInstructions}
-				title="Toggle Usage Instructions (Keyboard: ?)"
-				aria-label="Toggle usage instructions, keyboard shortcut question mark key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<button
-				class="control-btn toggle-view"
-				onclick={toggleRawSvg}
-				class:active={showRawSvg}
-				title="Toggle Code View (Keyboard: V)"
-				aria-label="Toggle between preview and code view, keyboard shortcut V key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<button
-				class="control-btn copy-btn"
-				onclick={copyToClipboard}
-				title="Copy SVG to Clipboard (Keyboard: C)"
-				aria-label="Copy SVG to clipboard, keyboard shortcut C key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
-			<button
-				class="control-btn export-btn"
-				onclick={downloadSvg}
-				title="Download SVG (Keyboard: S)"
-				aria-label="Download SVG file, keyboard shortcut S key"
-				tabindex="0"><div class="btn-content"></div></button
-			>
+			<div class="control-group">
+				<button
+					class="control-btn"
+					onclick={toggleInstructions}
+					class:active={showInstructions}
+					title="Toggle Usage Instructions (Keyboard: ?)"
+					aria-label="Toggle usage instructions, keyboard shortcut question mark key"
+					tabindex="0"
+					><ButtonIcon action="help" active={showInstructions} /></button
+				>
+				<button
+					class="control-btn"
+					onclick={toggleRawSvg}
+					class:active={showRawSvg}
+					title="Toggle Code View (Keyboard: V)"
+					aria-label="Toggle between preview and code view, keyboard shortcut V key"
+					tabindex="0"
+					><ButtonIcon action="toggle-view" active={showRawSvg} /></button
+				>
+				<button
+					class="control-btn"
+					onclick={copyToClipboard}
+					title="Copy SVG to Clipboard (Keyboard: C)"
+					aria-label="Copy SVG to clipboard, keyboard shortcut C key"
+					tabindex="0"><ButtonIcon action="copy" /></button
+				>
+				<button
+					class="control-btn"
+					onclick={downloadSvg}
+					title="Download SVG (Keyboard: S)"
+					aria-label="Download SVG file, keyboard shortcut S key"
+					tabindex="0"><ButtonIcon action="export" /></button
+				>
+			</div>
 		</div>
-	</div>
 	{/if}
 
 	<!-- Usage Instructions -->
@@ -652,48 +658,6 @@
 		outline-offset: 2px;
 		background: #1d4ed8;
 		border-color: #1d4ed8;
-	}
-
-	.control-btn .btn-content {
-		-webkit-mask-image: var(--btn-bg);
-		mask-image: var(--btn-bg);
-		background-color: #374151;
-		min-width: 20px;
-		min-height: 20px;
-		mask-size: 100%;
-		mask-repeat: no-repeat;
-	}
-
-	.control-btn.active .btn-content {
-		background-color: white;
-	}
-
-	.control-btn.zoom-in .btn-content {
-		--btn-bg: url("$lib/icons/zoom-in.svg");
-	}
-
-	.control-btn.zoom-out .btn-content {
-		--btn-bg: url("$lib/icons/zoom-out.svg");
-	}
-
-	.control-btn.reset-view .btn-content {
-		--btn-bg: url("$lib/icons/focus-centered.svg");
-	}
-
-	.control-btn.help-btn .btn-content {
-		--btn-bg: url("$lib/icons/help.svg");
-	}
-
-	.control-btn.toggle-view .btn-content {
-		--btn-bg: url("$lib/icons/code.svg");
-	}
-
-	.control-btn.copy-btn .btn-content {
-		--btn-bg: url("$lib/icons/clipboard-copy.svg");
-	}
-
-	.control-btn.export-btn .btn-content {
-		--btn-bg: url("$lib/icons/file-download.svg");
 	}
 
 	.zoom-level {
