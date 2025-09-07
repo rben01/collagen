@@ -178,6 +178,7 @@
 	role="region"
 	aria-label="File information"
 	aria-describedby="file-list-hint"
+	data-testid="filelist-dropzone"
 	title="Drop files and folders below to add to your project. Click a text file to edit it."
 	ondragenter={handleDragEnter}
 	ondragover={handleDragOver}

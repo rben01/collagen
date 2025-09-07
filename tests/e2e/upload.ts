@@ -249,10 +249,12 @@ async function uploadWithDragAndDrop(
 	// Simulate drag and drop on the drop zone
 	await page.evaluate(
 		async ({ fileData }) => {
-			const dropZone = document.querySelector(".drop-zone");
-			if (!dropZone) {
-				throw new Error("Drop zone not found");
-			}
+			const dropZone =
+				document.querySelector('[data-testid="upload-dropzone"]') ||
+				document.querySelector('[data-testid="filelist-dropzone"]') ||
+				document.querySelector(".file-list") ||
+				document.querySelector(".drop-zone");
+			if (!dropZone) throw new Error("Drop zone not found");
 
 			// see above for why this duplicate block of code can't be deduplicated
 			const dt = new DataTransfer();

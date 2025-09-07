@@ -186,6 +186,7 @@
 		class:drag-over={dragOver}
 		class:disabled
 		class:compact
+		data-testid="upload-dropzone"
 		ondragenter={handleDragEnter}
 		ondragover={handleDragOver}
 		ondragleave={handleDragLeave}

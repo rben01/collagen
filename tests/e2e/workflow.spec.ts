@@ -384,3 +384,54 @@ test.describe("Responsive Workflows", () => {
 		await context.close();
 	});
 });
+
+// =============================================================================
+// Text Editing Integration Tests
+// =============================================================================
+
+test.describe("Text Editing Integration", () => {
+	test("editing manifest updates compact view and persists to full view on close", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, "folderWithAssets");
+		const fileRegion = page.getByRole("region", {
+			name: /file information/i,
+		});
+		await expect(fileRegion).toBeVisible();
+
+		// Open editor on project manifest
+		await page
+			.getByRole("button", { name: /edit project\/collagen\.json/i })
+			.click();
+		await expect(
+			page.getByRole("region", { name: /text editor/i }),
+		).toBeVisible();
+
+		const textarea = page.locator("textarea.editor-textarea");
+		const compact = page.getByRole("region", {
+			name: /generated svg display \(compact\)/i,
+		});
+
+		// Verify initial text in SVG is Hello World
+		await expect(compact.locator("svg text")).toContainText("Hello World");
+
+		// Replace text to Updated
+		const current = await textarea.inputValue();
+		const updated = current.replace(/Hello World/g, "Updated");
+		await textarea.fill(updated);
+
+		// Wait for debounce and verify compact SVG shows updated text
+		await page.waitForTimeout(300);
+		await expect(compact.locator("svg text")).toContainText("Updated");
+
+		// Close editor and ensure main viewer shows updated text with controls visible
+		await page.getByRole("button", { name: /close editor/i }).click();
+		const mainViewer = page.getByLabel("Interactive SVG viewer");
+		await expect(mainViewer).toBeVisible();
+		await expect(mainViewer.locator("text")).toContainText("Updated");
+		await expect(
+			page.getByRole("toolbar", { name: /svg viewer controls/i }),
+		).toBeVisible();
+	});
+});
