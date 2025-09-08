@@ -390,6 +390,8 @@
 
 	.main-content {
 		flex: 4 0 580px;
+		/* flex items have `min-[width,height]: auto` unless you manually set to 0 */
+		min-width: 0;
 		min-height: 0;
 		display: flex;
 		justify-items: stretch;
