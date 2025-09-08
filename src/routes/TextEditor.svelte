@@ -1,5 +1,6 @@
 <script lang="ts">
-	import ButtonIcon from "./ButtonIcon.svelte";
+	import ControlButton from "./ControlButton.svelte";
+	import Toolbar from "./Toolbar.svelte";
 
 	let {
 		path,
@@ -20,15 +21,17 @@
 </script>
 
 <div class="text-editor" role="region" aria-label="Text editor">
-	<div class="editor-header">
+	<Toolbar ariaLabel="Text editor controls">
 		<div class="file-label" title={path}>{path}</div>
-		<button
-			class="close-btn"
-			onclick={handleCloseEditor}
-			aria-label="Close editor"
-			><ButtonIcon action="minimize-editor" /></button
-		>
-	</div>
+		<div class="control-group">
+			<ControlButton
+				action="minimize-editor"
+				ariaLabel="Close editor"
+				title="Close editor"
+				onclick={handleCloseEditor}
+			/>
+		</div>
+	</Toolbar>
 	<textarea
 		class="editor-textarea"
 		bind:value={text}
@@ -49,16 +52,6 @@
 		background: #ffffff;
 	}
 
-	.editor-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 0.5em 0.75em;
-		border-bottom: 1px solid #e5e7eb;
-		background: #f9fafb;
-		border-radius: 0.5em 0.5em 0 0;
-	}
-
 	.file-label {
 		font-family: monospace;
 		font-size: 0.9em;
@@ -68,13 +61,6 @@
 		white-space: nowrap;
 		flex: 1;
 		padding-right: 0.5em;
-	}
-
-	.close-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-size: 1.1em;
 	}
 
 	.editor-textarea {

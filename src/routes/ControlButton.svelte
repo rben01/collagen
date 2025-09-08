@@ -1,0 +1,75 @@
+<script lang="ts">
+	import ButtonIcon from "./ButtonIcon.svelte";
+	import type { ButtonAction } from "./ButtonIcon";
+	import type { Snippet } from "svelte";
+
+	let {
+		action,
+		ariaLabel,
+		title,
+		active = false,
+		onclick,
+		tabindex = 0,
+		children,
+	}: {
+		action: ButtonAction;
+		ariaLabel?: string;
+		title?: string;
+		active?: boolean;
+		onclick?: (e: MouseEvent) => void;
+		tabindex?: number;
+		children?: Snippet;
+	} = $props();
+</script>
+
+<button
+	class="control-btn"
+	class:active
+	{title}
+	aria-label={ariaLabel}
+	{tabindex}
+	{onclick}
+>
+	<ButtonIcon {action} {active} />
+	{@render children?.()}
+</button>
+
+<style>
+	.control-btn {
+		background: #ffffff;
+		border: 1px solid #d1d5db;
+		padding: 0.5em 0.75em;
+		border-radius: 0.375em;
+		cursor: pointer;
+		font-size: 0.875em;
+		transition: all 0.2s;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.control-btn:hover {
+		background: #f3f4f6;
+		border-color: #9ca3af;
+	}
+
+	.control-btn:focus {
+		outline: 2px solid #2563eb;
+		outline-offset: 2px;
+		background: #f3f4f6;
+		border-color: #2563eb;
+	}
+
+	.control-btn.active {
+		background: #2563eb;
+		border-color: #2563eb;
+		color: white;
+	}
+
+	.control-btn.active:focus {
+		outline: 2px solid #1d4ed8;
+		outline-offset: 2px;
+		background: #1d4ed8;
+		border-color: #1d4ed8;
+	}
+</style>

@@ -5,7 +5,7 @@
 		$props();
 </script>
 
-<div class={[action, active ? "active" : null]}></div>
+<div class={action} class:active></div>
 
 <style>
 	div {

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { flip } from "svelte/animate";
 	import { quintInOut, quintOut } from "svelte/easing";
-	import ButtonIcon from "./ButtonIcon.svelte";
+	import ControlButton from "./ControlButton.svelte";
+	import Toolbar from "./Toolbar.svelte";
 
 	// Expose focus method for parent components
 	export function focus() {
@@ -366,67 +367,58 @@
 	</div>
 
 	{#if controlsVisible}
-		<div class="controls" role="toolbar" aria-label="SVG viewer controls">
+		<Toolbar ariaLabel="SVG viewer controls">
 			<div class="control-group">
-				<button
-					class="control-btn"
-					onclick={zoomIn}
+				<ControlButton
+					action="zoom-in"
 					title="Zoom In (Keyboard: +)"
-					aria-label="Zoom in, keyboard shortcut plus key"
-					tabindex="0"><ButtonIcon action="zoom-in" /></button
-				>
-				<button
-					class="control-btn"
-					onclick={zoomOut}
+					ariaLabel="Zoom in, keyboard shortcut plus key"
+					onclick={zoomIn}
+				/>
+				<ControlButton
+					action="zoom-out"
 					title="Zoom Out (Keyboard: -)"
-					aria-label="Zoom out, keyboard shortcut minus key"
-					tabindex="0"><ButtonIcon action="zoom-out" /></button
-				>
-				<button
-					class="control-btn"
-					onclick={resetView}
+					ariaLabel="Zoom out, keyboard shortcut minus key"
+					onclick={zoomOut}
+				/>
+				<ControlButton
+					action="reset-view"
 					title="Reset View (Keyboard: 0)"
-					aria-label="Reset view, keyboard shortcut zero key"
-					tabindex="0"><ButtonIcon action="reset-view" /></button
-				>
+					ariaLabel="Reset view, keyboard shortcut zero key"
+					onclick={resetView}
+				/>
 				<span class="zoom-level">{Math.round(scale * 100)}%</span>
 			</div>
 
 			<div class="control-group">
-				<button
-					class="control-btn"
-					onclick={toggleInstructions}
-					class:active={showInstructions}
+				<ControlButton
+					action="help"
+					active={showInstructions}
 					title="Toggle Usage Instructions (Keyboard: ?)"
-					aria-label="Toggle usage instructions, keyboard shortcut question mark key"
-					tabindex="0"
-					><ButtonIcon action="help" active={showInstructions} /></button
-				>
-				<button
-					class="control-btn"
-					onclick={toggleRawSvg}
-					class:active={showRawSvg}
+					ariaLabel="Toggle usage instructions, keyboard shortcut question mark key"
+					onclick={toggleInstructions}
+				/>
+				<ControlButton
+					action="toggle-view"
+					active={showRawSvg}
 					title="Toggle Code View (Keyboard: V)"
-					aria-label="Toggle between preview and code view, keyboard shortcut V key"
-					tabindex="0"
-					><ButtonIcon action="toggle-view" active={showRawSvg} /></button
-				>
-				<button
-					class="control-btn"
-					onclick={copyToClipboard}
+					ariaLabel="Toggle between preview and code view, keyboard shortcut V key"
+					onclick={toggleRawSvg}
+				/>
+				<ControlButton
+					action="copy"
 					title="Copy SVG to Clipboard (Keyboard: C)"
-					aria-label="Copy SVG to clipboard, keyboard shortcut C key"
-					tabindex="0"><ButtonIcon action="copy" /></button
-				>
-				<button
-					class="control-btn"
-					onclick={downloadSvg}
+					ariaLabel="Copy SVG to clipboard, keyboard shortcut C key"
+					onclick={copyToClipboard}
+				/>
+				<ControlButton
+					action="export"
 					title="Download SVG (Keyboard: S)"
-					aria-label="Download SVG file, keyboard shortcut S key"
-					tabindex="0"><ButtonIcon action="export" /></button
-				>
+					ariaLabel="Download SVG file, keyboard shortcut S key"
+					onclick={downloadSvg}
+				/>
 			</div>
-		</div>
+		</Toolbar>
 	{/if}
 
 	<!-- Usage Instructions -->
@@ -601,63 +593,6 @@
 
 	.toast-close:hover {
 		opacity: 1;
-	}
-
-	.controls {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1em;
-		background: #f9fafb;
-		border-bottom: 1px solid #e5e7eb;
-		flex-wrap: wrap;
-		gap: 1em;
-	}
-
-	.control-group {
-		display: flex;
-		align-items: center;
-		gap: 0.5em;
-	}
-
-	.controls button,
-	.control-btn {
-		background: #ffffff;
-		border: 1px solid #d1d5db;
-		padding: 0.5em 0.75em;
-		border-radius: 0.375em;
-		cursor: pointer;
-		font-size: 0.875em;
-		transition: all 0.2s;
-	}
-
-	.controls button:hover,
-	.control-btn:hover {
-		background: #f3f4f6;
-		border-color: #9ca3af;
-	}
-
-	.controls button:focus,
-	.control-btn:focus {
-		outline: 2px solid #2563eb;
-		outline-offset: 2px;
-		background: #f3f4f6;
-		border-color: #2563eb;
-	}
-
-	.controls button.active,
-	.control-btn.active {
-		background: #2563eb;
-		border-color: #2563eb;
-		color: white;
-	}
-
-	.controls button.active:focus,
-	.control-btn.active:focus {
-		outline: 2px solid #1d4ed8;
-		outline-offset: 2px;
-		background: #1d4ed8;
-		border-color: #1d4ed8;
 	}
 
 	.zoom-level {
