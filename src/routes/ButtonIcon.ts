@@ -1,5 +1,3 @@
-export const prerender = true;
-
 export type ButtonAction =
 	| "zoom-in"
 	| "zoom-out"
