@@ -29,6 +29,8 @@ jobs:
         run: npm ci
 
       - name: Build site
+        env:
+          BASE_PATH: "/${{ github.event.repository.name }}"
         run: npm run build
 
       - name: Setup Pages
@@ -37,9 +39,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: build
 
   deploy:
+    needs: build
+
     permissions:
       contents: read
       pages: write
@@ -51,7 +55,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
