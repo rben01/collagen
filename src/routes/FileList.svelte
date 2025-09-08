@@ -9,6 +9,7 @@
 		collectFromDataTransfer,
 		stripFolderPrefix,
 	} from "./upload-helpers";
+	import Toolbar from "./Toolbar.svelte";
 	import ButtonIcon from "./ButtonIcon.svelte";
 
 	let {
@@ -186,7 +187,7 @@
 	ondragleave={handleDragLeave}
 	ondrop={handleDrop}
 >
-	<div class="file-list-header">
+	<Toolbar ariaLabel="File information">
 		<div class="file-list-header-stats">
 			<h3>Files ({filesData.fs.getFileCount()})</h3>
 			<div class="file-summary">
@@ -195,21 +196,18 @@
 				</div>
 			</div>
 		</div>
-		{#if fileStats.warnings.length > 0}
-			<div class="file-list-warnings">
-				{#each fileStats.warnings as warning}
-					<div class="file-warning {warning.type}">
-						{#if warning.type === "warning"}⚠️{:else}💡{/if}
-						{warning.message}
-					</div>
-				{/each}
-			</div>
-		{/if}
+	</Toolbar>
 
-		<div id="file-list-hint" class="file-list-hint" aria-hidden="true">
-			Drop files here to add them to your project
+	{#if fileStats.warnings.length > 0}
+		<div class="file-list-warnings">
+			{#each fileStats.warnings as warning}
+				<div class="file-warning {warning.type}">
+					{#if warning.type === "warning"}⚠️{:else}💡{/if}
+					{warning.message}
+				</div>
+			{/each}
 		</div>
-	</div>
+	{/if}
 
 	<div class="files-container">
 		{#each filesSorted as [path, file] (path)}
@@ -268,7 +266,10 @@
 		{/each}
 	</div>
 
-	<!-- Undo UI - Fixed to bottom of file list -->
+	<div class="file-list-bottom-hint" aria-hidden="true">
+		Drop items here to add them to your project
+	</div>
+
 	{#if trashedFiles.length > 0}
 		<div class="undo-bar">
 			<div class="undo-message">
@@ -294,6 +295,7 @@
 		background: #f9fafb;
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
+		overflow: hidden; /* ensure rounded corners clip inner toolbar backgrounds */
 	}
 
 	.file-list.drag-over {
@@ -301,32 +303,11 @@
 		background: #eff6ff;
 	}
 
-	.file-list-header {
-		padding: 1em 1em 0.75em 1em;
-		border-bottom: 1px solid #e5e7eb;
-		background: #ffffff;
-		border-radius: 0.5em 0.5em 0 0;
-		flex-shrink: 0;
-	}
-
 	.file-list-header-stats {
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
-		margin-bottom: 0.25em;
-	}
-
-	.file-list-hint {
-		margin-top: 0.25em;
-		font-size: 0.8em;
-		color: #6b7280;
-	}
-
-	.file-list-header h3 {
-		margin: 0;
-		color: #374151;
-		font-size: 1.1em;
-		font-weight: 600;
+		width: 100%;
 	}
 
 	.file-summary {
@@ -367,6 +348,15 @@
 		min-height: 0;
 		padding: 0.5em;
 		overflow-y: auto;
+	}
+
+	.file-list-bottom-hint {
+		flex-shrink: 0;
+		text-align: center;
+		padding: 0.5em;
+		margin-bottom: 0.5em;
+		font-size: 0.8em;
+		color: #6b7280;
 	}
 
 	.file-item {
