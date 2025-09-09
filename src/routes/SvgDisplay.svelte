@@ -653,7 +653,8 @@
 	.svg-container:focus .svg-content-mask {
 		box-sizing: content-box;
 		border: var(--focus-indicator-thickness) solid #2563eb;
-		border-radius: 0 0 6px 6px;
+		/* Match inner SVG rounding to avoid clipped corners when docked/minimized */
+		border-radius: 7px;
 	}
 
 	.svg-content {
