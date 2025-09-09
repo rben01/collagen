@@ -8,6 +8,7 @@
 	import {
 		collectFromDataTransfer,
 		stripFolderPrefix,
+		collectFromFileList,
 	} from "./upload-helpers";
 	import Toolbar from "./Toolbar.svelte";
 	import ButtonIcon from "./ButtonIcon.svelte";
@@ -91,6 +92,7 @@
 	let countdownInterval: NodeJS.Timeout | null = $state(null);
 	let countdownValue = $state(TRASH_UNDO_TIME);
 	let dragOver = $state(false);
+	let uploading = $state(false);
 
 	$effect(() => {
 		if (countdownValue <= 0) {
@@ -172,7 +174,52 @@
 			handleOpenTextFile(path);
 		}
 	}
+
+	async function openFilePicker() {
+		if (uploading) return;
+
+		const input = document.createElement("input");
+		input.type = "file";
+		input.multiple = true;
+		input.webkitdirectory = false;
+		input.style.display = "none";
+
+		input.addEventListener("change", async e => {
+			const files = (e.target as HTMLInputElement).files;
+			if (files && files.length > 0) {
+				uploading = true;
+				try {
+					const { fileMap, root } = await collectFromFileList(files);
+					const cleaned = stripFolderPrefix(fileMap, root);
+					await handleFilesUploaded(cleaned, root);
+				} catch (error) {
+					console.error("Error processing files:", error);
+				} finally {
+					uploading = false;
+				}
+			}
+			document.body.removeChild(input);
+		});
+
+		document.body.appendChild(input);
+		input.click();
+	}
+
+	function handleGlobalKeydown(event: KeyboardEvent) {
+		// Only trigger if no specific element is focused or if focus is on body
+		const activeElement = document.activeElement;
+		if (
+			(activeElement === document.body || activeElement === null) &&
+			(event.key === "o" || event.key === "O") &&
+			!uploading
+		) {
+			event.preventDefault();
+			openFilePicker();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div
 	class="file-list"
@@ -267,8 +314,18 @@
 	</div>
 
 	<div class="file-list-bottom-hint" aria-hidden="true">
-		Drop items above to add them to your project
+		To add files to your project, drop them above or use the button below
 	</div>
+
+	<button
+		class="browse-button"
+		onclick={openFilePicker}
+		disabled={uploading}
+		title="Browse for files (Keyboard: O)"
+		aria-label="Browse for files, keyboard shortcut O key"
+	>
+		Add Files
+	</button>
 
 	{#if trashedFiles.length > 0}
 		<div class="undo-bar">
@@ -354,7 +411,7 @@
 		flex-shrink: 0;
 		text-align: center;
 		padding: 0.5em;
-		margin-bottom: 0.5em;
+		margin: 0 1em 0.5em 1em;
 		font-size: 0.8em;
 		color: #6b7280;
 	}
@@ -501,5 +558,39 @@
 	.undo-button:focus {
 		outline: 2px solid white;
 		outline-offset: 1px;
+	}
+
+	.browse-button {
+		background: #2563eb;
+		color: white;
+		border: none;
+		padding: 0.75em 1.5em;
+		border-radius: 0.375em;
+		font-size: 0.875em;
+		font-weight: 600;
+		cursor: pointer;
+		margin: 0.25em 0.8em 0.8em 0.8em;
+		transition: background-color 0.1s ease-in-out;
+		flex-shrink: 0;
+		box-sizing: border-box;
+	}
+
+	.browse-button:hover {
+		background: #3978ff;
+	}
+
+	.browse-button:active {
+		background: #4a84ff;
+	}
+
+	.browse-button:disabled {
+		background: #2563eb;
+		color: white;
+		cursor: not-allowed;
+	}
+
+	.browse-button:focus {
+		outline: 2px solid #2563eb;
+		outline-offset: 2px;
 	}
 </style>

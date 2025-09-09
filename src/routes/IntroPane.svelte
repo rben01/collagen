@@ -8,15 +8,15 @@
 		<div class="welcome">
 			<h2>Welcome to Collagen</h2>
 			<p>
-				To get started, drop some files and/or folders onto the file list on
-				the left, or click “Create sample project” to start with a basic
-				example. A valid project must contain a
+				To get started, add some files to the file list on the left, or
+				click “Create sample project” to start with a basic example. A valid
+				project must contain a
 				<code>collagen.json</code> or <code>collagen.jsonnet</code> file at its
 				root, but you can also include images, font files, or even entire other
 				Collagen projects by adding them to the project.
 			</p>
 			<div class="helpful-links">
-				<p>Here are some links to get you started:</p>
+				<p>Here are some links to help get you started:</p>
 				<ul>
 					<li>
 						<a
@@ -89,18 +89,10 @@
 	.helpful-links p {
 		margin-bottom: 0.5em;
 	}
-	.link-button {
-		background: none;
-		border: none;
-		text-decoration: underline;
-		cursor: pointer;
-		font: inherit;
-		padding: 0;
-	}
-	.welcome :is(a, .link-button) {
+	.welcome a {
 		color: var(--link-color);
 	}
-	.welcome :is(a, .link-button):visited {
+	.welcome a:visited {
 		color: var(--link-visited-color);
 	}
 </style>
