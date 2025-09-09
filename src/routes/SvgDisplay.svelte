@@ -9,30 +9,6 @@
 		if (svgContainer) svgContainer.focus();
 	}
 
-	// TODO: ??? who did this. Claude??
-	// Expose viewer controls so parent toolbars can drive actions
-	export function zoomInPublic() {
-		zoomIn();
-	}
-	export function zoomOutPublic() {
-		zoomOut();
-	}
-	export function resetViewPublic() {
-		resetView();
-	}
-	export function toggleRawSvgPublic() {
-		toggleRawSvg();
-	}
-	export function toggleInstructionsPublic() {
-		toggleInstructions();
-	}
-	export function copyPublic() {
-		copyToClipboard();
-	}
-	export function downloadPublic() {
-		downloadSvg();
-	}
-
 	let {
 		svg,
 		controlsVisible = true,
