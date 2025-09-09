@@ -1,8 +1,11 @@
 <script lang="ts">
-	import FileUploader from "./FileUploader.svelte";
 	import FileList from "./FileList.svelte";
 	import SvgDisplay from "./SvgDisplay.svelte";
 	import TextEditor from "./TextEditor.svelte";
+	import RightPane from "./RightPane.svelte";
+	import IntroPane from "./IntroPane.svelte";
+	import LoadingPane from "./LoadingPane.svelte";
+	import ErrorPane from "./ErrorPane.svelte";
 	import {
 		toCollagenError,
 		InMemoryFileSystem,
@@ -10,7 +13,6 @@
 	import { tick } from "svelte";
 
 	let error: string | null = $state(null);
-	let loading = $state(false);
 	let showLoading = $state(false);
 	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
@@ -35,7 +37,6 @@
 		// Reset error and optionally clear SVG (for first loads)
 		if (clearError) error = null;
 		if (clearSvg) svgOutput = null;
-		loading = true;
 		// Defer showing the loading UI to avoid flicker on fast ops
 		if (loadingTimer) clearTimeout(loadingTimer);
 		showLoading = false;
@@ -43,7 +44,6 @@
 	}
 
 	function stopLoading() {
-		loading = false;
 		if (loadingTimer) clearTimeout(loadingTimer);
 		loadingTimer = null;
 		showLoading = false;
@@ -56,6 +56,13 @@
 	}
 	// packing it in an object is a trick to get svelte to re-render downstream
 	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
+	// Initialize an empty filesystem so the workspace is always visible
+	(async () => {
+		if (!filesData) {
+			const empty = await InMemoryFileSystem.create(new Map(), false);
+			filesData = { fs: empty };
+		}
+	})();
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
 	function handleOpenTextFile(path: string) {
@@ -102,7 +109,7 @@
 		if (!filesData || !editorPath || editorText === null) return;
 		try {
 			const bytes = textEncoder.encode(editorText);
-			filesData.fs.addFileContents(editorPath, bytes);
+			filesData.fs.addFileContents(editorPath, bytes, true);
 			lastPersistAt = Date.now();
 			await handleFilesystemChange();
 		} catch (err) {
@@ -134,11 +141,22 @@
 		}
 	}
 
+	function handleZeroFiles() {
+		error = null;
+		svgOutput = null;
+		stopLoading();
+	}
+
 	async function handleFiles(fs: InMemoryFileSystem) {
 		console.log("🔄 Processing files...");
 
 		try {
 			filesData = { fs };
+			if (fs.getFileCount() === 0) {
+				handleZeroFiles();
+				return;
+			}
+
 			startLoading({ clearSvg: true, clearError: true });
 
 			// Normalize paths to ensure leading slash for TypeScript implementation
@@ -170,12 +188,6 @@
 		}
 	});
 
-	function handleClearFiles() {
-		filesData = null;
-		svgOutput = null;
-		error = null;
-	}
-
 	async function handleRemoveFile(path: string) {
 		if (!filesData) return;
 
@@ -195,6 +207,11 @@
 
 		// Attempt to regenerate SVG
 		try {
+			// If there are no files, show instructions (no error)
+			if (filesData.fs.getFileCount() === 0) {
+				handleZeroFiles();
+				return;
+			}
 			// Avoid flicker: keep current SVG and existing error while we regenerate
 			startLoading({ clearSvg: false, clearError: false });
 
@@ -217,69 +234,43 @@
 </svelte:head>
 
 <main>
-	{#if !filesData && !svgOutput}
-		<!-- Show title section only when no files are uploaded -->
-		<h1>Collagen Web</h1>
-		<p>Generate SVG collages from JSON/Jsonnet manifests</p>
-	{/if}
-
-	{#if !filesData && !svgOutput}
-		<!-- Initial state: show full-width uploader -->
-		<div class="upload-section">
-			<FileUploader
-				handleFilesUploaded={handleFilesUploadedWithRoot}
-				{handleClearFiles}
-				disabled={loading}
-			/>
-		</div>
-	{:else}
-		<!-- Files uploaded state: show side-by-side layout -->
-		<div class="app-layout">
-			{#snippet svgViewerContent(controlsVisible: boolean)}
-				{#if svgOutput}
-					<SvgDisplay
-						svg={svgOutput}
-						bind:this={svgDisplayComponent}
-						{controlsVisible}
-					/>
-				{:else if error}
-					<div class="error-state">
-						<div class="error-content error-message">
-							<span class="error-icon">⚠️</span>
-							<p class="error-description">{error}</p>
-						</div>
+	<div class="app-layout">
+		{#snippet svgViewerContent(controlsVisible: boolean)}
+			{#if svgOutput}
+				<SvgDisplay
+					svg={svgOutput}
+					bind:this={svgDisplayComponent}
+					{controlsVisible}
+				/>
+			{:else if error}
+				<div class="error-state">
+					<div class="error-content error-message">
+						<span class="error-icon">⚠️</span>
+						<p class="error-description">{error}</p>
 					</div>
-				{:else if showLoading}
-					<div class="loading-state">
-						<p>Processing files...</p>
+				</div>
+			{:else if showLoading}
+				<div class="loading-state">
+					<p>Processing files...</p>
+				</div>
+			{:else}
+				<div class="waiting-state">
+					<div class="welcome">
+						<h2>Welcome to Collagen Web</h2>
+						<p>
+							Drop a <code>collagen.json</code> or
+							<code>collagen.jsonnet</code>
+							(or a whole folder) onto the File List on the left to get started.
+						</p>
 					</div>
-				{:else}
-					<div class="waiting-state">
-						<p>Waiting for SVG generation...</p>
-					</div>
-				{/if}
-			{/snippet}
-			<!-- Left sidebar: file list (and compact SVG when editing) -->
-			<div class="sidebar" class:editing={!!editorPath}>
-				{#if filesData}
-					{#if editorPath}
-						<div class="sidebar-top">
-							<FileList
-								{filesData}
-								{handleRemoveFile}
-								{handleFilesystemChange}
-								handleFilesUploaded={handleFilesUploadedWithRoot}
-								{handleOpenTextFile}
-							/>
-						</div>
-						<div
-							class="sidebar-bottom compact-svg"
-							role="region"
-							aria-label="Generated SVG display (compact)"
-						>
-							{@render svgViewerContent(false)}
-						</div>
-					{:else}
+				</div>
+			{/if}
+		{/snippet}
+		<!-- Left sidebar: file list (and compact SVG when editing) -->
+		<div class="sidebar" class:editing={!!editorPath}>
+			{#if filesData}
+				{#if editorPath}
+					<div class="sidebar-top">
 						<FileList
 							{filesData}
 							{handleRemoveFile}
@@ -287,31 +278,63 @@
 							handleFilesUploaded={handleFilesUploadedWithRoot}
 							{handleOpenTextFile}
 						/>
-					{/if}
+					</div>
+					<div
+						class="sidebar-bottom compact-svg"
+						role="region"
+						aria-label="Generated SVG display (compact)"
+					>
+						{@render svgViewerContent(false)}
+					</div>
+				{:else}
+					<FileList
+						{filesData}
+						{handleRemoveFile}
+						{handleFilesystemChange}
+						handleFilesUploaded={handleFilesUploadedWithRoot}
+						{handleOpenTextFile}
+					/>
 				{/if}
-			</div>
+			{:else}
+				<div class="file-list" aria-label="File information"></div>
+			{/if}
+		</div>
 
-			<!-- Right main content area: SVG viewer (default) or text editor (when editing) -->
-			<div class="main-content">
-				{#if editorPath}
+		<!-- Right main content area: SVG viewer (default) or text editor (when editing) -->
+		<div class="main-content">
+			{#if editorPath}
+				{#snippet editorContent()}
 					<TextEditor
-						path={editorPath}
+						path={editorPath!}
 						bind:text={editorText}
 						{onUpdateText}
 						{handleCloseEditor}
 					/>
-				{:else}
-					<div
-						class="svg-section"
-						role="region"
-						aria-label="Generated SVG display"
-					>
-						{@render svgViewerContent(true)}
-					</div>
-				{/if}
-			</div>
+				{/snippet}
+				<RightPane ariaLabelContent="Text editor" content={editorContent} />
+			{:else}
+				{#snippet rightViewer()}
+					{#if svgOutput}
+						<SvgDisplay
+							svg={svgOutput}
+							bind:this={svgDisplayComponent}
+							controlsVisible={true}
+						/>
+					{:else if error}
+						<ErrorPane message={error} />
+					{:else if showLoading}
+						<LoadingPane />
+					{:else}
+						<IntroPane />
+					{/if}
+				{/snippet}
+				<RightPane
+					ariaLabelContent="Generated SVG display"
+					content={rightViewer}
+				/>
+			{/if}
 		</div>
-	{/if}
+	</div>
 </main>
 
 <style>
@@ -325,23 +348,7 @@
 			Cantarell, sans-serif;
 	}
 
-	h1 {
-		color: #2563eb;
-		text-align: center;
-		font-size: 2.5em;
-		margin-bottom: 0.5em;
-	}
-
-	p {
-		text-align: center;
-		color: #6b7280;
-		font-size: 1.1em;
-		margin-bottom: 2em;
-	}
-
-	.upload-section {
-		margin-bottom: 2em;
-	}
+	/* No separate upload section; workspace is always visible */
 
 	.app-layout {
 		display: flex;
@@ -386,6 +393,7 @@
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
 		background: #fff;
+		overflow: hidden; /* ensure child content respects rounded corners */
 	}
 
 	.main-content {
@@ -397,12 +405,7 @@
 		justify-items: stretch;
 	}
 
-	.svg-section {
-		flex: 1;
-		min-height: 0;
-		max-width: 100%;
-		display: flex;
-	}
+	/* right pane styling handled by RightPane */
 
 	.loading-state,
 	.waiting-state,
@@ -411,16 +414,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: #f9fafb;
-		border: 1px solid #e5e7eb;
-		border-radius: 0.5em;
-		color: #6b7280;
+		background: #ffffff; /* sits inside pane-body */
+		color: #374151; /* higher contrast text */
 		font-size: 1.1em;
 	}
 
 	.error-state {
 		background: #fef2f2;
-		border-color: #fecaca;
 		color: #dc2626;
 	}
 
@@ -443,6 +443,31 @@
 		margin: 0;
 		line-height: 1.4;
 		font-size: 1em;
+	}
+
+	/* Intro (welcome) styling */
+	.waiting-state .welcome {
+		text-align: center;
+		padding: 2em 2.5em; /* increased padding */
+		max-width: 640px;
+	}
+
+	.waiting-state .welcome h2 {
+		margin: 0 0 0.5em 0;
+		color: #2563eb; /* blue title */
+		font-weight: 700;
+	}
+
+	.waiting-state .welcome p {
+		color: #4b5563;
+		margin: 0.5em 0 0 0;
+	}
+
+	.waiting-state .welcome code {
+		background: #f3f4f6;
+		color: #111827;
+		padding: 0.1em 0.3em;
+		border-radius: 0.25em;
 	}
 
 	/* Responsive design */
@@ -468,9 +493,7 @@
 			min-height: 400px;
 		}
 
-		.svg-section {
-			height: 400px;
-		}
+		/* right pane height managed by RightPane */
 	}
 
 	@media (max-width: 768px) {

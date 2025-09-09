@@ -1,7 +1,8 @@
 <script lang="ts">
-	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
+	import ControlButton from "./ControlButton.svelte";
 
+	// Each displayer owns its toolbar; RightPane only provides the panel
 	let {
 		path,
 		text = $bindable(),
@@ -47,8 +48,6 @@
 		flex-direction: column;
 		height: 100%;
 		width: 100%;
-		border: 1px solid #e5e7eb;
-		border-radius: 0.5em;
 		background: #ffffff;
 	}
 

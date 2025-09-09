@@ -17,8 +17,6 @@
 		padding: 0.5em 0.75em;
 		background: #f9fafb;
 		border-bottom: 1px solid #e5e7eb;
-		border-top-left-radius: 0.5em;
-		border-top-right-radius: 0.5em;
 		flex-wrap: wrap;
 		gap: 1em;
 		min-height: calc(1em + 20px);

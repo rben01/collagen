@@ -267,7 +267,7 @@
 	</div>
 
 	<div class="file-list-bottom-hint" aria-hidden="true">
-		Drop items here to add them to your project
+		Drop items above to add them to your project
 	</div>
 
 	{#if trashedFiles.length > 0}

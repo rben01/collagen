@@ -9,6 +9,30 @@
 		if (svgContainer) svgContainer.focus();
 	}
 
+	// TODO: ??? who did this. Claude??
+	// Expose viewer controls so parent toolbars can drive actions
+	export function zoomInPublic() {
+		zoomIn();
+	}
+	export function zoomOutPublic() {
+		zoomOut();
+	}
+	export function resetViewPublic() {
+		resetView();
+	}
+	export function toggleRawSvgPublic() {
+		toggleRawSvg();
+	}
+	export function toggleInstructionsPublic() {
+		toggleInstructions();
+	}
+	export function copyPublic() {
+		copyToClipboard();
+	}
+	export function downloadPublic() {
+		downloadSvg();
+	}
+
 	let {
 		svg,
 		controlsVisible = true,
@@ -523,8 +547,9 @@
 	.svg-display {
 		--focus-indicator-thickness: 2px;
 
-		border: 1px solid #e5e7eb;
-		border-radius: 0.5em;
+		/* Border and radius are provided by the RightPane container */
+		border: none;
+		border-radius: 0;
 		overflow: hidden;
 		background: white;
 		position: relative;
