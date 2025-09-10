@@ -205,6 +205,47 @@
 		input.click();
 	}
 
+	async function createNewFile() {
+		if (uploading) return;
+
+		const filename = window.prompt("Enter filename:", "collagen.jsonnet");
+
+		if (!filename) return; // User cancelled
+
+		// Basic filename validation
+		const trimmed = filename.trim();
+		if (!trimmed) {
+			alert("Filename cannot be empty");
+			return;
+		}
+
+		// Check if file already exists
+		if (filesData.fs.files.has(trimmed)) {
+			const overwrite = window.confirm(
+				`File "${trimmed}" already exists. Do you want to overwrite it?`,
+			);
+			if (!overwrite) return;
+		}
+
+		try {
+			// Create empty file
+			const textEncoder = new TextEncoder();
+			const emptyContent = textEncoder.encode("");
+			filesData.fs.addFileContents(trimmed, emptyContent, true);
+
+			// Trigger filesystem change to update UI and regenerate SVG
+			await handleFilesystemChange();
+
+			// Open the new file in text editor
+			handleOpenTextFile(trimmed);
+		} catch (error) {
+			console.error("Error creating new file:", error);
+			alert(
+				`Failed to create file: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	}
+
 	function handleGlobalKeydown(event: KeyboardEvent) {
 		// Only trigger if no specific element is focused or if focus is on body
 		const activeElement = document.activeElement;
@@ -314,18 +355,29 @@
 	</div>
 
 	<div class="file-list-bottom-hint" aria-hidden="true">
-		To add files to your project, drop them above or use the button below
+		To add files to your project, drop them above or use the buttons below
 	</div>
 
-	<button
-		class="browse-button"
-		onclick={openFilePicker}
-		disabled={uploading}
-		title="Browse for files (Keyboard: O)"
-		aria-label="Browse for files, keyboard shortcut O key"
-	>
-		Add Files
-	</button>
+	<div class="button-group">
+		<button
+			class="file-list-button new-file-button"
+			onclick={createNewFile}
+			disabled={uploading}
+			title="Create new empty file"
+			aria-label="Create new empty file"
+		>
+			New file
+		</button>
+		<button
+			class="file-list-button browse-button"
+			onclick={openFilePicker}
+			disabled={uploading}
+			title="Browse for files (Keyboard: O)"
+			aria-label="Browse for files, keyboard shortcut O key"
+		>
+			Upload
+		</button>
+	</div>
 
 	{#if trashedFiles.length > 0}
 		<div class="undo-bar">
@@ -560,33 +612,73 @@
 		outline-offset: 1px;
 	}
 
-	.browse-button {
-		background: #2563eb;
-		color: white;
-		border: none;
+	.button-group {
+		display: flex;
+		gap: 0.7em;
+		margin: 0.25em 0.8em 0.8em 0.8em;
+	}
+
+	/* Common button base styles */
+	.file-list-button {
 		padding: 0.75em 1.5em;
 		border-radius: 0.375em;
 		font-size: 0.875em;
 		font-weight: 600;
 		cursor: pointer;
-		margin: 0.25em 0.8em 0.8em 0.8em;
 		transition: background-color 0.1s ease-in-out;
 		flex-shrink: 0;
 		box-sizing: border-box;
+		flex: 1;
 	}
 
-	.browse-button:hover {
+	.file-list-button:disabled {
+		cursor: not-allowed;
+	}
+
+	/* New file button - gray theme */
+	.new-file-button {
+		background: #f9fafb;
+		color: #374151;
+		border: 1px solid #d1d5db;
+	}
+
+	.new-file-button:hover:not(:disabled) {
+		background: #f3f4f6;
+		border-color: #9ca3af;
+	}
+
+	.new-file-button:active:not(:disabled) {
+		background: #e5e7eb;
+	}
+
+	.new-file-button:disabled {
+		background: #f9fafb;
+		color: #9ca3af;
+	}
+
+	.new-file-button:focus {
+		outline: 2px solid #6b7280;
+		outline-offset: 2px;
+	}
+
+	/* Browse button - blue theme */
+	.browse-button {
+		background: #2563eb;
+		color: white;
+		border: none;
+	}
+
+	.browse-button:hover:not(:disabled) {
 		background: #3978ff;
 	}
 
-	.browse-button:active {
+	.browse-button:active:not(:disabled) {
 		background: #4a84ff;
 	}
 
 	.browse-button:disabled {
 		background: #2563eb;
 		color: white;
-		cursor: not-allowed;
 	}
 
 	.browse-button:focus {
