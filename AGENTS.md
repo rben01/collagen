@@ -237,6 +237,10 @@ Components use modern Svelte 5 runes:
   the filesystem layer
 - **Imports**: Use explicit `.js` extensions for ESM compatibility
 - **Error handling**: Use typed error classes from `src/lib/collagen-ts/errors/`
+- **Comments**: Never use comments idly to comment on changes you've made.
+  Comments should only be used to indicate surprising behavior, clarify code
+  whose purpose is not self-evident, and indicate the pitfalls of going with a
+  different solution.
 
 ### Other
 
