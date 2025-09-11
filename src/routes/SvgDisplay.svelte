@@ -261,74 +261,74 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (!controlsVisible) return;
 		const panAmount = 20;
 		let handled = false;
+
+		const active = document.activeElement as HTMLElement | null;
+		const isTyping =
+			!!active &&
+			(active.tagName === "TEXTAREA" ||
+				active.tagName === "INPUT" ||
+				(active.isContentEditable ?? false));
 		const hasSvgFocus = document.activeElement === svgContainer;
 
-		// Global shortcuts (work regardless of focus) - these correspond to buttons
-		switch (event.key) {
-			case "+":
-			case "=":
-				zoomIn();
-				handled = true;
-				break;
-			case "-":
-			case "_":
-				zoomOut();
-				handled = true;
-				break;
-			case "0":
-				resetView();
-				handled = true;
-				break;
-			case "v":
-			case "V":
-				toggleRawSvg();
-				handled = true;
-				break;
-			case "c":
-			case "C":
-				copyToClipboard();
-				handled = true;
-				break;
-			case "s":
-			case "S":
-				downloadSvg();
-				handled = true;
-				break;
-			case "?":
-				toggleInstructions();
-				handled = true;
-				break;
+		// Global shortcuts (work regardless of focus unless typing in an editor)
+		if (!isTyping) {
+			switch (event.key) {
+				case "+":
+				case "=":
+					zoomIn();
+					handled = true;
+					break;
+				case "-":
+				case "_":
+					zoomOut();
+					handled = true;
+					break;
+				case "0":
+					resetView();
+					handled = true;
+					break;
+				case "v":
+				case "V":
+					toggleRawSvg();
+					handled = true;
+					break;
+				case "c":
+				case "C":
+					copyToClipboard();
+					handled = true;
+					break;
+				case "s":
+				case "S":
+					downloadSvg();
+					handled = true;
+					break;
+				case "?":
+					toggleInstructions();
+					handled = true;
+					break;
+			}
 		}
 
-		// Focus-required shortcuts (pan controls - no corresponding buttons)
-		if (hasSvgFocus && !handled) {
+		// Pan controls: require viewer focus (Shift + arrows)
+		if (!handled && hasSvgFocus && !isTyping && event.shiftKey) {
 			switch (event.key) {
 				case "ArrowUp":
-					if (event.shiftKey) {
-						panY += panAmount;
-						handled = true;
-					}
+					panY += panAmount;
+					handled = true;
 					break;
 				case "ArrowDown":
-					if (event.shiftKey) {
-						panY -= panAmount;
-						handled = true;
-					}
+					panY -= panAmount;
+					handled = true;
 					break;
 				case "ArrowLeft":
-					if (event.shiftKey) {
-						panX += panAmount;
-						handled = true;
-					}
+					panX += panAmount;
+					handled = true;
 					break;
 				case "ArrowRight":
-					if (event.shiftKey) {
-						panX -= panAmount;
-						handled = true;
-					}
+					panX -= panAmount;
+					handled = true;
 					break;
 			}
 		}
@@ -457,8 +457,8 @@
 				</div>
 
 				<p class="instructions-note">
-					💡 <strong>Tip:</strong> Click on the SVG viewer area first to enable
-					keyboard pan controls (Shift + arrow keys).
+					💡 <strong>Tip:</strong> Click the SVG viewer first to enable pan
+					with Shift + arrow keys.
 				</p>
 			</div>
 		</div>
@@ -512,9 +512,9 @@
 		<div id="svg-controls-description" class="sr-only">
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
 			view (work globally), Shift+arrow keys to pan (when viewer is focused),
-			V to toggle code view, C to copy, S to save (work globally). Mouse
-			controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom. Touch
-			controls: Single finger to pan, pinch to zoom.
+			V to toggle code view, C to copy, S to save. Mouse controls: Drag to
+			pan, Ctrl+scroll or Cmd+scroll to zoom. Touch controls: Single finger
+			to pan, pinch to zoom.
 		</div>
 	{/if}
 </div>
