@@ -469,6 +469,10 @@
 	}
 
 	@media (min-width: 1024.5px) {
+		.sidebar-top,
+		.sidebar-bottom {
+			flex: 1;
+		}
 		.sidebar.editing {
 			width: 35vw;
 			min-width: 35vw;
