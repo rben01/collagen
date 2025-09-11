@@ -277,17 +277,23 @@
 			switch (event.key) {
 				case "+":
 				case "=":
-					zoomIn();
-					handled = true;
+					if (!showRawSvg) {
+						zoomIn();
+						handled = true;
+					}
 					break;
 				case "-":
 				case "_":
-					zoomOut();
-					handled = true;
+					if (!showRawSvg) {
+						zoomOut();
+						handled = true;
+					}
 					break;
 				case "0":
-					resetView();
-					handled = true;
+					if (!showRawSvg) {
+						resetView();
+						handled = true;
+					}
 					break;
 				case "v":
 				case "V":
@@ -374,18 +380,21 @@
 					title="Zoom In (Keyboard: +)"
 					ariaLabel="Zoom in, keyboard shortcut plus key"
 					onclick={zoomIn}
+					disabled={showRawSvg}
 				/>
 				<ControlButton
 					action="zoom-out"
 					title="Zoom Out (Keyboard: -)"
 					ariaLabel="Zoom out, keyboard shortcut minus key"
 					onclick={zoomOut}
+					disabled={showRawSvg}
 				/>
 				<ControlButton
 					action="reset-view"
 					title="Reset View (Keyboard: 0)"
 					ariaLabel="Reset view, keyboard shortcut zero key"
 					onclick={resetView}
+					disabled={showRawSvg}
 				/>
 				<span class="zoom-level">{Math.round(scale * 100)}%</span>
 			</div>

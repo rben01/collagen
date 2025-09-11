@@ -8,6 +8,7 @@
 		ariaLabel,
 		title,
 		active = false,
+		disabled = false,
 		onclick,
 		tabindex = 0,
 		children,
@@ -16,6 +17,7 @@
 		ariaLabel?: string;
 		title?: string;
 		active?: boolean;
+		disabled?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		tabindex?: number;
 		children?: Snippet;
@@ -25,7 +27,8 @@
 <button
 	class="control-btn"
 	class:active
-	{title}
+	{disabled}
+	title={disabled ? null : title}
 	aria-label={ariaLabel}
 	{tabindex}
 	{onclick}
@@ -71,5 +74,18 @@
 		outline-offset: 2px;
 		background: #1d4ed8;
 		border-color: #1d4ed8;
+	}
+
+	.control-btn:disabled {
+		background: #f9fafb;
+		border-color: #e5e7eb;
+		color: #9ca3af;
+		cursor: not-allowed;
+		opacity: 0.6;
+	}
+
+	.control-btn:disabled:hover {
+		background: #f9fafb;
+		border-color: #e5e7eb;
 	}
 </style>
