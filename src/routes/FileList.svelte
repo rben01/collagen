@@ -685,4 +685,11 @@
 		outline: 2px solid #2563eb;
 		outline-offset: 2px;
 	}
+
+	@media (max-width: 1024px) {
+		.file-list {
+			flex: auto;
+			max-height: 95vh;
+		}
+	}
 </style>

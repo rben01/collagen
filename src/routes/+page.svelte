@@ -234,7 +234,10 @@
 </svelte:head>
 
 <main>
-	<div class="app-layout">
+	<div
+		class="app-layout"
+		class:started={filesData && filesData.fs.getFileCount() > 0}
+	>
 		{#snippet svgViewerContent(controlsVisible: boolean)}
 			{#if svgOutput}
 				<SvgDisplay
@@ -352,20 +355,20 @@
 
 	.app-layout {
 		display: flex;
-		gap: 2em;
-		margin: auto 0;
+		gap: 1.25rem;
+		margin: var(--v-margin) 0;
 		height: calc(100vh - 2 * var(--v-margin));
 		box-sizing: border-box;
 	}
 
 	.sidebar {
-		/* Fix sidebar width to 25vw so it doesn't change as content changes */
 		flex: 0 0 25vw;
 		width: 25vw;
 		min-width: 25vw;
 		max-width: 25vw;
 		display: flex;
 		flex-direction: column;
+		gap: 0.75rem;
 		min-height: 0;
 		max-height: 100%;
 		height: 100%;
@@ -374,14 +377,10 @@
 
 	.sidebar.editing {
 		flex: 0 0 35vw;
-		width: 35vw;
-		min-width: 35vw;
-		max-width: 35vw;
 	}
 
 	.sidebar-top,
 	.sidebar-bottom {
-		flex: 1 1 50%;
 		min-height: 0;
 		max-height: 50%;
 		display: flex;
@@ -389,7 +388,6 @@
 	}
 
 	.sidebar-bottom.compact-svg {
-		margin-top: 0.75em;
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
 		background: #fff;
@@ -470,44 +468,53 @@
 		border-radius: 0.25em;
 	}
 
-	/* Responsive design */
+	@media (min-width: 1024.5px) {
+		.sidebar.editing {
+			width: 35vw;
+			min-width: 35vw;
+			max-width: 35vw;
+
+			:is(.sidebar-bottom, .sidebar-bottom) {
+				flex: 1 1 50%;
+			}
+		}
+	}
+
 	@media (max-width: 1024px) {
 		.app-layout {
 			flex-direction: column;
 			height: auto;
-			min-height: 0;
+			min-height: calc(100vh - 2 * var(--v-margin));
+			gap: 0.75rem;
 		}
 
 		.sidebar {
 			/* In stacked layout, allow sidebar to take full width */
-			flex: none;
+			flex: 1;
 			width: auto;
 			min-width: 0;
 			max-width: none;
 			order: 2;
 		}
 
+		.sidebar.editing {
+			flex: 1;
+		}
+
+		/* Swap order of sidebar elements when editing on mobile */
+		.sidebar.editing .sidebar-top {
+			order: 2; /* File list goes to bottom */
+		}
+
+		.sidebar.editing .sidebar-bottom {
+			order: 1; /* SVG viewer goes to top */
+			height: 40vw;
+		}
+
 		.main-content {
 			flex: none;
 			order: 1;
 			min-height: 400px;
-		}
-
-		/* right pane height managed by RightPane */
-	}
-
-	@media (max-width: 768px) {
-		main {
-			margin: 1em auto;
-		}
-
-		.app-layout {
-			gap: 1em;
-			height: auto;
-		}
-
-		.sidebar {
-			flex: none;
 		}
 	}
 </style>

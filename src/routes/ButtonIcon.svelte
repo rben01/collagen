@@ -57,4 +57,10 @@
 	.minimize-editor {
 		--btn-bg: url("$lib/icons/editor-minimize.svg");
 	}
+
+	@media (max-width: 1024px) {
+		.minimize-editor {
+			--btn-bg: url("$lib/icons/editor-minimize-down.svg");
+		}
+	}
 </style>
