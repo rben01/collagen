@@ -227,10 +227,51 @@
 			if (!overwrite) return;
 		}
 
+		const initialContents = filename.toUpperCase().endsWith(".JSONNET")
+			? `
+local w = 100;
+local h = 80;
+local margin = 10;
+local rectWidth = w - 2*margin;
+local rectHeight = h - 2*margin;
+local nCircles = 6;
+
+{
+	attrs: {
+		viewBox: "0 0 %d %d" % [w, h],
+	},
+	children: [
+		{
+			tag: "rect",
+			attrs: {
+				x: margin, y: margin,
+				width: rectWidth, height: rectHeight,
+				fill: "#0076FF", stroke: "#FF9C00", "stroke-width": 3,
+			}
+		},
+	] + [
+		{
+			tag: "circle",
+			attrs: {
+				local fill = "hsl(%d, 100%%, 50%%)" % (i * 360 / nCircles),
+				local strokeDasharray = if i % 2 == 0 then "none" else "5 5",
+				cx: w/2, cy: h/2, r: (nCircles-i)*5,
+				fill: fill,
+				stroke: "black", "stroke-width": 1, "stroke-dasharray": strokeDasharray,
+			}
+		}
+		for i in std.range(1, nCircles-1)
+	]
+}
+`
+			: filename.toUpperCase().endsWith(".json")
+				? "{}"
+				: "";
+
 		try {
 			// Create empty file
 			const textEncoder = new TextEncoder();
-			const emptyContent = textEncoder.encode("");
+			const emptyContent = textEncoder.encode(initialContents.trim());
 			filesData.fs.addFileContents(trimmed, emptyContent, true);
 
 			// Trigger filesystem change to update UI and regenerate SVG
