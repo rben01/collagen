@@ -228,6 +228,11 @@ Components use modern Svelte 5 runes:
   - Use `$state()` for reactive state variables
   - Use `$derived()` for computed values
   - Use `$effect()` for side effects
+    - NEVER use `$effect()` to add event listeners when the syntax `onevent`
+      will work. ONLY use `$effect()` to add event listeners as a last resort.
+      - Bad: `$effect(() => { elem.addEventListener('click', f) })`
+      - Good: `<div onclick={f}></div>`, or `<div {onclick}></div>` if the
+        function has the same name as the on-event property.
 - **Performance**: Avoid creating temporary arrays:
   - Use `for...of` loops instead of chained `array.map(...).filter(...)`
   - Use `for...in` loops instead of `Object.entries` or `Object.fromEntries`
@@ -237,10 +242,10 @@ Components use modern Svelte 5 runes:
   the filesystem layer
 - **Imports**: Use explicit `.js` extensions for ESM compatibility
 - **Error handling**: Use typed error classes from `src/lib/collagen-ts/errors/`
-- **Comments**: Never use comments idly to comment on changes you've made.
+- **Comments**: Never use comments merely to comment on changes you've made.
   Comments should only be used to indicate surprising behavior, clarify code
-  whose purpose is not self-evident, and indicate the pitfalls of going with a
-  different solution.
+  whose purpose is not self-evident, indicate the pitfalls of going with a
+  different solution, or otherwise annotate code that is not self-documenting.
 
 ### Other
 
