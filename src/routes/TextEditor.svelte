@@ -58,7 +58,7 @@
 	}
 
 	.file-label {
-		font-family: monospace;
+		font-family: var(--mono-font-family);
 		font-size: 0.9em;
 		color: #374151;
 		overflow: hidden;
@@ -74,12 +74,10 @@
 		resize: none;
 		border: 0;
 		outline: none;
-		font-family:
-			ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-			"Liberation Mono", "Courier New", monospace;
-		font-size: 0.8em;
+		font-family: var(--mono-font-family);
+		font-size: 0.9em;
 		tab-size: 2;
-		line-height: 1.4;
+		line-height: 1.25;
 		padding: 0.75em;
 		box-sizing: border-box;
 		background: #ffffff;

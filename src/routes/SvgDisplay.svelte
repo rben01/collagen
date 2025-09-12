@@ -17,8 +17,8 @@
 		panY = $bindable(0),
 		showRawSvg = $bindable(false),
 		showInstructions = $bindable(false),
-	}: { 
-		svg: string; 
+	}: {
+		svg: string;
 		controlsVisible?: boolean;
 		scale?: number;
 		panX?: number;
@@ -468,13 +468,16 @@
 								focused)
 							</li>
 							<li><strong>+/-</strong> keys: Zoom in/out</li>
-							<li><strong>0</strong> key: Reset view</li>
+							<li><strong>Zero</strong> key: Reset view</li>
 						</ul>
 					</div>
 
 					<div class="instruction-section">
 						<h5>Actions</h5>
 						<ul>
+							<li>
+								<strong>Focus</strong> the SVG viewer to enable panning
+							</li>
 							<li><strong>?</strong> key: Toggle help instructions</li>
 							<li><strong>V</strong> key: Toggle code view</li>
 							<li><strong>C</strong> key: Copy SVG to clipboard</li>
@@ -482,11 +485,6 @@
 						</ul>
 					</div>
 				</div>
-
-				<p class="instructions-note">
-					💡 <strong>Tip:</strong> Click the SVG viewer first to enable pan
-					with Shift + arrow keys.
-				</p>
 			</div>
 		</div>
 	{/if}
@@ -786,7 +784,7 @@
 	.instruction-section strong {
 		color: #374151;
 		font-weight: 600;
-		font-family: monospace;
+		font-family: var(--mono-font-family);
 		background: #e5e7eb;
 		padding: 0.1em 0.3em;
 		border-radius: 0.2em;
