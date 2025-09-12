@@ -12,13 +12,21 @@
 	let {
 		svg,
 		controlsVisible = true,
-	}: { svg: string; controlsVisible?: boolean } = $props();
+		scale = $bindable(1),
+		panX = $bindable(0),
+		panY = $bindable(0),
+		showRawSvg = $bindable(false),
+		showInstructions = $bindable(false),
+	}: { 
+		svg: string; 
+		controlsVisible?: boolean;
+		scale?: number;
+		panX?: number;
+		panY?: number;
+		showRawSvg?: boolean;
+		showInstructions?: boolean;
+	} = $props();
 
-	let showRawSvg = $state(false);
-	let showInstructions = $state(false);
-	let scale = $state(1);
-	let panX = $state(0);
-	let panY = $state(0);
 	let isDragging = $state(false);
 	let lastMouseX = $state(0);
 	let lastMouseY = $state(0);

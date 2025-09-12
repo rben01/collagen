@@ -65,6 +65,13 @@
 	})();
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
+	// Persistent SVG viewer state that survives component mount/unmount
+	let svgScale = $state(1);
+	let svgPanX = $state(0);
+	let svgPanY = $state(0);
+	let svgShowRawSvg = $state(false);
+	let svgShowInstructions = $state(false);
+
 	function handleOpenTextFile(path: string) {
 		editorPath = path;
 		if (!filesData) return;
@@ -244,18 +251,33 @@
 					svg={svgOutput}
 					bind:this={svgDisplayComponent}
 					{controlsVisible}
+					bind:scale={svgScale}
+					bind:panX={svgPanX}
+					bind:panY={svgPanY}
+					bind:showRawSvg={svgShowRawSvg}
+					bind:showInstructions={svgShowInstructions}
 				/>
 			{:else if error}
-				<div class="error-state">
-					<div class="error-content error-message">
-						<span class="error-icon">⚠️</span>
-						<p class="error-description">{error}</p>
+				{#if controlsVisible}
+					<ErrorPane message={error} />
+				{:else}
+					<div class="error-state">
+						<div class="error-content error-message">
+							<span class="error-icon">⚠️</span>
+							<p class="error-description">{error}</p>
+						</div>
 					</div>
-				</div>
+				{/if}
 			{:else if showLoading}
-				<div class="loading-state">
-					<p>Processing files...</p>
-				</div>
+				{#if controlsVisible}
+					<LoadingPane />
+				{:else}
+					<div class="loading-state">
+						<p>Processing files...</p>
+					</div>
+				{/if}
+			{:else if controlsVisible}
+				<IntroPane />
 			{:else}
 				<div class="waiting-state">
 					<div class="welcome">
@@ -317,19 +339,7 @@
 				<RightPane ariaLabelContent="Text editor" content={editorContent} />
 			{:else}
 				{#snippet rightViewer()}
-					{#if svgOutput}
-						<SvgDisplay
-							svg={svgOutput}
-							bind:this={svgDisplayComponent}
-							controlsVisible={true}
-						/>
-					{:else if error}
-						<ErrorPane message={error} />
-					{:else if showLoading}
-						<LoadingPane />
-					{:else}
-						<IntroPane />
-					{/if}
+					{@render svgViewerContent(true)}
 				{/snippet}
 				<RightPane
 					ariaLabelContent="Generated SVG display"
