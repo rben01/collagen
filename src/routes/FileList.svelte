@@ -512,6 +512,7 @@ local diameter(r) = 2 * std.pi * r;
 		min-height: 0;
 		padding: 0.5em;
 		overflow-y: auto;
+		scroll-behavior: smooth;
 	}
 
 	.file-list-bottom-hint {
@@ -569,25 +570,6 @@ local diameter(r) = 2 * std.pi * r;
 	.size-warning {
 		color: #f59e0b;
 		font-size: 1.1em;
-	}
-
-	/* Scrollbar styling */
-	.files-container::-webkit-scrollbar {
-		width: 6px;
-	}
-
-	.files-container::-webkit-scrollbar-track {
-		background: #f1f5f9;
-		border-radius: 3px;
-	}
-
-	.files-container::-webkit-scrollbar-thumb {
-		background: #cbd5e1;
-		border-radius: 3px;
-	}
-
-	.files-container::-webkit-scrollbar-thumb:hover {
-		background: #94a3b8;
 	}
 
 	.file-actions {

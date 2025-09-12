@@ -355,7 +355,7 @@
 
 <style>
 	main {
-		--v-margin: 2em;
+		--v-margin: 2rem;
 		margin: var(--v-margin) 2vw;
 		font-family:
 			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
@@ -496,6 +496,9 @@
 	}
 
 	@media (max-width: 1024px) {
+		main {
+			--v-margin: 0.75rem;
+		}
 		.app-layout {
 			flex-direction: column;
 			height: auto;
