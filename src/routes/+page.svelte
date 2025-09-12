@@ -356,9 +356,7 @@
 <style>
 	main {
 		--v-margin: 2em;
-
-		max-width: calc(min(1200px, 90vw));
-		margin: var(--v-margin) auto;
+		margin: var(--v-margin) 2vw;
 		font-family:
 			-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
 			Cantarell, sans-serif;
