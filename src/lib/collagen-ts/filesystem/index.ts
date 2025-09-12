@@ -159,9 +159,11 @@ export class InMemoryFileSystem {
 		normalizePaths = true,
 	): Promise<InMemoryFileSystem> {
 		const fs = new InMemoryFileSystem(new Map());
-		for (const [path, file] of files) {
-			await fs.addFile(path, file, normalizePaths);
-		}
+		await Promise.all(
+			files
+				.entries()
+				.map(([path, file]) => fs.addFile(path, file, normalizePaths)),
+		);
 		return fs;
 	}
 
