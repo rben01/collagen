@@ -74,6 +74,8 @@
 
 	function handleOpenTextFile(path: string) {
 		editorPath = path;
+		// Auto-close help when opening text editor
+		svgShowInstructions = false;
 		if (!filesData) return;
 		const file = filesData.fs.load(path);
 		editorText = textDecoder.decode(file.bytes);
@@ -251,6 +253,7 @@
 					svg={svgOutput}
 					bind:this={svgDisplayComponent}
 					{controlsVisible}
+					{editorPath}
 					bind:scale={svgScale}
 					bind:panX={svgPanX}
 					bind:panY={svgPanY}

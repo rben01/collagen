@@ -12,6 +12,7 @@
 	let {
 		svg,
 		controlsVisible = true,
+		editorPath = null,
 		scale = $bindable(1),
 		panX = $bindable(0),
 		panY = $bindable(0),
@@ -20,6 +21,7 @@
 	}: {
 		svg: string;
 		controlsVisible?: boolean;
+		editorPath?: string | null;
 		scale?: number;
 		panX?: number;
 		panY?: number;
@@ -329,8 +331,11 @@
 					handled = true;
 					break;
 				case "?":
-					toggleInstructions();
-					handled = true;
+					// Disable help toggle when text editor is open
+					if (!editorPath) {
+						toggleInstructions();
+						handled = true;
+					}
 					break;
 			}
 		}
