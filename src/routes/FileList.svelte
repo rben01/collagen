@@ -240,7 +240,7 @@ local nCircles = 5;
 // define function with default args
 local circleFill(i, n=nCircles) =
 		// string formatting. %% to escape percent signs
-		"hsl(%d, 100%%, 50%%)" % (0.15 * (n - i) * 360 / n);
+		"hsl(%d 90%% 50%%)" % (0.2 * (n - i - 1) * 360 / n);
 
 local diameter(r) = 2 * std.pi * r;
 
