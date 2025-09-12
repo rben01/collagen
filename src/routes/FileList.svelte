@@ -229,38 +229,50 @@
 
 		const initialContents = filename.toUpperCase().endsWith(".JSONNET")
 			? `
+// set up our file-wide constants
 local w = 100;
 local h = 80;
 local margin = 10;
-local rectWidth = w - 2*margin;
-local rectHeight = h - 2*margin;
-local nCircles = 6;
+local rectWidth = w - 2 * margin;
+local rectHeight = h - 2 * margin;
+local nCircles = 5;
+
+// define function with default args
+local circleFill(i, n=nCircles) =
+		// string formatting. %% to escape percent signs
+		"hsl(%d, 100%%, 50%%)" % (0.15 * (n - i) * 360 / n);
+
+local diameter(r) = 2 * std.pi * r;
 
 {
 	attrs: {
 		viewBox: "0 0 %d %d" % [w, h],
 	},
+	// adding lists concatenates them
 	children: [
 		{
 			tag: "rect",
 			attrs: {
 				x: margin, y: margin,
 				width: rectWidth, height: rectHeight,
-				fill: "#0076FF", stroke: "#FF9C00", "stroke-width": 3,
+				fill: "#0076FF", stroke: "#00D800", "stroke-width": 3,
 			}
 		},
-	] + [
+	] + [ // list comprehensions let us easily generate objects from a template
 		{
 			tag: "circle",
 			attrs: {
-				local fill = "hsl(%d, 100%%, 50%%)" % (i * 360 / nCircles),
-				local strokeDasharray = if i % 2 == 0 then "none" else "5 5",
-				cx: w/2, cy: h/2, r: (nCircles-i)*5,
-				fill: fill,
+				// define object-local variable
+				local r = (nCircles - i) * 5,
+				// 10 dashes around the odd-numbered circles
+				local strokeDasharray = if i % 2 == 0 then "none" else diameter(r) / (2 * 10),
+				cx: w/2, cy: h/2, r: r,
+				fill: circleFill(i),
 				stroke: "black", "stroke-width": 1, "stroke-dasharray": strokeDasharray,
 			}
 		}
-		for i in std.range(1, nCircles-1)
+		// a stdlib function, produces range from low (inclusive) to high (exclusive)
+		for i in std.range(0, nCircles)
 	]
 }
 `
