@@ -297,14 +297,26 @@
 			switch (event.key) {
 				case "+":
 				case "=":
-					if (!showRawSvg) {
+					// Only handle if no modifier keys are pressed (allow Cmd/Ctrl+Plus for browser zoom)
+					if (
+						!showRawSvg &&
+						!event.metaKey &&
+						!event.ctrlKey &&
+						!event.altKey
+					) {
 						zoomIn();
 						handled = true;
 					}
 					break;
 				case "-":
 				case "_":
-					if (!showRawSvg) {
+					// Only handle if no modifier keys are pressed (allow Cmd/Ctrl+Minus for browser zoom)
+					if (
+						!showRawSvg &&
+						!event.metaKey &&
+						!event.ctrlKey &&
+						!event.altKey
+					) {
 						zoomOut();
 						handled = true;
 					}
