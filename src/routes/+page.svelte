@@ -55,14 +55,7 @@
 		svgOutput = null;
 	}
 	// packing it in an object is a trick to get svelte to re-render downstream
-	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
-	// Initialize an empty filesystem so the workspace is always visible
-	(async () => {
-		if (!filesData) {
-			const empty = await InMemoryFileSystem.create(new Map(), false);
-			filesData = { fs: empty };
-		}
-	})();
+	let filesData = $state({ fs: InMemoryFileSystem.create(new Map(), false) });
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
 	// Persistent SVG viewer state that survives component mount/unmount
@@ -139,15 +132,9 @@
 			console.log("📂 Root folder:", root);
 		}
 
-		// If we already have a filesystem, merge the new files into it
-		if (filesData) {
-			console.log("📂 Merging files into existing filesystem...");
-			await filesData.fs.mergeFiles(files);
-			await handleFiles(filesData.fs);
-		} else {
-			// First upload - create new filesystem
-			await handleFiles(await InMemoryFileSystem.create(files));
-		}
+		console.log("📂 Merging files into existing filesystem...");
+		await filesData.fs.mergeFiles(files);
+		await handleFiles(filesData.fs);
 	}
 
 	function handleZeroFiles() {

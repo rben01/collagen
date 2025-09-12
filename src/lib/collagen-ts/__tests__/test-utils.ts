@@ -76,7 +76,7 @@ export async function createFileSystem(
 		}
 	}
 
-	return await InMemoryFileSystem.create(convertedFileMap, false);
+	return InMemoryFileSystem.create(convertedFileMap, false);
 }
 
 /**
