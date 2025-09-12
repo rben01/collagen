@@ -709,10 +709,6 @@
 
 	.svg-content {
 		position: absolute;
-		transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
-			scale(var(--scale));
-		transform-origin: center;
-		transition: transform var(--transition-duration) ease-out;
 		width: var(--constrained-width);
 		height: var(--constrained-height);
 	}
@@ -723,6 +719,12 @@
 		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.15);
 		border-radius: 6px;
 		background: white;
+		will-change: transform;
+		image-rendering: crisp-edges;
+		transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
+			scale(var(--scale));
+		transform-origin: center;
+		transition: transform var(--transition-duration) ease-out;
 	}
 
 	.raw-svg {
