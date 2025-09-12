@@ -341,7 +341,7 @@ local nCircles = 6;
 	<div class="files-container">
 		{#each filesSorted as [path, file] (path)}
 			{#snippet fileListItem()}
-				<div class="file-path" title={path}>{path}</div>
+				<div class="file-path">{path}</div>
 				<div class="file-actions">
 					<div class="file-size">
 						{#if file && typeof file.bytes.length === "number"}
@@ -383,12 +383,13 @@ local nCircles = 6;
 					}}
 					role="button"
 					tabindex="0"
+					title={`Click to edit '${path}'`}
 					aria-label={`Edit ${path}`}
 				>
 					{@render fileListItem()}
 				</div>
 			{:else}
-				<div class="file-item" aria-label={`File ${path}`}>
+				<div class="file-item" title={path} aria-label={`File ${path}`}>
 					{@render fileListItem()}
 				</div>
 			{/if}
@@ -396,7 +397,8 @@ local nCircles = 6;
 	</div>
 
 	<div class="file-list-bottom-hint" aria-hidden="true">
-		To add files to your project, drop them above or use the buttons below
+		Click a text file above to edit it. To add files to your project, drop
+		them above or use the buttons below.
 	</div>
 
 	<div class="button-group">

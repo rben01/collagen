@@ -464,11 +464,13 @@
 							</li>
 							<li><strong>Touch</strong>: Drag to pan, pinch to zoom</li>
 							<li>
-								<strong>Shift + arrows</strong>: Pan (when viewer
-								focused)
+								<strong>Shift</strong><span
+									style="position:relative;bottom:0.1em;"
+									>&ThinSpace;+&ThinSpace;</span
+								><strong>arrows</strong>: Pan (when viewer focused)
 							</li>
 							<li><strong>+/-</strong> keys: Zoom in/out</li>
-							<li><strong>Zero</strong> key: Reset view</li>
+							<li><strong>0</strong> key: Reset view</li>
 						</ul>
 					</div>
 
