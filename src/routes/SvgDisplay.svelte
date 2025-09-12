@@ -143,9 +143,12 @@
 	function handleTouchStart(event: TouchEvent) {
 		if (event.touches.length === 2) {
 			event.preventDefault();
+			event.stopPropagation();
 			lastTouchDistance = getTouchDistance(event.touches);
 		} else if (event.touches.length === 1) {
-			// Single touch for panning
+			// Single touch for panning - prevent page scroll
+			event.preventDefault();
+			event.stopPropagation();
 			isDragging = true;
 			lastMouseX = event.touches[0].clientX;
 			lastMouseY = event.touches[0].clientY;
@@ -157,6 +160,7 @@
 		if (event.touches.length === 2) {
 			// Pinch to zoom
 			event.preventDefault();
+			event.stopPropagation();
 			const currentDistance = getTouchDistance(event.touches);
 			if (lastTouchDistance > 0) {
 				const delta = currentDistance / lastTouchDistance;
@@ -166,6 +170,7 @@
 		} else if (event.touches.length === 1 && isDragging) {
 			// Single touch panning
 			event.preventDefault();
+			event.stopPropagation();
 			const deltaX = event.touches[0].clientX - lastMouseX;
 			const deltaY = event.touches[0].clientY - lastMouseY;
 
@@ -258,6 +263,11 @@
 				return `transform: translateX(${x}%); opacity: ${opacity};`;
 			},
 		};
+	}
+
+	function handleRawSvgTouchMove(event: TouchEvent) {
+		// Prevent page scrolling when scrolling within raw SVG code view
+		event.stopPropagation();
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -475,7 +485,12 @@
 
 	{#if showRawSvg}
 		<!-- TODO: format SVG? -->
-		<div class="raw-svg" role="region" aria-label="The raw SVG code">
+		<div
+			class="raw-svg"
+			role="region"
+			aria-label="The raw SVG code"
+			ontouchmove={handleRawSvgTouchMove}
+		>
 			<pre><code>{svg}</code></pre>
 		</div>
 	{:else}
@@ -630,6 +645,7 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		touch-action: none; /* Prevent iOS Safari from scrolling */
 	}
 
 	.svg-container:focus {

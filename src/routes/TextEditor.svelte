@@ -19,6 +19,11 @@
 		const target = event.target as HTMLTextAreaElement;
 		onUpdateText(target.value);
 	}
+
+	function handleTouchMove(event: TouchEvent) {
+		// Prevent page scrolling when scrolling within textarea
+		event.stopPropagation();
+	}
 </script>
 
 <div class="text-editor" role="region" aria-label="Text editor">
@@ -37,6 +42,7 @@
 		class="editor-textarea"
 		bind:value={text}
 		{oninput}
+		ontouchmove={handleTouchMove}
 		spellcheck={false}
 		aria-label="Editable text file contents"
 	></textarea>
