@@ -154,13 +154,13 @@ export class InMemoryFileSystem {
 		this.#files = files;
 	}
 
-	static create(
+	static async create(
 		files: Map<string, File>,
 		normalizePaths = true,
-	): InMemoryFileSystem {
+	): Promise<InMemoryFileSystem> {
 		const fs = new InMemoryFileSystem(new Map());
 		for (const [path, file] of files) {
-			fs.addFile(path, file, normalizePaths);
+			await fs.addFile(path, file, normalizePaths);
 		}
 		return fs;
 	}

@@ -355,7 +355,7 @@ async function createNestedContext(
 	}
 
 	// Create new filesystem with the filtered files
-	const nestedFilesystem = InMemoryFileSystem.create(nestedFiles);
+	const nestedFilesystem = await InMemoryFileSystem.create(nestedFiles);
 
 	return {
 		filesystem: nestedFilesystem,
