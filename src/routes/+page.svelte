@@ -55,14 +55,10 @@
 		svgOutput = null;
 	}
 	// packing it in an object is a trick to get svelte to re-render downstream
-	let filesData: { fs: InMemoryFileSystem } | null = $state(null);
-	// Initialize an empty filesystem so the workspace is always visible
-	(async () => {
-		if (!filesData) {
-			const empty = await InMemoryFileSystem.create(new Map(), false);
-			filesData = { fs: empty };
-		}
-	})();
+	let filesData: { fs: InMemoryFileSystem } = $state({
+		fs: InMemoryFileSystem.createEmpty(),
+	});
+
 	let svgDisplayComponent: SvgDisplay | null = $state(null);
 
 	// Persistent SVG viewer state that survives component mount/unmount

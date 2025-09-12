@@ -154,11 +154,15 @@ export class InMemoryFileSystem {
 		this.#files = files;
 	}
 
+	static createEmpty(): InMemoryFileSystem {
+		return new InMemoryFileSystem(new Map());
+	}
+
 	static async create(
 		files: Map<string, File>,
 		normalizePaths = true,
 	): Promise<InMemoryFileSystem> {
-		const fs = new InMemoryFileSystem(new Map());
+		const fs = InMemoryFileSystem.createEmpty();
 		await Promise.all(
 			files
 				.entries()
