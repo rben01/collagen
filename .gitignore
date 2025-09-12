@@ -4,6 +4,7 @@ target
 spellright.dict
 playwright-report
 public/build
+.serena
 
 test-results
 node_modules
