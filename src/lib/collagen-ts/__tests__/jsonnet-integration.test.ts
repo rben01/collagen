@@ -17,13 +17,13 @@ import { createFileSystem } from "./test-utils";
 describe("Basic Jsonnet Compilation", () => {
 	it("should compile simple empty object", async () => {
 		const fs = await createFileSystem({});
-		const result = compileJsonnet("{}", fs);
+		const result = await compileJsonnet("{}", fs);
 		expect(result).toEqual({});
 	});
 
 	it("should compile simple object with string value", async () => {
 		const fs = await createFileSystem({});
-		const result = compileJsonnet("{ test: 'value' }", fs);
+		const result = await compileJsonnet("{ test: 'value' }", fs);
 		expect(result).toEqual({ test: "value" });
 	});
 
@@ -33,13 +33,13 @@ describe("Basic Jsonnet Compilation", () => {
 			local name = "test";
 			{ name: name }
 		`;
-		const result = compileJsonnet(jsonnetCode, fs);
+		const result = await compileJsonnet(jsonnetCode, fs);
 		expect(result).toEqual({ name: "test" });
 	});
 
 	it("should handle arrays", async () => {
 		const fs = await createFileSystem({});
-		const result = compileJsonnet('["a", "b", "c"]', fs);
+		const result = await compileJsonnet('["a", "b", "c"]', fs);
 		expect(result).toEqual(["a", "b", "c"]);
 	});
 
@@ -54,7 +54,7 @@ describe("Basic Jsonnet Compilation", () => {
 				]
 			}
 		`;
-		const result = compileJsonnet(jsonnetCode, fs);
+		const result = await compileJsonnet(jsonnetCode, fs);
 		expect(result).toEqual({
 			attrs: { viewBox: "0 0 100 100" },
 			children: [{ tag: "rect" }, "text"],

@@ -41,7 +41,6 @@ function expectValidationError(fn: () => unknown, errorType: unknown) {
 		fn();
 		expect.fail("Expected validation to throw an error");
 	} catch (error) {
-		console.log({ error });
 		expect(null).toBeNull(); // we need to check that we actually got here
 		expect(error).toBeInstanceOf(errorType);
 	}

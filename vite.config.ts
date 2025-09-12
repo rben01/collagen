@@ -3,6 +3,5 @@ import { sveltekit } from "@sveltejs/kit/vite";
 
 export default defineConfig({
 	plugins: [sveltekit()],
-	optimizeDeps: { exclude: ["src/lib/collagen-ts/jsonnet/sjsonnet.js"] },
-	build: { minify: "esbuild", chunkSizeWarningLimit: 1500 },
+	build: { minify: "esbuild", chunkSizeWarningLimit: 1000 },
 });

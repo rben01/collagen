@@ -8,11 +8,11 @@
 import type { InMemoryFileSystem } from "../filesystem/index.js";
 import { normalizedPathJoin } from "../filesystem/index.js";
 import { JsonnetError } from "../errors/index.js";
-import {
-	SjsonnetMain,
-	type JsonnetResolverCallback,
-	type JsonnetLoaderCallback,
-} from "./sjsonnet.js";
+import type {
+	SjsonnetMain as SjsonnetMainObject,
+	JsonnetResolverCallback,
+	JsonnetLoaderCallback,
+} from "./sjsonnet.d.ts";
 
 // technically not true (JSON cannot be `undefined`) but close enough to true to be
 // useful, since the stuff we're deserializing from JSON can be missing keys which, in
@@ -23,15 +23,19 @@ export type JsonObject =
 	| JsonObject[]
 	| { [key: string]: JsonObject };
 
+let SjsonnetMain: typeof SjsonnetMainObject | undefined;
+
 /**
  * Compile Jsonnet code to a JavaScript object
  */
-export function compileJsonnet(
+export async function compileJsonnet(
 	jsonnetCode: string,
 	filesystem: InMemoryFileSystem,
 	manifestPath: string = "collagen.jsonnet",
-): JsonObject {
+): Promise<JsonObject> {
 	try {
+		if (!SjsonnetMain) ({ SjsonnetMain } = await import("./sjsonnet.js"));
+
 		// Create resolver callback (for resolving import paths)
 		const resolverCallback: JsonnetResolverCallback = (wd, imported) =>
 			normalizedPathJoin(wd, imported);

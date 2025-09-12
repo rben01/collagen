@@ -13,7 +13,7 @@ import {
 	JsonError,
 } from "../errors/index.js";
 import { generateSvg } from "../index.js";
-import { type JsonObject } from "../jsonnet/index.js";
+import { compileJsonnet, type JsonObject } from "../jsonnet/index.js";
 import { validateDocument } from "../validation/index.js";
 
 // =============================================================================
@@ -296,8 +296,11 @@ export class InMemoryFileSystem {
 			if (manifestFormat === "json") {
 				return JSON.parse(text) as JsonObject;
 			} else {
-				const { compileJsonnet } = await import("../jsonnet/index.js");
-				return compileJsonnet(text, this, getManifestPath(manifestFormat));
+				return await compileJsonnet(
+					text,
+					this,
+					getManifestPath(manifestFormat),
+				);
 			}
 		} catch (error) {
 			if (error instanceof SyntaxError) {
