@@ -18,25 +18,60 @@
 	let svgOutput: string | null = $state(null);
 	let editorPath: string | null = $state(null);
 	let editorText: string | null = $state(null);
-	// Debounced editor persistence state
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
-	const PERSIST_MS = 200; // ~5 writes/sec, persist within 0.2s
+	const PERSIST_MS = 100; // ~10 writes/sec, persist within 0.1s
+	const ERROR_DELAY_MS = 300; // Delay errors by 300ms to avoid flicker
 
 	const textEncoder = new TextEncoder();
 	const textDecoder = new TextDecoder();
 
+	let errorTimer: ReturnType<typeof setTimeout> | null = $state(null);
+
+	function startLoading() {
+		// Defer showing the loading UI to avoid flicker on fast ops
+		const loadingTimerUT = untrack(() => loadingTimer);
+		if (loadingTimerUT) clearTimeout(loadingTimerUT);
+		showLoading = false;
+		loadingTimer = setTimeout(() => (showLoading = true), ERROR_DELAY_MS);
+	}
+
 	function stopLoading() {
-		if (loadingTimer) clearTimeout(loadingTimer);
+		const loadintTimerUT = untrack(() => loadingTimer);
+		if (loadintTimerUT) clearTimeout(loadintTimerUT);
 		loadingTimer = null;
 		showLoading = false;
 	}
 
 	function setErrorState(err: unknown) {
 		const compatError = toCollagenError(err);
-		error = compatError.message;
-		svgOutput = null;
+
+		// Clear any pending error timer
+		const errorTimerUT = untrack(() => errorTimer);
+		if (errorTimerUT) {
+			clearTimeout(errorTimerUT);
+		}
+
+		// Delay error display by ERROR_DELAY_MS to avoid spurious messages
+		errorTimer = setTimeout(() => {
+			error = compatError.message;
+			svgOutput = null;
+			errorTimer = null;
+		}, ERROR_DELAY_MS);
 	}
+
+	function handleZeroFiles() {
+		error = null;
+		svgOutput = null;
+		stopLoading();
+		// Clear any pending error timer since we're in a valid "no files" state
+		const errorTimerUT = untrack(() => errorTimer);
+		if (errorTimerUT) {
+			clearTimeout(errorTimerUT);
+			errorTimer = null;
+		}
+	}
+
 	// packing it in an object is a trick to get svelte to re-render downstream
 	let filesData: { fs: InMemoryFileSystem } = $state({
 		fs: InMemoryFileSystem.createEmpty(),
@@ -61,7 +96,7 @@
 			void persistEditorChanges();
 			return;
 		}
-		if (untrack(() => !persistTimer)) {
+		if (!untrack(() => persistTimer)) {
 			const delay = Math.max(0, PERSIST_MS - elapsed);
 			persistTimer = setTimeout(() => {
 				persistTimer = null;
@@ -90,11 +125,12 @@
 	}
 
 	function persistEditorChanges() {
-		if (!filesData || !editorPath || editorText === null) return;
+		const filesDataUT = untrack(() => filesData);
+		if (!filesDataUT || !editorPath || editorText === null) return;
 		try {
 			const bytes = textEncoder.encode(editorText);
-			filesData.fs.addFileContents(editorPath, bytes, true);
-			filesData = { fs: filesData.fs };
+			filesDataUT.fs.addFileContents(editorPath, bytes, true);
+			filesData = { fs: filesDataUT.fs };
 			lastPersistAt = Date.now();
 		} catch (err) {
 			console.error("Failed to persist editor changes:", err);
@@ -111,20 +147,24 @@
 	$effect(() => {
 		const { fs } = filesData;
 
-		// Attempt to regenerate SVG
-
 		// If there are no files, show instructions (no error)
 		if (fs.getFileCount() === 0) {
-			error = null;
-			svgOutput = null;
-			stopLoading();
+			handleZeroFiles();
 			return;
 		}
 
+		startLoading();
+
 		fs.generateSvg()
 			.then(svg => {
+				if (errorTimer) {
+					clearTimeout(errorTimer);
+					errorTimer = null;
+				}
+				stopLoading();
 				svgOutput = svg;
-				if (untrack(() => svgOutput)) {
+				error = null;
+				if (svg) {
 					console.log("✅ SVG regenerated after filesystem change");
 				}
 			})
@@ -133,9 +173,9 @@
 					"Error regenerating SVG after filesystem change:",
 					err,
 				);
-				setErrorState(untrack(() => err));
-			})
-			.finally(stopLoading);
+				setErrorState(err);
+				stopLoading();
+			});
 	});
 </script>
 
