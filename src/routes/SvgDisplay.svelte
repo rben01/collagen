@@ -42,6 +42,8 @@
 	let svgConstrainedHeight: number | null = $state(null);
 
 	const SVG_PADDING = 8; // px
+	const MIN_SCALE = 0.1; // default zoom = 1, this is relative to that
+	const MAX_SCALE = 5;
 
 	// Parse SVG viewBox to get native dimensions and aspect ratio
 	const svgDimensions = $derived.by(() => {
@@ -134,11 +136,11 @@
 	}
 
 	function zoomIn() {
-		withTransition(() => (scale = Math.min(scale * 1.2, 5)));
+		withTransition(() => (scale = Math.min(scale * 1.2, MAX_SCALE)));
 	}
 
 	function zoomOut() {
-		withTransition(() => (scale = Math.max(scale / 1.2, 0.1)));
+		withTransition(() => (scale = Math.max(scale / 1.2, MIN_SCALE)));
 	}
 
 	function getTouchDistance(touches: TouchList): number {
@@ -174,7 +176,14 @@
 			const currentDistance = getTouchDistance(event.touches);
 			if (lastTouchDistance > 0) {
 				const delta = currentDistance / lastTouchDistance;
-				scale = Math.max(0.1, Math.min(5, scale * delta));
+
+				// Calculate midpoint between the two touches
+				const touch1 = event.touches[0];
+				const touch2 = event.touches[1];
+				const midpointX = (touch1.clientX + touch2.clientX) / 2;
+				const midpointY = (touch1.clientY + touch2.clientY) / 2;
+
+				zoomToPoint(midpointX, midpointY, delta);
 			}
 			lastTouchDistance = currentDistance;
 		} else if (event.touches.length === 1 && isDragging) {
@@ -203,12 +212,39 @@
 		}
 	}
 
+	function zoomToPoint(clientX: number, clientY: number, scaleDelta: number) {
+		if (!svgContainer) return;
+
+		// Get the container bounds
+		const containerRect = svgContainer.getBoundingClientRect();
+
+		// Calculate cursor position relative to container center
+		const cursorX = clientX - containerRect.left - containerRect.width / 2;
+		const cursorY = clientY - containerRect.top - containerRect.height / 2;
+
+		// Calculate cursor position in SVG coordinate space (before zoom)
+		const cursorSvgX = (cursorX - panX) / scale;
+		const cursorSvgY = (cursorY - panY) / scale;
+
+		// clamp scale to scale bounds
+		const newScale = Math.max(
+			MIN_SCALE,
+			Math.min(scale * scaleDelta, MAX_SCALE),
+		);
+
+		// Adjust pan so cursor point remains stationary
+		panX = cursorX - cursorSvgX * newScale;
+		panY = cursorY - cursorSvgY * newScale;
+
+		scale = newScale;
+	}
+
 	function handleWheel(event: WheelEvent) {
 		// Only zoom if Ctrl is held (trackpad pinch) or if it's a Mac and Meta is held
 		if (event.ctrlKey || event.metaKey) {
 			event.preventDefault();
 			const delta = event.deltaY > 0 ? 0.9 : 1.1;
-			scale = Math.max(0.1, Math.min(5, scale * delta));
+			zoomToPoint(event.clientX, event.clientY, delta);
 		}
 		// Otherwise, let the scroll event pass through for normal page scrolling
 	}
