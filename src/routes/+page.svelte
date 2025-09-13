@@ -10,7 +10,7 @@
 		toCollagenError,
 		InMemoryFileSystem,
 	} from "../lib/collagen-ts/index.js";
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 
 	let error: string | null = $state(null);
 	let showLoading = $state(false);
@@ -23,25 +23,8 @@
 	let lastPersistAt = $state(0);
 	const PERSIST_MS = 200; // ~5 writes/sec, persist within 0.2s
 
-	const LOADING_DELAY_MS = 500;
 	const textEncoder = new TextEncoder();
 	const textDecoder = new TextDecoder();
-
-	function startLoading({
-		clearSvg,
-		clearError = true,
-	}: {
-		clearSvg: boolean;
-		clearError?: boolean;
-	}) {
-		// Reset error and optionally clear SVG (for first loads)
-		if (clearError) error = null;
-		if (clearSvg) svgOutput = null;
-		// Defer showing the loading UI to avoid flicker on fast ops
-		if (loadingTimer) clearTimeout(loadingTimer);
-		showLoading = false;
-		loadingTimer = setTimeout(() => (showLoading = true), LOADING_DELAY_MS);
-	}
 
 	function stopLoading() {
 		if (loadingTimer) clearTimeout(loadingTimer);
@@ -70,18 +53,19 @@
 
 	// persist the edited text after a timer
 	$effect(() => {
+		editorText;
 		const now = Date.now();
-		const elapsed = now - lastPersistAt;
+		const elapsed = now - untrack(() => lastPersistAt);
 		if (elapsed >= PERSIST_MS) {
 			// Leading edge: persist immediately
 			void persistEditorChanges();
 			return;
 		}
-		if (!persistTimer) {
+		if (untrack(() => !persistTimer)) {
 			const delay = Math.max(0, PERSIST_MS - elapsed);
-			persistTimer = setTimeout(async () => {
+			persistTimer = setTimeout(() => {
 				persistTimer = null;
-				await persistEditorChanges();
+				persistEditorChanges();
 			}, delay);
 		}
 	});
@@ -100,85 +84,20 @@
 			clearTimeout(persistTimer);
 			persistTimer = null;
 		}
-		persistEditorChanges().finally(() => {
-			editorPath = null;
-			editorText = null;
-		});
+		persistEditorChanges();
+		editorPath = null;
+		editorText = null;
 	}
 
-	async function persistEditorChanges() {
+	function persistEditorChanges() {
 		if (!filesData || !editorPath || editorText === null) return;
 		try {
 			const bytes = textEncoder.encode(editorText);
 			filesData.fs.addFileContents(editorPath, bytes, true);
+			filesData = { fs: filesData.fs };
 			lastPersistAt = Date.now();
-			await handleFilesystemChange();
 		} catch (err) {
 			console.error("Failed to persist editor changes:", err);
-		}
-	}
-
-	// TODO: I'm pretty sure most of these "handle" functions can be replaced by Svelte's
-	// own reactivity
-	async function handleFilesUploadedWithRoot(
-		files: Map<string, File>,
-		root: string,
-	) {
-		console.log("🔄 Starting file processing...");
-
-		console.log("📁 Files received:", files.size, "files");
-		if (root) {
-			console.log("📂 Root folder:", root);
-		}
-
-		// If we already have a filesystem, merge the new files into it
-		if (filesData) {
-			console.log("📂 Merging files into existing filesystem...");
-			await filesData.fs.mergeFiles(files);
-			await handleFiles(filesData.fs);
-		} else {
-			// First upload - create new filesystem
-			await handleFiles(await InMemoryFileSystem.create(files));
-		}
-	}
-
-	function handleZeroFiles() {
-		error = null;
-		svgOutput = null;
-		stopLoading();
-	}
-
-	async function handleFiles(fs: InMemoryFileSystem) {
-		console.log("🔄 Processing files...");
-
-		try {
-			filesData = { fs };
-			if (fs.getFileCount() === 0) {
-				handleZeroFiles();
-				return;
-			}
-
-			startLoading({ clearSvg: true, clearError: true });
-
-			// Normalize paths to ensure leading slash for TypeScript implementation
-			console.log("🗺️ Normalizing file paths...");
-			// Check for manifest and handle jsonnet compilation if needed
-			console.log("🔍 Processing manifest...");
-
-			// Generate SVG using the processed manifest data
-			console.log("🎨 Generating SVG...");
-			svgOutput = await fs.generateSvg();
-			if (svgOutput) {
-				console.log(
-					"✅ SVG generated successfully! Length:",
-					svgOutput.length,
-				);
-			}
-		} catch (err) {
-			console.error("Error processing files:", err);
-			setErrorState(err);
-		} finally {
-			stopLoading();
 		}
 	}
 
@@ -189,44 +108,35 @@
 		}
 	});
 
-	async function handleRemoveFile(path: string) {
-		if (!filesData) return;
-
-		// Remove the file from the filesystem
-		const removedFile = filesData.fs.removeFile(path);
-		if (removedFile) {
-			handleFilesystemChange();
-		}
-
-		return removedFile;
-	}
-
-	async function handleFilesystemChange() {
-		if (!filesData) return;
-
-		filesData = { fs: filesData.fs };
+	$effect(() => {
+		const { fs } = filesData;
 
 		// Attempt to regenerate SVG
-		try {
-			// If there are no files, show instructions (no error)
-			if (filesData.fs.getFileCount() === 0) {
-				handleZeroFiles();
-				return;
-			}
-			// Avoid flicker: keep current SVG and existing error while we regenerate
-			startLoading({ clearSvg: false, clearError: false });
 
-			svgOutput = await filesData.fs.generateSvg();
-			if (svgOutput) {
-				console.log("✅ SVG regenerated after filesystem change");
-			}
-		} catch (err) {
-			console.error("Error regenerating SVG after filesystem change:", err);
-			setErrorState(err);
-		} finally {
+		// If there are no files, show instructions (no error)
+		if (fs.getFileCount() === 0) {
+			error = null;
+			svgOutput = null;
 			stopLoading();
+			return;
 		}
-	}
+
+		fs.generateSvg()
+			.then(svg => {
+				svgOutput = svg;
+				if (untrack(() => svgOutput)) {
+					console.log("✅ SVG regenerated after filesystem change");
+				}
+			})
+			.catch(err => {
+				console.error(
+					"Error regenerating SVG after filesystem change:",
+					err,
+				);
+				setErrorState(untrack(() => err));
+			})
+			.finally(stopLoading);
+	});
 </script>
 
 <svelte:head>
@@ -291,13 +201,7 @@
 			{#if filesData}
 				{#if editorPath}
 					<div class="sidebar-top">
-						<FileList
-							{filesData}
-							{handleRemoveFile}
-							{handleFilesystemChange}
-							handleFilesUploaded={handleFilesUploadedWithRoot}
-							{handleOpenTextFile}
-						/>
+						<FileList bind:filesData {handleOpenTextFile} />
 					</div>
 					<div
 						class="sidebar-bottom compact-svg"
@@ -307,13 +211,7 @@
 						{@render svgViewerContent(false)}
 					</div>
 				{:else}
-					<FileList
-						{filesData}
-						{handleRemoveFile}
-						{handleFilesystemChange}
-						handleFilesUploaded={handleFilesUploadedWithRoot}
-						{handleOpenTextFile}
-					/>
+					<FileList bind:filesData {handleOpenTextFile} />
 				{/if}
 			{:else}
 				<div class="file-list" aria-label="File information"></div>

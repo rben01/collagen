@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type {
+	import {
 		InMemoryFileSystem,
-		FileContent,
+		type FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
 	import { isTextPath } from "$lib/collagen-ts/index.js";
@@ -14,19 +14,10 @@
 	import ButtonIcon from "./ButtonIcon.svelte";
 
 	let {
-		filesData,
-		handleRemoveFile,
-		handleFilesystemChange,
-		handleFilesUploaded,
+		filesData = $bindable(),
 		handleOpenTextFile,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
-		handleRemoveFile: (path: string) => Promise<FileContent | undefined>;
-		handleFilesystemChange: () => Promise<void>;
-		handleFilesUploaded: (
-			files: Map<string, File>,
-			root: string,
-		) => Promise<void>;
 		handleOpenTextFile: (path: string) => void;
 	} = $props();
 
@@ -102,6 +93,25 @@
 		}
 	});
 
+	async function handleFilesUploaded(files: Map<string, File>, root: string) {
+		console.log("🔄 Starting file processing...");
+
+		console.log("📁 Files received:", files.size, "files");
+		if (root) {
+			console.log("📂 Root folder:", root);
+		}
+
+		let { fs } = filesData;
+		if (filesData) {
+			console.log("📂 Merging files into existing filesystem...");
+			await fs.mergeFiles(files);
+		} else {
+			// First upload - create new filesystem
+			fs = await InMemoryFileSystem.create(files);
+		}
+		filesData = { fs };
+	}
+
 	function handleDragEnter(event: DragEvent) {
 		event.preventDefault();
 		dragOver = true;
@@ -129,7 +139,9 @@
 
 	// Handle file deletion
 	async function deleteFile(path: string) {
-		const removedFile = await handleRemoveFile(path);
+		const { fs } = filesData;
+		const removedFile = fs.removeFile(path);
+		filesData = { fs };
 		if (removedFile) {
 			// Add to trash
 			trashedFiles.push({ file: removedFile, path });
@@ -165,8 +177,7 @@
 		// Clear trash and trigger reactivity
 		trashedFiles = [];
 
-		// Trigger SVG regeneration in parent component
-		await handleFilesystemChange();
+		filesData = { fs: filesData.fs };
 	}
 
 	function maybeOpen(path: string) {
@@ -287,7 +298,7 @@ local diameter(r) = 2 * std.pi * r;
 			filesData.fs.addFileContents(trimmed, emptyContent, true);
 
 			// Trigger filesystem change to update UI and regenerate SVG
-			await handleFilesystemChange();
+			filesData = { fs: filesData.fs };
 
 			// Open the new file in text editor
 			handleOpenTextFile(trimmed);
