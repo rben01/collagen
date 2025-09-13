@@ -68,6 +68,24 @@
 	let svgShowRawSvg = $state(false);
 	let svgShowInstructions = $state(false);
 
+	// persist the edited text after a timer
+	$effect(() => {
+		const now = Date.now();
+		const elapsed = now - lastPersistAt;
+		if (elapsed >= PERSIST_MS) {
+			// Leading edge: persist immediately
+			void persistEditorChanges();
+			return;
+		}
+		if (!persistTimer) {
+			const delay = Math.max(0, PERSIST_MS - elapsed);
+			persistTimer = setTimeout(async () => {
+				persistTimer = null;
+				await persistEditorChanges();
+			}, delay);
+		}
+	});
+
 	function handleOpenTextFile(path: string) {
 		editorPath = path;
 		// Auto-close help when opening text editor
@@ -86,28 +104,6 @@
 			editorPath = null;
 			editorText = null;
 		});
-	}
-
-	function onUpdateText(newText: string) {
-		editorText = newText;
-		schedulePersist();
-	}
-
-	function schedulePersist() {
-		const now = Date.now();
-		const elapsed = now - lastPersistAt;
-		if (elapsed >= PERSIST_MS) {
-			// Leading edge: persist immediately
-			void persistEditorChanges();
-			return;
-		}
-		if (!persistTimer) {
-			const delay = Math.max(0, PERSIST_MS - elapsed);
-			persistTimer = setTimeout(async () => {
-				persistTimer = null;
-				await persistEditorChanges();
-			}, delay);
-		}
 	}
 
 	async function persistEditorChanges() {
@@ -331,7 +327,6 @@
 					<TextEditor
 						path={editorPath!}
 						bind:text={editorText}
-						{onUpdateText}
 						{handleCloseEditor}
 					/>
 				{/snippet}

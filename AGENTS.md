@@ -233,6 +233,11 @@ Components use modern Svelte 5 runes:
       - Bad: `$effect(() => { elem.addEventListener('click', f) })`
       - Good: `<div onclick={f}></div>`, or `<div {onclick}></div>` if the
         function has the same name as the on-event property.
+  - Prefer using Svelte's built-in reactivity to using input or change handlers
+    or similar.
+    - Bad: `<input bind:value={foo} oninput={handleOnInput} />`
+    - Good: `<input bind:value={foo} />` with
+      `$effect(() => { /* handle change to foo */ })`
 - **Performance**: Avoid creating temporary arrays:
   - Use `for...of` loops instead of chained `array.map(...).filter(...)`
   - Use `for...in` loops instead of `Object.entries` or `Object.fromEntries`

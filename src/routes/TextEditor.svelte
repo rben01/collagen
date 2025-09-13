@@ -6,19 +6,12 @@
 	let {
 		path,
 		text = $bindable(),
-		onUpdateText,
 		handleCloseEditor,
 	}: {
 		path: string;
 		text: string | null;
-		onUpdateText: (newText: string) => void;
 		handleCloseEditor: () => void;
 	} = $props();
-
-	function oninput(event: Event) {
-		const target = event.target as HTMLTextAreaElement;
-		onUpdateText(target.value);
-	}
 
 	function handleTouchMove(event: TouchEvent) {
 		// Prevent page scrolling when scrolling within textarea
@@ -41,7 +34,6 @@
 	<textarea
 		class="editor-textarea"
 		bind:value={text}
-		{oninput}
 		ontouchmove={handleTouchMove}
 		spellcheck={false}
 		aria-label="Editable text file contents"
