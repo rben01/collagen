@@ -74,13 +74,19 @@ npm run test:e2e:run -- --project chromium -g "validates basic root tag structur
   recursive tag processing and asset embedding
 - **`jsonnet/index.ts`**: Jsonnet compilation integration with sjsonnet.js,
   providing `compileJsonnet()` function with filesystem callbacks
-  - **`jsonnet/sjsonnet.js`**: Pre-compiled sjsonnet JavaScript library
-    (Scala.js output) for client-side Jsonnet evaluation
+  - **`jsonnet/sjsonnet.js`**: Pre-compiled, large (even when minified) sjsonnet
+    JavaScript library for client-side Jsonnet evaluation
   - **`jsonnet/sjsonnet.d.ts`**: TypeScript definitions for sjsonnet.js API
 - **`utils/index.ts`**: Common utilities (base64 encoding/decoding, XML
   escaping, object type checking)
 - **`errors/index.ts`**: Typed error classes (`MissingFileError`,
   `JsonnetError`, `ValidationError`, etc.)
+
+### Additional Library Assets
+
+- **`src/lib/icons/`**: SVG icon assets used throughout the application
+  - **`src/lib/icons/helpers/`**: Helper functions for icon generation
+- **`src/lib/fonts/`**: Bundled font files (e.g., Impact font)
 
 ### Key Types
 
@@ -264,6 +270,8 @@ Components use modern Svelte 5 runes:
 - **`src/routes/+page.svelte`**: Main application page component orchestrating
   file upload and SVG generation (SvelteKit route)
 - **`src/routes/+page.ts`**: Page configuration with static prerendering enabled
+- **`src/routes/+layout.svelte`**: Root layout component
+- **`src/routes/+layout.ts`**: Layout configuration
 - **`src/routes/FileUploader.svelte`**: Drag-and-drop file upload component with
   folder support
   - Supports both drag and drop, and a file picker via a hidden `<input>`
@@ -282,9 +290,29 @@ Components use modern Svelte 5 runes:
     interacts with the SVG.
   - Reminder: in tests, refer to these by their `aria-label`, not their
     selector!
+
+### UI Components
+
+- **`src/routes/FileList.svelte`**: Component for displaying and managing
+  uploaded files
+- **`src/routes/TextEditor.svelte`**: Code editor component for editing manifest
+  files
+- **`src/routes/RightPane.svelte`**: Container for the right side of the UI
+- **`src/routes/IntroPane.svelte`**: Welcome/introduction panel
+- **`src/routes/LoadingPane.svelte`**: Loading state display
+- **`src/routes/ErrorPane.svelte`**: Error message display
+- **`src/routes/Toolbar.svelte`**: Reusable toolbar component
+- **`src/routes/ControlButton.svelte`**: Reusable button component
+- **`src/routes/ButtonIcon.svelte`**: Icon component for buttons
+- **`src/routes/ButtonIcon.ts`**: TypeScript utilities for button icons
+
+### Helper Modules
+
+- **`src/routes/upload-helpers.ts`**: Utility functions for file upload
+  processing, including drag-and-drop folder handling
 - **`src/app.html`**: SvelteKit HTML template with placeholders
   (`%sveltekit.assets%`, `%sveltekit.head%`, `%sveltekit.body%`)
-- **`src/global.css`**: Global CSS styles for the application
+- **`src/app.css`**: Global CSS styles for the application
 
 ### Key Features
 
@@ -303,12 +331,12 @@ Components use modern Svelte 5 runes:
 - **Client-side Jsonnet**: Uses sjsonnet.js for Jsonnet compilation in browser
   - Source: <https://github.com/databricks/sjsonnet>
 
-### Data Flow
+### Loading and SVG Generation Flow
 
 1. **SvelteKit Route Loading**: `+page.svelte` loads as the main route with
-   static prerendering
+   static prerendering via `+layout.svelte`
 2. **File Collection**: `FileUploader` component handles drag-and-drop and
-   folder selection
+   folder selection using `upload-helpers.ts` utilities
 3. **File System Creation**: Browser File objects are converted to
    `InMemoryFileSystem` via `InMemoryFileSystem.create()`
 4. **Manifest Processing**: `fs.loadManifestContents()` detects manifest format
@@ -318,7 +346,8 @@ Components use modern Svelte 5 runes:
 6. **SVG Generation**: `fs.generateSvg()` recursively builds SVG with embedded
    base64-encoded assets
 7. **Display**: Generated SVG is rendered in `SvgDisplay` component with
-   interactive controls
+   interactive controls, while UI state is managed through various pane
+   components (`IntroPane`, `LoadingPane`, `ErrorPane`, etc.)
 
 ### Browser Compatibility
 
