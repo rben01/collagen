@@ -10,7 +10,8 @@
 		toCollagenError,
 		InMemoryFileSystem,
 	} from "../lib/collagen-ts/index.js";
-	import { tick, untrack } from "svelte";
+	import { onMount, tick, untrack } from "svelte";
+	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
 
 	let error: string | null = $state(null);
 	let showLoading = $state(false);
@@ -27,6 +28,10 @@
 	const textDecoder = new TextDecoder();
 
 	let errorTimer: ReturnType<typeof setTimeout> | null = $state(null);
+
+	onMount(() => {
+		preloadSjsonnet();
+	});
 
 	function startLoading() {
 		// Defer showing the loading UI to avoid flicker on fast ops

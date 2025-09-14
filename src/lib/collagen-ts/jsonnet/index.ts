@@ -67,3 +67,9 @@ export async function compileJsonnet(
 		);
 	}
 }
+
+export async function preloadSjsonnet(): Promise<void> {
+	if (!SjsonnetMain) {
+		({ SjsonnetMain } = await import("./sjsonnet.js"));
+	}
+}
