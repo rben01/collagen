@@ -282,8 +282,8 @@ local diameter(r) = 2 * std.pi * r;
 				stroke: "black", "stroke-width": 1, "stroke-dasharray": strokeDasharray,
 			}
 		}
-		// a stdlib function, produces range from low (inclusive) to high (exclusive)
-		for i in std.range(0, nCircles)
+		// a stdlib function, produces range from low to high (inclusive of both)
+		for i in std.range(0, nCircles-1)
 	]
 }
 `
