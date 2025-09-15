@@ -6,8 +6,15 @@
 // Base64 Encoding
 // =============================================================================
 
-const BASE64_ALPHABET =
+// TODO: replace with
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array/toBase64
+// and
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Uint8Array/fromBase64
+// once stable
+
+const B64_ALPHABET =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 export function base64Encode(buffer: Uint8Array<ArrayBuffer>) {
 	const len = buffer.length;
 	let out = "";
@@ -16,10 +23,10 @@ export function base64Encode(buffer: Uint8Array<ArrayBuffer>) {
 	// Main loop: 3 bytes -> 4 chars
 	for (; i + 2 < len; i += 3) {
 		const n = (buffer[i] << 16) | (buffer[i + 1] << 8) | buffer[i + 2];
-		out += BASE64_ALPHABET[n >>> 18];
-		out += BASE64_ALPHABET[(n >>> 12) & 63];
-		out += BASE64_ALPHABET[(n >>> 6) & 63];
-		out += BASE64_ALPHABET[n & 63];
+		out += B64_ALPHABET[n >>> 18];
+		out += B64_ALPHABET[(n >>> 12) & 63];
+		out += B64_ALPHABET[(n >>> 6) & 63];
+		out += B64_ALPHABET[n & 63];
 	}
 
 	// Remainder (1 or 2 bytes)
@@ -28,10 +35,50 @@ export function base64Encode(buffer: Uint8Array<ArrayBuffer>) {
 		let n = buffer[i] << 16;
 		if (remain === 2) n |= buffer[i + 1] << 8;
 
-		out += BASE64_ALPHABET[n >>> 18];
-		out += BASE64_ALPHABET[(n >>> 12) & 63];
-		out += remain === 2 ? BASE64_ALPHABET[(n >>> 6) & 63] : "=";
+		out += B64_ALPHABET[n >>> 18];
+		out += B64_ALPHABET[(n >>> 12) & 63];
+		out += remain === 2 ? B64_ALPHABET[(n >>> 6) & 63] : "=";
 		out += "=";
+	}
+
+	return out;
+}
+
+let B64_TABLE: Uint8Array<ArrayBuffer> | undefined;
+
+export function base64Decode(b64: string): Uint8Array {
+	// Create lookup table
+	if (!B64_TABLE) {
+		B64_TABLE = new Uint8Array(128);
+		for (let i = 0; i < B64_ALPHABET.length; i++) {
+			B64_TABLE[B64_ALPHABET.charCodeAt(i)] = i;
+		}
+		B64_TABLE["=".charCodeAt(0)] = 0;
+	}
+
+	b64 = b64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+	const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+	// pad to multiple of 4
+	if (b64.length % 4 !== 0) b64 += "=".repeat(4 - (b64.length % 4));
+
+	const b64len = b64.length;
+	const outLen = (b64len >> 2) * 3 - pad;
+	const out = new Uint8Array(outLen);
+
+	let outputIndex = 0;
+
+	// Process groups of 4 characters
+	for (let i = 0; i < b64len; i += 4) {
+		const a = B64_TABLE[b64.charCodeAt(i)] || 0;
+		const b = B64_TABLE[b64.charCodeAt(i + 1)] || 0;
+		const c = B64_TABLE[b64.charCodeAt(i + 2)] || 0;
+		const d = B64_TABLE[b64.charCodeAt(i + 3)] || 0;
+
+		const combined = (a << 18) | (b << 12) | (c << 6) | d;
+
+		if (outputIndex < outLen) out[outputIndex++] = (combined >> 16) & 0xff;
+		if (outputIndex < outLen) out[outputIndex++] = (combined >> 8) & 0xff;
+		if (outputIndex < outLen) out[outputIndex++] = combined & 0xff;
 	}
 
 	return out;
