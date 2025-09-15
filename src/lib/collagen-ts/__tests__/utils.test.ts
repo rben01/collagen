@@ -22,52 +22,52 @@ import {
 // =============================================================================
 
 describe("Base64 Utilities", () => {
-	describe("await base64Encode", () => {
+	describe(" base64Encode", () => {
 		it("should encode simple text", async () => {
 			const input = new TextEncoder().encode("Hello, World!");
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("SGVsbG8sIFdvcmxkIQ==");
 		});
 
 		it("should encode binary data", async () => {
 			const input = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0xff]);
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("AAECA/8=");
 		});
 
 		it("should encode empty data", async () => {
 			const input = new Uint8Array(0);
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("");
 		});
 
 		it("should handle single byte", async () => {
 			const input = new Uint8Array([0x41]); // 'A'
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("QQ==");
 		});
 
 		it("should handle two bytes", async () => {
 			const input = new Uint8Array([0x41, 0x42]); // 'AB'
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("QUI=");
 		});
 
 		it("should handle three bytes", async () => {
 			const input = new Uint8Array([0x41, 0x42, 0x43]); // 'ABC'
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("QUJD");
 		});
 
 		it("should handle unicode characters", async () => {
 			const input = new TextEncoder().encode("🌍 Hello 中文");
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result).toBe("8J+MjSBIZWxsbyDkuK3mloc=");
 		});
 
 		it("should handle large data", async () => {
 			const input = new Uint8Array(1000).fill(0x55);
-			const result = await base64Encode(input);
+			const result = base64Encode(input);
 			expect(result.length).toBeGreaterThan(0);
 			expect(result).toMatch(/^[A-Za-z0-9+/=]+$/);
 		});

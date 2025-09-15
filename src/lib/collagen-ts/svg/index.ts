@@ -136,7 +136,7 @@ async function generateImageTag(
 		const imageKind = tag.kind || inferImageKind(tag.imagePath);
 
 		// Encode as base64
-		const base64Data = await base64Encode(fileContent.bytes);
+		const base64Data = base64Encode(fileContent.bytes);
 		const dataUri = `data:image/${imageKind};base64,${base64Data}`;
 
 		// Create image attributes
@@ -447,7 +447,7 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 		fontBuffer = await fetch(impactB64Url).then(resp => resp.bytes());
 	}
 
-	const fontDataB64 = await base64Encode(fontBuffer);
+	const fontDataB64 = base64Encode(fontBuffer);
 
 	return fontDataB64;
 }

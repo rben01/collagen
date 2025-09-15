@@ -6,22 +6,35 @@
 // Base64 Encoding
 // =============================================================================
 
-/** Encode bytes as base64 string using browser APIs */
-export async function base64Encode(
-	buffer: Uint8Array<ArrayBuffer>,
-): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const blob = new Blob([buffer]);
-		const reader = new FileReader();
-		reader.onload = () => {
-			const dataUrl = reader.result as string; // readAsDataURL guarantees string type
-			// Remove "data:application/octet-stream;base64," prefix
-			const base64 = dataUrl.split(",", 2)[1];
-			resolve(base64);
-		};
-		reader.onerror = reject;
-		reader.readAsDataURL(blob);
-	});
+const BASE64_ALPHABET =
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+export function base64Encode(buffer: Uint8Array<ArrayBuffer>) {
+	const len = buffer.length;
+	let out = "";
+	let i = 0;
+
+	// Main loop: 3 bytes -> 4 chars
+	for (; i + 2 < len; i += 3) {
+		const n = (buffer[i] << 16) | (buffer[i + 1] << 8) | buffer[i + 2];
+		out += BASE64_ALPHABET[n >>> 18];
+		out += BASE64_ALPHABET[(n >>> 12) & 63];
+		out += BASE64_ALPHABET[(n >>> 6) & 63];
+		out += BASE64_ALPHABET[n & 63];
+	}
+
+	// Remainder (1 or 2 bytes)
+	if (i < len) {
+		const remain = len - i;
+		let n = buffer[i] << 16;
+		if (remain === 2) n |= buffer[i + 1] << 8;
+
+		out += BASE64_ALPHABET[n >>> 18];
+		out += BASE64_ALPHABET[(n >>> 12) & 63];
+		out += remain === 2 ? BASE64_ALPHABET[(n >>> 6) & 63] : "=";
+		out += "=";
+	}
+
+	return out;
 }
 
 // =============================================================================
