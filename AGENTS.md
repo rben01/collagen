@@ -303,6 +303,9 @@ Components use modern Svelte 5 runes:
 - **`src/routes/ErrorPane.svelte`**: Error message display
 - **`src/routes/Toolbar.svelte`**: Reusable toolbar component
 - **`src/routes/ControlButton.svelte`**: Reusable button component
+  - Unless otherwise stated, buttons should be created using this component. If
+    unsure, ask the user whether they want a ControlButton or a different kind
+    of button.
 - **`src/routes/ButtonIcon.svelte`**: Icon component for buttons
 - **`src/routes/ButtonIcon.ts`**: TypeScript utilities for button icons
 

@@ -46,7 +46,7 @@
 		--btn-bg: url("$lib/icons/clipboard-copy.svg");
 	}
 
-	.export {
+	.export-svg {
 		--btn-bg: url("$lib/icons/file-download.svg");
 	}
 
@@ -56,6 +56,10 @@
 
 	.minimize-editor {
 		--btn-bg: url("$lib/icons/editor-minimize.svg");
+	}
+
+	.download-project {
+		--btn-bg: url("$lib/icons/file-download.svg");
 	}
 
 	@media (max-width: 1024px) {

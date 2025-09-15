@@ -12,6 +12,7 @@
 	} from "./upload-helpers";
 	import Toolbar from "./Toolbar.svelte";
 	import ButtonIcon from "./ButtonIcon.svelte";
+	import ControlButton from "./ControlButton.svelte";
 
 	let {
 		filesData = $bindable(),
@@ -310,6 +311,23 @@ local diameter(r) = 2 * std.pi * r;
 		}
 	}
 
+	function downloadProject() {
+		const jsonB64 = filesData.fs.toJsonB64();
+		const blob = new Blob([jsonB64], { type: "text/plain" });
+		const url = URL.createObjectURL(blob);
+
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "project.clgn";
+		a.style.display = "none";
+
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+
+		URL.revokeObjectURL(url);
+	}
+
 	function handleGlobalKeydown(event: KeyboardEvent) {
 		// Only trigger if no specific element is focused or if focus is on body
 		const activeElement = document.activeElement;
@@ -346,6 +364,12 @@ local diameter(r) = 2 * std.pi * r;
 				<div class="total-size">
 					Total: {formatFileSize(fileStats.totalSize)}
 				</div>
+				<ControlButton
+					action="download-project"
+					onclick={downloadProject}
+					title="Download project as .clgn file"
+					ariaLabel="Download project"
+				/>
 			</div>
 		</div>
 	</Toolbar>
@@ -487,6 +511,9 @@ local diameter(r) = 2 * std.pi * r;
 
 	.file-summary {
 		font-size: 0.875em;
+		display: flex;
+		align-items: center;
+		gap: 0.5em;
 	}
 
 	.total-size {

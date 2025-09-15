@@ -492,7 +492,7 @@
 					onclick={copyToClipboard}
 				/>
 				<ControlButton
-					action="export"
+					action="export-svg"
 					title="Download SVG (Keyboard: S)"
 					ariaLabel="Download SVG file, keyboard shortcut S key"
 					onclick={downloadSvg}

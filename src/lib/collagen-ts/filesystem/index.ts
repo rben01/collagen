@@ -12,7 +12,7 @@ import {
 	MissingManifestError,
 	JsonError,
 } from "../errors/index.js";
-import { generateSvg } from "../index.js";
+import { base64Encode, generateSvg } from "../index.js";
 import { compileJsonnet, type JsonObject } from "../jsonnet/index.js";
 import { validateDocument } from "../validation/index.js";
 
@@ -330,6 +330,14 @@ export class InMemoryFileSystem {
 
 	async generateSvg() {
 		return generateSvg(await this.generateRootTag(), this);
+	}
+
+	toJsonB64() {
+		const files: Record<string, string> = {};
+		for (const [path, contents] of this.files) {
+			files[path] = base64Encode(contents.bytes);
+		}
+		return JSON.stringify({ files });
 	}
 }
 
