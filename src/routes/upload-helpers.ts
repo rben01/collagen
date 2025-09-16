@@ -1,5 +1,6 @@
 import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
-import { getCommonPathPrefix } from "$lib/collagen-ts/utils";
+import { getCommonPathPrefix, base64Decode } from "$lib/collagen-ts/utils";
+import { isPlainObject } from "$lib/collagen-ts/validation";
 
 /* Get root folder name from a list of filenames
  *
@@ -32,14 +33,58 @@ export function stripFolderPrefix(
 	return stripped;
 }
 
-function addFileToMap(
+async function expandClgnFileInto(
+	clgnFile: File,
+	fileMap: Map<string, File>,
+): Promise<void> {
+	const text = await clgnFile.text();
+	const data = JSON.parse(text);
+
+	// Validate JSON is a plain object
+	if (!isPlainObject(data)) {
+		throw new Error("Invalid .clgn file: root must be an object");
+	}
+
+	// Validate files field exists and is a plain object
+	if (!data.files) {
+		throw new Error("Invalid .clgn file: missing 'files' field");
+	}
+	if (!isPlainObject(data.files)) {
+		throw new Error("Invalid .clgn file: 'files' field must be an object");
+	}
+
+	// Validate each entry
+	for (const [path, base64Data] of Object.entries(data.files)) {
+		// Validate filename is not empty
+		if (path === "") {
+			throw new Error("Invalid .clgn file: filename cannot be empty");
+		}
+
+		// Validate value is a string
+		if (typeof base64Data !== "string") {
+			throw new Error(
+				`Invalid .clgn file: value for '${path}' must be a string`,
+			);
+		}
+
+		// Process the file
+		const bytes = base64Decode(base64Data);
+		const filename = path.split("/").pop()!;
+		const file = new File([bytes], filename);
+		fileMap.set(normalizedPathJoin(path), file);
+	}
+}
+
+async function addFileToMap(
 	file: File,
 	fullPath: string,
 	fileMap: Map<string, File>,
-	resolve?: () => void,
 ) {
-	fileMap.set(normalizedPathJoin(fullPath), file);
-	resolve?.();
+	if (file.name.endsWith(".clgn")) {
+		await expandClgnFileInto(file, fileMap);
+	} else {
+		fileMap.set(normalizedPathJoin(fullPath), file);
+	}
 }
 
 function addEntryAndChildrenToMap(
@@ -55,10 +100,10 @@ function addEntryAndChildrenToMap(
 			const entryFile = entry as FileSystemFileEntry;
 			entryFile.file(
 				file => {
-					addFileToMap(file, entryFile.fullPath, fileMap, () => {
-						clearTimeout(timeout);
-						resolve();
-					});
+					addFileToMap(file, entryFile.fullPath, fileMap)
+						.then(resolve)
+						.catch(reject)
+						.finally(() => clearTimeout(timeout));
 				},
 				err => {
 					clearTimeout(timeout);

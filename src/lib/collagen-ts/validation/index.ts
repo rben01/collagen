@@ -28,7 +28,9 @@ import { type JsonObject } from "../jsonnet/index.js";
 // =============================================================================
 
 /** Check if a value is a plain object */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(
+	value: unknown,
+): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

@@ -46,7 +46,7 @@ export function base64Encode(buffer: Uint8Array<ArrayBuffer>) {
 
 let B64_TABLE: Uint8Array<ArrayBuffer> | undefined;
 
-export function base64Decode(b64: string): Uint8Array {
+export function base64Decode(b64: string): Uint8Array<ArrayBuffer> {
 	// Create lookup table
 	if (!B64_TABLE) {
 		B64_TABLE = new Uint8Array(128);
