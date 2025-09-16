@@ -9,6 +9,7 @@
 		collectFromDataTransfer,
 		stripFolderPrefix,
 		collectFromFileList,
+		type FileUploadError,
 	} from "./upload-helpers";
 	import Toolbar from "./Toolbar.svelte";
 	import ButtonIcon from "./ButtonIcon.svelte";
@@ -17,9 +18,11 @@
 	let {
 		filesData = $bindable(),
 		handleOpenTextFile,
+		handleUploadErrors,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleOpenTextFile: (path: string) => void;
+		handleUploadErrors: (errors: FileUploadError[]) => void;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -131,11 +134,24 @@
 		event.preventDefault();
 		dragOver = false;
 		if (!event.dataTransfer) return;
-		const { fileMap, root } = await collectFromDataTransfer(
-			event.dataTransfer.items,
-		);
-		const cleaned = stripFolderPrefix(fileMap, root);
-		await handleFilesUploaded(cleaned, root);
+		handleUploadErrors([]);
+		try {
+			const { fileMap, root, errors } = await collectFromDataTransfer(
+				event.dataTransfer.items,
+			);
+			const cleaned = stripFolderPrefix(fileMap, root);
+			await handleFilesUploaded(cleaned, root);
+			handleUploadErrors(errors);
+		} catch (error) {
+			console.error("Error processing files:", error);
+			handleUploadErrors([
+				{
+					path: null,
+					message:
+						error instanceof Error ? error.message : "Unknown error",
+				},
+			]);
+		}
 	}
 
 	// Handle file deletion
@@ -201,11 +217,23 @@
 			if (files && files.length > 0) {
 				uploading = true;
 				try {
-					const { fileMap, root } = await collectFromFileList(files);
+					handleUploadErrors([]);
+					const { fileMap, root, errors } =
+						await collectFromFileList(files);
 					const cleaned = stripFolderPrefix(fileMap, root);
 					await handleFilesUploaded(cleaned, root);
+					handleUploadErrors(errors);
 				} catch (error) {
 					console.error("Error processing files:", error);
+					handleUploadErrors([
+						{
+							path: null,
+							message:
+								error instanceof Error
+									? error.message
+									: "Unknown error",
+						},
+					]);
 				} finally {
 					uploading = false;
 				}

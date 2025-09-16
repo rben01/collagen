@@ -5,6 +5,7 @@
 		collectFromDataTransfer,
 		collectFromFileList,
 		stripFolderPrefix as helperStripFolderPrefix,
+		type FileUploadError,
 	} from "./upload-helpers";
 
 	onMount(() => {
@@ -79,8 +80,8 @@
 		clearProcessingError();
 		try {
 			console.log("🔄 Processing files from drag & drop...");
-			const { fileMap, root } = await collectFromDataTransfer(items);
-			handleProcessingSuccess(fileMap, root);
+			const { fileMap, root, errors } = await collectFromDataTransfer(items);
+			handleProcessingSuccess(fileMap, root, errors);
 		} catch (error) {
 			handleProcessingError(error);
 		}
@@ -90,8 +91,8 @@
 		clearProcessingError();
 		try {
 			console.log("🔄 Processing files from file picker...");
-			const { fileMap, root } = await collectFromFileList(fileList);
-			handleProcessingSuccess(fileMap, root);
+			const { fileMap, root, errors } = await collectFromFileList(fileList);
+			handleProcessingSuccess(fileMap, root, errors);
 		} catch (error) {
 			handleProcessingError(error);
 		}
@@ -105,15 +106,26 @@
 		errorMessage = null;
 	}
 
+	function formatUploadErrors(errors: FileUploadError[]) {
+		if (errors.length === 0) return null;
+		return errors
+			.map(error =>
+				error.path ? `${error.path}: ${error.message}` : error.message,
+			)
+			.join("\n");
+	}
+
 	function handleProcessingSuccess(
 		fileMap: Map<string, File>,
 		rootFolderName: string,
+		errors: FileUploadError[],
 	) {
 		const cleanedFileMap = stripFolderPrefix(fileMap, rootFolderName);
 
 		console.log("✨ Cleaned file data size:", cleanedFileMap.size, "files");
 
 		handleFilesUploaded(cleanedFileMap, rootFolderName);
+		errorMessage = formatUploadErrors(errors);
 	}
 
 	function handleProcessingError(error: unknown) {

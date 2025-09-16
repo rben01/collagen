@@ -6,12 +6,14 @@
 	import IntroPane from "./IntroPane.svelte";
 	import LoadingPane from "./LoadingPane.svelte";
 	import ErrorPane from "./ErrorPane.svelte";
+	import UploadErrorPane from "./UploadErrorPane.svelte";
 	import {
 		toCollagenError,
 		InMemoryFileSystem,
 	} from "../lib/collagen-ts/index.js";
 	import { onMount, tick, untrack } from "svelte";
 	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
+	import type { FileUploadError } from "./upload-helpers";
 
 	let error: string | null = $state(null);
 	let showLoading = $state(false);
@@ -28,6 +30,7 @@
 	const textDecoder = new TextDecoder();
 
 	let errorTimer: ReturnType<typeof setTimeout> | null = $state(null);
+	let uploadErrors: FileUploadError[] = $state([]);
 
 	onMount(() => {
 		preloadSjsonnet();
@@ -68,6 +71,7 @@
 	function handleZeroFiles() {
 		error = null;
 		svgOutput = null;
+		uploadErrors = [];
 		stopLoading();
 		// Clear any pending error timer since we're in a valid "no files" state
 		const errorTimerUT = untrack(() => errorTimer);
@@ -75,6 +79,10 @@
 			clearTimeout(errorTimerUT);
 			errorTimer = null;
 		}
+	}
+
+	function handleUploadErrors(errors: FileUploadError[]) {
+		uploadErrors = errors;
 	}
 
 	// packing it in an object is a trick to get svelte to re-render downstream
@@ -241,12 +249,24 @@
 				</div>
 			{/if}
 		{/snippet}
+		{#snippet uploadErrorPane()}
+			{#if uploadErrors.length > 0}
+				<div class="sidebar-upload-errors">
+					<UploadErrorPane errors={uploadErrors} />
+				</div>
+			{/if}
+		{/snippet}
 		<!-- Left sidebar: file list (and compact SVG when editing) -->
 		<div class="sidebar" class:editing={!!editorPath}>
 			{#if filesData}
 				{#if editorPath}
 					<div class="sidebar-top">
-						<FileList bind:filesData {handleOpenTextFile} />
+						<FileList
+							bind:filesData
+							{handleOpenTextFile}
+							{handleUploadErrors}
+						/>
+						{@render uploadErrorPane()}
 					</div>
 					<div
 						class="sidebar-bottom compact-svg"
@@ -256,7 +276,12 @@
 						{@render svgViewerContent(false)}
 					</div>
 				{:else}
-					<FileList bind:filesData {handleOpenTextFile} />
+					<FileList
+						bind:filesData
+						{handleOpenTextFile}
+						{handleUploadErrors}
+					/>
+					{@render uploadErrorPane()}
 				{/if}
 			{:else}
 				<div class="file-list" aria-label="File information"></div>
@@ -330,6 +355,15 @@
 		max-height: 50%;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.sidebar-upload-errors {
+		width: 100%;
+		flex-shrink: 0;
+	}
+
+	.sidebar-top .sidebar-upload-errors {
+		margin-top: 0.75rem;
 	}
 
 	.sidebar-bottom.compact-svg {

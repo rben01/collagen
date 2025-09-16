@@ -2,6 +2,31 @@ import { normalizedPathJoin } from "$lib/collagen-ts/filesystem";
 import { getCommonPathPrefix, base64Decode } from "$lib/collagen-ts/utils";
 import { isPlainObject } from "$lib/collagen-ts/validation";
 
+export interface FileUploadError {
+	path: string | null;
+	message: string;
+}
+
+function toErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return typeof error === "string" ? error : "Unknown error";
+}
+
+function recordUploadError(
+	errors: FileUploadError[],
+	path: string | null,
+	error: unknown,
+) {
+	errors.push({ path, message: toErrorMessage(error) });
+}
+
+function getEntryPath(entry: FileSystemEntry) {
+	const withFullPath = entry as FileSystemEntry & { fullPath?: string };
+	return withFullPath.fullPath ?? entry.name ?? null;
+}
+
 /* Get root folder name from a list of filenames
  *
  * Precondition: filenames have already had `normalizedPathJoin` called on them
@@ -87,57 +112,64 @@ async function addFileToMap(
 	}
 }
 
-function addEntryAndChildrenToMap(
+function getFileFromEntry(entryFile: FileSystemFileEntry) {
+	return new Promise<File>((resolve, reject) => {
+		entryFile.file(resolve, reject);
+	});
+}
+
+function readEntries(reader: FileSystemDirectoryReader) {
+	return new Promise<FileSystemEntry[]>((resolve, reject) => {
+		reader.readEntries(resolve, reject);
+	});
+}
+
+async function addEntryAndChildrenToMap(
 	entry: FileSystemEntry,
 	fileMap: Map<string, File>,
+	errors: FileUploadError[],
 ) {
-	return new Promise<void>((resolve, reject) => {
-		if (entry.isFile) {
-			const timeout = setTimeout(
-				() => reject(new Error("Timeout processing entry")),
-				1000,
-			);
-			const entryFile = entry as FileSystemFileEntry;
-			entryFile.file(
-				file => {
-					addFileToMap(file, entryFile.fullPath, fileMap)
-						.then(resolve)
-						.catch(reject)
-						.finally(() => clearTimeout(timeout));
-				},
-				err => {
-					clearTimeout(timeout);
-					reject(err);
-				},
-			);
-		} else if (entry.isDirectory) {
-			const entryDirectory = entry as FileSystemDirectoryEntry;
-			const reader = entryDirectory.createReader();
-			const readAllEntries = () => {
-				reader.readEntries(
-					entries => {
-						if (entries.length === 0) {
-							resolve();
-							return;
-						}
-						Promise.all(
-							entries.map(e => addEntryAndChildrenToMap(e, fileMap)),
-						)
-							.then(readAllEntries)
-							.catch(reject);
-					},
-					err => reject(err),
-				);
-			};
-			readAllEntries();
-		} else {
-			reject(new Error("Unknown entry type"));
+	if (entry.isFile) {
+		const entryFile = entry as FileSystemFileEntry;
+		try {
+			const file = await getFileFromEntry(entryFile);
+			await addFileToMap(file, entryFile.fullPath, fileMap);
+		} catch (error) {
+			recordUploadError(errors, getEntryPath(entry), error);
 		}
-	});
+		return;
+	}
+
+	if (entry.isDirectory) {
+		const entryDirectory = entry as FileSystemDirectoryEntry;
+		const reader = entryDirectory.createReader();
+		while (true) {
+			let entries: FileSystemEntry[];
+			try {
+				entries = await readEntries(reader);
+			} catch (error) {
+				recordUploadError(errors, getEntryPath(entry), error);
+				return;
+			}
+			if (entries.length === 0) {
+				return;
+			}
+			for (const child of entries) {
+				try {
+					await addEntryAndChildrenToMap(child, fileMap, errors);
+				} catch (error) {
+					recordUploadError(errors, getEntryPath(child), error);
+				}
+			}
+		}
+	}
+
+	recordUploadError(errors, getEntryPath(entry), "Unknown entry type");
 }
 
 export async function collectFromDataTransfer(items: DataTransferItemList) {
 	const fileMap = new Map<string, File>();
+	const errors: FileUploadError[] = [];
 	const itemsToProcess: Array<
 		{ type: "entry"; data: FileSystemEntry } | { type: "file"; data: File }
 	> = [];
@@ -159,22 +191,31 @@ export async function collectFromDataTransfer(items: DataTransferItemList) {
 
 	for (const item of itemsToProcess) {
 		if (item.type === "entry") {
-			await addEntryAndChildrenToMap(item.data, fileMap);
+			await addEntryAndChildrenToMap(item.data, fileMap, errors);
 		} else {
-			addFileToMap(item.data, item.data.name, fileMap);
+			try {
+				await addFileToMap(item.data, item.data.name, fileMap);
+			} catch (error) {
+				recordUploadError(errors, item.data.name, error);
+			}
 		}
 	}
 
 	const root = getRootFolderName([...fileMap.keys()]);
-	return { fileMap, root };
+	return { fileMap, root, errors };
 }
 
 export async function collectFromFileList(fileList: FileList) {
 	const fileMap = new Map<string, File>();
+	const errors: FileUploadError[] = [];
 	for (const file of fileList) {
 		const path = file.webkitRelativePath || file.name;
-		addFileToMap(file, path, fileMap);
+		try {
+			await addFileToMap(file, path, fileMap);
+		} catch (error) {
+			recordUploadError(errors, path, error);
+		}
 	}
 	const root = getRootFolderName([...fileMap.keys()]);
-	return { fileMap, root };
+	return { fileMap, root, errors };
 }
