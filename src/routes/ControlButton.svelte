@@ -41,11 +41,12 @@
 	.control-btn {
 		background: #ffffff;
 		border: 1px solid #d1d5db;
-		padding: 0.5em 0.75em;
-		border-radius: 0.375em;
+		padding: 6px;
+		aspect-ratio: 1;
+		border-radius: 6px;
 		cursor: pointer;
 		font-size: 0.875em;
-		transition: all 0.2s;
+		transition: all 0.1s ease-out;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;

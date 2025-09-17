@@ -12,9 +12,10 @@
 		-webkit-mask-image: var(--btn-bg);
 		mask-image: var(--btn-bg);
 		background-color: #374151;
-		min-width: 20px;
-		min-height: 20px;
+		min-width: 22px;
+		min-height: 22px;
 		mask-size: 100%;
+		mask-position: center;
 		mask-repeat: no-repeat;
 	}
 
@@ -23,48 +24,48 @@
 	}
 
 	.zoom-in {
-		--btn-bg: url("$lib/icons/zoom-in.svg");
+		--btn-bg: url("@tabler-icons/outline/zoom-in.svg");
 	}
 
 	.zoom-out {
-		--btn-bg: url("$lib/icons/zoom-out.svg");
+		--btn-bg: url("@tabler-icons/outline/zoom-out.svg");
 	}
 
 	.reset-view {
-		--btn-bg: url("$lib/icons/focus-centered.svg");
+		--btn-bg: url("@tabler-icons/outline/focus-centered.svg");
 	}
 
 	.help {
-		--btn-bg: url("$lib/icons/help.svg");
+		--btn-bg: url("@tabler-icons/outline/help.svg");
 	}
 
 	.toggle-view {
-		--btn-bg: url("$lib/icons/code.svg");
+		--btn-bg: url("@tabler-icons/outline/code.svg");
 	}
 
 	.copy {
-		--btn-bg: url("$lib/icons/clipboard-copy.svg");
+		--btn-bg: url("@tabler-icons/outline/clipboard-copy.svg");
 	}
 
 	.export-svg {
-		--btn-bg: url("$lib/icons/file-download.svg");
+		--btn-bg: url("@tabler-icons/outline/photo-down.svg");
 	}
 
 	.trash {
-		--btn-bg: url("$lib/icons/trash-bin.svg");
+		--btn-bg: url("@tabler-icons/outline/trash.svg");
 	}
 
 	.minimize-editor {
-		--btn-bg: url("$lib/icons/editor-minimize.svg");
+		--btn-bg: url("@tabler-icons/filled/layout-sidebar-left-collapse.svg");
 	}
 
 	.download-project {
-		--btn-bg: url("$lib/icons/file-download.svg");
+		--btn-bg: url("@tabler-icons/outline/folder-down.svg");
 	}
 
 	@media (max-width: 1024px) {
 		.minimize-editor {
-			--btn-bg: url("$lib/icons/editor-minimize-down.svg");
+			--btn-bg: url("@tabler-icons/filled/layout-bottombar-collapse.svg");
 		}
 	}
 </style>
