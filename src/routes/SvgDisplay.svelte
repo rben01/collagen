@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { flip } from "svelte/animate";
-	import { quintInOut, quintOut } from "svelte/easing";
+	import { quintInOut } from "svelte/easing";
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
+	import { fly } from "svelte/transition";
 
 	// Expose focus method for parent components
 	export function focus() {
@@ -35,6 +36,7 @@
 	let transitionDuration = $state(0); // seconds
 	let svgContainer: HTMLElement | null = $state(null);
 	let lastTouchDistance = $state(0);
+	let toastCounter = $state(0);
 	let toasts: { id: number; message: string; type: string }[] = $state([]);
 	let containerWidth = $state(0);
 	let containerHeight = $state(0);
@@ -93,8 +95,9 @@
 	}
 
 	function showToast(message: string, type = "success") {
-		const id = Date.now();
+		const id = toastCounter;
 		const toast = { id, message, type };
+		toastCounter += 1;
 		toasts = [...toasts, toast];
 
 		// Auto-remove after 3 seconds
@@ -286,31 +289,6 @@
 			});
 	}
 
-	// Custom transition functions for toast animations
-	function slideIn(_node: Element, { duration = 300 }) {
-		return {
-			duration,
-			easing: quintOut,
-			css: (t: number) => {
-				const x = (1 - t) * 100;
-				const opacity = t;
-				return `transform: translateX(${x}%); opacity: ${opacity};`;
-			},
-		};
-	}
-
-	function slideOut(_node: Element, { duration = 300 }) {
-		return {
-			duration,
-			easing: quintOut,
-			css: (t: number) => {
-				const x = (1 - t) * 100;
-				const opacity = t;
-				return `transform: translateX(${x}%); opacity: ${opacity};`;
-			},
-		};
-	}
-
 	function handleRawSvgTouchMove(event: TouchEvent) {
 		// Prevent page scrolling when scrolling within raw SVG code view
 		event.stopPropagation();
@@ -429,8 +407,7 @@
 			<div
 				class="toast toast-{toast.type}"
 				role="alert"
-				in:slideIn={{ duration: 300 }}
-				out:slideOut={{ duration: 300 }}
+				transition:fly={{ duration: 300, x: "100%" }}
 				animate:flip={{ duration: 300, easing: quintInOut }}
 			>
 				<span>{toast.message}</span>
