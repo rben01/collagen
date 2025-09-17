@@ -1,7 +1,16 @@
 <script lang="ts">
 	import type { FileUploadError } from "./upload-helpers";
 
-	let { errors }: { errors: FileUploadError[] } = $props();
+	let {
+		errors,
+		onDismiss = null,
+	}: { errors: FileUploadError[]; onDismiss?: (() => void) | null } = $props();
+
+	function handleDismiss() {
+		if (onDismiss) {
+			onDismiss();
+		}
+	}
 </script>
 
 <div
@@ -11,8 +20,21 @@
 	aria-live="polite"
 >
 	<div class="upload-error-header">
-		<span class="error-icon" aria-hidden="true">⚠️</span>
-		<span class="header-text">Upload error</span>
+		<div class="header-left">
+			<span class="error-icon" aria-hidden="true">⚠️</span>
+			<span class="header-text">Upload issues</span>
+		</div>
+		{#if onDismiss}
+			<button
+				type="button"
+				class="dismiss-button"
+				onclick={handleDismiss}
+				title="Dismiss upload issues"
+				aria-label="Dismiss upload issues"
+			>
+				✕
+			</button>
+		{/if}
 	</div>
 	<ul>
 		{#each errors as error}
@@ -40,9 +62,16 @@
 	.upload-error-header {
 		display: flex;
 		align-items: center;
-		gap: 0.5em;
+		justify-content: space-between;
 		font-weight: 600;
 		margin-bottom: 0.5em;
+		gap: 0.5em;
+	}
+
+	.header-left {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
 	}
 
 	.error-icon {
@@ -51,6 +80,23 @@
 
 	.header-text {
 		font-size: 0.95em;
+	}
+
+	.dismiss-button {
+		background: transparent;
+		border: none;
+		color: inherit;
+		cursor: pointer;
+		font-size: 1em;
+		line-height: 1;
+		padding: 0.1em;
+		border-radius: 0.25em;
+	}
+
+	.dismiss-button:hover,
+	.dismiss-button:focus {
+		background: rgba(185, 28, 28, 0.12);
+		outline: none;
 	}
 
 	ul {

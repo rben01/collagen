@@ -85,6 +85,10 @@
 		uploadErrors = errors;
 	}
 
+	function dismissUploadErrors() {
+		uploadErrors = [];
+	}
+
 	// packing it in an object is a trick to get svelte to re-render downstream
 	let filesData: { fs: InMemoryFileSystem } = $state({
 		fs: InMemoryFileSystem.createEmpty(),
@@ -252,7 +256,10 @@
 		{#snippet uploadErrorPane()}
 			{#if uploadErrors.length > 0}
 				<div class="sidebar-upload-errors">
-					<UploadErrorPane errors={uploadErrors} />
+					<UploadErrorPane
+						errors={uploadErrors}
+						onDismiss={dismissUploadErrors}
+					/>
 				</div>
 			{/if}
 		{/snippet}
