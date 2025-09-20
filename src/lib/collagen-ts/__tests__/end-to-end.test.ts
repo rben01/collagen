@@ -231,7 +231,7 @@ describe("Complex Project Processing", () => {
 				children: [
 					"Plain text",
 					{ text: "Object text" },
-					{ text: "<b>Preescaped</b>", is_preescaped: true },
+					{ text: "<b>HTML content</b>" },
 					{ tag: "rect", attrs: { x: 0, y: 0, width: 10, height: 10 } },
 					{ image_path: "test.jpg" },
 				],
@@ -248,7 +248,7 @@ describe("Complex Project Processing", () => {
 
 		expect(svg).toContain("Plain text");
 		expect(svg).toContain("Object text");
-		expect(svg).toContain("<b>Preescaped</b>");
+		expect(svg).toContain("&lt;b&gt;HTML content&lt;/b&gt;");
 		expect(svg).toContain("<rect");
 		expect(svg).toContain("<image");
 		expect(svg).toContain("data:image/jpeg;base64,");

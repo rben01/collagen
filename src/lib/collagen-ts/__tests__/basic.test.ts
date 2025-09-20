@@ -54,7 +54,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 				children: [
 					{ text: "Hello, World!" },
 					"Plain string text",
-					{ text: "<b>Bold</b>", is_preescaped: true },
+					{ text: "<b>Bold</b>" },
 				],
 			}),
 		});
@@ -62,7 +62,7 @@ describe("Collagen TypeScript Basic Tests", () => {
 		const svg = await fs.generateSvg();
 		expectSvgEqual(
 			svg,
-			'<svg xmlns="http://www.w3.org/2000/svg">Hello, World!Plain string text<b>Bold</b></svg>',
+			'<svg xmlns="http://www.w3.org/2000/svg">Hello, World!Plain string text&lt;b&gt;Bold&lt;/b&gt;</svg>',
 		);
 	});
 

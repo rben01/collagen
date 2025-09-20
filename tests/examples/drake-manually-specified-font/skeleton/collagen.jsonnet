@@ -11,7 +11,6 @@ local width = 800;
           children: [
             {
               text: '@import url("https://my-fonts.pages.dev/Impact/impact.css");',
-              is_preescaped: true,
             },
           ],
         },

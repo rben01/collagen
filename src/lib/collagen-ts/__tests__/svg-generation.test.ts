@@ -173,14 +173,14 @@ describe("Text Tag Generation", () => {
 		);
 	});
 
-	it("should handle preescaped text", async () => {
+	it("should escape HTML in text content", async () => {
 		const svg = await generateSvgFromJson({
 			children: [
-				{ text: "<b>Bold</b> & <i>italic</i>", is_preescaped: true },
+				{ text: "<b>Bold</b> & <i>italic</i>" },
 			],
 		});
 
-		expect(svg).toContain("<b>Bold</b> & <i>italic</i>");
+		expect(svg).toContain("&lt;b&gt;Bold&lt;/b&gt; &amp; &lt;i&gt;italic&lt;/i&gt;");
 	});
 
 	it("should handle empty text", async () => {
@@ -743,7 +743,6 @@ describe("Complex SVG Generation", () => {
 									"Welcome to our ",
 									{
 										text: "<strong>amazing</strong>",
-										is_preescaped: true,
 									},
 									" website!",
 								],
@@ -766,7 +765,7 @@ describe("Complex SVG Generation", () => {
 		expect(svg).toContain('<g transform="translate(20,20)">');
 		expect(svg).toContain('href="data:image/png;base64,');
 		expect(svg).toContain("Company Logo");
-		expect(svg).toContain("<strong>amazing</strong>");
+		expect(svg).toContain("&lt;strong&gt;amazing&lt;/strong&gt;");
 		expect(svg).toContain('<g transform="translate(150,10)">');
 		expect(svg).toContain("<circle r='3'/>");
 	});

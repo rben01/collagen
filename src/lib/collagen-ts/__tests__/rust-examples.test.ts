@@ -174,8 +174,7 @@ describe("Rust Examples - Advanced Features", () => {
 					"Plain text string",
 					{ text: "Object form text" },
 					{
-						text: "<b>Pre-escaped</b> &amp; content",
-						is_preescaped: true,
+						text: "<b>HTML</b> & content",
 					},
 					{
 						tag: "text",
@@ -190,7 +189,7 @@ describe("Rust Examples - Advanced Features", () => {
 
 		expect(svg).toContain("Plain text string");
 		expect(svg).toContain("Object form text");
-		expect(svg).toContain("<b>Pre-escaped</b> &amp; content");
+		expect(svg).toContain("&lt;b&gt;HTML&lt;/b&gt; &amp; content");
 		expect(svg).toContain('<text x="10" y="20">');
 		expect(svg).toContain("Nested text content");
 	});

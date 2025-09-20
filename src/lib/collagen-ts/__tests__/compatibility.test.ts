@@ -83,8 +83,8 @@ describe("Rust Test Case Compatibility", () => {
 			children: [
 				"Plain string text",
 				{ text: "Object text" },
-				{ text: "Escaped: <>&\"'", is_preescaped: false },
-				{ text: "<b>Preescaped HTML</b>", is_preescaped: true },
+				{ text: "Escaped: <>&\"'" },
+				{ text: "<b>HTML that will be escaped</b>" },
 			],
 		};
 
@@ -95,7 +95,7 @@ describe("Rust Test Case Compatibility", () => {
 		expect(svg).toContain("Plain string text");
 		expect(svg).toContain("Object text");
 		expect(svg).toContain("Escaped: &lt;&gt;&amp;&quot;&#39;");
-		expect(svg).toContain("<b>Preescaped HTML</b>");
+		expect(svg).toContain("&lt;b&gt;HTML that will be escaped&lt;/b&gt;");
 	});
 
 	it("should match image embedding", async () => {
@@ -542,7 +542,7 @@ describe("Complex Compatibility", () => {
 					attrs: { id: "footer", transform: "translate(0, 240)" },
 					children: [
 						"Footer text: ",
-						{ text: "&copy; 2024", is_preescaped: false },
+						{ text: "&copy; 2024" },
 						{
 							tag: "a",
 							attrs: { href: "https://example.com" },
@@ -596,7 +596,7 @@ describe("Complex Compatibility", () => {
 
 				// Special characters
 				"Special: <>&\"'",
-				{ text: "Escaped: <>&\"'", is_preescaped: false },
+				{ text: "Escaped: <>&\"'" },
 
 				// Numeric edge cases
 				{ tag: "rect", attrs: { x: 0, y: 0.0, width: 100.5, height: 50 } },

@@ -293,7 +293,6 @@ describe("Text Tag Validation", () => {
 
 		assertTagType(result, "text");
 		expect(result.text).toBe("Hello, World!");
-		expect(result.isPreescaped).toBe(false);
 		expect(errors.isEmpty()).toBe(true);
 	});
 
@@ -303,20 +302,6 @@ describe("Text Tag Validation", () => {
 
 		assertTagType(result, "text");
 		expect(result.text).toBe("Hello, World!");
-		expect(result.isPreescaped).toBe(false);
-		expect(errors.isEmpty()).toBe(true);
-	});
-
-	it("should validate preescaped text", () => {
-		const errors = createValidationErrorList();
-		const result = validateAnyChildTag(
-			{ text: "<b>Bold</b>", is_preescaped: true },
-			errors,
-		);
-
-		assertTagType(result, "text");
-		expect(result.text).toBe("<b>Bold</b>");
-		expect(result.isPreescaped).toBe(true);
 		expect(errors.isEmpty()).toBe(true);
 	});
 
@@ -341,7 +326,7 @@ describe("Text Tag Validation", () => {
 
 	it("should require text field in object form", () => {
 		const errors = createValidationErrorList();
-		const result = validateAnyChildTag({ is_preescaped: true }, errors);
+		const result = validateAnyChildTag({ unexpected_field: true }, errors);
 
 		expect(result).toBeNull();
 		expect(errors.errors[0]).toBeInstanceOf(UnrecognizedObjectError);
@@ -355,19 +340,18 @@ describe("Text Tag Validation", () => {
 		expect(errors.errors[0]).toBeInstanceOf(InvalidFieldTypeError);
 	});
 
-	it("should handle non-boolean is_preescaped", () => {
+	it("should reject unexpected fields including is_preescaped", () => {
 		const errors = createValidationErrorList();
 		const result = validateAnyChildTag(
 			{
 				text: "test",
-				is_preescaped: "true", // string instead of boolean
+				is_preescaped: true, // not supported
 			},
 			errors,
 		);
 
-		assertTagType(result, "text");
-		expect(result.isPreescaped).toBe(false); // defaults to false
-		expect(errors.isEmpty()).toBe(true);
+		expect(result).toBeNull();
+		expect(errors.errors[0]).toBeInstanceOf(UnexpectedKeysError);
 	});
 
 	it("should reject unexpected keys", () => {
@@ -789,7 +773,7 @@ describe("Complex Validation Scenarios", () => {
 							children: [
 								{ svg_path: "icon.svg", attrs: { x: 0, y: 0 } },
 								"More text",
-								{ text: "<em>Emphasized</em>", is_preescaped: true },
+								{ text: "<em>Emphasized</em>" },
 							],
 						},
 					],
@@ -817,7 +801,7 @@ describe("Complex Validation Scenarios", () => {
 			children: [
 				{ tag: 123 }, // invalid tag name
 				{ image_path: null }, // invalid image path
-				{ text: [], is_preescaped: "not boolean" }, // invalid text
+				{ text: [] }, // invalid text
 				{ clgn_path: "valid", unexpected: "key" }, // unexpected key
 			],
 			unexpected: "root key",

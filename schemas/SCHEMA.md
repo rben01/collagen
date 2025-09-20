@@ -101,11 +101,6 @@ Inserts raw text content.
 
 - `text` (string): The text content
 
-**Optional Fields:**
-
-- `is_preescaped` (boolean): If true, text is inserted as pre-escaped XML.
-  Default: false
-
 **Example:**
 
 ```json

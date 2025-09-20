@@ -77,7 +77,6 @@ export interface ImageTag {
 export interface TextTag {
 	type: "text";
 	text: string;
-	isPreescaped: boolean;
 }
 
 /** Validated container tag */

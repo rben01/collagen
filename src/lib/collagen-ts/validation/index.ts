@@ -343,7 +343,7 @@ function validateTextTag(
 ): AnyChildTag | null {
 	// Handle string form
 	if (isString(obj)) {
-		return { type: "text", text: obj, isPreescaped: false };
+		return { type: "text", text: obj };
 	}
 
 	const initialErrorCount = errors.errors.length;
@@ -361,12 +361,9 @@ function validateTextTag(
 	}
 
 	const text = obj.text;
-	const isPreescaped = isBoolean(obj.is_preescaped)
-		? obj.is_preescaped
-		: false;
 
 	// Check for unexpected keys
-	const unexpectedKeys = getUnexpectedKeys(obj, "text", ["is_preescaped"]);
+	const unexpectedKeys = getUnexpectedKeys(obj, "text", []);
 	if (unexpectedKeys.length > 0) {
 		errors.push(new UnexpectedKeysError("Text", unexpectedKeys));
 	}
@@ -376,7 +373,7 @@ function validateTextTag(
 		return null;
 	}
 
-	return { type: "text", text, isPreescaped };
+	return { type: "text", text };
 }
 
 /** Validate a container tag */

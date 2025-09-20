@@ -89,8 +89,8 @@ function writeTag(
 }
 
 /** Write text content with optional escaping */
-function writeTextContent(text: string, isPreescaped: boolean): string {
-	return isPreescaped ? text : escapeXml(text);
+function writeTextContent(text: string): string {
+	return escapeXml(text);
 }
 
 // =============================================================================
@@ -117,7 +117,7 @@ async function generateTextTag(
 	tag: TextTag,
 	_context: SvgGenerationContext,
 ): Promise<string> {
-	return writeTextContent(tag.text, tag.isPreescaped);
+	return writeTextContent(tag.text);
 }
 
 /** Generate SVG for an image tag */
