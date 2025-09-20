@@ -4,6 +4,7 @@
 	import { fly } from "svelte/transition";
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
+	import { base64Encode } from "$lib/collagen-ts";
 
 	// Expose focus method for parent components
 	export function focus() {
@@ -42,6 +43,8 @@
 	let containerHeight = $state(0);
 	let svgConstrainedWidth: number | null = $state(null);
 	let svgConstrainedHeight: number | null = $state(null);
+
+	const TEXT_ENCODER = new TextEncoder();
 
 	// Background style management
 	const backgroundStyles = [
@@ -596,7 +599,15 @@
 					aria-label="SVG content"
 				>
 					<!-- can this be used maliciously? any way for untrusted input to get in there? -->
-					{@html svg}
+					<iframe
+						title="Generated SVG"
+						width={svgConstrainedWidth}
+						height={svgConstrainedHeight}
+						style="border:none;"
+						src="data:image/svg+xml;base64,{base64Encode(
+							TEXT_ENCODER.encode(svg),
+						)}"
+					></iframe>
 				</div>
 			</div>
 		</button>
@@ -697,12 +708,26 @@
 		text-align: center;
 	}
 
+	@property --checkerboard-primary {
+		syntax: "<color>";
+		initial-value: white;
+		inherits: false;
+	}
+
+	@property --checkerboard-secondary {
+		syntax: "<color>";
+		initial-value: white;
+		inherits: false;
+	}
+
 	.svg-container {
 		overflow: hidden;
 		position: relative;
-		/* Transparent checkboard pattern */
-		background: repeating-conic-gradient(#dcdcdc 0 25%, #0000 0 50%) 50% /
-			20px 20px;
+		background: repeating-conic-gradient(
+				var(--checkerboard-primary) 0 25%,
+				var(--checkerboard-secondary) 0 50%
+			)
+			50% / 20px 20px;
 		border: none;
 		padding: 0;
 		width: 100%;
@@ -713,7 +738,29 @@
 		justify-content: center;
 		align-items: center;
 		touch-action: none; /* Prevent iOS Safari from scrolling */
-		transition: background-color 0.1s ease;
+		transition:
+			--checkerboard-primary 0.2s ease,
+			--checkerboard-secondary 0.2s ease;
+	}
+
+	.svg-container.bg-light-checkerboard {
+		--checkerboard-primary: #fff;
+		--checkerboard-secondary: #ddd;
+	}
+
+	.svg-container.bg-dark-checkerboard {
+		--checkerboard-primary: #292f38;
+		--checkerboard-secondary: #1a1e25;
+	}
+
+	.svg-container.bg-solid-light {
+		--checkerboard-primary: #fff;
+		--checkerboard-secondary: #fff;
+	}
+
+	.svg-container.bg-solid-dark {
+		--checkerboard-primary: #1a1e25;
+		--checkerboard-secondary: #1a1e25;
 	}
 
 	.svg-container:focus {
@@ -750,31 +797,10 @@
 		border-radius: 7px;
 	}
 
-	.svg-container.dragging :global(svg) {
+	.svg-container.dragging iframe {
 		background: rgba(255, 255, 255, 0.1);
 		filter: brightness(1.1);
 		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.85);
-	}
-
-	/* Background style variants */
-	.svg-container.bg-light-checkerboard {
-		/* Default light checkerboard - current style */
-		background: repeating-conic-gradient(#dcdcdc 0 25%, #0000 0 50%) 50% /
-			20px 20px;
-	}
-
-	.svg-container.bg-dark-checkerboard {
-		background: repeating-conic-gradient(#292f38 0 25%, #0000 0 50%) 50% /
-			20px 20px;
-		background-color: #11151b;
-	}
-
-	.svg-container.bg-solid-light {
-		background: #ffffff;
-	}
-
-	.svg-container.bg-solid-dark {
-		background: #1a1e25;
 	}
 
 	.svg-content {
@@ -783,7 +809,7 @@
 		height: var(--constrained-height);
 	}
 
-	.svg-content :global(svg) {
+	.svg-content iframe {
 		max-width: 100%;
 		max-height: 100%;
 		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.45);
@@ -796,11 +822,12 @@
 			scale(var(--scale));
 		transform-origin: center;
 		transition: transform var(--transition-duration) ease-out;
+		pointer-events: none;
 	}
 
 	.svg-container:is(.bg-dark-checkerboard, .bg-solid-dark)
 		.svg-content
-		:global(svg) {
+		iframe {
 		box-shadow: 0 2px 10px -1px rgba(127, 127, 127, 0.55);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
