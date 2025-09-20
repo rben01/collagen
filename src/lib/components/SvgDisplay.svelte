@@ -553,14 +553,12 @@
 			>
 				<div
 					class="svg-content"
-					style="
-						--pan-x: {panX}px;
-						--pan-y: {panY}px;
-						--scale: {scale};
-						--constrained-width: {svgConstrainedWidth}px;
-						--constrained-height: {svgConstrainedHeight}px;
-						--transition-duration: {transitionDuration}s;
-					"
+					style:--pan-x="{panX}px"
+					style:--pan-y="{panY}px"
+					style:--scale={scale}
+					style:--constrained-width="{svgConstrainedWidth}px"
+					style:--constrained-height="{svgConstrainedHeight}px"
+					style:--transition-duration="{transitionDuration}s"
 					role="img"
 					aria-label="SVG content"
 				>
