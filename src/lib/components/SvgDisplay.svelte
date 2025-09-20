@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { flip } from "svelte/animate";
 	import { quintInOut } from "svelte/easing";
+	import { fly } from "svelte/transition";
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
-	import { fly } from "svelte/transition";
 
 	// Expose focus method for parent components
 	export function focus() {

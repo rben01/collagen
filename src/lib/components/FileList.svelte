@@ -1,19 +1,19 @@
 <script lang="ts">
 	import {
+		collectFromDataTransfer,
+		collectFromFileList,
+		stripFolderPrefix,
+		type FileUploadError,
+	} from "$lib/collagen-ts/filesystem/upload";
+	import {
 		InMemoryFileSystem,
+		isTextPath,
 		type FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
-	import { isTextPath } from "$lib/collagen-ts/index.js";
-	import {
-		collectFromDataTransfer,
-		stripFolderPrefix,
-		collectFromFileList,
-		type FileUploadError,
-	} from "./upload-helpers";
-	import Toolbar from "./Toolbar.svelte";
 	import ButtonIcon from "./ButtonIcon.svelte";
 	import ControlButton from "./ControlButton.svelte";
+	import Toolbar from "./Toolbar.svelte";
 
 	let {
 		filesData = $bindable(),

@@ -1,19 +1,19 @@
 <script lang="ts">
-	import FileList from "./FileList.svelte";
-	import SvgDisplay from "./SvgDisplay.svelte";
-	import TextEditor from "./TextEditor.svelte";
-	import RightPane from "./RightPane.svelte";
-	import IntroPane from "./IntroPane.svelte";
-	import LoadingPane from "./LoadingPane.svelte";
-	import ErrorPane from "./ErrorPane.svelte";
-	import UploadErrorPane from "./UploadErrorPane.svelte";
+	import type { FileUploadError } from "$lib/collagen-ts/filesystem/upload";
 	import {
-		toCollagenError,
 		InMemoryFileSystem,
-	} from "../lib/collagen-ts/index.js";
-	import { onMount, tick, untrack } from "svelte";
+		toCollagenError,
+	} from "$lib/collagen-ts/index.js";
 	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
-	import type { FileUploadError } from "./upload-helpers";
+	import ErrorPane from "$lib/components/ErrorPane.svelte";
+	import FileList from "$lib/components/FileList.svelte";
+	import IntroPane from "$lib/components/IntroPane.svelte";
+	import LoadingPane from "$lib/components/LoadingPane.svelte";
+	import RightPane from "$lib/components/RightPane.svelte";
+	import SvgDisplay from "$lib/components/SvgDisplay.svelte";
+	import TextEditor from "$lib/components/TextEditor.svelte";
+	import UploadErrorPane from "$lib/components/UploadErrorPane.svelte";
+	import { onMount, tick, untrack } from "svelte";
 
 	let error: string | null = $state(null);
 	let showLoading = $state(false);

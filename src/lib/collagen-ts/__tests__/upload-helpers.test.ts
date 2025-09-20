@@ -2,11 +2,8 @@
  * Unit tests for upload helper functions used by the UI
  */
 
-import { describe, it, expect } from "vitest";
-import {
-	getRootFolderName,
-	stripFolderPrefix,
-} from "../../../routes/upload-helpers.js";
+import { describe, expect, it } from "vitest";
+import { getRootFolderName, stripFolderPrefix } from "../filesystem/upload.js";
 
 describe("getRootFolderName", () => {
 	it("returns parent folder for single path", () => {

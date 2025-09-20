@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { FileUploadError } from "./upload-helpers";
+	import type { FileUploadError } from "$lib/collagen-ts/filesystem/upload";
 
 	let {
 		errors,

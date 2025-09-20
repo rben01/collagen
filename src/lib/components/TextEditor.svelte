@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Toolbar from "./Toolbar.svelte";
 	import ControlButton from "./ControlButton.svelte";
+	import Toolbar from "./Toolbar.svelte";
 
 	// Each displayer owns its toolbar; RightPane only provides the panel
 	let {

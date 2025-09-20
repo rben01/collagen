@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-
 	import {
 		collectFromDataTransfer,
 		collectFromFileList,
 		stripFolderPrefix as helperStripFolderPrefix,
 		type FileUploadError,
-	} from "./upload-helpers";
+	} from "$lib/collagen-ts/filesystem/upload";
+	import { onMount } from "svelte";
 
 	onMount(() => {
 		window.fileUploaderMounted = true;
