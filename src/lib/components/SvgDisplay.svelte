@@ -167,7 +167,7 @@
 			isDragging = true;
 			lastMouseX = event.touches[0].clientX;
 			lastMouseY = event.touches[0].clientY;
-			if (svgContainer) svgContainer.style.cursor = "grabbing";
+			// isDragging state will handle the visual feedback
 		}
 	}
 
@@ -208,7 +208,7 @@
 		if (event.touches.length === 0) {
 			isDragging = false;
 			lastTouchDistance = 0;
-			if (svgContainer) svgContainer.style.cursor = "grab";
+			// isDragging state will handle the visual feedback
 		} else if (event.touches.length === 1) {
 			// Reset touch distance when going from 2 touches to 1
 			lastTouchDistance = 0;
@@ -256,7 +256,6 @@
 		isDragging = true;
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
-		if (svgContainer) svgContainer!.style.cursor = "grabbing";
 	}
 
 	function handleMouseMove(event: MouseEvent) {
@@ -274,7 +273,6 @@
 
 	function handleMouseUp() {
 		isDragging = false;
-		if (svgContainer) svgContainer.style.cursor = "grab";
 	}
 
 	function copyToClipboard() {
@@ -534,6 +532,7 @@
 	{:else}
 		<button
 			class="svg-container"
+			class:dragging={isDragging}
 			bind:this={svgContainer}
 			tabindex="0"
 			onmousedown={handleMouseDown}
@@ -541,13 +540,13 @@
 			ontouchstart={handleTouchStart}
 			ontouchmove={handleTouchMove}
 			ontouchend={handleTouchEnd}
-			style="cursor: grab;"
+			style="cursor: {isDragging ? 'grabbing' : 'grab'};"
 			aria-label="Interactive SVG viewer"
 			aria-describedby="svg-controls-description"
 		>
 			<div
 				class="svg-content-mask"
-				style="--content-mask-padding: {SVG_PADDING / 2}px;"
+				style:--content-mask-padding="{SVG_PADDING / 2}px;"
 				bind:clientWidth={containerWidth}
 				bind:clientHeight={containerHeight}
 			>
@@ -587,7 +586,7 @@
 		border: none;
 		border-radius: 0;
 		overflow: hidden;
-		background: white;
+		background: transparent;
 		position: relative;
 		width: 100%;
 		height: 100%;
@@ -667,11 +666,9 @@
 	.svg-container {
 		overflow: hidden;
 		position: relative;
-		background: radial-gradient(circle, #e5e7eb 1px, transparent 1px);
-		background-size: 20px 20px;
-		background-position:
-			0 0,
-			10px 10px;
+		/* Transparent checkboard pattern */
+		background: repeating-conic-gradient(#dcdcdc 0 25%, #0000 0 50%) 50% /
+			20px 20px;
 		border: none;
 		padding: 0;
 		width: 100%;
@@ -682,6 +679,7 @@
 		justify-content: center;
 		align-items: center;
 		touch-action: none; /* Prevent iOS Safari from scrolling */
+		transition: background-color 0.1s ease;
 	}
 
 	.svg-container:focus {
@@ -718,6 +716,12 @@
 		border-radius: 7px;
 	}
 
+	.svg-container.dragging :global(svg) {
+		background: rgba(255, 255, 255, 0.1);
+		filter: brightness(1.1);
+		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.85);
+	}
+
 	.svg-content {
 		position: absolute;
 		width: var(--constrained-width);
@@ -727,9 +731,10 @@
 	.svg-content :global(svg) {
 		max-width: 100%;
 		max-height: 100%;
-		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.15);
+		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.45);
+		border: 1px solid rgba(0, 0, 0, 0.1);
 		border-radius: 6px;
-		background: white;
+		background: transparent;
 		will-change: transform;
 		image-rendering: crisp-edges;
 		transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
