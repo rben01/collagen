@@ -43,6 +43,18 @@
 	let svgConstrainedWidth: number | null = $state(null);
 	let svgConstrainedHeight: number | null = $state(null);
 
+	// Background style management
+	const backgroundStyles = [
+		{ id: "solid-light", name: "Solid Light" },
+		{ id: "light-checkerboard", name: "Light Checkerboard" },
+		{ id: "dark-checkerboard", name: "Dark Checkerboard" },
+		{ id: "solid-dark", name: "Solid Dark" },
+	] as const;
+	let currentBackgroundStyleIndex = $state(1); // initial style is light checkerboard
+	let currentBackgroundStyle = $derived(
+		backgroundStyles[currentBackgroundStyleIndex],
+	);
+
 	const SVG_PADDING = 8; // px
 	const MIN_SCALE = 0.1; // default zoom = 1, this is relative to that
 	const MAX_SCALE = 5;
@@ -144,6 +156,11 @@
 
 	function zoomOut() {
 		withTransition(() => (scale = Math.max(scale / 1.2, MIN_SCALE)));
+	}
+
+	function cycleBackgroundStyle() {
+		currentBackgroundStyleIndex =
+			(currentBackgroundStyleIndex + 1) % backgroundStyles.length;
 	}
 
 	function getTouchDistance(touches: TouchList): number {
@@ -339,6 +356,13 @@
 						handled = true;
 					}
 					break;
+				case "b":
+				case "B":
+					if (!showRawSvg) {
+						cycleBackgroundStyle();
+						handled = true;
+					}
+					break;
 				case "v":
 				case "V":
 					toggleRawSvg();
@@ -454,6 +478,15 @@
 					onclick={toggleInstructions}
 				/>
 				<ControlButton
+					action="background"
+					title="Change Background (Keyboard: B)"
+					ariaLabel="Change background style from {currentBackgroundStyle.name} to {backgroundStyles[
+						(currentBackgroundStyleIndex + 1) % backgroundStyles.length
+					].name}, keyboard shortcut B key"
+					onclick={cycleBackgroundStyle}
+					disabled={showRawSvg}
+				/>
+				<ControlButton
 					action="toggle-view"
 					active={showRawSvg}
 					title="Toggle Code View (Keyboard: V)"
@@ -508,6 +541,7 @@
 							<li>
 								<strong>Focus</strong> the SVG viewer to enable panning
 							</li>
+							<li><strong>B</strong> key: Change background style</li>
 							<li><strong>?</strong> key: Toggle help instructions</li>
 							<li><strong>V</strong> key: Toggle code view</li>
 							<li><strong>C</strong> key: Copy SVG to clipboard</li>
@@ -531,7 +565,7 @@
 		</div>
 	{:else}
 		<button
-			class="svg-container"
+			class="svg-container bg-{currentBackgroundStyle.id}"
 			class:dragging={isDragging}
 			bind:this={svgContainer}
 			tabindex="0"
@@ -570,10 +604,10 @@
 		<!-- Hidden description for screen readers -->
 		<div id="svg-controls-description" class="sr-only">
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
-			view (work globally), Shift+arrow keys to pan (when viewer is focused),
-			V to toggle code view, C to copy, S to save. Mouse controls: Drag to
-			pan, Ctrl+scroll or Cmd+scroll to zoom. Touch controls: Single finger
-			to pan, pinch to zoom.
+			view (work globally), B to change background style, Shift+arrow keys to
+			pan (when viewer is focused), V to toggle code view, C to copy, S to
+			save. Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom.
+			Touch controls: Single finger to pan, pinch to zoom.
 		</div>
 	{/if}
 </div>
@@ -722,6 +756,27 @@
 		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.85);
 	}
 
+	/* Background style variants */
+	.svg-container.bg-light-checkerboard {
+		/* Default light checkerboard - current style */
+		background: repeating-conic-gradient(#dcdcdc 0 25%, #0000 0 50%) 50% /
+			20px 20px;
+	}
+
+	.svg-container.bg-dark-checkerboard {
+		background: repeating-conic-gradient(#292f38 0 25%, #0000 0 50%) 50% /
+			20px 20px;
+		background-color: #11151b;
+	}
+
+	.svg-container.bg-solid-light {
+		background: #ffffff;
+	}
+
+	.svg-container.bg-solid-dark {
+		background: #1a1e25;
+	}
+
 	.svg-content {
 		position: absolute;
 		width: var(--constrained-width);
@@ -741,6 +796,13 @@
 			scale(var(--scale));
 		transform-origin: center;
 		transition: transform var(--transition-duration) ease-out;
+	}
+
+	.svg-container:is(.bg-dark-checkerboard, .bg-solid-dark)
+		.svg-content
+		:global(svg) {
+		box-shadow: 0 2px 10px -1px rgba(127, 127, 127, 0.55);
+		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.raw-svg {

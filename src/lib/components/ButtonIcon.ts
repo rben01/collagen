@@ -1,4 +1,5 @@
 export type ButtonAction =
+	| "background"
 	| "zoom-in"
 	| "zoom-out"
 	| "reset-view"

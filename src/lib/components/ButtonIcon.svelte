@@ -23,6 +23,10 @@
 		background-color: white;
 	}
 
+	.background {
+		--btn-bg: url("@tabler-icons/outline/palette.svg");
+	}
+
 	.zoom-in {
 		--btn-bg: url("@tabler-icons/outline/zoom-in.svg");
 	}
