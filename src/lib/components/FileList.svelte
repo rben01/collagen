@@ -310,8 +310,8 @@ local diameter(r) = 2 * std.pi * r;
 			attrs: {
 				// define object-local variable
 				local r = (nCircles - i) * 5,
-				// 10 dashes around the odd-numbered circles
-				local strokeDasharray = if i % 2 == 0 then "none" else diameter(r) / (2 * 10),
+				// 10 dashes around the even-numbered circles (innermost = 0)
+				local strokeDasharray = if (i + nCircles) % 2 == 0 then "none" else diameter(r) / (2 * 10),
 				cx: w/2, cy: h/2, r: r,
 				fill: circleFill(i),
 				stroke: "black", "stroke-width": 1, "stroke-dasharray": strokeDasharray,
