@@ -13,11 +13,9 @@
 		path,
 		text = $bindable(),
 		handleCloseEditor,
-	}: {
-		path: string;
-		text: string | null;
-		handleCloseEditor: () => void;
-	} = $props();
+	}: { path: string; text: string; handleCloseEditor: () => void } = $props();
+
+	$inspect(text);
 
 	function handleTouchMove(event: TouchEvent) {
 		// Prevent page scrolling when scrolling within textarea
@@ -25,11 +23,12 @@
 	}
 
 	let editorParent: HTMLElement;
+	let editorView: EditorView;
 
 	onMount(() => {
-		new EditorView({
+		editorView = new EditorView({
 			parent: editorParent!,
-			doc: text ?? "",
+			doc: text,
 			extensions: [
 				basicSetup,
 				EditorView.lineWrapping,
@@ -42,6 +41,12 @@
 					}
 				}),
 			],
+		});
+	});
+
+	$effect(() => {
+		editorView.dispatch({
+			changes: { from: 0, to: editorView.state.doc.length, insert: text },
 		});
 	});
 </script>

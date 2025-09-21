@@ -20,7 +20,7 @@
 	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
 	let editorPath: string | null = $state(null);
-	let editorText: string | null = $state(null);
+	let editorText: string = $state("");
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
 	let version = $state(0);
@@ -140,12 +140,12 @@
 		}
 		if (persist) persistEditorChanges();
 		editorPath = null;
-		editorText = null;
+		editorText = "";
 	}
 
 	function persistEditorChanges() {
 		const filesDataUT = untrack(() => filesData);
-		if (!filesDataUT || !editorPath || editorText === null) return;
+		if (!filesDataUT || !editorPath || editorText === "") return;
 		try {
 			const bytes = textEncoder.encode(editorText);
 			filesDataUT.fs.addFileContents(editorPath, bytes, true);
