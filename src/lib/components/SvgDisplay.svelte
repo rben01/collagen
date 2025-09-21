@@ -13,6 +13,7 @@
 
 	let {
 		svg,
+		compact,
 		controlsVisible = true,
 		editorPath = null,
 		scale = $bindable(1),
@@ -22,6 +23,7 @@
 		showInstructions = $bindable(false),
 	}: {
 		svg: string;
+		compact: boolean;
 		controlsVisible?: boolean;
 		editorPath?: string | null;
 		scale?: number;
@@ -425,7 +427,7 @@
 	on:keydown={handleKeyDown}
 />
 
-<div class="svg-display">
+<div class="svg-display" class:compact>
 	<!-- Toast notifications -->
 	<div class="toast-container">
 		{#each toasts as toast (toast.id)}
@@ -794,7 +796,18 @@
 		box-sizing: content-box;
 		border: var(--focus-indicator-thickness) solid #2563eb;
 		/* Match inner SVG rounding to avoid clipped corners when docked/minimized */
+		border-radius: 0 0 7px 7px;
+	}
+
+	.compact .svg-container:focus .svg-content-mask {
 		border-radius: 7px;
+	}
+
+	.svg-container:focus .svg-content-mask {
+		box-sizing: content-box;
+		border: var(--focus-indicator-thickness) solid #2563eb;
+		/* Match inner SVG rounding to avoid clipped corners when docked/minimized */
+		border-radius: 1px 1px 7px 7px;
 	}
 
 	.svg-container.dragging iframe {
