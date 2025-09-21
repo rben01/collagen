@@ -21,6 +21,7 @@
 	let svgOutput: string | null = $state(null);
 	let editorPath: string | null = $state(null);
 	let editorText: string = $state("");
+	let editorRevision = $state(0);
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
 	let version = $state(0);
@@ -131,6 +132,7 @@
 		if (!filesData) return;
 		const file = filesData.fs.load(path);
 		editorText = textDecoder.decode(file.bytes);
+		editorRevision += 1;
 	}
 
 	function handleCloseEditor(persist: boolean = true) {
@@ -318,6 +320,7 @@
 					<TextEditor
 						path={editorPath!}
 						bind:text={editorText}
+						revision={editorRevision}
 						{handleCloseEditor}
 					/>
 				{/snippet}

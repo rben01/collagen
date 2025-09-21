@@ -118,6 +118,11 @@
 			fs = await InMemoryFileSystem.create(files);
 		}
 		filesData = { fs };
+
+		// If a file was uploaded that matches the currently open editor file, refresh the editor
+		if (editorPath && files.has(editorPath)) {
+			handleOpenTextFile(editorPath);
+		}
 	}
 
 	function handleDragEnter(event: DragEvent) {

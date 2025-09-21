@@ -12,18 +12,20 @@
 	let {
 		path,
 		text = $bindable(),
+		revision,
 		handleCloseEditor,
-	}: { path: string; text: string; handleCloseEditor: () => void } = $props();
+	}: {
+		path: string;
+		text: string;
+		revision: number;
+		handleCloseEditor: () => void;
+	} = $props();
 
 	$inspect(text);
 
-	function handleTouchMove(event: TouchEvent) {
-		// Prevent page scrolling when scrolling within textarea
-		event.stopPropagation();
-	}
-
 	let editorParent: HTMLElement;
 	let editorView: EditorView;
+	let lastRevision = $state(-1);
 
 	onMount(() => {
 		editorView = new EditorView({
@@ -45,9 +47,12 @@
 	});
 
 	$effect(() => {
-		editorView.dispatch({
-			changes: { from: 0, to: editorView.state.doc.length, insert: text },
-		});
+		if (revision !== lastRevision) {
+			lastRevision = revision;
+			editorView.dispatch({
+				changes: { from: 0, to: editorView.state.doc.length, insert: text },
+			});
+		}
 	});
 </script>
 
@@ -84,21 +89,6 @@
 		white-space: nowrap;
 		flex: 1;
 		padding-right: 0.5em;
-	}
-
-	.editor-textarea {
-		flex: 1;
-		width: 100%;
-		resize: none;
-		border: 0;
-		outline: none;
-		font-family: var(--mono-font-family);
-		font-size: 0.9em;
-		tab-size: 2;
-		line-height: 1.25;
-		padding: 0.75em;
-		box-sizing: border-box;
-		background: #ffffff;
 	}
 
 	.codemirror-parent {
