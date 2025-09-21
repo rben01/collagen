@@ -19,10 +19,14 @@
 		filesData = $bindable(),
 		handleOpenTextFile,
 		handleUploadErrors,
+		handleCloseEditor,
+		editorPath,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleOpenTextFile: (path: string) => void;
 		handleUploadErrors: (errors: FileUploadError[]) => void;
+		handleCloseEditor: (persist: boolean) => void;
+		editorPath: string | null;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -156,6 +160,8 @@
 
 	// Handle file deletion
 	async function deleteFile(path: string) {
+		if (path === editorPath) handleCloseEditor(false);
+
 		const { fs } = filesData;
 		const removedFile = fs.removeFile(path);
 		filesData = { fs };

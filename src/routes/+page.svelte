@@ -131,12 +131,12 @@
 		editorText = textDecoder.decode(file.bytes);
 	}
 
-	function handleCloseEditor() {
+	function handleCloseEditor(persist: boolean = true) {
 		if (persistTimer) {
 			clearTimeout(persistTimer);
 			persistTimer = null;
 		}
-		persistEditorChanges();
+		if (persist) persistEditorChanges();
 		editorPath = null;
 		editorText = null;
 	}
@@ -272,6 +272,8 @@
 							bind:filesData
 							{handleOpenTextFile}
 							{handleUploadErrors}
+							{handleCloseEditor}
+							{editorPath}
 						/>
 						{@render uploadErrorPane()}
 					</div>
@@ -287,6 +289,8 @@
 						bind:filesData
 						{handleOpenTextFile}
 						{handleUploadErrors}
+						{handleCloseEditor}
+						{editorPath}
 					/>
 					{@render uploadErrorPane()}
 				{/if}
