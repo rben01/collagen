@@ -50,6 +50,11 @@
 		"vitest-browser-svelte": "1.1.0"
 	},
 	"dependencies": {
-		"@tabler/icons": "^3.35.0"
+		"@codemirror/commands": "^6.8.1",
+		"@codemirror/language": "^6.11.3",
+		"@codemirror/view": "^6.38.2",
+		"@tabler/icons": "^3.35.0",
+		"codemirror": "^6.0.2",
+		"svelte-codemirror-editor": "^2.0.0"
 	}
 }

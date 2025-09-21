@@ -1,6 +1,12 @@
 <script lang="ts">
+	import { jsonnet } from "$lib/collagen-ts/jsonnet/cm-jsonnet-highlight";
+	import { defaultKeymap, indentWithTab } from "@codemirror/commands";
+	import { indentUnit } from "@codemirror/language";
+	import { EditorView, keymap } from "@codemirror/view";
+	import { basicSetup } from "codemirror";
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
+	import { onMount } from "svelte";
 
 	// Each displayer owns its toolbar; RightPane only provides the panel
 	let {
@@ -17,6 +23,27 @@
 		// Prevent page scrolling when scrolling within textarea
 		event.stopPropagation();
 	}
+
+	let editorParent: HTMLElement;
+
+	onMount(() => {
+		new EditorView({
+			parent: editorParent!,
+			doc: text ?? "",
+			extensions: [
+				basicSetup,
+				EditorView.lineWrapping,
+				indentUnit.of("\t"),
+				keymap.of([...defaultKeymap, indentWithTab]),
+				jsonnet(),
+				EditorView.updateListener.of(update => {
+					if (update.docChanged) {
+						text = update.state.doc.toString();
+					}
+				}),
+			],
+		});
+	});
 </script>
 
 <div class="text-editor" role="region" aria-label="Text editor">
@@ -31,13 +58,7 @@
 			/>
 		</div>
 	</Toolbar>
-	<textarea
-		class="editor-textarea"
-		bind:value={text}
-		ontouchmove={handleTouchMove}
-		spellcheck={false}
-		aria-label="Editable text file contents"
-	></textarea>
+	<div class="codemirror-parent" bind:this={editorParent}></div>
 </div>
 
 <style>
@@ -73,5 +94,16 @@
 		padding: 0.75em;
 		box-sizing: border-box;
 		background: #ffffff;
+	}
+
+	.codemirror-parent {
+		height: 100%;
+		overflow: auto;
+	}
+
+	.codemirror-parent :global(.cm-scroller) {
+		overflow: auto;
+		font-family: var(--mono-font-family);
+		font-size: 14px;
 	}
 </style>
