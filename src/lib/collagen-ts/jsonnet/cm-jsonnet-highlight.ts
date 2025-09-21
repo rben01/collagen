@@ -368,52 +368,42 @@ const jsonnetStream: StreamParser<State> = {
 };
 
 /** Exported language objects **/
+import { JSONNET_STDLIB_COMPLETIONS } from "./jsonnet-stdlib-completions";
 
 export const jsonnetLanguage = StreamLanguage.define<State>(jsonnetStream);
 
 function autocomplete(context: CompletionContext): CompletionResult | null {
-	let word = context.matchBefore(/std.\w*/);
+	const word = context.matchBefore(/std.\w*\(?/);
 	console.log({ word, ...context });
 	if (word && word.from !== word.to) {
 		return {
 			from: word.from + 4, // skip "std."
-			options: [
-				{
-					label: "range(lo, hi)",
-					type: "function",
-					detail: "A range from lo to hi (inclusive)",
-					apply: (view, completion, from, to) => {
-						view.dispatch({
-							changes: { from, to, insert: completion.label },
-						});
-						const pos = from + "range".length + 1;
-						view.dispatch({ selection: { anchor: pos } });
-					},
-				},
-			],
+			options: JSONNET_STDLIB_COMPLETIONS,
 			validFor: /\w*/,
 		};
 	}
 
-	word = context.matchBefore(/\w*/);
-	if (!word || (word.from == word.to && !context.explicit)) return null;
-	console.log({ word });
-	return {
-		from: word.from,
-		options: [
-			{ label: "local", type: "keyword", detail: "Define a variable" },
-			{
-				label: "attrs",
-				type: "property",
-				detail: "The element's attributes",
-			},
-			{
-				label: "children",
-				type: "property",
-				detail: "The element's children",
-			},
-		],
-	};
+	return null;
+
+	// word = context.matchBefore(/\w*/);
+	// if (!word || (word.from == word.to && !context.explicit)) return null;
+	// console.log({ word });
+	// return {
+	// 	from: word.from,
+	// 	options: [
+	// 		{ label: "local", type: "keyword", detail: "Define a variable" },
+	// 		{
+	// 			label: "attrs",
+	// 			type: "property",
+	// 			detail: "The element's attributes",
+	// 		},
+	// 		{
+	// 			label: "children",
+	// 			type: "property",
+	// 			detail: "The element's children",
+	// 		},
+	// 	],
+	// };
 }
 
 export function jsonnet(): LanguageSupport {
