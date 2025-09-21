@@ -23,6 +23,8 @@
 	let editorText: string | null = $state(null);
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
+	let version = $state(0);
+
 	const PERSIST_MS = 100; // ~10 writes/sec, persist within 0.1s
 	const ERROR_DELAY_MS = 300; // Delay errors by 300ms to avoid flicker
 
@@ -172,8 +174,18 @@
 
 		startLoading();
 
+		// in case multiple SVGs race, only keep the latest by saving the current version,
+		// then checking we're it once we finish generating
+		const thisVersion = untrack(() => {
+			version += 1;
+			return version;
+		});
+
 		fs.generateSvg()
 			.then(svg => {
+				// someone else incremented version after we started generating the svg
+				if (thisVersion !== version) return;
+
 				if (errorTimer) {
 					clearTimeout(errorTimer);
 					errorTimer = null;
