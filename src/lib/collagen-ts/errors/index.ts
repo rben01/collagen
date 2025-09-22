@@ -33,7 +33,7 @@ export class InvalidTypeError extends CollagenError {
 		let valueStr: string;
 		try {
 			valueStr = JSON.stringify(value);
-		} catch (error) {
+		} catch (_error) {
 			// Handle circular references safely
 			valueStr =
 				typeof value === "object" && value !== null

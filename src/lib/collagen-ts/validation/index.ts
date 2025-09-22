@@ -54,6 +54,12 @@ function isArray(value: unknown): value is unknown[] {
 	return Array.isArray(value);
 }
 
+function jsonTypeOf(value: unknown) {
+	if (value === null) return "null";
+	if (isArray(value)) return "array";
+	return typeof value;
+}
+
 /** Validate and convert XML attributes */
 function validateXmlAttrs(
 	value: unknown,
@@ -66,7 +72,12 @@ function validateXmlAttrs(
 
 	if (!isPlainObject(value)) {
 		errors.push(
-			new InvalidFieldTypeError(tagType, "attrs", "object", typeof value),
+			new InvalidFieldTypeError(
+				tagType,
+				"attrs",
+				"object",
+				jsonTypeOf(value),
+			),
 		);
 		return {};
 	}
@@ -154,7 +165,7 @@ function validateFontFace(
 				"Font",
 				"fonts[item]",
 				"object",
-				typeof value,
+				jsonTypeOf(value),
 			),
 		);
 		return null;
@@ -231,7 +242,12 @@ function validateFontAttrs(
 
 	if (!isPlainObject(value)) {
 		errors.push(
-			new InvalidFieldTypeError("FontFace", "attrs", "object", typeof value),
+			new InvalidFieldTypeError(
+				"FontFace",
+				"attrs",
+				"object",
+				jsonTypeOf(value),
+			),
 		);
 		return {};
 	}
