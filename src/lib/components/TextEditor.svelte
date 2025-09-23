@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { jsonnet } from "$lib/collagen-ts/jsonnet/cm-jsonnet-highlight";
 	import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-	import { indentUnit } from "@codemirror/language";
-	import { EditorView, keymap } from "@codemirror/view";
+	import { foldGutter, indentUnit } from "@codemirror/language";
+	import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 	import { basicSetup } from "codemirror";
+	import { onMount } from "svelte";
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
-	import { onMount } from "svelte";
 
 	// Each displayer owns its toolbar; RightPane only provides the panel
 	let {
@@ -33,6 +33,8 @@
 			doc: text,
 			extensions: [
 				basicSetup,
+				lineNumbers(),
+				foldGutter(),
 				EditorView.lineWrapping,
 				indentUnit.of("\t"),
 				keymap.of([...defaultKeymap, indentWithTab]),

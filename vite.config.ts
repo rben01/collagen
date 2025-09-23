@@ -12,5 +12,4 @@ export default defineConfig({
 			),
 		},
 	},
-	optimizeDeps: { exclude: ["svelte-codemirror-editor", "codemirror"] },
 });
