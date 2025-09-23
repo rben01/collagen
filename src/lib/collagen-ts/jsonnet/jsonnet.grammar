@@ -1,0 +1,371 @@
+// Lezer grammar for Jsonnet
+// Based on the Jsonnet specification at https://jsonnet.org/ref/spec.html
+//
+// Keywords: assert, else, error, false, for, function, if, import,
+//           importstr, importbin, in, local, null, tailstrict, then,
+//           self, super, true
+
+@top Program { expression }
+
+@precedence {
+  call @left,
+  member @left,
+  unary @right,
+  times @left,
+  plus @left,
+  shift @left,
+  compare @left,
+  equality @left,
+  bitand @left,
+  bitxor @left,
+  bitor @left,
+  and @left,
+  or @left,
+  ternary @right,
+  assign @right,
+  else @right,
+  objcomp @right,
+  field @left
+}
+
+// Identifier rule - wraps the identifier token
+Identifier { identifier }
+
+expression[@isGroup=Expression] {
+  SuperMemberExpression |
+  SuperIndexExpression |
+  MemberExpression |
+  IndexExpression |
+  SliceExpression |
+  CallExpression |
+  ObjectMerge |
+  UnaryExpression |
+  BinaryExpression |
+  ConditionalExpression |
+  LocalExpression |
+  FunctionExpression |
+  TailstrictExpression |
+  AssertExpression |
+  ImportExpression |
+  ImportStrExpression |
+  ImportBinExpression |
+  ErrorExpression |
+  InSuperExpression |
+  ObjectExpression |
+  ArrayExpression |
+  ArrayComprehension |
+  ParenthesizedExpression |
+  Null |
+  Boolean |
+  Self |
+  Super |
+  Dollar |
+  String |
+  Number |
+  Identifier
+}
+
+// Literals and basic tokens
+Null { kw<"null"> }
+True { kw<"true"> }
+False { kw<"false"> }
+Boolean { True | False }
+Self { kw<"self"> }
+Super { kw<"super"> }
+Dollar { "$" }
+
+// Object expressions - simplified to avoid ambiguity
+ObjectExpression {
+  "{" objBody? "}"
+}
+
+// TODO: ObjectComprehension conflicts with Field syntax - needs manual resolution
+// ObjectComprehension would be: { [expression]: expression for x in expression }
+// This conflicts with Field: { [expression]: expression }
+
+objBody {
+  objMember objRest* ","?
+}
+
+objRest {
+  "," objMember
+}
+
+objMember {
+  ObjectLocal |
+  Assert |
+  Field
+}
+
+
+Field {
+  !field fieldName ("+"? fieldVisibility expression | Parameters fieldVisibility expression)
+}
+
+fieldName {
+  Identifier |
+  String |
+  "[" expression "]"
+}
+
+fieldVisibility {
+  ":" | "::" | ":::"
+}
+
+ObjectLocal {
+  kw<"local"> bind
+}
+
+Assert {
+  kw<"assert"> expression (":" expression)?
+}
+
+bind {
+  Identifier "=" expression |
+  Identifier Parameters "=" expression
+}
+
+// Array expressions
+ArrayExpression {
+  "[" (expression ("," expression)* ","?)? "]"
+}
+
+ArrayComprehension {
+  "[" expression ","? forSpec compSpec* "]"
+}
+
+// Comprehension specifications
+compSpec {
+  forSpec | ifSpec
+}
+
+forSpec {
+  kw<"for"> Identifier kw<"in"> expression
+}
+
+ifSpec {
+  kw<"if"> expression
+}
+
+// Member access and indexing
+MemberExpression {
+  expression !member "." Identifier
+}
+
+IndexExpression {
+  expression !member "[" expression "]"
+}
+
+SliceExpression {
+  expression !member "[" expression? ":" expression? (":" expression?)? "]"
+}
+
+SuperMemberExpression {
+  Super !member "." Identifier
+}
+
+SuperIndexExpression {
+  Super !member "[" expression "]"
+}
+
+// Function calls
+CallExpression {
+  expression !call "(" args? ")"
+}
+
+args {
+  argList
+}
+
+argList {
+  singleArg |
+  multipleArgs
+}
+
+singleArg {
+  expression |
+  namedArg
+}
+
+multipleArgs {
+  expression "," argRest |
+  namedArg "," namedArgRest
+}
+
+argRest {
+  expression ("," expression)* |
+  namedArg ("," namedArg)*
+}
+
+namedArgRest {
+  namedArg ("," namedArg)*
+}
+
+namedArg {
+  Identifier "=" expression
+}
+
+// Local bindings
+LocalExpression {
+  kw<"local"> bind ("," bind)* ";" expression
+}
+
+// Conditionals
+ConditionalExpression {
+  kw<"if"> expression kw<"then"> expression (!else kw<"else"> expression)?
+}
+
+// Binary expressions
+BinaryExpression {
+  expression !times (times { "*" } | mod { "%" }) expression |
+  expression !plus (plus { "+" } | minus { "-" }) expression |
+  expression !shift (lshift { "<<" } | rshift { ">>" }) expression |
+  expression !compare (lt { "<" } | le { "<=" } | gt { ">" } | ge { ">=" } | kw<"in">) expression |
+  expression !equality (eq { "==" } | ne { "!=" }) expression |
+  expression !bitand bitAnd { "&" } expression |
+  expression !bitxor bitXor { "^" } expression |
+  expression !bitor bitOr { "|" } expression |
+  expression !and logicalAnd { "&&" } expression |
+  expression !or logicalOr { "||" } expression
+}
+
+// Unary expressions
+UnaryExpression {
+  !unary (minus { "-" } | plus { "+" } | not { "!" } | bitnot { "~" }) expression
+}
+
+// Object merge
+ObjectMerge {
+  expression !member "{" objBody? "}"
+}
+
+// Function expressions
+FunctionExpression {
+  kw<"function"> Parameters expression
+}
+
+// Tailstrict expression
+TailstrictExpression {
+  kw<"tailstrict"> expression
+}
+
+Parameters {
+  "(" (param ("," param)* ","?)? ")"
+}
+
+param {
+  Identifier ("=" expression)?
+}
+
+// Assert expression
+AssertExpression {
+  kw<"assert"> expression ";" expression
+}
+
+// Import expressions
+ImportExpression {
+  kw<"import"> String
+}
+
+ImportStrExpression {
+  kw<"importstr"> String
+}
+
+ImportBinExpression {
+  kw<"importbin"> String
+}
+
+// Error expression
+ErrorExpression {
+  kw<"error"> expression
+}
+
+// In super expression
+InSuperExpression {
+  expression !compare kw<"in"> Super
+}
+
+// Parenthesized expression
+ParenthesizedExpression {
+  "(" expression ")"
+}
+
+// Keywords helper - produces specialized tokens from identifier
+kw<word> { @specialize[@name={word}]<identifier, word> }
+
+@skip { space | LineComment | BlockComment }
+
+@tokens {
+  // Comments first (more specific patterns for / character)
+  LineComment { "#" ![\n\r]* | "//" ![\n\r]* }
+
+  BlockComment { "/*" blockCommentRest }
+  blockCommentRest {
+    ![*]* blockCommentAfterStar
+  }
+  blockCommentAfterStar {
+    "/" | "*" blockCommentAfterStar | ![/*] blockCommentRest
+  }
+
+  // Whitespace
+  space { @whitespace+ }
+
+  // Identifiers (before keywords can specialize them)
+  identifier { $[_a-zA-Z] $[_a-zA-Z0-9]* }
+
+  // Numbers
+  Number {
+    @digit+ ("." @digit+)? ($[eE] $[+-]? @digit+)?
+  }
+
+  // Strings - all forms except text blocks
+  // TODO: Text blocks (|||..|||) require external tokenization
+  // due to complex indentation-based content rules
+  String {
+    doubleQuotedString |
+    singleQuotedString |
+    verbatimDoubleQuotedString |
+    verbatimSingleQuotedString
+    // | textBlockString  // Commented out - needs external tokenizer
+  }
+
+  doubleQuotedString {
+    '"' (stringEscape | !["\\\r\n])* '"'
+  }
+
+  singleQuotedString {
+    "'" (stringEscape | !['\\\r\n])* "'"
+  }
+
+  verbatimDoubleQuotedString {
+    '@"' (verbatimDoubleQuote | !["])* '"'
+  }
+
+  verbatimSingleQuotedString {
+    "@'" (verbatimSingleQuote | !['])* "'"
+  }
+
+  verbatimDoubleQuote { '""' }
+  verbatimSingleQuote { "''" }
+
+
+  stringEscape {
+    "\\" ($["'\\bfnrt/] | "u" @digit @digit @digit @digit)
+  }
+
+  // Single-character symbols
+  "{" "}" "[" "]" "," "." "(" ")" ";"
+
+  // Operators - order matters for tokenization
+  "+" "-" "*" "%"
+  // "/" is handled implicitly due to comment conflicts
+  "<<" ">>"
+  "<" "<=" ">" ">=" "==" "!="
+  "&" "^" "|"
+  "&&" "||"
+  "!" "~"
+  "=" "$"
+  ":" "::" ":::"
+}
+
+@detectDelim
