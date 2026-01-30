@@ -9,8 +9,8 @@
 			<h2>Welcome to Collagen</h2>
 			<p>
 				To get started, add some files to the file list on the left, or
-				click “Create sample project” to start with a basic example. A valid
-				project must contain a
+				click "New file" to start with a basic example. A valid project must
+				contain a
 				<code>collagen.json</code> or <code>collagen.jsonnet</code> file at its
 				root, but you can also include images, font files, or even entire other
 				Collagen projects by adding them to the project.
