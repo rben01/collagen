@@ -1,14 +1,22 @@
 <script lang="ts">
-	import { flip } from "svelte/animate";
-	import { quintInOut } from "svelte/easing";
-	import { fly } from "svelte/transition";
 	import ControlButton from "./ControlButton.svelte";
+	import ToastContainer, { type Toast } from "./ToastContainer.svelte";
 	import Toolbar from "./Toolbar.svelte";
+	import {
+		BACKGROUND_STYLES,
+		CONTENT_PADDING,
+		PAN_AMOUNT,
+		calculateConstrainedDimensions,
+		calculateZoomToPoint,
+		clampScale,
+		getTouchDistance,
+		getTouchMidpoint,
+		isTypingInInput,
+	} from "./viewer/index.js";
 	import { base64Encode } from "$lib/collagen-ts";
 
-	// Expose focus method for parent components
 	export function focus() {
-		if (svgContainer) svgContainer.focus();
+		if (viewerContainer) viewerContainer.focus();
 	}
 
 	let {
@@ -36,35 +44,21 @@
 	let isDragging = $state(false);
 	let lastMouseX = $state(0);
 	let lastMouseY = $state(0);
-	let transitionDuration = $state(0); // seconds
-	let svgContainer: HTMLElement | null = $state(null);
+	let transitionDuration = $state(0);
+	let viewerContainer: HTMLElement | null = $state(null);
 	let lastTouchDistance = $state(0);
 	let toastCounter = $state(0);
-	let toasts: { id: number; message: string; type: string }[] = $state([]);
+	let toasts: Toast[] = $state([]);
 	let containerWidth = $state(0);
 	let containerHeight = $state(0);
-	let svgConstrainedWidth: number | null = $state(null);
-	let svgConstrainedHeight: number | null = $state(null);
 
 	const TEXT_ENCODER = new TextEncoder();
 
-	// Background style management
-	const backgroundStyles = [
-		{ id: "solid-light", name: "Solid Light" },
-		{ id: "light-checkerboard", name: "Light Checkerboard" },
-		{ id: "dark-checkerboard", name: "Dark Checkerboard" },
-		{ id: "solid-dark", name: "Solid Dark" },
-	] as const;
-	let currentBackgroundStyleIndex = $state(1); // initial style is light checkerboard
+	let currentBackgroundStyleIndex = $state(1);
 	let currentBackgroundStyle = $derived(
-		backgroundStyles[currentBackgroundStyleIndex],
+		BACKGROUND_STYLES[currentBackgroundStyleIndex],
 	);
 
-	const SVG_PADDING = 8; // px
-	const MIN_SCALE = 0.1; // default zoom = 1, this is relative to that
-	const MAX_SCALE = 5;
-
-	// Parse SVG viewBox to get native dimensions and aspect ratio
 	const svgDimensions = $derived.by(() => {
 		const viewBoxMatch = svg.match(/viewBox="([^"]*)"/);
 		if (!viewBoxMatch) return null;
@@ -76,32 +70,15 @@
 		return { x, y, width, height, aspectRatio: width / height };
 	});
 
-	$effect(() => {
-		const containerAspectRatio = containerWidth / containerHeight;
-
-		if (
-			!svgDimensions ||
-			containerAspectRatio === 0 ||
-			!isFinite(containerAspectRatio) ||
-			isNaN(containerAspectRatio)
-		) {
-			svgConstrainedWidth = containerWidth;
-			svgConstrainedHeight = containerHeight;
-			return;
-		}
-
-		if (containerAspectRatio < svgDimensions.aspectRatio) {
-			// container is narrower than SVG (relatively speaking)
-			svgConstrainedWidth = containerWidth - SVG_PADDING;
-			svgConstrainedHeight =
-				containerWidth / svgDimensions.aspectRatio - SVG_PADDING;
-		} else {
-			// container is wider than SVG (relatively speaking)
-			svgConstrainedWidth =
-				containerHeight * svgDimensions.aspectRatio - SVG_PADDING;
-			svgConstrainedHeight = containerHeight - SVG_PADDING;
-		}
-	});
+	const constrainedDimensions = $derived(
+		calculateConstrainedDimensions(
+			svgDimensions?.width ?? 0,
+			svgDimensions?.height ?? 0,
+			containerWidth,
+			containerHeight,
+			CONTENT_PADDING,
+		),
+	);
 
 	function toggleRawSvg() {
 		showRawSvg = !showRawSvg;
@@ -112,16 +89,11 @@
 	}
 
 	function showToast(message: string, type = "success") {
-		const id = toastCounter;
-		const toast = { id, message, type };
-		toastCounter += 1;
-		toasts = [...toasts, toast];
-
-		// Auto-remove after 3 seconds
+		const id = toastCounter++;
+		toasts = [...toasts, { id, message, type }];
 		setTimeout(() => removeToast(id), 3000);
 	}
 
-	// TODO: make toast animate from its y position, not from the top
 	function removeToast(id: number) {
 		toasts = toasts.filter(t => t.id !== id);
 	}
@@ -141,9 +113,7 @@
 
 	function withTransition(fn: () => void, duration = 0.1) {
 		transitionDuration = duration;
-		setTimeout(() => {
-			transitionDuration = 0;
-		}, duration * 1000);
+		setTimeout(() => (transitionDuration = 0), duration * 1000);
 		fn();
 	}
 
@@ -156,25 +126,30 @@
 	}
 
 	function zoomIn() {
-		withTransition(() => (scale = Math.min(scale * 1.2, MAX_SCALE)));
+		withTransition(() => (scale = clampScale(scale * 1.2)));
 	}
 
 	function zoomOut() {
-		withTransition(() => (scale = Math.max(scale / 1.2, MIN_SCALE)));
+		withTransition(() => (scale = clampScale(scale / 1.2)));
 	}
 
 	function cycleBackgroundStyle() {
 		currentBackgroundStyleIndex =
-			(currentBackgroundStyleIndex + 1) % backgroundStyles.length;
+			(currentBackgroundStyleIndex + 1) % BACKGROUND_STYLES.length;
 	}
 
-	function getTouchDistance(touches: TouchList): number {
-		if (touches.length < 2) return 0;
-		const touch1 = touches[0];
-		const touch2 = touches[1];
-		const dx = touch1.clientX - touch2.clientX;
-		const dy = touch1.clientY - touch2.clientY;
-		return Math.sqrt(dx * dx + dy * dy);
+	function zoomToPoint(clientX: number, clientY: number, scaleDelta: number) {
+		if (!viewerContainer) return;
+		const result = calculateZoomToPoint(
+			clientX,
+			clientY,
+			scaleDelta,
+			viewerContainer.getBoundingClientRect(),
+			{ scale, panX, panY },
+		);
+		scale = result.scale;
+		panX = result.panX;
+		panY = result.panY;
 	}
 
 	function handleTouchStart(event: TouchEvent) {
@@ -183,44 +158,30 @@
 			event.stopPropagation();
 			lastTouchDistance = getTouchDistance(event.touches);
 		} else if (event.touches.length === 1) {
-			// Single touch for panning - prevent page scroll
 			event.preventDefault();
 			event.stopPropagation();
 			isDragging = true;
 			lastMouseX = event.touches[0].clientX;
 			lastMouseY = event.touches[0].clientY;
-			// isDragging state will handle the visual feedback
 		}
 	}
 
 	function handleTouchMove(event: TouchEvent) {
 		if (event.touches.length === 2) {
-			// Pinch to zoom
 			event.preventDefault();
 			event.stopPropagation();
 			const currentDistance = getTouchDistance(event.touches);
 			if (lastTouchDistance > 0) {
 				const delta = currentDistance / lastTouchDistance;
-
-				// Calculate midpoint between the two touches
-				const touch1 = event.touches[0];
-				const touch2 = event.touches[1];
-				const midpointX = (touch1.clientX + touch2.clientX) / 2;
-				const midpointY = (touch1.clientY + touch2.clientY) / 2;
-
-				zoomToPoint(midpointX, midpointY, delta);
+				const midpoint = getTouchMidpoint(event.touches);
+				zoomToPoint(midpoint.x, midpoint.y, delta);
 			}
 			lastTouchDistance = currentDistance;
 		} else if (event.touches.length === 1 && isDragging) {
-			// Single touch panning
 			event.preventDefault();
 			event.stopPropagation();
-			const deltaX = event.touches[0].clientX - lastMouseX;
-			const deltaY = event.touches[0].clientY - lastMouseY;
-
-			panX += deltaX;
-			panY += deltaY;
-
+			panX += event.touches[0].clientX - lastMouseX;
+			panY += event.touches[0].clientY - lastMouseY;
 			lastMouseX = event.touches[0].clientX;
 			lastMouseY = event.touches[0].clientY;
 		}
@@ -230,48 +191,17 @@
 		if (event.touches.length === 0) {
 			isDragging = false;
 			lastTouchDistance = 0;
-			// isDragging state will handle the visual feedback
 		} else if (event.touches.length === 1) {
-			// Reset touch distance when going from 2 touches to 1
 			lastTouchDistance = 0;
 		}
 	}
 
-	function zoomToPoint(clientX: number, clientY: number, scaleDelta: number) {
-		if (!svgContainer) return;
-
-		// Get the container bounds
-		const containerRect = svgContainer.getBoundingClientRect();
-
-		// Calculate cursor position relative to container center
-		const cursorX = clientX - containerRect.left - containerRect.width / 2;
-		const cursorY = clientY - containerRect.top - containerRect.height / 2;
-
-		// Calculate cursor position in SVG coordinate space (before zoom)
-		const cursorSvgX = (cursorX - panX) / scale;
-		const cursorSvgY = (cursorY - panY) / scale;
-
-		// clamp scale to scale bounds
-		const newScale = Math.max(
-			MIN_SCALE,
-			Math.min(scale * scaleDelta, MAX_SCALE),
-		);
-
-		// Adjust pan so cursor point remains stationary
-		panX = cursorX - cursorSvgX * newScale;
-		panY = cursorY - cursorSvgY * newScale;
-
-		scale = newScale;
-	}
-
 	function handleWheel(event: WheelEvent) {
-		// Only zoom if Ctrl is held (trackpad pinch) or if it's a Mac and Meta is held
 		if (event.ctrlKey || event.metaKey) {
 			event.preventDefault();
 			const delta = event.deltaY > 0 ? 0.9 : 1.1;
 			zoomToPoint(event.clientX, event.clientY, delta);
 		}
-		// Otherwise, let the scroll event pass through for normal page scrolling
 	}
 
 	function handleMouseDown(event: MouseEvent) {
@@ -282,13 +212,8 @@
 
 	function handleMouseMove(event: MouseEvent) {
 		if (!isDragging) return;
-
-		const deltaX = event.clientX - lastMouseX;
-		const deltaY = event.clientY - lastMouseY;
-
-		panX += deltaX;
-		panY += deltaY;
-
+		panX += event.clientX - lastMouseX;
+		panY += event.clientY - lastMouseY;
 		lastMouseX = event.clientX;
 		lastMouseY = event.clientY;
 	}
@@ -300,9 +225,7 @@
 	function copyToClipboard() {
 		navigator.clipboard
 			.writeText(svg)
-			.then(() => {
-				showToast("SVG copied to clipboard.");
-			})
+			.then(() => showToast("SVG copied to clipboard."))
 			.catch(err => {
 				console.error("Failed to copy SVG to clipboard:", err);
 				showToast("Failed to copy SVG to clipboard", "error");
@@ -310,28 +233,17 @@
 	}
 
 	function handleRawSvgTouchMove(event: TouchEvent) {
-		// Prevent page scrolling when scrolling within raw SVG code view
 		event.stopPropagation();
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		const panAmount = 20;
 		let handled = false;
+		const hasViewerFocus = document.activeElement === viewerContainer;
 
-		const active = document.activeElement as HTMLElement | null;
-		const isTyping =
-			!!active &&
-			(active.tagName === "TEXTAREA" ||
-				active.tagName === "INPUT" ||
-				(active.isContentEditable ?? false));
-		const hasSvgFocus = document.activeElement === svgContainer;
-
-		// Global shortcuts (work regardless of focus unless typing in an editor)
-		if (!isTyping) {
+		if (!isTypingInInput()) {
 			switch (event.key) {
 				case "+":
 				case "=":
-					// Only handle if no modifier keys are pressed (allow Cmd/Ctrl+Plus for browser zoom)
 					if (
 						!showRawSvg &&
 						!event.metaKey &&
@@ -344,7 +256,6 @@
 					break;
 				case "-":
 				case "_":
-					// Only handle if no modifier keys are pressed (allow Cmd/Ctrl+Minus for browser zoom)
 					if (
 						!showRawSvg &&
 						!event.metaKey &&
@@ -384,7 +295,6 @@
 					handled = true;
 					break;
 				case "?":
-					// Disable help toggle when text editor is open
 					if (!editorPath) {
 						toggleInstructions();
 						handled = true;
@@ -393,31 +303,28 @@
 			}
 		}
 
-		// Pan controls: require viewer focus (Shift + arrows)
-		if (!handled && hasSvgFocus && !isTyping && event.shiftKey) {
+		if (!handled && hasViewerFocus && !isTypingInInput() && event.shiftKey) {
 			switch (event.key) {
 				case "ArrowUp":
-					panY += panAmount;
+					panY += PAN_AMOUNT;
 					handled = true;
 					break;
 				case "ArrowDown":
-					panY -= panAmount;
+					panY -= PAN_AMOUNT;
 					handled = true;
 					break;
 				case "ArrowLeft":
-					panX += panAmount;
+					panX += PAN_AMOUNT;
 					handled = true;
 					break;
 				case "ArrowRight":
-					panX -= panAmount;
+					panX -= PAN_AMOUNT;
 					handled = true;
 					break;
 			}
 		}
 
-		if (handled) {
-			event.preventDefault();
-		}
+		if (handled) event.preventDefault();
 	}
 </script>
 
@@ -427,25 +334,8 @@
 	on:keydown={handleKeyDown}
 />
 
-<div class="svg-display" class:compact>
-	<!-- Toast notifications -->
-	<div class="toast-container">
-		{#each toasts as toast (toast.id)}
-			<div
-				class="toast toast-{toast.type}"
-				role="alert"
-				transition:fly={{ duration: 300, x: "100%" }}
-				animate:flip={{ duration: 300, easing: quintInOut }}
-			>
-				<span>{toast.message}</span>
-				<button
-					class="toast-close"
-					onclick={() => removeToast(toast.id)}
-					tabindex="0">✕</button
-				>
-			</div>
-		{/each}
-	</div>
+<div class="viewer-display" class:compact>
+	<ToastContainer {toasts} onRemove={removeToast} />
 
 	{#if controlsVisible}
 		<Toolbar ariaLabel="SVG viewer controls">
@@ -485,8 +375,8 @@
 				<ControlButton
 					action="background"
 					title="Change Background (Keyboard: B)"
-					ariaLabel="Change background style from {currentBackgroundStyle.name} to {backgroundStyles[
-						(currentBackgroundStyleIndex + 1) % backgroundStyles.length
+					ariaLabel="Change background style from {currentBackgroundStyle.name} to {BACKGROUND_STYLES[
+						(currentBackgroundStyleIndex + 1) % BACKGROUND_STYLES.length
 					].name}, keyboard shortcut B key"
 					onclick={cycleBackgroundStyle}
 					disabled={showRawSvg}
@@ -514,7 +404,6 @@
 		</Toolbar>
 	{/if}
 
-	<!-- Usage Instructions -->
 	{#if showInstructions && !showRawSvg}
 		<div class="instructions" role="region" aria-label="Usage instructions">
 			<div class="instructions-content">
@@ -559,7 +448,6 @@
 	{/if}
 
 	{#if showRawSvg}
-		<!-- TODO: format SVG? -->
 		<div
 			class="raw-svg"
 			role="region"
@@ -570,9 +458,9 @@
 		</div>
 	{:else}
 		<button
-			class="svg-container bg-{currentBackgroundStyle.id}"
+			class="viewer-container bg-{currentBackgroundStyle.id}"
 			class:dragging={isDragging}
-			bind:this={svgContainer}
+			bind:this={viewerContainer}
 			tabindex="0"
 			onmousedown={handleMouseDown}
 			onwheel={handleWheel}
@@ -581,30 +469,30 @@
 			ontouchend={handleTouchEnd}
 			style="cursor: {isDragging ? 'grabbing' : 'grab'};"
 			aria-label="Interactive SVG viewer"
-			aria-describedby="svg-controls-description"
+			aria-describedby="viewer-controls-description"
 		>
 			<div
-				class="svg-content-mask"
-				style:--content-mask-padding="{SVG_PADDING / 2}px;"
+				class="viewer-content-mask"
+				style:--content-mask-padding="{CONTENT_PADDING / 2}px"
 				bind:clientWidth={containerWidth}
 				bind:clientHeight={containerHeight}
 			>
 				<div
-					class="svg-content"
+					class="viewer-content"
 					style:--pan-x="{panX}px"
 					style:--pan-y="{panY}px"
 					style:--scale={scale}
-					style:--constrained-width="{svgConstrainedWidth}px"
-					style:--constrained-height="{svgConstrainedHeight}px"
+					style:--constrained-width="{constrainedDimensions.width}px"
+					style:--constrained-height="{constrainedDimensions.height}px"
 					style:--transition-duration="{transitionDuration}s"
 					role="img"
 					aria-label="SVG content"
 				>
-					<!-- can this be used maliciously? any way for untrusted input to get in there? -->
 					<iframe
+						class="viewer-media"
 						title="Generated SVG"
-						width={svgConstrainedWidth}
-						height={svgConstrainedHeight}
+						width={constrainedDimensions.width}
+						height={constrainedDimensions.height}
 						style="border:none;"
 						src="data:image/svg+xml;base64,{base64Encode(
 							TEXT_ENCODER.encode(svg),
@@ -614,8 +502,7 @@
 			</div>
 		</button>
 
-		<!-- Hidden description for screen readers -->
-		<div id="svg-controls-description" class="sr-only">
+		<div id="viewer-controls-description" class="sr-only">
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
 			view (work globally), B to change background style, Shift+arrow keys to
 			pan (when viewer is focused), V to toggle code view, C to copy, S to
@@ -626,222 +513,14 @@
 </div>
 
 <style>
-	.svg-display {
-		--focus-indicator-thickness: 2px;
+	@import "./viewer/viewer.css";
 
-		/* Border and radius are provided by the RightPane container */
-		border: none;
-		border-radius: 0;
-		overflow: hidden;
-		background: transparent;
-		position: relative;
-		width: 100%;
-		height: 100%;
-		display: flex;
-		flex-direction: column;
-		box-sizing: border-box;
-	}
-
-	.toast-container {
-		position: absolute;
-		top: 4.5em;
-		right: 1em;
-		z-index: 1000;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 0.5em;
-		pointer-events: none;
-	}
-
-	.toast {
-		background: white;
-		border: 1px solid #d1d5db;
-		border-radius: 0.375em;
-		padding: 0.75em 1em;
-		box-shadow:
-			0 4px 6px -1px rgba(0, 0, 0, 0.1),
-			0 2px 4px -1px rgba(0, 0, 0, 0.06);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75em;
-		max-width: 300px;
-		width: fit-content;
-		font-size: 0.875em;
-		pointer-events: auto;
-	}
-
-	.toast-success {
-		border-color: #10b981;
-		background: #ecfdf5;
-		color: #065f46;
-	}
-
-	.toast-error {
-		border-color: #ef4444;
-		background: #fef2f2;
-		color: #991b1b;
-	}
-
-	.toast-close {
-		background: none;
-		border: none;
-		cursor: pointer;
-		font-size: 1.2em;
-		line-height: 1;
-		padding: 0;
-		margin: 0;
-		color: inherit;
-		opacity: 0.6;
-		transition: opacity 0.2s;
-		flex-shrink: 0;
-	}
-
-	.toast-close:hover {
-		opacity: 1;
-	}
-
-	.zoom-level {
-		font-family: monospace;
-		font-size: 0.875em;
-		color: #6b7280;
-		min-width: 3em;
-		text-align: center;
-	}
-
-	@property --checkerboard-primary {
-		syntax: "<color>";
-		initial-value: white;
-		inherits: false;
-	}
-
-	@property --checkerboard-secondary {
-		syntax: "<color>";
-		initial-value: white;
-		inherits: false;
-	}
-
-	.svg-container {
-		overflow: hidden;
-		position: relative;
-		background: repeating-conic-gradient(
-				var(--checkerboard-primary) 0 25%,
-				var(--checkerboard-secondary) 0 50%
-			)
-			50% / 20px 20px;
-		border: none;
-		padding: 0;
-		width: 100%;
-		height: 100%;
-		flex: 1;
-		font-family: inherit;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		touch-action: none; /* Prevent iOS Safari from scrolling */
-		transition:
-			--checkerboard-primary 0.2s ease,
-			--checkerboard-secondary 0.2s ease;
-	}
-
-	.svg-container.bg-light-checkerboard {
-		--checkerboard-primary: #fff;
-		--checkerboard-secondary: #ddd;
-	}
-
-	.svg-container.bg-dark-checkerboard {
-		--checkerboard-primary: #292f38;
-		--checkerboard-secondary: #1a1e25;
-	}
-
-	.svg-container.bg-solid-light {
-		--checkerboard-primary: #fff;
-		--checkerboard-secondary: #fff;
-	}
-
-	.svg-container.bg-solid-dark {
-		--checkerboard-primary: #1a1e25;
-		--checkerboard-secondary: #1a1e25;
-	}
-
-	.svg-container:focus {
-		outline: none;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border: 0;
-	}
-
-	.svg-content-mask {
-		position: relative;
-		place-self: center;
-		width: calc(100% - var(--content-mask-padding));
-		height: calc(100% - var(--content-mask-padding));
-		overflow: hidden;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-
-	.svg-container:focus .svg-content-mask {
-		box-sizing: content-box;
-		border: var(--focus-indicator-thickness) solid #2563eb;
-		/* Match inner SVG rounding to avoid clipped corners when docked/minimized */
-		border-radius: 0 0 7px 7px;
-	}
-
-	.compact .svg-container:focus .svg-content-mask {
+	.compact .viewer-container:focus .viewer-content-mask {
 		border-radius: 7px;
 	}
 
-	.svg-container:focus .svg-content-mask {
-		box-sizing: content-box;
-		border: var(--focus-indicator-thickness) solid #2563eb;
-		/* Match inner SVG rounding to avoid clipped corners when docked/minimized */
-		border-radius: 1px 1px 7px 7px;
-	}
-
-	.svg-container.dragging iframe {
-		background: rgba(255, 255, 255, 0.1);
-		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.85);
-	}
-
-	.svg-content {
-		position: absolute;
-		width: var(--constrained-width);
-		height: var(--constrained-height);
-	}
-
-	.svg-content iframe {
-		max-width: 100%;
-		max-height: 100%;
-		box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.45);
-		border: 1px solid rgba(0, 0, 0, 0.1);
-		border-radius: 6px;
-		background: transparent;
-		will-change: transform;
+	.viewer-media {
 		image-rendering: crisp-edges;
-		transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
-			scale(var(--scale));
-		transform-origin: center;
-		transition: transform var(--transition-duration) ease-out;
-		pointer-events: none;
-	}
-
-	.svg-container:is(.bg-dark-checkerboard, .bg-solid-dark)
-		.svg-content
-		iframe {
-		box-shadow: 0 2px 10px -1px rgba(127, 127, 127, 0.55);
-		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.raw-svg {
@@ -862,11 +541,6 @@
 
 	.raw-svg code {
 		color: #374151;
-	}
-
-	.ui-icon {
-		height: 20px;
-		background-color: #374151;
 	}
 
 	/* Instructions Styles */
@@ -926,16 +600,5 @@
 		background: #e5e7eb;
 		padding: 0.1em 0.3em;
 		border-radius: 0.2em;
-	}
-
-	.instructions-note {
-		background: #eff6ff;
-		border: 1px solid #bfdbfe;
-		border-radius: 0.5em;
-		padding: 0.75em 1em;
-		margin: 0;
-		font-size: 0.9em;
-		line-height: 1.4;
-		color: #1e40af;
 	}
 </style>

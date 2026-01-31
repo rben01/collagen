@@ -1,0 +1,165 @@
+/**
+ * Shared styles for image and SVG viewer components
+ * Import this file and use the classes with appropriate scoping
+ */
+
+/* CSS custom properties for checkerboard backgrounds */
+@property --checkerboard-primary {
+	syntax: "<color>";
+	initial-value: white;
+	inherits: false;
+}
+
+@property --checkerboard-secondary {
+	syntax: "<color>";
+	initial-value: white;
+	inherits: false;
+}
+
+/* Base viewer display container */
+.viewer-display {
+	--focus-indicator-thickness: 2px;
+
+	border: none;
+	border-radius: 0;
+	overflow: hidden;
+	background: transparent;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+}
+
+/* Interactive container for pan/zoom */
+.viewer-container {
+	overflow: hidden;
+	position: relative;
+	background: repeating-conic-gradient(
+			var(--checkerboard-primary) 0 25%,
+			var(--checkerboard-secondary) 0 50%
+		)
+		50% / 20px 20px;
+	border: none;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	flex: 1;
+	font-family: inherit;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	touch-action: none;
+	transition:
+		--checkerboard-primary 0.2s ease,
+		--checkerboard-secondary 0.2s ease;
+}
+
+.viewer-container.bg-light-checkerboard {
+	--checkerboard-primary: #fff;
+	--checkerboard-secondary: #ddd;
+}
+
+.viewer-container.bg-dark-checkerboard {
+	--checkerboard-primary: #292f38;
+	--checkerboard-secondary: #1a1e25;
+}
+
+.viewer-container.bg-solid-light {
+	--checkerboard-primary: #fff;
+	--checkerboard-secondary: #fff;
+}
+
+.viewer-container.bg-solid-dark {
+	--checkerboard-primary: #1a1e25;
+	--checkerboard-secondary: #1a1e25;
+}
+
+.viewer-container:focus {
+	outline: none;
+}
+
+/* Content mask for overflow clipping */
+.viewer-content-mask {
+	position: relative;
+	place-self: center;
+	width: calc(100% - var(--content-mask-padding));
+	height: calc(100% - var(--content-mask-padding));
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.viewer-container:focus .viewer-content-mask {
+	box-sizing: content-box;
+	border: var(--focus-indicator-thickness) solid #2563eb;
+	border-radius: 0 0 7px 7px;
+}
+
+/* Transformable content wrapper */
+.viewer-content {
+	position: absolute;
+	width: var(--constrained-width);
+	height: var(--constrained-height);
+}
+
+/* Shared content element styles - apply .viewer-media class to iframe/img */
+.viewer-media {
+	max-width: 100%;
+	max-height: 100%;
+	box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.45);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	border-radius: 6px;
+	background: transparent;
+	will-change: transform;
+	transform: translate(calc(var(--pan-x)), calc(var(--pan-y)))
+		scale(var(--scale));
+	transform-origin: center;
+	transition: transform var(--transition-duration) ease-out;
+	pointer-events: none;
+}
+
+.viewer-container:is(.bg-dark-checkerboard, .bg-solid-dark) .viewer-media {
+	box-shadow: 0 2px 10px -1px rgba(127, 127, 127, 0.55);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.viewer-container.dragging .viewer-media {
+	background: rgba(255, 255, 255, 0.1);
+	box-shadow: 0 2px 10px -1px rgba(0, 0, 0, 0.85);
+}
+
+/* Zoom level display */
+.zoom-level {
+	font-family: monospace;
+	font-size: 0.875em;
+	color: #6b7280;
+	min-width: 3em;
+	text-align: center;
+}
+
+/* Screen reader only */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Error state */
+.viewer-error {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #fef2f2;
+	color: #dc2626;
+	font-size: 1.1em;
+}
