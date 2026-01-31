@@ -7,6 +7,7 @@
 	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
 	import ErrorPane from "$lib/components/ErrorPane.svelte";
 	import FileList from "$lib/components/FileList.svelte";
+	import ImageDisplay from "$lib/components/ImageDisplay.svelte";
 	import IntroPane from "$lib/components/IntroPane.svelte";
 	import LoadingPane from "$lib/components/LoadingPane.svelte";
 	import RightPane from "$lib/components/RightPane.svelte";
@@ -20,6 +21,7 @@
 	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
 	let editorPath: string | null = $state(null);
+	let imagePath: string | null = $state(null);
 	let editorText: string = $state("");
 	let editorRevision = $state(0);
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
@@ -75,6 +77,7 @@
 		error = null;
 		svgOutput = null;
 		uploadErrors = [];
+		imagePath = null;
 		stopLoading();
 		// Clear any pending error timer since we're in a valid "no files" state
 		const errorTimerUT = untrack(() => errorTimer);
@@ -105,6 +108,11 @@
 	let svgPanY = $state(0);
 	let svgShowRawSvg = $state(false);
 	let svgShowInstructions = $state(false);
+
+	// Persistent image viewer state that survives component mount/unmount
+	let imageScale = $state(1);
+	let imagePanX = $state(0);
+	let imagePanY = $state(0);
 
 	// persist the edited text after a timer
 	$effect(() => {
@@ -143,6 +151,16 @@
 		if (persist) persistEditorChanges();
 		editorPath = null;
 		editorText = "";
+	}
+
+	function handleOpenImageFile(path: string) {
+		imagePath = path;
+		editorPath = null; // Close text editor if open
+		svgShowInstructions = false;
+	}
+
+	function handleCloseImage() {
+		imagePath = null;
 	}
 
 	function persistEditorChanges() {
@@ -279,16 +297,19 @@
 			{/if}
 		{/snippet}
 		<!-- Left sidebar: file list (and compact SVG when editing) -->
-		<div class="sidebar" class:editing={!!editorPath}>
+		<div class="sidebar" class:editing={!!editorPath || !!imagePath}>
 			{#if filesData}
-				{#if editorPath}
+				{#if editorPath || imagePath}
 					<div class="sidebar-top">
 						<FileList
 							bind:filesData
 							{handleOpenTextFile}
+							{handleOpenImageFile}
 							{handleUploadErrors}
 							{handleCloseEditor}
+							{handleCloseImage}
 							{editorPath}
+							{imagePath}
 						/>
 						{@render uploadErrorPane()}
 					</div>
@@ -303,9 +324,12 @@
 					<FileList
 						bind:filesData
 						{handleOpenTextFile}
+						{handleOpenImageFile}
 						{handleUploadErrors}
 						{handleCloseEditor}
+						{handleCloseImage}
 						{editorPath}
+						{imagePath}
 					/>
 					{@render uploadErrorPane()}
 				{/if}
@@ -314,7 +338,7 @@
 			{/if}
 		</div>
 
-		<!-- Right main content area: SVG viewer (default) or text editor (when editing) -->
+		<!-- Right main content area: SVG viewer (default), text editor, or image viewer -->
 		<div class="main-content">
 			{#if editorPath}
 				{#snippet editorContent()}
@@ -326,6 +350,18 @@
 					/>
 				{/snippet}
 				<RightPane ariaLabelContent="Text editor" content={editorContent} />
+			{:else if imagePath}
+				{#snippet imageContent()}
+					<ImageDisplay
+						filesystem={filesData.fs}
+						imagePath={imagePath!}
+						bind:scale={imageScale}
+						bind:panX={imagePanX}
+						bind:panY={imagePanY}
+						{handleCloseImage}
+					/>
+				{/snippet}
+				<RightPane ariaLabelContent="Image viewer" content={imageContent} />
 			{:else}
 				{#snippet rightViewer()}
 					{@render svgViewerContent(true, false)}

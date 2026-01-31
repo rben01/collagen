@@ -55,6 +55,10 @@
 		--btn-bg: url("@tabler-icons/outline/photo-down.svg");
 	}
 
+	.export-image {
+		--btn-bg: url("@tabler-icons/outline/photo-down.svg");
+	}
+
 	.trash {
 		--btn-bg: url("@tabler-icons/outline/trash.svg");
 	}

@@ -8,6 +8,7 @@
 	import {
 		InMemoryFileSystem,
 		isTextPath,
+		isImagePath,
 		type FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { formatFileSize, MB } from "$lib/collagen-ts/utils";
@@ -18,15 +19,21 @@
 	let {
 		filesData = $bindable(),
 		handleOpenTextFile,
+		handleOpenImageFile,
 		handleUploadErrors,
 		handleCloseEditor,
+		handleCloseImage,
 		editorPath,
+		imagePath,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleOpenTextFile: (path: string) => void;
+		handleOpenImageFile: (path: string) => void;
 		handleUploadErrors: (errors: FileUploadError[]) => void;
 		handleCloseEditor: (persist: boolean) => void;
+		handleCloseImage: () => void;
 		editorPath: string | null;
+		imagePath: string | null;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -166,6 +173,7 @@
 	// Handle file deletion
 	async function deleteFile(path: string) {
 		if (path === editorPath) handleCloseEditor(false);
+		if (path === imagePath) handleCloseImage();
 
 		const { fs } = filesData;
 		const removedFile = fs.removeFile(path);
@@ -211,6 +219,8 @@
 	function maybeOpen(path: string) {
 		if (isTextPath(path)) {
 			handleOpenTextFile(path);
+		} else if (isImagePath(path)) {
+			handleOpenImageFile(path);
 		}
 	}
 
@@ -453,7 +463,7 @@ local diameter(r) = 2 * std.pi * r;
 				</div>
 			{/snippet}
 
-			{#if isTextPath(path)}
+			{#if isTextPath(path) || isImagePath(path)}
 				<div
 					class="file-item clickable"
 					onclick={() => maybeOpen(path)}
@@ -469,8 +479,10 @@ local diameter(r) = 2 * std.pi * r;
 					}}
 					role="button"
 					tabindex="0"
-					title={`Click to edit '${path}'`}
-					aria-label={`Edit ${path}`}
+					title={isTextPath(path)
+						? `Click to edit '${path}'`
+						: `Click to view '${path}'`}
+					aria-label={isTextPath(path) ? `Edit ${path}` : `View ${path}`}
 				>
 					{@render fileListItem()}
 				</div>

@@ -7,6 +7,7 @@ export type ButtonAction =
 	| "toggle-view"
 	| "copy"
 	| "export-svg"
+	| "export-image"
 	| "trash"
 	| "minimize-editor"
 	| "download-project";
