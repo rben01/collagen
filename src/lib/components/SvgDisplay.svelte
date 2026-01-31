@@ -11,7 +11,7 @@
 		clampScale,
 		getTouchDistance,
 		getTouchMidpoint,
-		isTypingInInput,
+		getViewerKeyAction,
 	} from "./viewer/index.js";
 	import { base64Encode } from "$lib/collagen-ts";
 
@@ -237,91 +237,65 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
-		let handled = false;
-		const hasViewerFocus = document.activeElement === viewerContainer;
+		const action = getViewerKeyAction(
+			event,
+			document.activeElement === viewerContainer,
+		);
+		if (!action) return;
 
-		if (!isTypingInInput()) {
-			switch (event.key) {
-				case "+":
-				case "=":
-					if (
-						!showRawSvg &&
-						!event.metaKey &&
-						!event.ctrlKey &&
-						!event.altKey
-					) {
-						zoomIn();
-						handled = true;
+		let handled = true;
+		switch (action.type) {
+			case "zoom-in":
+				if (!showRawSvg) zoomIn();
+				else handled = false;
+				break;
+			case "zoom-out":
+				if (!showRawSvg) zoomOut();
+				else handled = false;
+				break;
+			case "reset-view":
+				if (!showRawSvg) resetView();
+				else handled = false;
+				break;
+			case "cycle-background":
+				if (!showRawSvg) cycleBackgroundStyle();
+				else handled = false;
+				break;
+			case "toggle-raw":
+				toggleRawSvg();
+				break;
+			case "copy":
+				copyToClipboard();
+				break;
+			case "download":
+				downloadSvg();
+				break;
+			case "toggle-help":
+				if (!editorPath) toggleInstructions();
+				else handled = false;
+				break;
+			case "pan":
+				if (!showRawSvg) {
+					switch (action.direction) {
+						case "up":
+							panY += PAN_AMOUNT;
+							break;
+						case "down":
+							panY -= PAN_AMOUNT;
+							break;
+						case "left":
+							panX += PAN_AMOUNT;
+							break;
+						case "right":
+							panX -= PAN_AMOUNT;
+							break;
 					}
-					break;
-				case "-":
-				case "_":
-					if (
-						!showRawSvg &&
-						!event.metaKey &&
-						!event.ctrlKey &&
-						!event.altKey
-					) {
-						zoomOut();
-						handled = true;
-					}
-					break;
-				case "0":
-					if (!showRawSvg) {
-						resetView();
-						handled = true;
-					}
-					break;
-				case "b":
-				case "B":
-					if (!showRawSvg) {
-						cycleBackgroundStyle();
-						handled = true;
-					}
-					break;
-				case "v":
-				case "V":
-					toggleRawSvg();
-					handled = true;
-					break;
-				case "c":
-				case "C":
-					copyToClipboard();
-					handled = true;
-					break;
-				case "s":
-				case "S":
-					downloadSvg();
-					handled = true;
-					break;
-				case "?":
-					if (!editorPath) {
-						toggleInstructions();
-						handled = true;
-					}
-					break;
-			}
-		}
-
-		if (!handled && hasViewerFocus && !isTypingInInput() && event.shiftKey) {
-			switch (event.key) {
-				case "ArrowUp":
-					panY += PAN_AMOUNT;
-					handled = true;
-					break;
-				case "ArrowDown":
-					panY -= PAN_AMOUNT;
-					handled = true;
-					break;
-				case "ArrowLeft":
-					panX += PAN_AMOUNT;
-					handled = true;
-					break;
-				case "ArrowRight":
-					panX -= PAN_AMOUNT;
-					handled = true;
-					break;
-			}
+				} else {
+					handled = false;
+				}
+				break;
+			default:
+				handled = false;
 		}
 
 		if (handled) event.preventDefault();

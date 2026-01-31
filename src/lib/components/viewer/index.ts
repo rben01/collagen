@@ -136,3 +136,85 @@ export function isTypingInInput(): boolean {
 			(active.isContentEditable ?? false))
 	);
 }
+
+/**
+ * Check if any modifier keys are pressed (Ctrl, Meta/Cmd, Alt)
+ * Shift is excluded since it's used for arrow key panning
+ */
+export function hasModifierKeys(event: KeyboardEvent): boolean {
+	return event.ctrlKey || event.metaKey || event.altKey;
+}
+
+// =============================================================================
+// Keyboard Action Detection
+// =============================================================================
+
+export type ViewerKeyAction =
+	| { type: "zoom-in" }
+	| { type: "zoom-out" }
+	| { type: "reset-view" }
+	| { type: "cycle-background" }
+	| { type: "copy" }
+	| { type: "download" }
+	| { type: "toggle-raw" }
+	| { type: "toggle-help" }
+	| { type: "pan"; direction: "up" | "down" | "left" | "right" }
+	| null;
+
+/**
+ * Detects which viewer action corresponds to a keyboard event.
+ * Returns null if no action matches or if user is typing in an input.
+ * Each component can then decide whether to execute the action based on its own guards.
+ */
+export function getViewerKeyAction(
+	event: KeyboardEvent,
+	hasViewerFocus: boolean,
+): ViewerKeyAction {
+	if (isTypingInInput()) return null;
+
+	const noModifiers = !hasModifierKeys(event);
+
+	// Shortcuts that require no modifiers
+	if (noModifiers) {
+		switch (event.key) {
+			case "+":
+			case "=":
+				return { type: "zoom-in" };
+			case "-":
+			case "_":
+				return { type: "zoom-out" };
+			case "0":
+				return { type: "reset-view" };
+			case "b":
+			case "B":
+				return { type: "cycle-background" };
+			case "c":
+			case "C":
+				return { type: "copy" };
+			case "s":
+			case "S":
+				return { type: "download" };
+			case "v":
+			case "V":
+				return { type: "toggle-raw" };
+			case "?":
+				return { type: "toggle-help" };
+		}
+	}
+
+	// Pan controls: require viewer focus and Shift (but no Ctrl/Meta/Alt)
+	if (hasViewerFocus && event.shiftKey && noModifiers) {
+		switch (event.key) {
+			case "ArrowUp":
+				return { type: "pan", direction: "up" };
+			case "ArrowDown":
+				return { type: "pan", direction: "down" };
+			case "ArrowLeft":
+				return { type: "pan", direction: "left" };
+			case "ArrowRight":
+				return { type: "pan", direction: "right" };
+		}
+	}
+
+	return null;
+}
