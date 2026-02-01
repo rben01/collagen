@@ -166,7 +166,7 @@ async function generateContainerTag(
 		const resolvedPath = resolvePath(context, tag.clgnPath);
 
 		// Create a new filesystem context for the nested folder
-		const nestedContext = await createNestedContext(context, resolvedPath);
+		const nestedContext = createNestedContext(context, resolvedPath);
 
 		const nestedRootTag = await nestedContext.filesystem.generateRootTag();
 
@@ -323,39 +323,35 @@ export async function generateSvg(
 // =============================================================================
 
 /** Create a nested filesystem context for a container tag */
-async function createNestedContext(
+function createNestedContext(
 	parentContext: SvgGenerationContext,
 	relativePath: string,
-): Promise<SvgGenerationContext> {
+): SvgGenerationContext {
 	// Get all files from parent filesystem that start with the relative path
 	const parentPaths = parentContext.filesystem.getPaths();
-	const nestedFiles = new Map<string, File>();
 
 	// Find all files that are in the nested folder
 	const prefix = relativePath.endsWith("/")
 		? relativePath
 		: relativePath + "/";
 
+	const nestedFilesystem = InMemoryFileSystem.createEmpty();
+
 	for (const path of parentPaths) {
 		if (path.startsWith(prefix)) {
 			// Remove the prefix to make paths relative to the nested folder
 			const nestedRelativePath = path.slice(prefix.length);
 			if (nestedRelativePath) {
-				// Skip the folder itself
 				// Get the original file from the parent filesystem
 				const fileContent = parentContext.filesystem.load(path);
-				// Create a new File object from the content
-				const file = new File(
-					[new Uint8Array(fileContent.bytes)],
-					nestedRelativePath.split("/").pop() || nestedRelativePath,
+				// Add directly to nested filesystem without browser File API
+				nestedFilesystem.addFileContents(
+					nestedRelativePath,
+					fileContent.bytes,
 				);
-				nestedFiles.set(nestedRelativePath, file);
 			}
 		}
 	}
-
-	// Create new filesystem with the filtered files
-	const nestedFilesystem = await InMemoryFileSystem.create(nestedFiles);
 
 	return {
 		filesystem: nestedFilesystem,
@@ -433,9 +429,17 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 		throw new BundledFontNotFoundError(fontName);
 	}
 
+	// Check if the font is already a data URL (e.g., when bundled by esbuild)
+	if (impactB64Url.startsWith("data:")) {
+		const base64Start = impactB64Url.indexOf("base64,");
+		if (base64Start !== -1) {
+			return impactB64Url.slice(base64Start + 7);
+		}
+	}
+
 	let fontBuffer;
 
-	if (import.meta.env.MODE === "test") {
+	if (import.meta.env?.MODE === "test") {
 		const { readFile } = await import("node:fs/promises");
 		const path = await import("node:path");
 
@@ -443,7 +447,6 @@ async function getBundledFontDataBase64(fontName: string): Promise<string> {
 			path.join(process.cwd(), impactB64Url),
 		)) as Uint8Array<ArrayBuffer>;
 	} else {
-		// TODO we've missed the await here before -- test this
 		fontBuffer = await fetch(impactB64Url).then(resp => resp.bytes());
 	}
 
