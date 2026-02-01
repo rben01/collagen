@@ -7,17 +7,14 @@
 :experimental:
 
 image:https://img.shields.io/badge/rben01-collagen-_?logo=github[github,link=https://github.com/rben01/collagen]
-image:https://img.shields.io/github/actions/workflow/status/rben01/collagen/rust.yml?branch=main&logo=github[build,link=https://github.com/rben01/collagen/actions?query=branch%3Amain]
-image:https://img.shields.io/crates/l/collagen[license,link=https://github.com/rben01/collagen/blob/main/LICENSE]
-image:https://img.shields.io/crates/v/collagen.svg?logo=rust[crates.io,link=https://crates.io/crates/collagen]
-image:https://img.shields.io/badge/docs.rs-collagen-1F80C0?logo=docs.rs[docs.rs,link=https://docs.rs/collagen/latest/collagen/]
-image:https://img.shields.io/crates/msrv/collagen.svg?logo=rust&color=FFC833[msrv,link=https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html]
+image:https://img.shields.io/npm/v/%40rben01%2Fcollagen[crates.io,link=https://www.npmjs.com/package/@rben01/collagen]
+image:https://img.shields.io/github/license/rben01/collagen[license,link=https://github.com/rben01/collagen/blob/main/LICENSE]
 
 toc::[]
 
 == Quick Start
 
-Install Collagen with `cargo install collagen`.
+Install Collagen with `npm install -g collagen`.
 This will install the executable `clgn`.
 
 Once installed, if you have a manifest file at path `path/to/folder/collagen.jsonnet` (keep reading to learn what goes in this manifest), you can run the following command:
