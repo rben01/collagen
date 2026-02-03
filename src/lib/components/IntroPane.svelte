@@ -16,20 +16,12 @@
 				Collagen projects by adding them to the project.
 			</p>
 			<div class="helpful-links">
-				<p>Here are some links to help get you started:</p>
-				<ul>
-					<li>
-						<a
-							href="https://github.com/rben01/collagen/blob/main/readme.adoc"
-							target="_blank">What is this?</a
-						>
-					</li>
-					<li>
-						<a href="https://github.com/rben01/collagen" target="_blank"
-							>GitHub repository</a
-						>
-					</li>
-				</ul>
+				<p>
+					To learn more about this project, visit the <a
+						href="https://github.com/rben01/collagen"
+						target="_blank">GitHub repository</a
+					>.
+				</p>
 			</div>
 		</div>
 	</div>
@@ -82,9 +74,6 @@
 	}
 	.helpful-links {
 		text-align: start;
-	}
-	.helpful-links :is(p, ul) {
-		margin: 0 auto;
 	}
 	.helpful-links p {
 		margin-bottom: 0.5em;
