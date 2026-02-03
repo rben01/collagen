@@ -16,12 +16,16 @@
 	import UploadErrorPane from "$lib/components/UploadErrorPane.svelte";
 	import { onMount, tick, untrack } from "svelte";
 
+	type SideViewerState =
+		| null // SVG viewer (default)
+		| { type: "textEditor"; filePath: string }
+		| { type: "imageViewer"; imagePath: string };
+
 	let error: string | null = $state(null);
 	let showLoading = $state(false);
 	let loadingTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let svgOutput: string | null = $state(null);
-	let editorPath: string | null = $state(null);
-	let imagePath: string | null = $state(null);
+	let sideViewer = $state<SideViewerState>(null);
 	let editorText: string = $state("");
 	let editorRevision = $state(0);
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
@@ -77,7 +81,7 @@
 		error = null;
 		svgOutput = null;
 		uploadErrors = [];
-		imagePath = null;
+		sideViewer = null;
 		stopLoading();
 		// Clear any pending error timer since we're in a valid "no files" state
 		const errorTimerUT = untrack(() => errorTimer);
@@ -114,6 +118,14 @@
 	let imagePanX = $state(0);
 	let imagePanY = $state(0);
 
+	// Derived values for template compatibility
+	let editorPath = $derived(
+		sideViewer?.type === "textEditor" ? sideViewer.filePath : null,
+	);
+	let imagePath = $derived(
+		sideViewer?.type === "imageViewer" ? sideViewer.imagePath : null,
+	);
+
 	// persist the edited text after a timer
 	$effect(() => {
 		editorText;
@@ -134,7 +146,7 @@
 	});
 
 	function handleOpenTextFile(path: string) {
-		editorPath = path;
+		sideViewer = { type: "textEditor", filePath: path };
 		// Auto-close help when opening text editor
 		svgShowInstructions = false;
 		if (!filesData) return;
@@ -149,26 +161,31 @@
 			persistTimer = null;
 		}
 		if (persist) persistEditorChanges();
-		editorPath = null;
+		sideViewer = null;
 		editorText = "";
 	}
 
 	function handleOpenImageFile(path: string) {
-		imagePath = path;
-		editorPath = null; // Close text editor if open
+		sideViewer = { type: "imageViewer", imagePath: path };
 		svgShowInstructions = false;
 	}
 
 	function handleCloseImage() {
-		imagePath = null;
+		sideViewer = null;
 	}
 
 	function persistEditorChanges() {
 		const filesDataUT = untrack(() => filesData);
-		if (!filesDataUT || !editorPath || editorText === "") return;
+		const sideViewerUT = untrack(() => sideViewer);
+		if (
+			!filesDataUT ||
+			sideViewerUT?.type !== "textEditor" ||
+			editorText === ""
+		)
+			return;
 		try {
 			const bytes = textEncoder.encode(editorText);
-			filesDataUT.fs.addFileContents(editorPath, bytes, true);
+			filesDataUT.fs.addFileContents(sideViewerUT.filePath, bytes, true);
 			filesData = { fs: filesDataUT.fs };
 			lastPersistAt = Date.now();
 		} catch (err) {
@@ -178,7 +195,7 @@
 
 	// Auto-focus SVG viewer when SVG is generated
 	$effect(() => {
-		if (svgOutput && svgDisplayComponent && !editorPath) {
+		if (svgOutput && svgDisplayComponent && !sideViewer) {
 			tick().then(() => svgDisplayComponent!.focus());
 		}
 	});
@@ -297,9 +314,9 @@
 			{/if}
 		{/snippet}
 		<!-- Left sidebar: file list (and compact SVG when editing) -->
-		<div class="sidebar" class:editing={!!editorPath || !!imagePath}>
+		<div class="sidebar" class:editing={!!sideViewer}>
 			{#if filesData}
-				{#if editorPath || imagePath}
+				{#if sideViewer}
 					<div class="sidebar-top">
 						<FileList
 							bind:filesData
@@ -343,7 +360,7 @@
 			{#if editorPath}
 				{#snippet editorContent()}
 					<TextEditor
-						path={editorPath!}
+						path={editorPath}
 						bind:text={editorText}
 						revision={editorRevision}
 						{handleCloseEditor}
@@ -354,7 +371,7 @@
 				{#snippet imageContent()}
 					<ImageDisplay
 						filesystem={filesData.fs}
-						imagePath={imagePath!}
+						{imagePath}
 						bind:scale={imageScale}
 						bind:panX={imagePanX}
 						bind:panY={imagePanY}
