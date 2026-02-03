@@ -393,8 +393,8 @@
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
 			view, B to change background style, Shift+arrow keys to pan (when
 			viewer is focused), C to copy, S to save. Mouse controls: Drag to pan,
-			Ctrl+scroll or Cmd+scroll to zoom. Touch controls: Single finger to
-			pan, pinch to zoom.
+			Ctrl+scroll or Cmd+scroll to zoom (Safari users: pinch to zoom). Touch
+			controls: Single finger to pan, pinch to zoom.
 		</div>
 	{:else}
 		<div class="viewer-error">

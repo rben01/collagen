@@ -389,7 +389,7 @@
 						<ul>
 							<li>
 								<strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to
-								zoom
+								zoom (Safari users: pinch to zoom)
 							</li>
 							<li><strong>Touch</strong>: Drag to pan, pinch to zoom</li>
 							<li>
@@ -480,8 +480,9 @@
 			Keyboard controls: Press + or = to zoom in, - to zoom out, 0 to reset
 			view (work globally), B to change background style, Shift+arrow keys to
 			pan (when viewer is focused), V to toggle code view, C to copy, S to
-			save. Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom.
-			Touch controls: Single finger to pan, pinch to zoom.
+			save. Mouse controls: Drag to pan, Ctrl+scroll or Cmd+scroll to zoom
+			(Safari users: pinch to zoom). Touch controls: Single finger to pan,
+			pinch to zoom.
 		</div>
 	{/if}
 </div>
