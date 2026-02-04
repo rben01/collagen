@@ -382,7 +382,6 @@
 						src={imageDataUri}
 						alt={imagePath}
 						width={constrainedDimensions.width}
-						height={constrainedDimensions.height}
 						onload={handleImageLoad}
 					/>
 				</div>
