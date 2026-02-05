@@ -29,6 +29,7 @@
 	let naturalWidth = $state(0);
 	let naturalHeight = $state(0);
 	let backgroundStyleIndex = $state(1);
+	let showInstructions = $state(false);
 
 	const imageDataUri = $derived.by(() => {
 		try {
@@ -70,6 +71,10 @@
 		}
 	}
 
+	function toggleInstructions() {
+		showInstructions = !showInstructions;
+	}
+
 	function handleImageLoad(event: Event) {
 		const img = event.target as HTMLImageElement;
 		naturalWidth = img.naturalWidth;
@@ -104,6 +109,13 @@
 		<div class="file-label" title={imagePath}>{imagePath}</div>
 
 		<div class="control-group">
+			<ControlButton
+				action="help"
+				active={showInstructions}
+				title="Toggle Usage Instructions (Keyboard: ?)"
+				ariaLabel="Toggle usage instructions, keyboard shortcut question mark key"
+				onclick={toggleInstructions}
+			/>
 			<ControlButton
 				action="background"
 				title="Change Background (Keyboard: B)"
@@ -147,6 +159,7 @@
 			bind:backgroundStyleIndex
 			onCopy={copyToClipboard}
 			onDownload={downloadImage}
+			bind:showInstructions
 			ariaLabel="Interactive image viewer"
 		>
 			{#snippet children({ constrainedDimensions })}
@@ -209,4 +222,5 @@
 		text-align: center;
 		padding: 0 0.5em;
 	}
+
 </style>

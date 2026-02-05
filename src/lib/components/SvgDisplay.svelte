@@ -87,6 +87,7 @@
 	}
 
 	function handleRawSvgKeyDown(event: KeyboardEvent) {
+		if (compact) return;
 		if (!showRawSvg) return;
 		if (isTypingInInput()) return;
 
@@ -188,49 +189,6 @@
 		</Toolbar>
 	{/if}
 
-	{#if showInstructions && !showRawSvg}
-		<div class="instructions" role="region" aria-label="Usage instructions">
-			<div class="instructions-content">
-				<h4>How to Use the SVG Viewer</h4>
-
-				<div class="instructions-grid">
-					<div class="instruction-section">
-						<h5>Zoom & Pan</h5>
-						<ul>
-							<li>
-								<strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to
-								zoom (Safari users: pinch to zoom)
-							</li>
-							<li><strong>Touch</strong>: Drag to pan, pinch to zoom</li>
-							<li>
-								<strong>Shift</strong><span
-									style="position:relative;bottom:0.1em;"
-									>&ThinSpace;+&ThinSpace;</span
-								><strong>arrows</strong>: Pan (when viewer focused)
-							</li>
-							<li><strong>+/-</strong> keys: Zoom in/out</li>
-							<li><strong>0</strong> key: Reset view</li>
-						</ul>
-					</div>
-
-					<div class="instruction-section">
-						<h5>Actions</h5>
-						<ul>
-							<li>
-								<strong>Focus</strong> the SVG viewer to enable panning
-							</li>
-							<li><strong>B</strong> key: Change background style</li>
-							<li><strong>?</strong> key: Toggle help instructions</li>
-							<li><strong>V</strong> key: Toggle code view</li>
-							<li><strong>C</strong> key: Copy SVG to clipboard</li>
-							<li><strong>S</strong> key: Download SVG file</li>
-						</ul>
-					</div>
-				</div>
-			</div>
-		</div>
-	{/if}
-
 	{#if showRawSvg}
 		<div
 			class="raw-svg"
@@ -253,7 +211,7 @@
 			onCopy={copyToClipboard}
 			onDownload={downloadSvg}
 			onToggleRaw={toggleRawSvg}
-			onToggleHelp={editorPath ? undefined : toggleInstructions}
+			bind:showInstructions
 			{compact}
 			ariaLabel="Interactive SVG viewer"
 		>
@@ -316,62 +274,4 @@
 		color: #374151;
 	}
 
-	/* Instructions Styles */
-	.instructions {
-		background: #f8fafc;
-		border-bottom: 1px solid #e5e7eb;
-		padding: 1.5em;
-		margin: 0;
-	}
-
-	.instructions-content h4 {
-		margin: 0 0 1em 0;
-		color: #374151;
-		font-size: 1.1em;
-		font-weight: 600;
-	}
-
-	.instructions-grid {
-		display: flex;
-		flex-wrap: wrap;
-		margin-bottom: 1em;
-		align-items: flex-start;
-		justify-content: space-around;
-		column-gap: 30px;
-		row-gap: 16px;
-	}
-
-	.instruction-section {
-		min-width: 240px;
-		flex: 1;
-	}
-
-	.instruction-section h5 {
-		margin: 0 0 0.75em 0;
-		color: #1f2937;
-		font-size: 0.95em;
-		font-weight: 600;
-	}
-
-	.instruction-section ul {
-		margin: 0;
-		padding-left: 1.2em;
-		list-style: disc;
-	}
-
-	.instruction-section li {
-		margin-bottom: 0.4em;
-		font-size: 0.9em;
-		line-height: 1.4;
-		color: #4b5563;
-	}
-
-	.instruction-section strong {
-		color: #374151;
-		font-weight: 600;
-		font-family: var(--mono-font-family);
-		background: #e5e7eb;
-		padding: 0.1em 0.3em;
-		border-radius: 0.2em;
-	}
 </style>

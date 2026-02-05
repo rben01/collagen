@@ -55,7 +55,7 @@
 		onCopy,
 		onDownload,
 		onToggleRaw,
-		onToggleHelp,
+		showInstructions = $bindable(false),
 		compact = false,
 		disabled = false,
 		ariaLabel = "Interactive viewer",
@@ -71,7 +71,7 @@
 		onCopy: () => void;
 		onDownload: () => void;
 		onToggleRaw?: () => void;
-		onToggleHelp?: () => void;
+		showInstructions?: boolean;
 		compact?: boolean;
 		disabled?: boolean;
 		ariaLabel?: string;
@@ -200,6 +200,8 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent) {
+		if (compact) return;
+
 		const action = getViewerKeyAction(
 			event,
 			document.activeElement === viewerContainer,
@@ -235,8 +237,7 @@
 				else handled = false;
 				break;
 			case "toggle-help":
-				if (kind === "svg" && onToggleHelp) onToggleHelp();
-				else handled = false;
+				showInstructions = !showInstructions;
 				break;
 			case "pan":
 				if (!disabled) {
@@ -273,6 +274,51 @@
 />
 
 <ToastContainer {toasts} onRemove={removeToast} />
+
+{#if showInstructions}
+	<div class="instructions" role="region" aria-label="Usage instructions">
+		<div class="instructions-content">
+			<h4>How to Use the {kind === "svg" ? "SVG" : "Image"} Viewer</h4>
+
+			<div class="instructions-grid">
+				<div class="instruction-section">
+					<h5>Zoom & Pan</h5>
+					<ul>
+						<li>
+							<strong>Mouse</strong>: Drag to pan, Ctrl/Cmd+scroll to
+							zoom (Safari users: pinch to zoom)
+						</li>
+						<li><strong>Touch</strong>: Drag to pan, pinch to zoom</li>
+						<li>
+							<strong>Shift</strong><span
+								style="position:relative;bottom:0.1em;"
+								>&ThinSpace;+&ThinSpace;</span
+							><strong>arrows</strong>: Pan (when viewer focused)
+						</li>
+						<li><strong>+/-</strong> keys: Zoom in/out</li>
+						<li><strong>0</strong> key: Reset view</li>
+					</ul>
+				</div>
+
+				<div class="instruction-section">
+					<h5>Actions</h5>
+					<ul>
+						<li>
+							<strong>Focus</strong> the {kind === "svg" ? "SVG" : "image"} viewer to enable panning
+						</li>
+						<li><strong>B</strong> key: Change background style</li>
+						<li><strong>?</strong> key: Toggle help instructions</li>
+						{#if kind === "svg"}
+							<li><strong>V</strong> key: Toggle code view</li>
+						{/if}
+						<li><strong>C</strong> key: Copy {kind === "svg" ? "SVG" : "image"} to clipboard</li>
+						<li><strong>S</strong> key: Download {kind === "svg" ? "SVG" : "image"} file</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <button
 	class="viewer-container bg-{currentBackgroundStyle.id}"
@@ -330,5 +376,64 @@
 
 	.viewer-media {
 		overflow: hidden;
+	}
+
+	/* Instructions Styles */
+	.instructions {
+		background: #f8fafc;
+		border-bottom: 1px solid #e5e7eb;
+		padding: 1.5em;
+		margin: 0;
+	}
+
+	.instructions-content h4 {
+		margin: 0 0 1em 0;
+		color: #374151;
+		font-size: 1.1em;
+		font-weight: 600;
+	}
+
+	.instructions-grid {
+		display: flex;
+		flex-wrap: wrap;
+		margin-bottom: 1em;
+		align-items: flex-start;
+		justify-content: space-around;
+		column-gap: 30px;
+		row-gap: 16px;
+	}
+
+	.instruction-section {
+		min-width: 240px;
+		flex: 1;
+	}
+
+	.instruction-section h5 {
+		margin: 0 0 0.75em 0;
+		color: #1f2937;
+		font-size: 0.95em;
+		font-weight: 600;
+	}
+
+	.instruction-section ul {
+		margin: 0;
+		padding-left: 1.2em;
+		list-style: disc;
+	}
+
+	.instruction-section li {
+		margin-bottom: 0.4em;
+		font-size: 0.9em;
+		line-height: 1.4;
+		color: #4b5563;
+	}
+
+	.instruction-section strong {
+		color: #374151;
+		font-weight: 600;
+		font-family: var(--mono-font-family);
+		background: #e5e7eb;
+		padding: 0.1em 0.3em;
+		border-radius: 0.2em;
 	}
 </style>
