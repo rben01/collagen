@@ -1,10 +1,15 @@
 <script lang="ts">
 	import Toolbar from "./Toolbar.svelte";
-	let { message }: { message: string } = $props();
+	let {
+		message,
+		showToolbar = true,
+	}: { message: string; showToolbar?: boolean } = $props();
 </script>
 
 <div class="error-pane">
-	<Toolbar ariaLabel="Viewer toolbar" />
+	{#if showToolbar}
+		<Toolbar ariaLabel="Viewer toolbar" />
+	{/if}
 	<div class="error-body">
 		<div class="error-content error-message">
 			<span class="error-icon">⚠️</span>
@@ -34,7 +39,7 @@
 		justify-content: center;
 		gap: 0.75em;
 		text-align: center;
-		max-width: 600px;
+		max-width: 100%;
 		padding: 1em;
 	}
 	.error-icon {
@@ -45,5 +50,6 @@
 		margin: 0;
 		line-height: 1.4;
 		font-size: 1em;
+		word-break: break-word;
 	}
 </style>

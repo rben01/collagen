@@ -270,16 +270,7 @@
 					bind:showInstructions={svgShowInstructions}
 				/>
 			{:else if error}
-				{#if controlsVisible}
-					<ErrorPane message={error} />
-				{:else}
-					<div class="error-state">
-						<div class="error-content error-message">
-							<span class="error-icon">⚠️</span>
-							<p class="error-description">{error}</p>
-						</div>
-					</div>
-				{/if}
+				<ErrorPane message={error} showToolbar={controlsVisible} />
 			{:else if showLoading}
 				{#if controlsVisible}
 					<LoadingPane />
@@ -465,8 +456,7 @@
 	/* right pane styling handled by RightPane */
 
 	.loading-state,
-	.waiting-state,
-	.error-state {
+	.waiting-state {
 		flex: 1;
 		display: flex;
 		align-items: center;
@@ -474,32 +464,6 @@
 		background: #ffffff; /* sits inside pane-body */
 		color: #374151; /* higher contrast text */
 		font-size: 1.1em;
-	}
-
-	.error-state {
-		background: #fef2f2;
-		color: #dc2626;
-	}
-
-	.error-content {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.75em;
-		text-align: center;
-		max-width: 600px;
-		padding: 1em;
-	}
-
-	.error-content .error-icon {
-		font-size: 1.5em;
-		flex-shrink: 0;
-	}
-
-	.error-content p {
-		margin: 0;
-		line-height: 1.4;
-		font-size: 1em;
 	}
 
 	/* Intro (welcome) styling */
