@@ -5,6 +5,7 @@ spellright.dict
 playwright-report
 public/build
 .serena
+.claude/settings.local.json
 
 test-results
 node_modules
