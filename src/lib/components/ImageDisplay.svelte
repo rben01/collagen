@@ -193,6 +193,10 @@
 		box-sizing: border-box;
 	}
 
+	img {
+		pointer-events: none;
+	}
+
 	.zoom-level {
 		font-family: monospace;
 		font-size: 0.875em;
@@ -222,5 +226,4 @@
 		text-align: center;
 		padding: 0 0.5em;
 	}
-
 </style>

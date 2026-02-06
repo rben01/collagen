@@ -353,6 +353,38 @@ test.describe("Interactive Features", () => {
 		);
 	});
 
+	test("should handle mouse pan when clicking directly on SVG content", async ({
+		page,
+	}) => {
+		const svgContainer = page.getByLabel("Interactive SVG viewer");
+		const svgContent = page.getByLabel("SVG content");
+		const svgElement = svgContainer.locator("svg");
+
+		// Get initial transform
+		const initialStyle = await svgContent.getAttribute("style");
+
+		// Click directly on the SVG element (not background)
+		const svgBoundingBox = await svgElement.boundingBox();
+		if (!svgBoundingBox) throw new Error("SVG bounding box not found");
+
+		const centerX = svgBoundingBox.x + svgBoundingBox.width / 2;
+		const centerY = svgBoundingBox.y + svgBoundingBox.height / 2;
+
+		// Simulate pan starting from SVG center
+		await page.mouse.move(centerX, centerY);
+		await page.mouse.down();
+		await page.mouse.move(centerX + 100, centerY + 50);
+		await page.mouse.up();
+
+		await page.waitForTimeout(100);
+
+		// Transform should have changed
+		const newStyle = await svgContent.getAttribute("style");
+		expect(newStyle).not.toBe(initialStyle);
+		expect(newStyle).toContain("--pan-x");
+		expect(newStyle).toContain("--pan-y");
+	});
+
 	test("should handle wheel zoom with Ctrl key", async ({
 		page,
 		isMobile,

@@ -304,15 +304,25 @@
 					<h5>Actions</h5>
 					<ul>
 						<li>
-							<strong>Focus</strong> the {kind === "svg" ? "SVG" : "image"} viewer to enable panning
+							<strong>Focus</strong> the {kind === "svg"
+								? "SVG"
+								: "image"} viewer to enable panning
 						</li>
 						<li><strong>B</strong> key: Change background style</li>
 						<li><strong>?</strong> key: Toggle help instructions</li>
 						{#if kind === "svg"}
 							<li><strong>V</strong> key: Toggle code view</li>
 						{/if}
-						<li><strong>C</strong> key: Copy {kind === "svg" ? "SVG" : "image"} to clipboard</li>
-						<li><strong>S</strong> key: Download {kind === "svg" ? "SVG" : "image"} file</li>
+						<li>
+							<strong>C</strong> key: Copy {kind === "svg"
+								? "SVG"
+								: "image"} to clipboard
+						</li>
+						<li>
+							<strong>S</strong> key: Download {kind === "svg"
+								? "SVG"
+								: "image"} file
+						</li>
 					</ul>
 				</div>
 			</div>
@@ -353,6 +363,7 @@
 			aria-label="Viewer content"
 		>
 			<div class="viewer-media">
+				<div class="viewer-interaction-overlay"></div>
 				{@render children({ constrainedDimensions })}
 			</div>
 		</div>

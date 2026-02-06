@@ -246,6 +246,10 @@
 		box-sizing: border-box;
 	}
 
+	iframe {
+		pointer-events: none;
+	}
+
 	.zoom-level {
 		font-family: monospace;
 		font-size: 0.875em;
@@ -273,5 +277,4 @@
 	.raw-svg code {
 		color: #374151;
 	}
-
 </style>
