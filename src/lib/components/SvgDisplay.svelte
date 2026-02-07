@@ -8,6 +8,7 @@
 		isTypingInInput,
 	} from "./viewer/index.js";
 	import { base64Encode } from "$lib/collagen-ts";
+	import { tick } from "svelte";
 
 	export function focus() {
 		viewerCore?.focus();
@@ -118,9 +119,16 @@
 				if (!showRawSvg) viewerCore?.pan(action.direction);
 				else handled = false;
 				break;
-			case "toggle-raw":
+			case "toggle-raw": {
+				const wasShowingRaw = showRawSvg;
 				toggleRawSvg();
+				if (wasShowingRaw) {
+					// Just toggled from raw view back to interactive view
+					// Focus the ViewerCore after it's re-mounted
+					tick().then(() => viewerCore?.focus());
+				}
 				break;
+			}
 			case "toggle-help":
 				if (!editorPath) toggleInstructions();
 				else handled = false;
