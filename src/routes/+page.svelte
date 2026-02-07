@@ -291,13 +291,7 @@
 			{:else if error}
 				<ErrorPane message={error} showToolbar={controlsVisible} />
 			{:else if showLoading}
-				{#if controlsVisible}
-					<LoadingPane />
-				{:else}
-					<div class="loading-state">
-						<p>Processing files...</p>
-					</div>
-				{/if}
+				<LoadingPane {controlsVisible} />
 			{:else if controlsVisible}
 				<IntroPane />
 			{:else}
@@ -482,7 +476,6 @@
 
 	/* right pane styling handled by RightPane */
 
-	.loading-state,
 	.waiting-state {
 		flex: 1;
 		display: flex;

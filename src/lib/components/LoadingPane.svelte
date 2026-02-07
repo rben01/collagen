@@ -1,13 +1,21 @@
 <script lang="ts">
 	import Toolbar from "./Toolbar.svelte";
+
+	let { controlsVisible }: { controlsVisible: boolean } = $props();
 </script>
 
-<div class="loading-pane">
-	<Toolbar ariaLabel="Viewer toolbar" />
+{#if controlsVisible}
+	<div class="loading-pane">
+		<Toolbar ariaLabel="Viewer toolbar" />
+		<div class="loading-body">
+			<p>Processing files...</p>
+		</div>
+	</div>
+{:else}
 	<div class="loading-body">
 		<p>Processing files...</p>
 	</div>
-</div>
+{/if}
 
 <style>
 	.loading-pane {
@@ -21,6 +29,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		background: #ffffff;
 		color: #374151;
+		font-size: 1.1em;
 	}
 </style>
