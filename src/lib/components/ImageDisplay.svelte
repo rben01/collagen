@@ -2,7 +2,11 @@
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
 	import ViewerCore from "./ViewerCore.svelte";
-	import { BACKGROUND_STYLES } from "./viewer/index.js";
+	import {
+		BACKGROUND_STYLES,
+		getViewerKeyAction,
+		isTypingInInput,
+	} from "./viewer/index.js";
 	import {
 		base64Encode,
 		getMimeType,
@@ -80,7 +84,49 @@
 		naturalWidth = img.naturalWidth;
 		naturalHeight = img.naturalHeight;
 	}
+
+	function handleKeyDown(event: KeyboardEvent) {
+		if (isTypingInInput()) return;
+
+		const hasViewerFocus = viewerCore?.hasFocus() ?? false;
+		const action = getViewerKeyAction(event, hasViewerFocus);
+		if (!action) return;
+
+		let handled = true;
+		switch (action.type) {
+			case "zoom-in":
+				viewerCore?.zoomIn();
+				break;
+			case "zoom-out":
+				viewerCore?.zoomOut();
+				break;
+			case "reset-view":
+				viewerCore?.resetView();
+				break;
+			case "cycle-background":
+				viewerCore?.cycleBackgroundStyle();
+				break;
+			case "pan":
+				viewerCore?.pan(action.direction);
+				break;
+			case "toggle-help":
+				toggleInstructions();
+				break;
+			case "copy":
+				copyToClipboard();
+				break;
+			case "download":
+				downloadImage();
+				break;
+			default:
+				handled = false;
+		}
+
+		if (handled) event.preventDefault();
+	}
 </script>
+
+<svelte:window on:keydown={handleKeyDown} />
 
 <div class="viewer-display">
 	<Toolbar ariaLabel="Image viewer controls">
@@ -157,8 +203,6 @@
 			bind:panX
 			bind:panY
 			bind:backgroundStyleIndex
-			onCopy={copyToClipboard}
-			onDownload={downloadImage}
 			bind:showInstructions
 			ariaLabel="Interactive image viewer"
 		>

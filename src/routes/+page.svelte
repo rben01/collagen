@@ -255,11 +255,16 @@
 		class="app-layout"
 		class:started={filesData && filesData.fs.getFileCount() > 0}
 	>
-		{#snippet svgViewerContent(controlsVisible: boolean, compact: boolean)}
+		{#snippet svgViewerContent(
+			controlsVisible: boolean,
+			compact: boolean,
+			active: boolean,
+		)}
 			{#if svgOutput}
 				<SvgDisplay
 					svg={svgOutput}
 					{compact}
+					{active}
 					bind:this={svgDisplayComponent}
 					{controlsVisible}
 					{editorPath}
@@ -320,7 +325,7 @@
 					role="region"
 					aria-label="Generated SVG display (compact)"
 				>
-					{@render svgViewerContent(false, true)}
+					{@render svgViewerContent(false, true, !!sideViewer)}
 				</div>
 			{:else}
 				<div class="file-list" aria-label="File information"></div>
@@ -353,7 +358,7 @@
 				<RightPane ariaLabelContent="Image viewer" content={imageContent} />
 			{:else}
 				{#snippet rightViewer()}
-					{@render svgViewerContent(true, false)}
+					{@render svgViewerContent(true, false, true)}
 				{/snippet}
 				<RightPane
 					ariaLabelContent="Generated SVG display"

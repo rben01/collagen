@@ -10,11 +10,14 @@
 		clampScale,
 		getTouchDistance,
 		getTouchMidpoint,
-		getViewerKeyAction,
 	} from "./viewer/index.js";
 
 	export function focus() {
 		if (viewerContainer) viewerContainer.focus();
+	}
+
+	export function hasFocus() {
+		return document.activeElement === viewerContainer;
 	}
 
 	export function zoomIn() {
@@ -38,6 +41,23 @@
 			(backgroundStyleIndex + 1) % BACKGROUND_STYLES.length;
 	}
 
+	export function pan(direction: "up" | "down" | "left" | "right") {
+		switch (direction) {
+			case "up":
+				panY += PAN_AMOUNT;
+				break;
+			case "down":
+				panY -= PAN_AMOUNT;
+				break;
+			case "left":
+				panX += PAN_AMOUNT;
+				break;
+			case "right":
+				panX -= PAN_AMOUNT;
+				break;
+		}
+	}
+
 	export function showToast(message: string, type = "success") {
 		const id = toastCounter++;
 		toasts = [...toasts, { id, message, type }];
@@ -52,12 +72,8 @@
 		panX = $bindable(0),
 		panY = $bindable(0),
 		backgroundStyleIndex = $bindable(1),
-		onCopy,
-		onDownload,
-		onToggleRaw,
 		showInstructions = $bindable(false),
 		compact = false,
-		disabled = false,
 		ariaLabel = "Interactive viewer",
 		children,
 	}: {
@@ -68,12 +84,8 @@
 		panX?: number;
 		panY?: number;
 		backgroundStyleIndex?: number;
-		onCopy: () => void;
-		onDownload: () => void;
-		onToggleRaw?: () => void;
 		showInstructions?: boolean;
 		compact?: boolean;
-		disabled?: boolean;
 		ariaLabel?: string;
 		children: Snippet<
 			[{ constrainedDimensions: { width: number; height: number } }]
@@ -198,80 +210,9 @@
 	function handleMouseUp() {
 		isDragging = false;
 	}
-
-	function handleKeyDown(event: KeyboardEvent) {
-		if (compact) return;
-
-		const action = getViewerKeyAction(
-			event,
-			document.activeElement === viewerContainer,
-		);
-		if (!action) return;
-
-		let handled = true;
-		switch (action.type) {
-			case "zoom-in":
-				if (!disabled) zoomIn();
-				else handled = false;
-				break;
-			case "zoom-out":
-				if (!disabled) zoomOut();
-				else handled = false;
-				break;
-			case "reset-view":
-				if (!disabled) resetView();
-				else handled = false;
-				break;
-			case "cycle-background":
-				if (!disabled) cycleBackgroundStyle();
-				else handled = false;
-				break;
-			case "copy":
-				onCopy();
-				break;
-			case "download":
-				onDownload();
-				break;
-			case "toggle-raw":
-				if (kind === "svg" && onToggleRaw) onToggleRaw();
-				else handled = false;
-				break;
-			case "toggle-help":
-				showInstructions = !showInstructions;
-				break;
-			case "pan":
-				if (!disabled) {
-					switch (action.direction) {
-						case "up":
-							panY += PAN_AMOUNT;
-							break;
-						case "down":
-							panY -= PAN_AMOUNT;
-							break;
-						case "left":
-							panX += PAN_AMOUNT;
-							break;
-						case "right":
-							panX -= PAN_AMOUNT;
-							break;
-					}
-				} else {
-					handled = false;
-				}
-				break;
-			default:
-				handled = false;
-		}
-
-		if (handled) event.preventDefault();
-	}
 </script>
 
-<svelte:window
-	on:mousemove={handleMouseMove}
-	on:mouseup={handleMouseUp}
-	on:keydown={handleKeyDown}
-/>
+<svelte:window on:mousemove={handleMouseMove} on:mouseup={handleMouseUp} />
 
 <ToastContainer {toasts} onRemove={removeToast} />
 

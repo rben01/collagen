@@ -18,6 +18,7 @@
 		compact,
 		controlsVisible = true,
 		editorPath = null,
+		active = true,
 		scale = $bindable(1),
 		panX = $bindable(0),
 		panY = $bindable(0),
@@ -28,6 +29,7 @@
 		compact: boolean;
 		controlsVisible?: boolean;
 		editorPath?: string | null;
+		active?: boolean;
 		scale?: number;
 		panX?: number;
 		panY?: number;
@@ -86,16 +88,36 @@
 		event.stopPropagation();
 	}
 
-	function handleRawSvgKeyDown(event: KeyboardEvent) {
-		if (compact) return;
-		if (!showRawSvg) return;
+	function handleKeyDown(event: KeyboardEvent) {
+		if (!active) return;
 		if (isTypingInInput()) return;
 
-		const action = getViewerKeyAction(event, false);
+		const hasViewerFocus = viewerCore?.hasFocus() ?? false;
+		const action = getViewerKeyAction(event, hasViewerFocus);
 		if (!action) return;
 
 		let handled = true;
 		switch (action.type) {
+			case "zoom-in":
+				if (!showRawSvg) viewerCore?.zoomIn();
+				else handled = false;
+				break;
+			case "zoom-out":
+				if (!showRawSvg) viewerCore?.zoomOut();
+				else handled = false;
+				break;
+			case "reset-view":
+				if (!showRawSvg) viewerCore?.resetView();
+				else handled = false;
+				break;
+			case "cycle-background":
+				if (!showRawSvg) viewerCore?.cycleBackgroundStyle();
+				else handled = false;
+				break;
+			case "pan":
+				if (!showRawSvg) viewerCore?.pan(action.direction);
+				else handled = false;
+				break;
 			case "toggle-raw":
 				toggleRawSvg();
 				break;
@@ -117,7 +139,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleRawSvgKeyDown} />
+<svelte:window on:keydown={handleKeyDown} />
 
 <div class="viewer-display" class:compact>
 	{#if controlsVisible}
@@ -208,9 +230,6 @@
 			bind:panX
 			bind:panY
 			bind:backgroundStyleIndex
-			onCopy={copyToClipboard}
-			onDownload={downloadSvg}
-			onToggleRaw={toggleRawSvg}
 			bind:showInstructions
 			{compact}
 			ariaLabel="Interactive SVG viewer"
