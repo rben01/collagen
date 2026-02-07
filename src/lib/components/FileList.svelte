@@ -30,10 +30,6 @@
 		handleCloseImage,
 		editorPath,
 		imagePath,
-		trashedFiles = $bindable(),
-		trashCountdownInterval = $bindable(),
-		trashCountdownValue = $bindable(),
-		trashUndoTime,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleOpenTextFile: (path: string) => void;
@@ -43,11 +39,22 @@
 		handleCloseImage: () => void;
 		editorPath: string | null;
 		imagePath: string | null;
-		trashedFiles: TrashedFile[];
-		trashCountdownInterval: NodeJS.Timeout | null;
-		trashCountdownValue: number;
-		trashUndoTime: number;
 	} = $props();
+
+	// Trash/undo state (local to FileList)
+	const TRASH_UNDO_TIME = 5000;
+	let trashedFiles: TrashedFile[] = $state([]);
+	let trashCountdownInterval: NodeJS.Timeout | null = $state(null);
+	let trashCountdownValue = $state(TRASH_UNDO_TIME);
+
+	// Auto-clear trash when countdown expires
+	$effect(() => {
+		if (trashCountdownValue <= 0) {
+			trashedFiles = [];
+			if (trashCountdownInterval) clearInterval(trashCountdownInterval);
+			trashCountdownInterval = null;
+		}
+	});
 
 	const largeFileSizeWarningThreshold = 2 * MB;
 	const largeTotalSizeWarningThreshold = 16 * MB;
@@ -183,12 +190,12 @@
 			}
 
 			// Start new countdown
-			trashCountdownValue = trashUndoTime;
+			trashCountdownValue = TRASH_UNDO_TIME;
 			const startTime = Date.now();
 
 			trashCountdownInterval = setInterval(() => {
 				const elapsed = Date.now() - startTime;
-				trashCountdownValue = trashUndoTime - elapsed;
+				trashCountdownValue = TRASH_UNDO_TIME - elapsed;
 			}, 250);
 		}
 	}

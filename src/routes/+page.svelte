@@ -3,7 +3,6 @@
 	import {
 		InMemoryFileSystem,
 		toCollagenError,
-		type FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
 	import ErrorPane from "$lib/components/ErrorPane.svelte";
@@ -32,16 +31,6 @@
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
 	let version = $state(0);
-
-	// Trash/undo state (moved from FileList to persist across component recreation)
-	interface TrashedFile {
-		file: FileContent;
-		path: string;
-	}
-	const TRASH_UNDO_TIME = 5000; // milliseconds
-	let trashedFiles: TrashedFile[] = $state([]);
-	let trashCountdownInterval: NodeJS.Timeout | null = $state(null);
-	let trashCountdownValue = $state(TRASH_UNDO_TIME);
 
 	const PERSIST_MS = 100; // ~10 writes/sec, persist within 0.1s
 	const ERROR_DELAY_MS = 300; // Delay errors by 300ms to avoid flicker
@@ -153,14 +142,6 @@
 				persistTimer = null;
 				persistEditorChanges();
 			}, delay);
-		}
-	});
-
-	$effect(() => {
-		if (trashCountdownValue <= 0) {
-			trashedFiles = [];
-			if (trashCountdownInterval) clearInterval(trashCountdownInterval);
-			trashCountdownInterval = null;
 		}
 	});
 
@@ -307,45 +288,13 @@
 				</div>
 			{/if}
 		{/snippet}
-		{#snippet uploadErrorPane()}
-			{#if uploadErrors.length > 0}
-				<div class="sidebar-upload-errors">
-					<UploadErrorPane
-						errors={uploadErrors}
-						onDismiss={dismissUploadErrors}
-					/>
-				</div>
-			{/if}
-		{/snippet}
 		<!-- Left sidebar: file list (and compact SVG when editing) -->
 		<div class="sidebar" class:editing={!!sideViewer}>
 			{#if filesData}
-				{#if sideViewer}
-					<div class="sidebar-top">
-						<FileList
-							bind:filesData
-							{handleOpenTextFile}
-							{handleOpenImageFile}
-							{handleUploadErrors}
-							{handleCloseEditor}
-							{handleCloseImage}
-							{editorPath}
-							{imagePath}
-							bind:trashedFiles
-							bind:trashCountdownInterval
-							bind:trashCountdownValue
-							trashUndoTime={TRASH_UNDO_TIME}
-						/>
-						{@render uploadErrorPane()}
-					</div>
-					<div
-						class="sidebar-bottom compact-svg"
-						role="region"
-						aria-label="Generated SVG display (compact)"
-					>
-						{@render svgViewerContent(false, true)}
-					</div>
-				{:else}
+				<div
+					class:sidebar-top={sideViewer}
+					class:sidebar-tall={!sideViewer}
+				>
 					<FileList
 						bind:filesData
 						{handleOpenTextFile}
@@ -355,13 +304,24 @@
 						{handleCloseImage}
 						{editorPath}
 						{imagePath}
-						bind:trashedFiles
-						bind:trashCountdownInterval
-						bind:trashCountdownValue
-						trashUndoTime={TRASH_UNDO_TIME}
 					/>
-					{@render uploadErrorPane()}
-				{/if}
+					{#if uploadErrors.length > 0}
+						<div class="sidebar-upload-errors">
+							<UploadErrorPane
+								errors={uploadErrors}
+								onDismiss={dismissUploadErrors}
+							/>
+						</div>
+					{/if}
+				</div>
+				<div
+					class="sidebar-bottom compact-svg"
+					class:sidebar-bottom-hidden={!sideViewer}
+					role="region"
+					aria-label="Generated SVG display (compact)"
+				>
+					{@render svgViewerContent(false, true)}
+				</div>
 			{:else}
 				<div class="file-list" aria-label="File information"></div>
 			{/if}
@@ -457,12 +417,18 @@
 	.sidebar-top .sidebar-upload-errors {
 		margin-top: 0.75rem;
 	}
+	.sidebar-tall {
+		height: 100%;
+	}
 
 	.sidebar-bottom.compact-svg {
 		border: 1px solid #e5e7eb;
 		border-radius: 0.5em;
 		background: #fff;
 		overflow: hidden; /* ensure child content respects rounded corners */
+	}
+	.sidebar-bottom-hidden {
+		display: none;
 	}
 
 	.main-content {
