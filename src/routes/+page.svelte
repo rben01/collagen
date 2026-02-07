@@ -3,6 +3,7 @@
 	import {
 		InMemoryFileSystem,
 		toCollagenError,
+		type FileContent,
 	} from "$lib/collagen-ts/index.js";
 	import { preloadSjsonnet } from "$lib/collagen-ts/jsonnet";
 	import ErrorPane from "$lib/components/ErrorPane.svelte";
@@ -31,6 +32,16 @@
 	let persistTimer: ReturnType<typeof setTimeout> | null = $state(null);
 	let lastPersistAt = $state(0);
 	let version = $state(0);
+
+	// Trash/undo state (moved from FileList to persist across component recreation)
+	interface TrashedFile {
+		file: FileContent;
+		path: string;
+	}
+	const TRASH_UNDO_TIME = 5000; // milliseconds
+	let trashedFiles: TrashedFile[] = $state([]);
+	let trashCountdownInterval: NodeJS.Timeout | null = $state(null);
+	let trashCountdownValue = $state(TRASH_UNDO_TIME);
 
 	const PERSIST_MS = 100; // ~10 writes/sec, persist within 0.1s
 	const ERROR_DELAY_MS = 300; // Delay errors by 300ms to avoid flicker
@@ -142,6 +153,14 @@
 				persistTimer = null;
 				persistEditorChanges();
 			}, delay);
+		}
+	});
+
+	$effect(() => {
+		if (trashCountdownValue <= 0) {
+			trashedFiles = [];
+			if (trashCountdownInterval) clearInterval(trashCountdownInterval);
+			trashCountdownInterval = null;
 		}
 	});
 
@@ -318,6 +337,10 @@
 							{handleCloseImage}
 							{editorPath}
 							{imagePath}
+							bind:trashedFiles
+							bind:trashCountdownInterval
+							bind:trashCountdownValue
+							trashUndoTime={TRASH_UNDO_TIME}
 						/>
 						{@render uploadErrorPane()}
 					</div>
@@ -338,6 +361,10 @@
 						{handleCloseImage}
 						{editorPath}
 						{imagePath}
+						bind:trashedFiles
+						bind:trashCountdownInterval
+						bind:trashCountdownValue
+						trashUndoTime={TRASH_UNDO_TIME}
 					/>
 					{@render uploadErrorPane()}
 				{/if}

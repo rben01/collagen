@@ -16,6 +16,11 @@
 	import ControlButton from "./ControlButton.svelte";
 	import Toolbar from "./Toolbar.svelte";
 
+	interface TrashedFile {
+		file: FileContent;
+		path: string;
+	}
+
 	let {
 		filesData = $bindable(),
 		handleOpenTextFile,
@@ -25,6 +30,10 @@
 		handleCloseImage,
 		editorPath,
 		imagePath,
+		trashedFiles = $bindable(),
+		trashCountdownInterval = $bindable(),
+		trashCountdownValue = $bindable(),
+		trashUndoTime,
 	}: {
 		filesData: { fs: InMemoryFileSystem };
 		handleOpenTextFile: (path: string) => void;
@@ -34,6 +43,10 @@
 		handleCloseImage: () => void;
 		editorPath: string | null;
 		imagePath: string | null;
+		trashedFiles: TrashedFile[];
+		trashCountdownInterval: NodeJS.Timeout | null;
+		trashCountdownValue: number;
+		trashUndoTime: number;
 	} = $props();
 
 	const largeFileSizeWarningThreshold = 2 * MB;
@@ -87,26 +100,8 @@
 		return { totalSize, warnings };
 	});
 
-	// Unified trash system
-	interface TrashedFile {
-		file: FileContent;
-		path: string;
-	}
-
-	const TRASH_UNDO_TIME = 5000; // milliseconds
-	let trashedFiles: TrashedFile[] = $state([]);
-	let countdownInterval: NodeJS.Timeout | null = $state(null);
-	let countdownValue = $state(TRASH_UNDO_TIME);
 	let dragOver = $state(false);
 	let uploading = $state(false);
-
-	$effect(() => {
-		if (countdownValue <= 0) {
-			trashedFiles = [];
-			if (countdownInterval) clearInterval(countdownInterval);
-			countdownInterval = null;
-		}
-	});
 
 	async function handleFilesUploaded(files: Map<string, File>, root: string) {
 		console.log("🔄 Starting file processing...");
@@ -183,26 +178,26 @@
 			trashedFiles.push({ file: removedFile, path });
 
 			// Reset the shared timer
-			if (countdownInterval) {
-				clearInterval(countdownInterval);
+			if (trashCountdownInterval) {
+				clearInterval(trashCountdownInterval);
 			}
 
 			// Start new countdown
-			countdownValue = TRASH_UNDO_TIME;
+			trashCountdownValue = trashUndoTime;
 			const startTime = Date.now();
 
-			countdownInterval = setInterval(() => {
+			trashCountdownInterval = setInterval(() => {
 				const elapsed = Date.now() - startTime;
-				countdownValue = TRASH_UNDO_TIME - elapsed;
+				trashCountdownValue = trashUndoTime - elapsed;
 			}, 250);
 		}
 	}
 
 	// Handle undo - restore all trashed files
 	async function undoAllDeletions() {
-		if (countdownInterval) {
-			clearInterval(countdownInterval);
-			countdownInterval = null;
+		if (trashCountdownInterval) {
+			clearInterval(trashCountdownInterval);
+			trashCountdownInterval = null;
 		}
 
 		// Re-add all files to filesystem
@@ -528,7 +523,7 @@ local diameter(r) = 2 * std.pi * r;
 					: ""}
 			</div>
 			<button class="undo-button" onclick={undoAllDeletions}>
-				Undo ({Math.ceil(countdownValue / 1000)}s)
+				Undo ({Math.ceil(trashCountdownValue / 1000)}s)
 			</button>
 		</div>
 	{/if}
