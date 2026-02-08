@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from "svelte";
+	import { untrack, type Snippet } from "svelte";
 	import ToastContainer, { type Toast } from "./ToastContainer.svelte";
 	import {
 		BACKGROUND_STYLES,
@@ -102,6 +102,10 @@
 	let toasts: Toast[] = $state([]);
 	let containerWidth = $state(0);
 	let containerHeight = $state(0);
+	let prevContainerDimensions = $state<{
+		width: number;
+		height: number;
+	} | null>(null);
 
 	let currentBackgroundStyle = $derived(
 		BACKGROUND_STYLES[backgroundStyleIndex],
@@ -116,6 +120,34 @@
 			CONTENT_PADDING,
 		),
 	);
+
+	// Adjust pan values when container dimensions change to preserve the same visible position
+	$effect(() => {
+		const currentWidth = containerWidth;
+		const currentHeight = containerHeight;
+		const prev = untrack(() => prevContainerDimensions);
+
+		if (
+			prev &&
+			currentWidth > 0 &&
+			currentHeight > 0 &&
+			(prev.width !== currentWidth || prev.height !== currentHeight)
+		) {
+			// Container dimensions changed - adjust pan to preserve the same relative position
+			const widthRatio = currentWidth / prev.width;
+			const heightRatio = currentHeight / prev.height;
+
+			panX = panX / widthRatio;
+			panY = panY / heightRatio;
+		}
+
+		if (currentWidth > 0 && currentHeight > 0) {
+			prevContainerDimensions = {
+				width: currentWidth,
+				height: currentHeight,
+			};
+		}
+	});
 
 	function removeToast(id: number) {
 		toasts = toasts.filter(t => t.id !== id);
