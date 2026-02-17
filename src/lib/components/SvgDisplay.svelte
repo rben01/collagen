@@ -179,6 +179,10 @@
 				<span class="zoom-level">{Math.round(scale * 100)}%</span>
 			</div>
 
+			<div class="viewer-title">
+				Output{#if svgDimensions}&nbsp;({svgDimensions.width}&times;{svgDimensions.height}){/if}
+			</div>
+
 			<div class="control-group">
 				<ControlButton
 					action="help"
@@ -278,6 +282,21 @@
 
 	iframe {
 		pointer-events: none;
+	}
+
+	.viewer-title {
+		position: absolute;
+		left: 0;
+		right: 0;
+		text-align: center;
+		pointer-events: none;
+		font-family: var(--mono-font-family);
+		font-size: 0.9em;
+		color: #374151;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		padding: 0 0.5em;
 	}
 
 	.zoom-level {

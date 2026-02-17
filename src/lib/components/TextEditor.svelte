@@ -60,7 +60,6 @@
 
 <div class="text-editor" role="region" aria-label="Text editor">
 	<Toolbar ariaLabel="Text editor controls">
-		<div class="file-label" title={path}>{path}</div>
 		<div class="control-group">
 			<ControlButton
 				action="minimize-editor"
@@ -69,6 +68,7 @@
 				onclick={handleCloseEditor}
 			/>
 		</div>
+		<div class="file-label" title={path}>{path}</div>
 	</Toolbar>
 	<div class="codemirror-parent" bind:this={editorParent}></div>
 </div>
@@ -83,14 +83,18 @@
 	}
 
 	.file-label {
+		position: absolute;
+		left: 0;
+		right: 0;
+		text-align: center;
+		pointer-events: none;
 		font-family: var(--mono-font-family);
 		font-size: 0.9em;
 		color: #374151;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		flex: 1;
-		padding-right: 0.5em;
+		padding: 0 0.5em;
 	}
 
 	.codemirror-parent {

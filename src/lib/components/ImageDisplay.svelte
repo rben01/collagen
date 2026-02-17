@@ -134,6 +134,12 @@
 	<Toolbar ariaLabel="Image viewer controls">
 		<div class="control-group">
 			<ControlButton
+				action="minimize-editor"
+				ariaLabel="Close image viewer"
+				title="Close image viewer"
+				onclick={handleCloseImage}
+			/>
+			<ControlButton
 				action="zoom-in"
 				title="Zoom In (Keyboard: +)"
 				ariaLabel="Zoom in, keyboard shortcut plus key"
@@ -187,12 +193,6 @@
 				title="Download Image (Keyboard: S)"
 				ariaLabel="Download image file, keyboard shortcut S key"
 				onclick={downloadImage}
-			/>
-			<ControlButton
-				action="minimize-editor"
-				ariaLabel="Close image viewer"
-				title="Close image viewer"
-				onclick={handleCloseImage}
 			/>
 		</div>
 	</Toolbar>
@@ -265,14 +265,17 @@
 	}
 
 	.file-label {
+		position: absolute;
+		left: 0;
+		right: 0;
+		text-align: center;
+		pointer-events: none;
 		font-family: var(--mono-font-family);
 		font-size: 0.9em;
 		color: #374151;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		flex: 1;
-		text-align: center;
 		padding: 0 0.5em;
 	}
 </style>
