@@ -79,8 +79,8 @@
 		children,
 	}: {
 		kind: "svg" | "image";
-		contentWidth: number;
-		contentHeight: number;
+		contentWidth: number | null;
+		contentHeight: number | null;
 		scale?: number;
 		panX?: number;
 		panY?: number;
@@ -335,6 +335,12 @@
 			style:--constrained-width="{constrainedDimensions.width}px"
 			style:--constrained-height="{constrainedDimensions.height}px"
 			style:--transition-duration="{transitionDuration}s"
+			style:visibility={containerWidth > 0 &&
+			containerHeight > 0 &&
+			contentWidth != null &&
+			contentHeight != null
+				? "visible"
+				: "hidden"}
 			role="img"
 			aria-label="Viewer content"
 		>

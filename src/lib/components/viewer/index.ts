@@ -87,8 +87,8 @@ export function calculateZoomToPoint(
 // =============================================================================
 
 export function calculateConstrainedDimensions(
-	contentWidth: number,
-	contentHeight: number,
+	contentWidth: number | null,
+	contentHeight: number | null,
 	containerWidth: number,
 	containerHeight: number,
 	padding: number,

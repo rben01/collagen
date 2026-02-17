@@ -32,8 +32,8 @@
 	} = $props();
 
 	let viewerCore: ViewerCore | null = $state(null);
-	let naturalWidth = $state(0);
-	let naturalHeight = $state(0);
+	let naturalWidth = $state<number | null>(null);
+	let naturalHeight = $state<number | null>(null);
 	let backgroundStyleIndex = $state(1);
 	let showInstructions = $state(false);
 
