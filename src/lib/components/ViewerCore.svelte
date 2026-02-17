@@ -73,6 +73,7 @@
 		panY = $bindable(0),
 		backgroundStyleIndex = $bindable(1),
 		showInstructions = $bindable(false),
+		prevContainerDimensions = $bindable(null),
 		compact = false,
 		ariaLabel = "Interactive viewer",
 		children,
@@ -85,6 +86,7 @@
 		panY?: number;
 		backgroundStyleIndex?: number;
 		showInstructions?: boolean;
+		prevContainerDimensions?: { width: number; height: number } | null;
 		compact?: boolean;
 		ariaLabel?: string;
 		children: Snippet<
@@ -102,10 +104,6 @@
 	let toasts: Toast[] = $state([]);
 	let containerWidth = $state(0);
 	let containerHeight = $state(0);
-	let prevContainerDimensions = $state<{
-		width: number;
-		height: number;
-	} | null>(null);
 
 	let currentBackgroundStyle = $derived(
 		BACKGROUND_STYLES[backgroundStyleIndex],
@@ -125,10 +123,18 @@
 	$effect(() => {
 		const currentWidth = containerWidth;
 		const currentHeight = containerHeight;
-		const prev = untrack(() => prevContainerDimensions);
+		let prev = untrack(() => prevContainerDimensions);
+		const newContainerDimensions = {
+			width: currentWidth,
+			height: currentHeight,
+		};
+
+		if (!prev) {
+			prevContainerDimensions = newContainerDimensions;
+			return;
+		}
 
 		if (
-			prev &&
 			currentWidth > 0 &&
 			currentHeight > 0 &&
 			(prev.width !== currentWidth || prev.height !== currentHeight)
@@ -137,15 +143,12 @@
 			const widthRatio = currentWidth / prev.width;
 			const heightRatio = currentHeight / prev.height;
 
-			panX = panX / widthRatio;
-			panY = panY / heightRatio;
+			panX = currentWidth / 2 + (panX - prev.width / 2) * widthRatio;
+			panY = currentHeight / 2 + (panY - prev.height / 2) * heightRatio;
 		}
 
 		if (currentWidth > 0 && currentHeight > 0) {
-			prevContainerDimensions = {
-				width: currentWidth,
-				height: currentHeight,
-			};
+			prevContainerDimensions = newContainerDimensions;
 		}
 	});
 
@@ -317,12 +320,12 @@
 	style="cursor: {isDragging ? 'grabbing' : 'grab'};"
 	aria-label={ariaLabel}
 	aria-describedby="viewer-controls-description"
+	bind:clientWidth={containerWidth}
+	bind:clientHeight={containerHeight}
 >
 	<div
 		class="viewer-content-mask"
 		style:--content-mask-padding="{CONTENT_PADDING / 2}px"
-		bind:clientWidth={containerWidth}
-		bind:clientHeight={containerHeight}
 	>
 		<div
 			class="viewer-content"

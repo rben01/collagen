@@ -118,6 +118,16 @@
 	let imagePanX = $state(0);
 	let imagePanY = $state(0);
 
+	// Persistent container dimensions for pan adjustment
+	let svgPrevContainerDimensions = $state<{
+		width: number;
+		height: number;
+	} | null>(null);
+	let imagePrevContainerDimensions = $state<{
+		width: number;
+		height: number;
+	} | null>(null);
+
 	// Derived values for template compatibility
 	let editorPath = $derived(
 		sideViewer?.type === "textEditor" ? sideViewer.filePath : null,
@@ -273,6 +283,7 @@
 					bind:panY={svgPanY}
 					bind:showRawSvg={svgShowRawSvg}
 					bind:showInstructions={svgShowInstructions}
+					bind:prevContainerDimensions={svgPrevContainerDimensions}
 				/>
 			{:else if error}
 				<ErrorPane message={error} showToolbar={controlsVisible} />
@@ -352,6 +363,7 @@
 						bind:scale={imageScale}
 						bind:panX={imagePanX}
 						bind:panY={imagePanY}
+						bind:prevContainerDimensions={imagePrevContainerDimensions}
 						{handleCloseImage}
 					/>
 				{/snippet}

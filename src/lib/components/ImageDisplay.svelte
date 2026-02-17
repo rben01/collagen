@@ -19,6 +19,7 @@
 		scale = $bindable(1),
 		panX = $bindable(0),
 		panY = $bindable(0),
+		prevContainerDimensions = $bindable(null),
 		handleCloseImage,
 	}: {
 		filesystem: InMemoryFileSystem;
@@ -26,6 +27,7 @@
 		scale?: number;
 		panX?: number;
 		panY?: number;
+		prevContainerDimensions?: { width: number; height: number } | null;
 		handleCloseImage: () => void;
 	} = $props();
 
@@ -204,6 +206,7 @@
 			bind:panY
 			bind:backgroundStyleIndex
 			bind:showInstructions
+			bind:prevContainerDimensions
 			ariaLabel="Interactive image viewer"
 		>
 			{#snippet children({ constrainedDimensions })}

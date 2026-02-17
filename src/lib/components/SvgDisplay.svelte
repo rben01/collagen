@@ -25,6 +25,7 @@
 		panY = $bindable(0),
 		showRawSvg = $bindable(false),
 		showInstructions = $bindable(false),
+		prevContainerDimensions = $bindable(null),
 	}: {
 		svg: string;
 		compact: boolean;
@@ -36,6 +37,7 @@
 		panY?: number;
 		showRawSvg?: boolean;
 		showInstructions?: boolean;
+		prevContainerDimensions?: { width: number; height: number } | null;
 	} = $props();
 
 	let viewerCore: ViewerCore | null = $state(null);
@@ -239,6 +241,7 @@
 			bind:panY
 			bind:backgroundStyleIndex
 			bind:showInstructions
+			bind:prevContainerDimensions
 			{compact}
 			ariaLabel="Interactive SVG viewer"
 		>
