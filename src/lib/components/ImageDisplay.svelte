@@ -154,7 +154,9 @@
 			<span class="zoom-level">{Math.round(scale * 100)}%</span>
 		</div>
 
-		<div class="file-label" title={imagePath}>{imagePath}</div>
+		<div class="file-label" title={imagePath}>
+			{imagePath}{#if naturalWidth && naturalHeight}&nbsp;({naturalWidth}&times;{naturalHeight}){/if}
+		</div>
 
 		<div class="control-group">
 			<ControlButton
