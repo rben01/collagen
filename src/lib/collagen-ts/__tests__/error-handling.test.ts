@@ -153,7 +153,9 @@ describe("Validation Errors", () => {
 			const obj = { unknown: "field" };
 			const error = new UnrecognizedObjectError(obj);
 
-			expect(error.message).toContain("https://docs.rs/collagen");
+			expect(error.message).toContain(
+				"https://github.com/rben01/collagen/blob/main/schemas/SCHEMA.md",
+			);
 		});
 
 		it("should format object properly", () => {

@@ -1,9 +1,8 @@
 /**
- * Compatibility tests between TypeScript and Rust implementations
+ * Reference-output compatibility tests
  *
- * These tests verify that the TypeScript implementation produces
- * identical or equivalent output to the Rust implementation for
- * the same inputs.
+ * These tests pin the exact SVG produced for a set of known manifests, so that
+ * refactors cannot silently change generated output.
  */
 
 import { describe, it, expect } from "vitest";
@@ -18,10 +17,10 @@ import {
 // =============================================================================
 
 // =============================================================================
-// Rust Test Case Compatibility
+// Reference Output Compatibility
 // =============================================================================
 
-describe("Rust Test Case Compatibility", () => {
+describe("Reference Output Compatibility", () => {
 	it("should match empty SVG output", async () => {
 		const files = { "collagen.json": "{}" };
 

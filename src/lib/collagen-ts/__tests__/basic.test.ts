@@ -1,8 +1,7 @@
 /**
- * Basic tests for Collagen TypeScript implementation
+ * Basic tests for Collagen
  *
- * These tests verify the fundamental functionality by porting
- * the basic test cases from the Rust implementation.
+ * These tests verify the fundamental manifest-to-SVG functionality.
  */
 
 import { describe, it, expect } from "vitest";

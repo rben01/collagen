@@ -1,8 +1,8 @@
 /**
- * Test utilities for Collagen TypeScript tests
+ * Test utilities for Collagen tests
  *
- * This module provides helper functions for testing the TypeScript implementation
- * against the expected outputs from the Rust implementation.
+ * This module provides helper functions for testing generated SVG against the
+ * expected reference outputs checked in under `tests/examples`.
  */
 
 import { expect } from "vitest";
@@ -192,7 +192,7 @@ export const TEST_FONT_WOFF2 = new Uint8Array([
 // Test Case Definitions
 // =============================================================================
 
-/** Test case definition that matches Rust test structure */
+/** Definition of a single manifest-to-SVG test case */
 export interface TestCase {
 	name: string;
 	files: Record<string, string | Uint8Array>;
@@ -201,7 +201,7 @@ export interface TestCase {
 	skipReason?: string;
 }
 
-/** Define standard test cases based on Rust examples */
+/** Standard test cases covering the core manifest features */
 export const TEST_CASES: TestCase[] = [
 	{
 		name: "empty",

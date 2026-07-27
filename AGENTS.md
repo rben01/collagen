@@ -8,13 +8,17 @@ repository.
 Collagen is primarily a TypeScript/SvelteKit web application that generates SVG
 collages from JSON/Jsonnet manifest files. The project consists of:
 
-- **Primary implementation**: TypeScript library in `src/lib/collagen-ts/` with
-  full Collagen functionality
+- **Core library**: TypeScript library in `src/lib/collagen-ts/` with full
+  Collagen functionality
 - **Web frontend**: SvelteKit application with Vite providing drag-and-drop
   interface for creating SVG collages
+- **CLI**: `src/cli/`, bundled by esbuild into the `clgn` executable published
+  to npm as `@rben01/collagen`
 - **Comprehensive test suite**: Unit tests (Vitest) and E2E tests (Playwright)
-- **Archive**: Rust crate in `rust/` directory (legacy, not actively used, and
-  you should NEVER read these files unless explicitly asked to)
+
+The project is entirely TypeScript. An earlier Rust implementation existed but
+has been removed; if you find a reference to a `rust/` directory, a Cargo
+manifest, or `docs.rs/collagen` in the docs, it is stale and should be fixed.
 
 ### Project rationale
 
@@ -40,22 +44,34 @@ npm run test:unit:run
 npm run test:e2e:run:chromium
 ```
 
-You must NEVER run an `npx` command. Only ever run `npm run ...`.
+Never invoke `npx` directly; always go through `npm run ...`. (Some npm scripts
+do use `npx` internally — `test:e2e` runs `npx playwright install` to make sure
+browsers are present. That is fine; the rule is about what _you_ type.)
+
+To build the CLI:
+
+```bash
+# Bundle src/cli/ into dist/cli.js via esbuild
+npm run build:cli
+```
 
 ### Running Individual Tests
+
+`test:unit:run` is already `vitest run`, so there is no need to pass `--run`.
 
 ```bash
 # Run specific test file
 npm run test:unit:run -- src/lib/collagen-ts/__tests__/basic.test.ts
 
 # Run tests matching pattern
-npm run test:unit:run -- --run filesystem
+npm run test:unit:run -- filesystem
 
 # Run single unit test by name
-npm run test:unit:run -- --run -t "validates basic root tag structure"
+npm run test:unit:run -- -t "validates basic root tag structure"
 
-# Run single e2e test by name
-npm run test:e2e:run -- --project chromium -g "validates basic root tag structure"
+# Run single e2e test by name. Note the two `--`: the first passes args through
+# the `test:e2e:run` script, the second through to `playwright test`.
+npm run test:e2e:run -- -- --project=chromium -g "loads a skeleton"
 ```
 
 ## Architecture
@@ -72,6 +88,8 @@ npm run test:e2e:run -- --project chromium -g "validates basic root tag structur
   documents, converting untyped objects to typed structures
 - **`svg/index.ts`**: SVG generation from typed document structure with
   recursive tag processing and asset embedding
+- **`filesystem/upload.ts`**: File upload processing, including recursive
+  drag-and-drop folder traversal and the `FileUploadError` type
 - **`jsonnet/index.ts`**: Jsonnet compilation integration with sjsonnet.js,
   providing `compileJsonnet()` function with filesystem callbacks
   - **`jsonnet/sjsonnet.js`**: Pre-compiled, large (even when minified) sjsonnet
@@ -82,10 +100,30 @@ npm run test:e2e:run -- --project chromium -g "validates basic root tag structur
 - **`errors/index.ts`**: Typed error classes (`MissingFileError`,
   `JsonnetError`, `ValidationError`, etc.)
 
+#### Jsonnet Editor Tooling (`src/lib/collagen-ts/jsonnet/`)
+
+Separate from compilation, these power syntax highlighting and completion in the
+in-app CodeMirror editor:
+
+- **`jsonnet.grammar`**: Lezer grammar for Jsonnet
+- **`jsonnet-parser.js`** / **`jsonnet-parser.terms.js`** / **`.d.ts`**:
+  Generated Lezer parser. Regenerate from the grammar rather than hand-editing.
+- **`cm-jsonnet-highlight.ts`**: CodeMirror language/highlight integration
+- **`jsonnet-stdlib-completions.ts`**: Autocomplete data for the Jsonnet stdlib
+- **`src/lib/collagen-ts/jsonnet/docs/parse-jsonnet-docs.js`**: Script that
+  derives the completion data
+
+### CLI (`src/cli/`)
+
+- **`index.ts`**: `commander` entry point defining the `clgn` interface:
+  required `-i/--input` and `-o/--out-file` (`-` for stdout), plus optional
+  `-f/--format`, `--watch`, and `--debounce`
+- **`run.ts`**: `runOnce()` and `runWatch()` (watch mode uses `chokidar`)
+- **`disk-loader.ts`**: Node filesystem loader that backs `InMemoryFileSystem`
+  with real files on disk, mirroring what the browser does with `File` objects
+
 ### Additional Library Assets
 
-- **`src/lib/icons/`**: SVG icon assets used throughout the application
-  - **`src/lib/icons/helpers/`**: Helper functions for icon generation
 - **`src/lib/fonts/`**: Bundled font files (e.g., Impact font)
 
 ### Key Types
@@ -190,9 +228,10 @@ Jsonnet files.
 The project uses SvelteKit with Svelte 5 and static site generation:
 
 - **Route-based architecture**: Pages are defined in `src/routes/` following
-  SvelteKit conventions
-- **Static prerendering**: Pages are pre-rendered at build time using
-  `export const prerender = true` in `+page.ts`
+  SvelteKit conventions. Reusable components live in `src/lib/components/`, not
+  alongside the routes.
+- **Static prerendering**: `export const prerender = true` is set once in
+  `src/routes/+layout.ts`, which covers the whole app. There is no `+page.ts`.
 - **Import aliases**: Use `$lib/` for imports from `src/lib/` (e.g.,
   `import { foo } from '$lib/collagen-ts/index.js'`)
 - **Vite configuration**: Build optimizations in `vite.config.ts` including
@@ -265,54 +304,81 @@ Components use modern Svelte 5 runes:
 
 ## Frontend Architecture
 
-### Core Components
+Only route files live in `src/routes/`. Every component lives in
+`src/lib/components/` and is imported via the `$lib/components/...` alias.
 
-- **`src/routes/+page.svelte`**: Main application page component orchestrating
-  file upload and SVG generation (SvelteKit route)
-- **`src/routes/+page.ts`**: Page configuration with static prerendering enabled
+### Routes
+
+- **`src/routes/+page.svelte`**: Main application page, orchestrating file
+  upload, manifest editing, and SVG generation
 - **`src/routes/+layout.svelte`**: Root layout component
-- **`src/routes/+layout.ts`**: Layout configuration
-- **`src/routes/FileUploader.svelte`**: Drag-and-drop file upload component with
+- **`src/routes/+layout.ts`**: Sets `prerender = true` for the whole app
+
+### Viewer Components
+
+The SVG viewer and the image viewer share one interaction engine.
+
+- **`src/lib/components/ViewerCore.svelte`**: The shared, interactive
+  zoom/pan/keyboard surface. Both viewers wrap it, passing content in via a
+  snippet.
+  - Element hierarchy: `button.viewer-container` contains
+    `div.viewer-content-mask` contains `div.viewer-content` contains
+    `div.viewer-media` contains the rendered content.
+  - It is the `button.viewer-container` that's interactive and responds to user
+    gestures, keyboard keys, etc. It takes its accessible name from the
+    `ariaLabel` prop, so it is `"Interactive SVG viewer"` under `SvgDisplay` and
+    `"Interactive image viewer"` under `ImageDisplay`.
+  - It is the `div.viewer-content` that has the transform applied when the user
+    zooms or pans. It carries `role="img"` and `aria-label="Viewer content"`.
+  - Exposes an imperative API to its parent: `focus()`, `hasFocus()`,
+    `zoomIn()`, `zoomOut()`, `resetView()`, `cycleBackgroundStyle()`, `pan()`.
+  - Reminder: in tests, refer to these by their `aria-label`, not their
+    selector!
+- **`src/lib/components/viewer/index.ts`**: Pure helpers and constants behind
+  the viewer — `MIN_SCALE`/`MAX_SCALE`, `BACKGROUND_STYLES`, `clampScale()`,
+  `calculateZoomToPoint()`, `calculateConstrainedDimensions()`,
+  `getViewerKeyAction()`, `isTypingInInput()`. Prefer reusing these over writing
+  new zoom/pan math.
+- **`src/lib/components/viewer/viewer.css`**: Shared viewer styles
+- **`src/lib/components/SvgDisplay.svelte`**: SVG viewer — wraps `ViewerCore`
+  and adds a toolbar plus copy/download and preview-vs-code toggling
+- **`src/lib/components/ImageDisplay.svelte`**: Image viewer for previewing an
+  uploaded image, wrapping the same `ViewerCore`
+
+### UI Components
+
+- **`src/lib/components/FileUploader.svelte`**: Drag-and-drop file upload with
   folder support
   - Supports both drag and drop, and a file picker via a hidden `<input>`
   - Drag and drop exposes a different `File` API than the `<input>`; dragged and
     dropped files (and folders) have a `webkitGetAsEntry()` that offers richer
     features than a simple `File` object, including recursive traversal of
     dropped folders.
-  - Uses Svelte 5 runes (`$props`, `$state`) for reactive state management
-- **`src/routes/SvgDisplay.svelte`**: Interactive SVG viewer with zoom, pan, and
-  export functionality
-  - Element hierarchy: `div.svg-display` contains `button.svg-container`
-    contains `div.svg-content` contains the generated `<svg></svg>`.
-  - It is the `button.svg-container` that's interactive and responds to user
-    gestures, keyboard keys, etc.
-  - It is the `div.svg-content` that has a transform applied to it when the user
-    interacts with the SVG.
-  - Reminder: in tests, refer to these by their `aria-label`, not their
-    selector!
-
-### UI Components
-
-- **`src/routes/FileList.svelte`**: Component for displaying and managing
-  uploaded files
-- **`src/routes/TextEditor.svelte`**: Code editor component for editing manifest
-  files
-- **`src/routes/RightPane.svelte`**: Container for the right side of the UI
-- **`src/routes/IntroPane.svelte`**: Welcome/introduction panel
-- **`src/routes/LoadingPane.svelte`**: Loading state display
-- **`src/routes/ErrorPane.svelte`**: Error message display
-- **`src/routes/Toolbar.svelte`**: Reusable toolbar component
-- **`src/routes/ControlButton.svelte`**: Reusable button component
+- **`src/lib/components/FileList.svelte`**: Displays and manages uploaded files
+- **`src/lib/components/TextEditor.svelte`**: CodeMirror-based editor for
+  manifest files, with Jsonnet highlighting and stdlib completion
+- **`src/lib/components/RightPane.svelte`**: Container for the right side of the
+  UI
+- **`src/lib/components/IntroPane.svelte`**: Welcome/introduction panel
+- **`src/lib/components/LoadingPane.svelte`**: Loading state display
+- **`src/lib/components/ErrorPane.svelte`**: Error message display for manifest
+  and generation errors
+- **`src/lib/components/UploadErrorPane.svelte`**: Separate display for
+  `FileUploadError`s raised while collecting files
+- **`src/lib/components/ToastContainer.svelte`**: Transient toast notifications;
+  also exports the `Toast` type
+- **`src/lib/components/Toolbar.svelte`**: Reusable toolbar component
+- **`src/lib/components/ControlButton.svelte`**: Reusable button component
   - Unless otherwise stated, buttons should be created using this component. If
     unsure, ask the user whether they want a ControlButton or a different kind
     of button.
-- **`src/routes/ButtonIcon.svelte`**: Icon component for buttons
-- **`src/routes/ButtonIcon.ts`**: TypeScript utilities for button icons
+- **`src/lib/components/ButtonIcon.svelte`**: Icon component for buttons
+- **`src/lib/components/ButtonIcon.ts`**: TypeScript utilities for button icons
 
 ### Helper Modules
 
-- **`src/routes/upload-helpers.ts`**: Utility functions for file upload
-  processing, including drag-and-drop folder handling
+- **`src/lib/collagen-ts/filesystem/upload.ts`**: File upload processing,
+  including drag-and-drop folder handling
 - **`src/app.html`**: SvelteKit HTML template with placeholders
   (`%sveltekit.assets%`, `%sveltekit.head%`, `%sveltekit.body%`)
 - **`src/app.css`**: Global CSS styles for the application
@@ -336,10 +402,10 @@ Components use modern Svelte 5 runes:
 
 ### Loading and SVG Generation Flow
 
-1. **SvelteKit Route Loading**: `+page.svelte` loads as the main route with
-   static prerendering via `+layout.svelte`
+1. **SvelteKit Route Loading**: `+page.svelte` loads as the main route, with
+   static prerendering configured in `+layout.ts`
 2. **File Collection**: `FileUploader` component handles drag-and-drop and
-   folder selection using `upload-helpers.ts` utilities
+   folder selection using `collagen-ts/filesystem/upload.ts` utilities
 3. **File System Creation**: Browser File objects are converted to
    `InMemoryFileSystem` via `InMemoryFileSystem.create()`
 4. **Manifest Processing**: `fs.loadManifestContents()` detects manifest format
@@ -348,9 +414,10 @@ Components use modern Svelte 5 runes:
    `RootTag` structures
 6. **SVG Generation**: `fs.generateSvg()` recursively builds SVG with embedded
    base64-encoded assets
-7. **Display**: Generated SVG is rendered in `SvgDisplay` component with
-   interactive controls, while UI state is managed through various pane
-   components (`IntroPane`, `LoadingPane`, `ErrorPane`, etc.)
+7. **Display**: Generated SVG is rendered in the `SvgDisplay` component (which
+   wraps `ViewerCore` for zoom/pan) with interactive controls, while UI state is
+   managed through various pane components (`IntroPane`, `LoadingPane`,
+   `ErrorPane`, `UploadErrorPane`, etc.)
 
 ### Browser Compatibility
 

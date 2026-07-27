@@ -7,14 +7,14 @@
 :experimental:
 
 image:https://img.shields.io/badge/rben01-collagen-_?logo=github[github,link=https://github.com/rben01/collagen]
-image:https://img.shields.io/npm/v/%40rben01%2Fcollagen[crates.io,link=https://www.npmjs.com/package/@rben01/collagen]
+image:https://img.shields.io/npm/v/%40rben01%2Fcollagen[npm,link=https://www.npmjs.com/package/@rben01/collagen]
 image:https://img.shields.io/github/license/rben01/collagen[license,link=https://github.com/rben01/collagen/blob/main/LICENSE]
 
 toc::[]
 
 == Quick Start
 
-Install Collagen with `npm install -g collagen`.
+Install Collagen with `npm install -g @rben01/collagen`.
 This will install the executable `clgn`.
 
 Once installed, if you have a manifest file at path `path/to/folder/collagen.jsonnet` (keep reading to learn what goes in this manifest), you can run the following command:
@@ -278,7 +278,8 @@ Collagen identifies the type of an object it deserializes simply by the keys it 
 For instance, the presence of the `"image_path"` property tells Collagen that this tag is an `<image>` tag with an associated image file to embed.
 To avoid ambiguities, it is an error for an object to contain unexpected keys.
 
-Tags are listed at https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html[docs.rs/collagen].
+A tag's type is determined by its _primary key_: `tag` for a generic SVG element, `image_path` for an embedded image, `text` for raw text, `clgn_path` for a nested skeleton, `fonts` for embedded fonts, and `svg_path` for an included SVG file.
+Every tag type, its required and optional fields, and the output it generates are documented in link:schemas/SCHEMA.md[`schemas/SCHEMA.md`].
 
 == FAQ
 

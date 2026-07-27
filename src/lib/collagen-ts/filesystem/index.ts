@@ -2,8 +2,7 @@
  * File system abstraction for browser environments
  *
  * This module provides abstractions for working with browser File objects,
- * path resolution, and resource fetching in a way that's compatible with
- * the Rust implementation's filesystem concepts.
+ * path resolution, and resource fetching.
  */
 
 import {

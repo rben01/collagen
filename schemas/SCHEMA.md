@@ -1,7 +1,8 @@
 # Collagen Schema Documentation
 
-This document defines the schema for Collagen manifest files, serving as the
-source of truth for both Rust and TypeScript implementations.
+This document defines the schema for Collagen manifest files. It is the source
+of truth for the schema, and is kept in sync with the implementation in
+`src/lib/collagen-ts/validation/index.ts`.
 
 ## Overview
 
@@ -243,8 +244,12 @@ Common validation errors:
 
 ## Implementation Notes
 
-- **Rust**: Uses `serde`'s `untagged` deserialization for tag type detection
-- **TypeScript**: Uses discriminated unions for type safety
-- **Consistency**: Both implementations must produce identical SVG output
-- **Extensions**: New tag types require updates to both implementations and this
-  schema
+- **Type safety**: Tag types are modelled as discriminated unions in
+  `src/lib/collagen-ts/types/index.ts`, keyed on the primary keys above
+- **Validation**: `validateDocument()` in
+  `src/lib/collagen-ts/validation/index.ts` converts untyped parsed objects into
+  those typed structures, collecting errors as it goes
+- **Output stability**: Generated SVG is compared character-for-character
+  against the reference outputs checked in under `tests/examples/*/out.svg`
+- **Extensions**: New tag types require updates to the types, the validator, the
+  SVG generator (`src/lib/collagen-ts/svg/index.ts`), and this schema

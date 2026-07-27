@@ -175,12 +175,12 @@ describe("Text Tag Generation", () => {
 
 	it("should escape HTML in text content", async () => {
 		const svg = await generateSvgFromJson({
-			children: [
-				{ text: "<b>Bold</b> & <i>italic</i>" },
-			],
+			children: [{ text: "<b>Bold</b> & <i>italic</i>" }],
 		});
 
-		expect(svg).toContain("&lt;b&gt;Bold&lt;/b&gt; &amp; &lt;i&gt;italic&lt;/i&gt;");
+		expect(svg).toContain(
+			"&lt;b&gt;Bold&lt;/b&gt; &amp; &lt;i&gt;italic&lt;/i&gt;",
+		);
 	});
 
 	it("should handle empty text", async () => {
@@ -741,9 +741,7 @@ describe("Complex SVG Generation", () => {
 								attrs: { x: 0, y: 70, "font-family": "CustomFont" },
 								children: [
 									"Welcome to our ",
-									{
-										text: "<strong>amazing</strong>",
-									},
+									{ text: "<strong>amazing</strong>" },
 									" website!",
 								],
 							},

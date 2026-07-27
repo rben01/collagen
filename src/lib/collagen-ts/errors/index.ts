@@ -1,8 +1,7 @@
 /**
- * Error types and handling for Collagen TypeScript implementation
+ * Error types and handling for Collagen
  *
- * This module mirrors the Rust error system to provide consistent error handling
- * and user-friendly error messages.
+ * Provides consistent error handling and user-friendly error messages.
  */
 
 import type { ValidationErrorList } from "../types/index.js";
@@ -90,7 +89,7 @@ export class UnrecognizedObjectError extends CollagenError {
 			message += `\nTags must have one of: ${knownPrimaryKeys.join(", ")}.`;
 		}
 
-		message += `\n\nFor detailed schema documentation, see: https://docs.rs/collagen/latest/collagen/fibroblast/tags/enum.AnyChildTag.html`;
+		message += `\n\nFor detailed schema documentation, see: https://github.com/rben01/collagen/blob/main/schemas/SCHEMA.md`;
 
 		super(message);
 	}

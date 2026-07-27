@@ -1,8 +1,8 @@
 /**
- * SVG generation system for Collagen TypeScript implementation
+ * SVG generation system for Collagen
  *
  * This module handles the conversion of validated tag structures into
- * SVG XML output, matching the behavior of the Rust implementation.
+ * SVG XML output.
  */
 
 import type {

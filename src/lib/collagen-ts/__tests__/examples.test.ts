@@ -1,8 +1,8 @@
 /**
- * Rust example tests ported to TypeScript
+ * Example-driven tests
  *
- * These tests port actual test cases from the Rust implementation to verify
- * that the TypeScript implementation produces identical output.
+ * These tests exercise realistic manifests end to end and check the generated
+ * SVG against known-good output.
  */
 
 import { describe, it, expect } from "vitest";
@@ -12,7 +12,7 @@ import {
 	TEST_IMAGE_PNG,
 } from "./test-utils.js";
 
-describe("Rust Examples - Basic Cases", () => {
+describe("Examples - Basic Cases", () => {
 	it("should match empty example output", async () => {
 		const files = { "collagen.json": "{}" };
 
@@ -117,7 +117,7 @@ describe("Rust Examples - Basic Cases", () => {
 	});
 });
 
-describe("Rust Examples - Advanced Features", () => {
+describe("Examples - Advanced Features", () => {
 	it("should handle images with various formats", async () => {
 		const files = {
 			"collagen.json": JSON.stringify({
@@ -173,9 +173,7 @@ describe("Rust Examples - Advanced Features", () => {
 				children: [
 					"Plain text string",
 					{ text: "Object form text" },
-					{
-						text: "<b>HTML</b> & content",
-					},
+					{ text: "<b>HTML</b> & content" },
 					{
 						tag: "text",
 						attrs: { x: 10, y: 20 },
@@ -258,7 +256,7 @@ describe("Rust Examples - Advanced Features", () => {
 	});
 });
 
-describe("Rust Examples - Error Cases", () => {
+describe("Examples - Error Cases", () => {
 	it("should handle missing files gracefully", async () => {
 		const files = {
 			"collagen.json": JSON.stringify({
