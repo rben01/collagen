@@ -250,6 +250,7 @@ Common validation errors:
   `src/lib/collagen-ts/validation/index.ts` converts untyped parsed objects into
   those typed structures, collecting errors as it goes
 - **Output stability**: Generated SVG is compared character-for-character
-  against the reference outputs checked in under `tests/examples/*/out.svg`
+  against expected strings written inline in the unit tests under
+  `src/lib/collagen-ts/__tests__/`
 - **Extensions**: New tag types require updates to the types, the validator, the
   SVG generator (`src/lib/collagen-ts/svg/index.ts`), and this schema

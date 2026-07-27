@@ -35,7 +35,8 @@ In watch mode, every time a file in `path/to/folder` is modified, Collagen will 
 Watch mode will never terminate on its own.
 As with most terminal commands, you can terminate it with kbd:[Ctrl-C].
 
-https://rben01.github.io/collagen[This doc] has several examples that can serve as a good starting point for creating a manifest.
+https://rben01.github.io/collagen/docs[Up and Running With Collagen] walks through several examples that serve as a good starting point for creating a manifest.
+You can try them out immediately in the https://rben01.github.io/collagen[in-browser editor].
 More examples are available as test cases in `tests/examples`.
 
 

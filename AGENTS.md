@@ -216,12 +216,17 @@ Jsonnet files.
 
 - **`src/lib/collagen-ts/__tests__/`**: Unit tests using Vitest
 - **`tests/e2e/`**: End-to-end tests using Playwright
-- **`tests/examples/`**: Reference test cases with skeleton folders and expected
-  SVG outputs
-- Each test example has a `skeleton/` folder with manifest and assets, plus
-  `out.svg` for validation
-- Tests verify that generated SVG matches expected output
-  character-for-character
+- **`tests/examples/`**: Skeleton folders with manifests and assets, each
+  alongside an `out.svg`
+- Unit tests assert against expected SVG strings written inline in the test
+  files, and compare them character-for-character.
+- Caveat: **nothing currently reads the `out.svg` files.** Vitest only collects
+  `src/lib/collagen-ts/**`, and no test loads these fixtures from disk, so the
+  checked-in `out.svg`s are unverified reference data that has drifted from
+  current output (e.g. they still carry the pre-TypeScript `image/jpg` MIME
+  type, where the generator now emits `image/jpeg`). Treat them as illustrative,
+  not authoritative, and do not assume a change is safe because they still
+  match.
 
 ### SvelteKit Development
 
@@ -311,8 +316,20 @@ Only route files live in `src/routes/`. Every component lives in
 
 - **`src/routes/+page.svelte`**: Main application page, orchestrating file
   upload, manifest editing, and SVG generation
+- **`src/routes/docs/+page.svelte`**: The "Up and Running With Collagen"
+  tutorial, served at `/docs`. Prerenders to a static page like the editor.
+  - Its example manifests live in `const` template literals and are real,
+    runnable Jsonnet — the `// (n)` callout markers are ordinary comments, so
+    the snippets stay copy-pasteable. If you edit one, re-run it through `clgn`
+    to confirm it still compiles.
+  - Rendered example output lives in `static/tutorial/` and is generated from
+    the fixtures in `tests/examples/` with
+    `npm run build:cli && node dist/cli.js -i <skeleton> -o static/tutorial/<name>.svg`.
 - **`src/routes/+layout.svelte`**: Root layout component
 - **`src/routes/+layout.ts`**: Sets `prerender = true` for the whole app
+
+Internal links must go through `base` from `$app/paths` (`href="{base}/docs"`),
+because the site is served under `/collagen` on GitHub Pages.
 
 ### Viewer Components
 
@@ -374,6 +391,10 @@ The SVG viewer and the image viewer share one interaction engine.
     of button.
 - **`src/lib/components/ButtonIcon.svelte`**: Icon component for buttons
 - **`src/lib/components/ButtonIcon.ts`**: TypeScript utilities for button icons
+- **`src/lib/components/CodeBlock.svelte`**: Static code sample with an optional
+  filename header and numbered callouts, used by the `/docs` tutorial. This is
+  deliberately plain `<pre><code>`, not CodeMirror — it needs no editing or
+  highlighting and must prerender.
 
 ### Helper Modules
 

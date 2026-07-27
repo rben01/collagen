@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from "$app/paths";
 	import Toolbar from "./Toolbar.svelte";
 </script>
 
@@ -16,6 +17,12 @@
 				Collagen projects by adding them to the project.
 			</p>
 			<div class="helpful-links">
+				<p>
+					New to Collagen? Read <a href="{base}/docs"
+						>Up and Running With Collagen</a
+					> for a walkthrough of embedding images, nesting projects, and using
+					Jsonnet.
+				</p>
 				<p>
 					To learn more about this project, visit the <a
 						href="https://github.com/rben01/collagen"
