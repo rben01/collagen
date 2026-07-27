@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from "$app/paths";
+	import { resolve } from "$app/paths";
 	import Toolbar from "./Toolbar.svelte";
 </script>
 
@@ -18,7 +18,7 @@
 			</p>
 			<div class="helpful-links">
 				<p>
-					New to Collagen? Read <a href="{base}/docs"
+					New to Collagen? Read <a href={resolve("/docs", {})}
 						>Up and Running With Collagen</a
 					> for a walkthrough of embedding images, nesting projects, and using
 					Jsonnet.

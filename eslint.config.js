@@ -11,6 +11,11 @@ const gitignorePath = fileURLToPath(new URL("./.gitignore", import.meta.url));
 
 export default ts.config(
 	includeIgnoreFile(gitignorePath),
+	{
+		// Vendored, pre-compiled third-party build output from
+		// https://github.com/databricks/sjsonnet. Not ours to lint or fix.
+		ignores: ["src/lib/collagen-ts/jsonnet/sjsonnet.js"],
+	},
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,

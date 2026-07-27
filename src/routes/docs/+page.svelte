@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from "$app/paths";
+	import { asset, resolve } from "$app/paths";
 	import CodeBlock from "$lib/components/CodeBlock.svelte";
 
 	const example01 = `local bubble_text = 'Collagen!!';  // (1)
@@ -145,7 +145,10 @@ local text_color = '#000';
 <div class="docs-page">
 	<article class="docs">
 		<header class="docs-header">
-			<a class="back-link" href="{base}/">&larr; Back to the editor</a>
+			<!-- resolve() takes a params object even for routes with no params -->
+			<a class="back-link" href={resolve("/", {})}
+				>&larr; Back to the editor</a
+			>
 			<h1>Up and Running With Collagen</h1>
 		</header>
 
@@ -230,7 +233,7 @@ local text_color = '#000';
 
 			<figure>
 				<img
-					src="{base}/tutorial/smiley.jpg"
+					src={asset("/tutorial/smiley.jpg")}
 					alt="A yellow smiley face"
 					width="200"
 				/>
@@ -274,7 +277,7 @@ local text_color = '#000';
 
 			<figure>
 				<img
-					src="{base}/tutorial/example-01.svg"
+					src={asset("/tutorial/example-01.svg")}
 					alt="A smiley face with a red nose and a speech bubble reading “Collagen!!”"
 					width="500"
 				/>
@@ -322,7 +325,7 @@ local text_color = '#000';
 
 			<figure>
 				<img
-					src="{base}/tutorial/example-02.svg"
+					src={asset("/tutorial/example-02.svg")}
 					alt="A dashed blue box containing the smiley face collage and a grey kitten"
 					width="600"
 				/>
@@ -364,7 +367,7 @@ local text_color = '#000';
 
 			<figure>
 				<img
-					src="{base}/tutorial/example-03.svg"
+					src={asset("/tutorial/example-03.svg")}
 					alt="A Drake meme. Top panel, with pixelated text: Embedding text directly into a raster file. Bottom panel, with perfectly sharp text: Using SVG-based text, which is infinitely zoomable and has no artifacts"
 					width="500"
 				/>

@@ -328,8 +328,14 @@ Only route files live in `src/routes/`. Every component lives in
 - **`src/routes/+layout.svelte`**: Root layout component
 - **`src/routes/+layout.ts`**: Sets `prerender = true` for the whole app
 
-Internal links must go through `base` from `$app/paths` (`href="{base}/docs"`),
-because the site is served under `/collagen` on GitHub Pages.
+The site is served under `/collagen` on GitHub Pages, so paths must never be
+hardcoded. Use `$app/paths`, not the deprecated `base`:
+
+- Internal links: `href={resolve("/docs", {})}`. `resolve()` wants a params
+  object even for routes that have no params — omitting it is a type error.
+- Files in `static/`: `src={asset("/tutorial/smiley.jpg")}`.
+
+The `svelte/no-navigation-without-resolve` lint rule enforces this.
 
 ### Viewer Components
 
