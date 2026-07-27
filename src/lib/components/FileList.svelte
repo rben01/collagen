@@ -427,7 +427,7 @@ local diameter(r) = 2 * std.pi * r;
 
 	{#if fileStats.warnings.length > 0}
 		<div class="file-list-warnings">
-			{#each fileStats.warnings as warning}
+			{#each fileStats.warnings as warning (warning)}
 				<div class="file-warning {warning.type}">
 					{#if warning.type === "warning"}⚠️{:else}💡{/if}
 					{warning.message}

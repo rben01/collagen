@@ -37,7 +37,7 @@
 		{/if}
 	</div>
 	<ul>
-		{#each errors as error}
+		{#each errors as error (error)}
 			<li>
 				{#if error.path}
 					<code>{error.path}</code>: {error.message}

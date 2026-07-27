@@ -22,7 +22,6 @@
 			files: Map<string, File>,
 			root: string,
 		) => Promise<void>;
-		handleClearFiles: () => void;
 		externalError?: string | null;
 		compact?: boolean;
 	} = $props();

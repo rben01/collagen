@@ -21,8 +21,6 @@
 		handleCloseEditor: () => void;
 	} = $props();
 
-	$inspect(text);
-
 	let editorParent: HTMLElement;
 	let editorView: EditorView;
 	let lastRevision = $state(-1);

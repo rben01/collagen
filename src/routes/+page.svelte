@@ -138,7 +138,9 @@
 
 	// persist the edited text after a timer
 	$effect(() => {
-		editorText;
+		// Read editorText so edits re-trigger this effect; everything below is
+		// deliberately untracked so only the text drives it.
+		void editorText;
 		const now = Date.now();
 		const elapsed = now - untrack(() => lastPersistAt);
 		if (elapsed >= PERSIST_MS) {
