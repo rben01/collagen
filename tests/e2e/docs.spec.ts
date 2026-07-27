@@ -216,8 +216,11 @@ test.describe("Docs page", () => {
 		const codeBlocks = page.locator(".code-block");
 		await expect(codeBlocks).toHaveCount(CODE_BLOCKS.length);
 
+		// No `f is string` predicate here: CODE_BLOCKS is a const assertion, so
+		// filename is a union of string literals and the predicate would be
+		// wider than the value it narrows. TS narrows this on its own.
 		const expectedFilenames = CODE_BLOCKS.map(b => b.filename).filter(
-			(f): f is string => f !== null,
+			f => f !== null,
 		);
 		await expect(page.locator(".code-block .filename")).toHaveText(
 			expectedFilenames,
