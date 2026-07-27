@@ -43,6 +43,7 @@
 
 	onMount(() => {
 		preloadSjsonnet();
+		window.appMounted = true;
 	});
 
 	function startLoading() {

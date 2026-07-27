@@ -2,200 +2,193 @@
  * End-to-end tests focused on the in-app text editor
  */
 
-import { expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { test } from "./fixtures";
 import { uploadProject } from "./upload";
+import {
+	compactViewerPane,
+	errorMessage,
+	fileListRegion,
+	getEditorText,
+	mainViewerPane,
+	openFileInEditor,
+	setEditorText,
+	svgDoc,
+	textEditorPane,
+	viewer,
+	viewerToolbar,
+} from "./helpers";
 
-async function getViewportWidth(page: import("@playwright/test").Page) {
-	const size = page.viewportSize();
-	if (!size) return 1200;
-	return size.width;
+function getViewportWidth(page: Page) {
+	return page.viewportSize()?.width ?? 1200;
+}
+
+/** A simpleJson-shaped manifest whose rect uses the given fill. */
+function manifestWithFill(fill: string) {
+	return JSON.stringify(
+		{
+			attrs: { viewBox: "0 0 100 100" },
+			children: [
+				{ tag: "rect", attrs: { x: 0, y: 0, width: 50, height: 50, fill } },
+			],
+		},
+		null,
+		2,
+	);
 }
 
 test.describe("Text Editor", () => {
 	test.beforeEach(async ({ page, browserName }) => {
 		await uploadProject(browserName, page, "simpleJson");
-		await expect(
-			page.getByRole("region", { name: /file information/i }),
-		).toBeVisible();
+		await expect(fileListRegion(page)).toBeVisible();
 	});
 
 	test("opens on text file click and shows compact SVG without controls", async ({
 		page,
 	}) => {
-		// Open editor by clicking the text file row
-		await page.getByRole("button", { name: /edit collagen\.json/i }).click();
+		await openFileInEditor(page, "collagen.json");
 
-		// Editor should be visible
-		const editor = page.getByRole("region", { name: /text editor/i });
-		await expect(editor).toBeVisible();
+		const editor = textEditorPane(page);
 		await expect(
-			editor.getByRole("button", { name: /close editor/i }),
+			editor.getByRole("button", { name: "Close editor" }),
 		).toBeVisible();
-		await expect(editor.locator("textarea.editor-textarea")).toBeVisible();
+		// CodeMirror exposes its contenteditable surface as a textbox
+		await expect(editor.getByRole("textbox")).toBeVisible();
+		await expect(await getEditorText(page)).toContain('"viewBox"');
 
-		// Compact SVG should be visible below the file list, no controls visible
-		const compact = page.getByRole("region", {
-			name: /generated svg display \(compact\)/i,
-		});
+		// Compact SVG replaces the main viewer, and carries no controls
+		const compact = compactViewerPane(page);
 		await expect(compact).toBeVisible();
-		await expect(
-			page.getByRole("toolbar", { name: /svg viewer controls/i }),
-		).toHaveCount(0);
+		await expect(svgDoc(compact).locator("svg rect")).toHaveAttribute(
+			"fill",
+			"blue",
+		);
+		await expect(viewerToolbar(page)).toHaveCount(0);
+		await expect(mainViewerPane(page)).toHaveCount(0);
 	});
 
 	test("keyboard activation on file row (Enter/Space)", async ({ page }) => {
-		const rowBtn = page.getByRole("button", { name: /edit collagen\.json/i });
+		const rowBtn = fileListRegion(page).getByRole("button", {
+			name: "Edit collagen.json",
+			exact: true,
+		});
 		await rowBtn.focus();
 		await expect(rowBtn).toBeFocused();
 
 		await page.keyboard.press("Enter");
-		await expect(
-			page.getByRole("region", { name: /text editor/i }),
-		).toBeVisible();
+		await expect(textEditorPane(page)).toBeVisible();
 
 		// Close and try Space (reopen)
-		await page.getByRole("button", { name: /close editor/i }).click();
+		await page.getByRole("button", { name: "Close editor" }).click();
+		await expect(textEditorPane(page)).toHaveCount(0);
+
 		await rowBtn.focus();
 		await page.keyboard.press(" ");
-		await expect(
-			page.getByRole("region", { name: /text editor/i }),
-		).toBeVisible();
+		await expect(textEditorPane(page)).toBeVisible();
 	});
 
 	test("layout widens sidebar and splits heights while editing, restores on close", async ({
 		page,
 	}) => {
-		await page.getByRole("button", { name: /edit collagen\.json/i }).click();
+		await openFileInEditor(page, "collagen.json");
 
 		const sidebar = page.locator(".sidebar");
 		const top = page.locator(".sidebar-top");
 		const bottom = page.locator(".sidebar-bottom.compact-svg");
 
-		const viewportW = await getViewportWidth(page);
+		const viewportW = getViewportWidth(page);
 		const sidebarBox = await sidebar.boundingBox();
 		expect(sidebarBox).not.toBeNull();
-		const sidebarW = sidebarBox!.width;
 		// 35vw ± 30px tolerance
-		expect(Math.abs(sidebarW - 0.35 * viewportW)).toBeLessThanOrEqual(30);
+		expect(
+			Math.abs(sidebarBox!.width - 0.35 * viewportW),
+		).toBeLessThanOrEqual(30);
 
 		const topBox = await top.boundingBox();
 		const bottomBox = await bottom.boundingBox();
 		expect(topBox).not.toBeNull();
 		expect(bottomBox).not.toBeNull();
-		const diff = Math.abs((topBox!.height ?? 0) - (bottomBox!.height ?? 0));
-		expect(diff).toBeLessThanOrEqual(30);
-
-		// Close editor and check sidebar returns to ~25vw
-		await page.getByRole("button", { name: /close editor/i }).click();
-		const sidebarBox2 = await sidebar.boundingBox();
-		expect(sidebarBox2).not.toBeNull();
-		const sidebarW2 = sidebarBox2!.width;
-		expect(Math.abs(sidebarW2 - 0.25 * viewportW)).toBeLessThanOrEqual(30);
-	});
-
-	test("debounced persistence updates compact SVG without control flicker", async ({
-		page,
-	}) => {
-		await page.getByRole("button", { name: /edit collagen\.json/i }).click();
-		const textarea = page.locator("textarea.editor-textarea");
-
-		// Verify initial color (blue)
-		const compact = page.getByRole("region", {
-			name: /generated svg display \(compact\)/i,
-		});
-		const rect = compact.locator("svg rect");
-		await expect(rect).toBeVisible();
-		await expect(rect).toHaveAttribute("fill", "blue");
-
-		// Replace manifest to change fill to green
-		const newManifest = JSON.stringify(
-			{
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{
-						tag: "rect",
-						attrs: { x: 0, y: 0, width: 50, height: 50, fill: "green" },
-					},
-				],
-			},
-			null,
-			2,
+		expect(Math.abs(topBox!.height - bottomBox!.height)).toBeLessThanOrEqual(
+			30,
 		);
 
-		await textarea.fill(newManifest);
-
-		// Immediately after typing, it should still be old color (debounce ~200ms)
-		await page.waitForTimeout(100);
-		await expect(rect).toHaveAttribute("fill", "blue");
-
-		// After debounce window, it should update
-		await page.waitForTimeout(300);
-		await expect(rect).toHaveAttribute("fill", "green");
-
-		// Ensure no controls are present (no flicker to full controls)
-		await expect(
-			page.getByRole("toolbar", { name: /svg viewer controls/i }),
-		).toHaveCount(0);
+		// Close editor and check sidebar returns to ~25vw
+		await page.getByRole("button", { name: "Close editor" }).click();
+		const sidebarBox2 = await sidebar.boundingBox();
+		expect(sidebarBox2).not.toBeNull();
+		expect(
+			Math.abs(sidebarBox2!.width - 0.25 * viewportW),
+		).toBeLessThanOrEqual(30);
 	});
 
-	test("invalid JSON shows compact error without waiting-state flicker, then recovers", async ({
+	test("edits are persisted and re-rendered in the compact view", async ({
 		page,
 	}) => {
-		await page.getByRole("button", { name: /edit collagen\.json/i }).click();
-		const textarea = page.locator("textarea.editor-textarea");
-		const compact = page.getByRole("region", {
-			name: /generated svg display \(compact\)/i,
-		});
+		await openFileInEditor(page, "collagen.json");
+
+		const compact = compactViewerPane(page);
+		const rect = svgDoc(compact).locator("svg rect");
+		await expect(rect).toHaveAttribute("fill", "blue");
+
+		await setEditorText(page, manifestWithFill("green"));
+
+		// Persistence is debounced, so this needs to retry rather than sample once
+		await expect(rect).toHaveAttribute("fill", "green", { timeout: 5000 });
+
+		// The compact viewer never grows controls mid-edit
+		await expect(viewerToolbar(page)).toHaveCount(0);
+	});
+
+	test("edits survive closing the editor", async ({ page }) => {
+		await openFileInEditor(page, "collagen.json");
+		await setEditorText(page, manifestWithFill("magenta"));
+		await expect(
+			svgDoc(compactViewerPane(page)).locator("svg rect"),
+		).toHaveAttribute("fill", "magenta", { timeout: 5000 });
+
+		await page.getByRole("button", { name: "Close editor" }).click();
+
+		// The edit is reflected in the main viewer, and re-opening the file shows
+		// the saved text rather than the originally uploaded content
+		await expect(
+			svgDoc(mainViewerPane(page)).locator("svg rect"),
+		).toHaveAttribute("fill", "magenta");
+
+		await openFileInEditor(page, "collagen.json");
+		expect(await getEditorText(page)).toContain("magenta");
+	});
+
+	test("invalid JSON shows compact error, then recovers", async ({ page }) => {
+		await openFileInEditor(page, "collagen.json");
+		const compact = compactViewerPane(page);
 
 		// Break the JSON
-		await textarea.fill("{");
-		await page.waitForTimeout(300);
-
-		const errorRegion = compact.locator(".error-state, [role=alert]").first();
-		await expect(errorRegion).toBeVisible();
-		// Waiting state should not replace error once error is present
+		await setEditorText(page, "{");
+		await expect(errorMessage(compact)).toBeVisible({ timeout: 5000 });
+		// The error must not be replaced by the empty "waiting" placeholder
 		await expect(compact.locator(".waiting-state")).toHaveCount(0);
 
 		// Fix JSON
-		const fixedManifest = JSON.stringify(
-			{
-				attrs: { viewBox: "0 0 100 100" },
-				children: [
-					{
-						tag: "rect",
-						attrs: { x: 0, y: 0, width: 50, height: 50, fill: "red" },
-					},
-				],
-			},
-			null,
-			2,
-		);
-		await textarea.fill(fixedManifest);
-		await page.waitForTimeout(300);
+		await setEditorText(page, manifestWithFill("red"));
 
-		// Error should be gone and SVG visible again
-		await expect(errorRegion).toBeHidden();
-		await expect(compact.locator("svg rect")).toHaveAttribute("fill", "red");
+		await expect(errorMessage(compact)).toHaveCount(0, { timeout: 5000 });
+		await expect(svgDoc(compact).locator("svg rect")).toHaveAttribute(
+			"fill",
+			"red",
+		);
 	});
 
 	test("closing editor restores main viewer and its controls", async ({
 		page,
 	}) => {
-		await page.getByRole("button", { name: /edit collagen\.json/i }).click();
-		await page.getByRole("button", { name: /close editor/i }).click();
+		await openFileInEditor(page, "collagen.json");
+		await page.getByRole("button", { name: "Close editor" }).click();
 
 		// Main viewer and its controls return
-		await expect(page.getByLabel("Interactive SVG viewer")).toBeVisible();
-		await expect(
-			page.getByRole("toolbar", { name: /svg viewer controls/i }),
-		).toBeVisible();
+		await expect(viewer(mainViewerPane(page))).toBeVisible();
+		await expect(viewerToolbar(page)).toBeVisible();
 
-		// Compact viewer disappears
-		await expect(
-			page.getByRole("region", {
-				name: /generated svg display \(compact\)/i,
-			}),
-		).toHaveCount(0);
+		// Compact viewer is hidden again, so it leaves the accessibility tree
+		await expect(compactViewerPane(page)).toHaveCount(0);
 	});
 });

@@ -5,14 +5,19 @@ export const test = base.extend({
 		await page.goto("/");
 
 		await page.waitForLoadState();
-		await page
-			.locator(".drop-zone")
-			.waitFor({ state: "visible", timeout: 5000 });
 
-		// page needs to settle, event handlers need to be registered, so wait for
-		// FileUploader to be mounted
-		await page.waitForFunction(() => window.fileUploaderMounted, undefined, {
-			timeout: 5000,
+		// The FileList region is the app's upload surface. It renders even with an
+		// empty filesystem, so it is present for every test regardless of state.
+		await page
+			.getByRole("region", { name: "File information" })
+			.waitFor({ state: "visible", timeout: 10000 });
+
+		// The page is prerendered, so the markup above exists in the served HTML
+		// before Svelte hydrates and attaches the drag/drop and click handlers.
+		// Waiting on the selector alone therefore races hydration; `appMounted` is
+		// set in the page's onMount and is the signal that handlers are live.
+		await page.waitForFunction(() => window.appMounted === true, undefined, {
+			timeout: 10000,
 		});
 
 		await use(page);

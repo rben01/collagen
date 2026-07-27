@@ -1,4 +1,6 @@
 import { expect, type Page } from "@playwright/test";
+import { Buffer } from "node:buffer";
+import { fileListRegion } from "./helpers";
 
 export type ProjectFiles = Record<string, string>;
 
@@ -120,6 +122,7 @@ function projectify<T extends Record<string, string>>(project: T) {
 		jpg: "image/jpg",
 		jpeg: "image/jpg",
 		txt: "text/plain",
+		css: "text/css",
 	};
 
 	for (const path in project) {
@@ -150,223 +153,245 @@ const sampleProjects = (() => {
 	return o;
 })();
 
+function resolveProject(project: ProjectName | ProjectFiles) {
+	return typeof project === "string"
+		? sampleProjects[project]
+		: projectify(project);
+}
+
 // =============================================================================
-// Simple Upload Testing Utilities
+// Upload Testing Utilities
 // =============================================================================
 
-async function waitForUpload(page: Page, { timeout } = { timeout: 3000 }) {
-	const postUploadElem = page.locator(".file-list, .error-message").first();
-	await postUploadElem.scrollIntoViewIfNeeded();
-	expect(postUploadElem).toBeVisible({ timeout });
+/**
+ * Wait until an upload has actually landed.
+ *
+ * Both upload paths hand off to async app code (`collectFromDataTransfer` /
+ * `collectFromFileList`, then SVG regeneration), so neither the dispatched drop
+ * nor `setFiles` returning means the app has caught up. Two signals are checked:
+ *
+ * 1. The file list's own count reaches at least the number of files uploaded.
+ *    Uploads merge into the existing filesystem, so this is a lower bound.
+ * 2. The app settles on either a rendered viewer or an error. Uses a CSS
+ *    `:visible` filter because the compact viewer shares the viewer's aria-label
+ *    while being `display: none`.
+ */
+async function waitForUpload(page: Page, minFileCount: number) {
+	await expect
+		.poll(
+			async () => {
+				const heading = await fileListRegion(page)
+					.getByRole("heading", { level: 3 })
+					.innerText();
+				return Number(heading.match(/Files \((\d+)\)/)?.[1] ?? -1);
+			},
+			{ timeout: 15000 },
+		)
+		.toBeGreaterThanOrEqual(minFileCount);
+
+	// With no files there is nothing to render and nothing to fail on: the app
+	// resets to its empty state, so there is no settled state to wait for.
+	if (minFileCount === 0) return;
+
+	await expect(
+		page
+			.locator(
+				'[aria-label="Interactive SVG viewer"]:visible, .error-message:visible',
+			)
+			.first(),
+	).toBeVisible({ timeout: 15000 });
+}
+
+export interface UploadOptions {
+	/**
+	 * How many files the filesystem should end up holding, when that differs
+	 * from the number handed to the browser. A `.clgn` bundle expands into its
+	 * contents (so more), and a malformed one contributes nothing (so zero).
+	 */
+	expectFileCount?: number;
 }
 
 /**
- * Test file picker upload by simulating browse button click and file selection
+ * Teach the page to report a `webkitRelativePath` for files supplied through the
+ * file picker.
  *
- * This is less faithful to the actual tests we want to perform (drag and drop) but in
- * non-chromium browsers, this is *the only* way to upload files. Unfortunately this
- * means you can't test dropping a folder in non-chromium browsers; you've gotta just do
- * that by hand.
+ * Why this is necessary: `collectFromFileList` reads `file.webkitRelativePath`
+ * to reconstruct folder structure, but browsers only populate it for a genuine
+ * directory selection, and Playwright's `FileChooser.setFiles` has no way to set
+ * it. Without this shim a folder project uploads flattened, the manifest's
+ * relative `image_path`s stop resolving, and the test would be exercising a
+ * scenario the user never encounters.
+ *
+ * What it does NOT cover: this is the only browser behaviour being simulated.
+ * The picker itself, the `File` objects, the change event, and every line of app
+ * code from `openFilePicker` onwards are real. Directory *traversal* (the user
+ * picking a folder rather than a file set) is still not exercised — the browser
+ * never builds a directory listing here.
+ */
+async function stageRelativePaths(
+	page: Page,
+	relPathsByName: Record<string, string>,
+) {
+	await page.evaluate(relPaths => {
+		window.__e2eRelPaths = relPaths;
+		if (window.__e2eRelPathsPatched) return;
+		Object.defineProperty(File.prototype, "webkitRelativePath", {
+			configurable: true,
+			get(this: File) {
+				return window.__e2eRelPaths?.[this.name] ?? "";
+			},
+		});
+		window.__e2eRelPathsPatched = true;
+	}, relPathsByName);
+}
+
+/**
+ * Upload via the real file picker: click "Upload", catch the file chooser the
+ * browser opens, and hand it the files.
+ *
+ * `FileList.openFilePicker()` builds its `<input type="file">` on demand and
+ * removes it again on change, so there is no static input to target with
+ * `setInputFiles` — the chooser event is the only handle on it.
+ *
+ * This is the only upload path available in Firefox and WebKit, where a
+ * synthetic `DataTransfer` produces entries whose `file()` callback always
+ * errors.
  */
 export async function uploadWithFilePicker(
 	page: Page,
 	project: ProjectName | ProjectFiles,
+	options: UploadOptions = {},
 ) {
-	const projectFiles =
-		typeof project === "string"
-			? sampleProjects[project]
-			: projectify(project);
+	const projectFiles = resolveProject(project);
 
-	// For subsequent uploads, the compact uploader should already be visible
-	// No need to click any special button - just proceed with file selection
+	const relPathsByName: Record<string, string> = {};
+	const payload: { name: string; mimeType: string; buffer: Buffer }[] = [];
+	for (const path in projectFiles) {
+		const name = path.split("/").pop()!;
+		if (name in relPathsByName) {
+			throw new Error(
+				`Cannot upload '${path}' via the file picker: basename '${name}' is ` +
+					`already used by '${relPathsByName[name]}'. The picker keys files ` +
+					`by name, so basenames must be unique within a project.`,
+			);
+		}
+		relPathsByName[name] = path;
+		const { content, type } = projectFiles[path];
+		payload.push({ name, mimeType: type, buffer: Buffer.from(content) });
+	}
 
-	// Click the browse button to trigger file picker
-	await page
-		.getByRole("button", { name: "Browse for file or folder" })
-		.click({ timeout: 5000 });
+	await stageRelativePaths(page, relPathsByName);
 
-	// Set files on the file input that gets created
-	await page.evaluate(
-		async ({ fileData }) => {
-			// Find the hidden file input that was created
-			const input = document.getElementById(
-				"file-input-hidden",
-			) as HTMLInputElement;
-			if (!input) {
-				throw new Error("File input not found");
-			}
+	const fileChooserPromise = page.waitForEvent("filechooser");
+	await fileListRegion(page)
+		.getByRole("button", {
+			name: "Browse for files, keyboard shortcut O key",
+		})
+		.click();
+	const fileChooser = await fileChooserPromise;
+	await fileChooser.setFiles(payload);
 
-			// this block of code here is also used in testDragAndDropUpload.
-			// unfortunately, while we'd like to extract it to a function and then expose
-			// that function to the page, our options are limited because DataTransfer
-			// doesn't exist in node and File can't be moved between node and the browser
-			const dt = new DataTransfer();
-			for (const path in fileData) {
-				const { content, type } = fileData[path];
-
-				const file = new File([content], path, { type });
-				// Add webkitRelativePath for folder uploads
-				if (path.includes("/")) {
-					Object.defineProperty(file, "webkitRelativePath", {
-						value: path,
-						writable: false,
-					});
-				}
-				dt.items.add(file);
-			}
-
-			Object.defineProperty(input, "files", {
-				value: dt.files,
-				writable: false,
-			});
-
-			input.dispatchEvent(new Event("change", { bubbles: true }));
-		},
-		{ fileData: projectFiles },
-	);
-
-	await waitForUpload(page);
+	await waitForUpload(page, options.expectFileCount ?? payload.length);
 }
 
 /**
- * Test drag-and-drop upload by simulating drag and drop events on the drop zone
+ * Upload by dispatching drag events carrying a synthetic `DataTransfer` at the
+ * file list.
  *
- * NOTE: when testing, in non-chromium browsers, the files will be have
- * `webkitGetAsEntry()`, but the `entryFile.file(success, error)` `success` callback
- * will always fail. So you shouldn't call this in browser-agnostic tests, which is why
- * we have `uploadProject`, which uses the “correct” (albeit less fully tested) upload
- * method for the browser being tested
+ * Chromium-only. In Chromium, `webkitGetAsEntry()` on a programmatically added
+ * `File` yields an entry whose `fullPath` is derived from `File.name`, which is
+ * why each file is constructed with its *full* project path as its name — that
+ * is what lets folder projects round-trip. Firefox and WebKit return an entry
+ * whose `file()` callback always fails, so nothing is collected there.
  */
-async function uploadWithDragAndDrop(
+export async function uploadWithDragAndDrop(
 	page: Page,
 	project: ProjectName | ProjectFiles,
+	options: UploadOptions = {},
 ) {
-	const projectFiles =
-		typeof project === "string"
-			? sampleProjects[project]
-			: projectify(project);
+	const projectFiles = resolveProject(project);
 
-	// Simulate drag and drop on the drop zone
 	await page.evaluate(
-		async ({ fileData }) => {
-			const dropZone =
-				document.querySelector('[data-testid="upload-dropzone"]') ||
-				document.querySelector('[data-testid="filelist-dropzone"]') ||
-				document.querySelector(".file-list") ||
-				document.querySelector(".drop-zone");
-			if (!dropZone) throw new Error("Drop zone not found");
+		({ fileData }) => {
+			const dropZone = document.querySelector(
+				'[data-testid="filelist-dropzone"]',
+			);
+			if (!dropZone) throw new Error("File list drop zone not found");
 
-			// see above for why this duplicate block of code can't be deduplicated
 			const dt = new DataTransfer();
 			for (const path in fileData) {
 				const { content, type } = fileData[path];
-
-				const file = new File([content], path, { type });
-				// Add webkitRelativePath for folder uploads
-				if (path.includes("/")) {
-					Object.defineProperty(file, "webkitRelativePath", {
-						value: path,
-						writable: false,
-					});
-				}
-				dt.items.add(file);
+				dt.items.add(new File([content], path, { type }));
 			}
 
-			dropZone.dispatchEvent(
-				new DragEvent("dragenter", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-
-			dropZone.dispatchEvent(
-				new DragEvent("dragover", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-
-			dropZone.dispatchEvent(
-				new DragEvent("drop", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
+			for (const type of ["dragenter", "dragover", "drop"]) {
+				dropZone.dispatchEvent(
+					new DragEvent(type, {
+						bubbles: true,
+						cancelable: true,
+						dataTransfer: dt,
+					}),
+				);
+			}
 		},
 		{ fileData: projectFiles },
 	);
 
-	await waitForUpload(page);
+	await waitForUpload(
+		page,
+		options.expectFileCount ?? Object.keys(projectFiles).length,
+	);
 }
 
+/**
+ * Upload a project using whichever mechanism actually works in the browser under
+ * test. Prefer this in browser-agnostic specs.
+ */
 export async function uploadProject(
 	browserName: "chromium" | "webkit" | "firefox",
 	page: Page,
 	project: ProjectName | ProjectFiles,
+	options: UploadOptions = {},
 ) {
 	if (browserName === "chromium") {
-		return await uploadWithDragAndDrop(page, project);
+		return await uploadWithDragAndDrop(page, project, options);
 	} else {
-		return await uploadWithFilePicker(page, project);
+		return await uploadWithFilePicker(page, project, options);
 	}
 }
 
 /**
- * Drop additional files directly onto the file list panel after an initial upload.
- * Chromium-only (uses DataTransfer + DragEvent path).
+ * Drop additional files onto the file list after an initial upload.
+ * Chromium-only, for the same reason as {@link uploadWithDragAndDrop}.
  */
 export async function uploadMoreToFileList(
 	page: Page,
 	project: ProjectName | ProjectFiles,
+	options: UploadOptions = {},
 ) {
-	const projectFiles =
-		typeof project === "string"
-			? sampleProjects[project]
-			: projectify(project);
+	return await uploadWithDragAndDrop(page, project, options);
+}
 
-	await page.evaluate(
-		async ({ fileData }) => {
-			const fileList = document.querySelector(".file-list");
-			if (!fileList) throw new Error(".file-list not found");
-			const dt = new DataTransfer();
-			for (const path in fileData) {
-				const { content, type } = fileData[path];
-				const file = new File([content], path, { type });
-				if (path.includes("/")) {
-					Object.defineProperty(file, "webkitRelativePath", {
-						value: path,
-						writable: false,
-					});
-				}
-				dt.items.add(file);
-			}
-			fileList.dispatchEvent(
-				new DragEvent("dragenter", {
+/** Simulate a drag hovering over, then leaving, the file list drop target. */
+export async function hoverDragOverFileList(page: Page, leave: boolean) {
+	await page.evaluate(shouldLeave => {
+		const dropZone = document.querySelector(
+			'[data-testid="filelist-dropzone"]',
+		);
+		if (!dropZone) throw new Error("File list drop zone not found");
+		const dispatch = (type: string) =>
+			dropZone.dispatchEvent(
+				new DragEvent(type, {
 					bubbles: true,
 					cancelable: true,
-					dataTransfer: dt,
+					dataTransfer: new DataTransfer(),
 				}),
 			);
-			fileList.dispatchEvent(
-				new DragEvent("dragover", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-			fileList.dispatchEvent(
-				new DragEvent("drop", {
-					bubbles: true,
-					cancelable: true,
-					dataTransfer: dt,
-				}),
-			);
-		},
-		{ fileData: projectFiles },
-	);
-
-	await waitForUpload(page);
+		if (shouldLeave) {
+			dispatch("dragleave");
+		} else {
+			dispatch("dragenter");
+			dispatch("dragover");
+		}
+	}, leave);
 }

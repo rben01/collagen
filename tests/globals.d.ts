@@ -7,30 +7,14 @@
 
 declare global {
 	interface Window {
-		// Test-specific properties
-		testFiles?: Record<string, File>;
-		uploadCallbackTriggered?: boolean;
-		uploadedFileCount?: number;
-		mockUploadedFiles?: Record<string, { size: number }>;
-		mockLargeFiles?: Record<string, { size: number }>;
-		uploadedFiles?: Record<string, { size: number }>;
-
-		// SVG Display test properties
-		downloadTriggered?: boolean;
-		downloadHref?: string;
-		downloadFilename?: string;
-
-		// Workflow test properties
-		mockProjectFiles?: Record<string, File>;
-
-		generatedSvg?: string;
-
-		fileUploaderMounted?: boolean;
-	}
-
-	// Extend Element to include style property for DOM manipulation in tests
-	interface Element {
-		style: CSSStyleDeclaration;
+		/**
+		 * Staged `webkitRelativePath` values, keyed by `File.name`, used by the
+		 * file-picker upload helper. See `stageRelativePaths` in `e2e/upload.ts`
+		 * for why this shim is necessary.
+		 */
+		__e2eRelPaths?: Record<string, string>;
+		/** Guards against installing the `webkitRelativePath` shim twice. */
+		__e2eRelPathsPatched?: boolean;
 	}
 }
 

@@ -12,11 +12,12 @@ declare global {
 	// Extend the Window interface with custom properties used in tests
 	interface Window {
 		/**
-		 * Set to true when the FileUploader component has been mounted.
-		 * Used by Playwright E2E tests to ensure the component is ready before
-		 * interacting with it.
+		 * Set to true once the main page has mounted and hydrated.
+		 * E2E tests wait on this before interacting: the page is prerendered, so
+		 * elements exist in the HTML before their event handlers are attached,
+		 * and waiting on a selector alone would race hydration.
 		 */
-		fileUploaderMounted?: boolean;
+		appMounted?: boolean;
 	}
 }
 

@@ -8,6 +8,20 @@
 import { expect } from "@playwright/test";
 import { test } from "./fixtures";
 import { uploadProject } from "./upload";
+import {
+	compactViewerPane,
+	dragViewer,
+	errorMessage,
+	fileListRegion,
+	getEditorText,
+	getViewerState,
+	mainViewerPane,
+	openFileInEditor,
+	setEditorText,
+	svgDoc,
+	viewer,
+	viewerToolbar,
+} from "./helpers";
 
 // =============================================================================
 // Complete Workflow Tests
@@ -18,79 +32,72 @@ test.describe("Complete User Workflows", () => {
 		page,
 		browserName,
 	}) => {
-		// 1. Start with upload interface
+		// 1. The file list is the upload surface and is present before any upload
+		const fileList = fileListRegion(page);
+		await expect(fileList).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
+			fileList.getByRole("button", { name: /browse for files/i }),
 		).toBeVisible();
-		await expect(
-			page.getByRole("heading", { name: /upload collagen project/i }),
-		).toBeVisible();
+		await expect(fileList.getByRole("heading", { level: 3 })).toHaveText(
+			"Files (0)",
+		);
 
 		await uploadProject(browserName, page, "simpleJson");
 
-		// Check for successful upload indicators: file list and SVG
-		await expect(
-			page.getByRole("region", { name: /file information/i }),
-		).toBeVisible();
-		await expect(page.getByLabel("SVG content")).toBeVisible();
+		// The uploaded file is listed and the SVG is rendered
+		await expect(fileList.getByRole("heading", { level: 3 })).toHaveText(
+			"Files (1)",
+		);
+		await expect(fileList.getByText("collagen.json")).toBeVisible();
 
-		const svgElement = page
-			.getByLabel("Interactive SVG viewer")
-			.locator("svg");
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
 
+		const svgElement = svgDoc(pane).locator("svg");
 		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
-		await expect(svgElement.locator("rect")).toBeVisible();
+		await expect(svgElement.locator("rect")).toHaveAttribute("fill", "blue");
 
-		// Test that SVG controls are available
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
-
-		// Should return to upload interface
+		// Controls are available, and the upload surface remains usable
+		await expect(viewerToolbar(page)).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
+			fileList.getByRole("button", { name: /browse for files/i }),
+		).toBeEnabled();
 	});
 
 	test("should handle project with assets", async ({ page, browserName }) => {
 		// Upload project with image assets
 		await uploadProject(browserName, page, "folderWithAssets");
 
-		// Should show successful upload indicators
-		await expect(
-			page.getByRole("region", { name: /file information/i }),
-		).toBeVisible();
-		await expect(page.getByLabel("SVG content")).toBeVisible();
+		await expect(fileListRegion(page)).toBeVisible();
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
 
 		// Verify SVG contains embedded image
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		const svgElement = svgContainer.locator("svg");
-		await expect(svgElement).toBeVisible();
+		const svgElement = svgDoc(pane).locator("svg");
 		await expect(svgElement).toHaveAttribute("viewBox", "0 0 200 200");
 
-		// Check for embedded image element
+		// The image asset is embedded rather than referenced
 		const imageElement = svgElement.locator("image");
-		await expect(imageElement).toBeVisible();
-		const href = await imageElement.getAttribute("href");
-		expect(href).toMatch(/^data:image\/png;base64,/);
+		await expect(imageElement).toHaveAttribute(
+			"href",
+			/^data:image\/png;base64,/,
+		);
 
 		// Check for text element
 		await expect(svgElement.locator("text")).toContainText("Hello World");
 	});
 
 	test("should handle Jsonnet project", async ({ page, browserName }) => {
-		// Upload Jsonnet project
+		// simpleJsonnet also exercises `import`, so this covers Jsonnet file
+		// resolution through the in-memory filesystem, not just compilation.
 		await uploadProject(browserName, page, "simpleJsonnet");
 
-		// Check if Jsonnet was processed successfully or shows appropriate error
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		const svgElement = svgContainer.locator("svg");
-		await expect(svgElement).toBeVisible();
-
-		// Jsonnet processed successfully - verify generated circles
+		const svgElement = svgDoc(mainViewerPane(page)).locator("svg");
 		await expect(svgElement).toHaveAttribute("viewBox", "0 0 100 100");
+
 		const rect = svgElement.locator("rect");
-		expect(await rect.count()).toBe(1);
-		expect(await rect.getAttribute("fill")).toBe("red");
+		await expect(rect).toHaveCount(1);
+		await expect(rect).toHaveAttribute("fill", "red");
 	});
 
 	test("should handle error recovery workflow", async ({
@@ -100,31 +107,23 @@ test.describe("Complete User Workflows", () => {
 		// 1. Upload invalid project that will fail
 		await uploadProject(browserName, page, "malformedJson");
 
-		// Should show error message
-		const errorMessage = page
-			.getByRole("alert")
-			.or(page.locator(".error-message"));
-		await expect(errorMessage).toBeVisible();
-		await expect(errorMessage).toContainText(/error|invalid|json|parse/i);
+		const pane = mainViewerPane(page);
+		await expect(errorMessage(pane)).toBeVisible();
+		await expect(errorMessage(pane)).toContainText(
+			/error|invalid|json|parse/i,
+		);
 
-		// 2. Upload valid project to recover (use folder-based project that works)
+		// 2. Upload valid project to recover
 		await uploadProject(browserName, page, "folderWithAssets");
 
 		// Error should be cleared and SVG should be displayed
-		// Wait for successful upload indicators before checking error clearing
-		await expect(
-			page.getByRole("region", { name: /file information/i }),
-		).toBeVisible();
-		await expect(page.getByLabel("SVG content")).toBeVisible();
-		await expect(errorMessage).not.toBeVisible();
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
-
-		// 3. Test that everything works normally after error recovery
-		await expect(svgContainer).toBeVisible();
+		await expect(viewer(pane)).toBeVisible();
+		await expect(errorMessage(pane)).toHaveCount(0);
 
 		// Verify the SVG content is from the successful upload
-		await expect(svgContainer.locator("text")).toContainText("Hello World");
+		await expect(svgDoc(pane).locator("svg text")).toContainText(
+			"Hello World",
+		);
 	});
 });
 
@@ -136,107 +135,91 @@ test.describe("Interactive Workflows", () => {
 	test.beforeEach(async ({ page, browserName }) => {
 		// Set up a project for interaction testing
 		await uploadProject(browserName, page, "simpleJson");
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
+		await expect(viewer(mainViewerPane(page))).toBeVisible();
 	});
 
 	test("should support complete zoom workflow", async ({ page }) => {
-		const svgContent = page.getByLabel("SVG content");
+		const pane = mainViewerPane(page);
 		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
 		const zoomOutBtn = page.getByRole("button", { name: /zoom out/i });
 		const resetBtn = page.getByRole("button", { name: /reset view/i });
 
-		// Get initial transform
-		const initialTransform = await svgContent.getAttribute("style");
+		expect((await getViewerState(pane)).scale).toBe(1);
 
-		// Test zoom in
+		// Zoom in steps by a factor of 1.2
 		await zoomInBtn.click();
-		await page.waitForTimeout(100);
-		const zoomedInTransform = await svgContent.getAttribute("style");
-		expect(zoomedInTransform).not.toBe(initialTransform);
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1.2, 5);
 
-		// Test zoom out
+		// Zooming back out returns to the starting scale
 		await zoomOutBtn.click();
-		await page.waitForTimeout(100);
-		const zoomedOutTransform = await svgContent.getAttribute("style");
-		expect(zoomedOutTransform).toBe(initialTransform);
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1, 5);
 
-		// Test reset
+		// Reset returns to 100% from an arbitrary zoom level
 		await zoomInBtn.click();
 		await zoomInBtn.click();
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1.44, 5);
+
 		await resetBtn.click();
-		await page.waitForTimeout(100);
-		const resetTransform = await svgContent.getAttribute("style");
-		expect(resetTransform).toBe(initialTransform);
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1, 5);
 	});
 
 	test("should support pan workflow", async ({ page }) => {
-		async function getTranslation() {
-			return await svgContent.evaluate(elem => {
-				const cs = getComputedStyle(elem as Element);
-				// DOMMatrix parses transform string and exposes translation as m41/m42
-				const m = new DOMMatrix(cs.transform);
-				return { tx: m.m41, ty: m.m42 };
-			});
-		}
+		const pane = mainViewerPane(page);
 
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		const svgContent = page.getByLabel("SVG content");
+		// Establish a known pan origin. Reset is a real user action and is
+		// currently the only way out of the viewer's initial pan state, which is
+		// NaN on load — see "viewer pan origin is a real number on load" in
+		// svg-display.spec.ts.
+		await page.getByRole("button", { name: /reset view/i }).click();
+		await expect.poll(async () => (await getViewerState(pane)).panX).toBe(0);
 
-		// Get initial position
-		{
-			const { tx, ty } = await getTranslation();
-			expect(tx).toBe(0);
-			expect(ty).toBe(0);
-		}
+		await dragViewer(page, pane, 50, 30);
 
-		// Test mouse pan
-		await svgContainer.hover();
-		await page.mouse.down();
-		await page.mouse.move(50, 30, { steps: 5 });
-		await page.mouse.up();
-
-		// Position should have changed (check computed transform translation)
-		const { tx, ty } = await getTranslation();
-		expect(tx).not.toBe(0);
-		expect(ty).not.toBe(0);
+		const { panX, panY } = await getViewerState(pane);
+		expect(panX).toBeCloseTo(50, 0);
+		expect(panY).toBeCloseTo(30, 0);
 	});
 
 	test("should support keyboard controls workflow", async ({ page }) => {
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		const svgContent = page.getByLabel("SVG content");
+		const pane = mainViewerPane(page);
+		const svgViewer = viewer(pane);
 
-		// Focus on SVG container
-		await svgContainer.focus();
-		await expect(svgContainer).toBeFocused();
+		await svgViewer.focus();
+		await expect(svgViewer).toBeFocused();
 
-		// Get initial state
-		const initialTransform = await svgContent.getAttribute("style");
+		// Keyboard zoom mirrors the toolbar buttons
+		await svgViewer.press("Equal");
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1.2, 5);
 
-		// timeout = 150ms for all of these because the animation itself is 0.1 seconds
+		await svgViewer.press("Minus");
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1, 5);
 
-		// Test keyboard zoom
-		await svgContainer.press("Equal"); // Zoom in
-		await page.waitForTimeout(150);
-		let currentTransform = await svgContent.getAttribute("style");
-		expect(currentTransform).not.toBe(initialTransform);
-
-		await svgContainer.press("Minus"); // Zoom out
-		await page.waitForTimeout(150);
-		currentTransform = await svgContent.getAttribute("style");
-		expect(currentTransform).toBe(initialTransform);
-
-		// Test keyboard pan
-		await svgContainer.press("Shift+ArrowRight");
-		await page.waitForTimeout(150);
-		currentTransform = await svgContent.getAttribute("style");
-		expect(currentTransform).not.toBe(initialTransform);
-
-		// Test reset
+		// Reset first so pan starts from a defined origin, then pan by keyboard
 		await page.keyboard.press("0");
-		await page.waitForTimeout(150);
-		currentTransform = await svgContent.getAttribute("style");
-		expect(currentTransform).toBe(initialTransform);
+		await expect.poll(async () => (await getViewerState(pane)).panX).toBe(0);
+
+		await svgViewer.press("Shift+ArrowRight");
+		await expect
+			.poll(async () => (await getViewerState(pane)).panX)
+			.toBeLessThan(0);
+
+		// Reset returns both pan and zoom to their defaults
+		await page.keyboard.press("0");
+		await expect
+			.poll(async () => await getViewerState(pane))
+			.toEqual({ scale: 1, panX: 0, panY: 0 });
 	});
 });
 
@@ -251,18 +234,19 @@ test.describe("Multi-Project Workflows", () => {
 	}) => {
 		// Upload first project
 		await uploadProject(browserName, page, "simpleJson");
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
-		// simpleJson project contains only a rect element, no text
-		await expect(svgContainer.locator("rect")).toBeVisible();
+		const pane = mainViewerPane(page);
+		const svg = svgDoc(pane).locator("svg");
 
+		// simpleJson contains only a rect, no text
+		await expect(svg.locator("rect")).toHaveAttribute("fill", "blue");
+		await expect(svg.locator("text")).toHaveCount(0);
+
+		// Uploads merge, and collagen.json is overwritten by the new project's
+		// manifest, so the rendered SVG switches over entirely
 		await uploadProject(browserName, page, "folderWithAssets");
-		await expect(svgContainer).toBeVisible();
-		// folderWithAssets contains "Hello World" text
-		await expect(svgContainer.locator("text")).toContainText("Hello World");
-		// Verify first project content (rect) is gone and text is now present
-		await expect(svgContainer.locator("text")).toBeVisible();
-		await expect(svgContainer.locator("text")).toContainText("Hello World");
+		await expect(svg.locator("text")).toContainText("Hello World");
+		await expect(svg).toHaveAttribute("viewBox", "0 0 200 200");
+		await expect(svg.locator("rect")).toHaveCount(0);
 	});
 
 	test("should handle rapid project switching", async ({
@@ -275,15 +259,13 @@ test.describe("Multi-Project Workflows", () => {
 			await uploadProject(browserName, page, "folderWithAssets");
 		}
 
-		// Final state should be stable
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
-		// Check if we have rect (from simpleJson) or text (from folderWithAssets)
-		const hasRect = await svgContainer.locator("rect").isVisible();
-		const hasText = await svgContainer.locator("text").isVisible();
-
-		// Should have content from one of the projects (last uploaded)
-		expect(hasRect || hasText).toBe(true);
+		// The last upload wins and the viewer is left in a consistent state
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
+		const svg = svgDoc(pane).locator("svg");
+		await expect(svg).toHaveAttribute("viewBox", "0 0 200 200");
+		await expect(svg.locator("text")).toContainText("Hello World");
+		await expect(errorMessage(pane)).toHaveCount(0);
 	});
 
 	test("should maintain state after error and recovery", async ({
@@ -292,28 +274,28 @@ test.describe("Multi-Project Workflows", () => {
 	}) => {
 		// Upload valid project
 		await uploadProject(browserName, page, "simpleJson");
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
 
-		// Try invalid project
+		// Overwrite the manifest with a broken one
 		await uploadProject(browserName, page, "malformedJson");
-		const errorMessage = page
-			.getByRole("alert")
-			.or(page.locator(".error-message"));
-		await expect(errorMessage).toBeVisible();
+		await expect(errorMessage(pane)).toBeVisible();
 
 		// Upload valid project again
 		await uploadProject(browserName, page, "folderWithAssets");
 
 		// Should recover completely
-		await expect(errorMessage).not.toBeVisible();
-		await expect(svgContainer).toBeVisible();
-		await expect(svgContainer.locator("text")).toContainText("Hello World");
+		await expect(errorMessage(pane)).toHaveCount(0);
+		await expect(svgDoc(pane).locator("svg text")).toContainText(
+			"Hello World",
+		);
 
 		// Controls should work normally
 		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
-		await expect(zoomInBtn).toBeVisible();
 		await zoomInBtn.click();
+		await expect
+			.poll(async () => (await getViewerState(pane)).scale)
+			.toBeCloseTo(1.2, 5);
 	});
 });
 
@@ -329,23 +311,24 @@ test.describe("Responsive Workflows", () => {
 		// Test mobile workflow
 		await page.setViewportSize({ width: 375, height: 667 });
 		await uploadProject(browserName, page, "simpleJson");
-		const svgContainer = page.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer).toBeVisible();
-		await expect(svgContainer).toBeVisible();
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
+		await expect(svgDoc(pane).locator("svg rect")).toBeVisible();
 
 		// Test tablet workflow
 		await page.setViewportSize({ width: 768, height: 1024 });
-		await expect(svgContainer).toBeVisible();
-		await expect(svgContainer).toBeVisible();
+		await expect(viewer(pane)).toBeVisible();
+		await expect(svgDoc(pane).locator("svg rect")).toBeVisible();
 
 		// Test desktop workflow
 		await page.setViewportSize({ width: 1200, height: 800 });
-		await expect(svgContainer.locator("svg")).toBeVisible();
-		await expect(svgContainer).toBeVisible();
+		await expect(viewer(pane)).toBeVisible();
+		await expect(svgDoc(pane).locator("svg rect")).toBeVisible();
 
 		// Controls should be accessible on all sizes
-		const zoomInBtn = page.getByRole("button", { name: /zoom in/i });
-		await expect(zoomInBtn).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: /zoom in/i }),
+		).toBeVisible();
 	});
 
 	test("should handle touch interactions on mobile", async ({
@@ -360,28 +343,25 @@ test.describe("Responsive Workflows", () => {
 		});
 		const mobilePage = await context.newPage();
 
-		await mobilePage.goto("/");
-		await expect(
-			mobilePage.getByRole("button", { name: /file upload drop zone/i }),
-		).toBeVisible();
-		await uploadProject(browserName, mobilePage, "simpleJson");
-		const svgContainer = mobilePage.getByLabel("Interactive SVG viewer");
-		await expect(svgContainer.locator("svg")).toBeVisible();
-		if (await svgContainer.isVisible()) {
-			// Test touch tap
-			await svgContainer.tap();
+		try {
+			await mobilePage.goto("/");
+			await mobilePage.waitForFunction(() => window.appMounted === true, {
+				timeout: 10000,
+			});
+			await expect(fileListRegion(mobilePage)).toBeVisible();
 
-			// Test touch gestures (simplified)
-			const box = await svgContainer.boundingBox();
-			if (box) {
-				await mobilePage.touchscreen.tap(
-					box.x + box.width / 2,
-					box.y + box.height / 2,
-				);
-			}
+			await uploadProject(browserName, mobilePage, "simpleJson");
+
+			const pane = mainViewerPane(mobilePage);
+			await expect(viewer(pane)).toBeVisible();
+			await expect(svgDoc(pane).locator("svg rect")).toBeVisible();
+
+			// A tap must not disturb the rendered output
+			await viewer(pane).tap();
+			await expect(svgDoc(pane).locator("svg rect")).toBeVisible();
+		} finally {
+			await context.close();
 		}
-
-		await context.close();
 	});
 });
 
@@ -395,43 +375,33 @@ test.describe("Text Editing Integration", () => {
 		browserName,
 	}) => {
 		await uploadProject(browserName, page, "folderWithAssets");
-		const fileRegion = page.getByRole("region", {
-			name: /file information/i,
-		});
-		await expect(fileRegion).toBeVisible();
+		await expect(fileListRegion(page)).toBeVisible();
 
-		// Open editor on project manifest
-		await page
-			.getByRole("button", { name: /edit project\/collagen\.json/i })
-			.click();
-		await expect(
-			page.getByRole("region", { name: /text editor/i }),
-		).toBeVisible();
+		// The folder prefix is stripped on upload, so the manifest lands at the root
+		await openFileInEditor(page, "collagen.json");
 
-		const textarea = page.locator("textarea.editor-textarea");
-		const compact = page.getByRole("region", {
-			name: /generated svg display \(compact\)/i,
-		});
+		const compact = compactViewerPane(page);
 
 		// Verify initial text in SVG is Hello World
-		await expect(compact.locator("svg text")).toContainText("Hello World");
+		await expect(svgDoc(compact).locator("svg text")).toContainText(
+			"Hello World",
+		);
 
 		// Replace text to Updated
-		const current = await textarea.inputValue();
-		const updated = current.replace(/Hello World/g, "Updated");
-		await textarea.fill(updated);
+		const current = await getEditorText(page);
+		expect(current).toContain("Hello World");
+		await setEditorText(page, current.replace(/Hello World/g, "Updated"));
 
-		// Wait for debounce and verify compact SVG shows updated text
-		await page.waitForTimeout(300);
-		await expect(compact.locator("svg text")).toContainText("Updated");
+		// The compact view reflects the edit once the debounce elapses
+		await expect(svgDoc(compact).locator("svg text")).toContainText(
+			"Updated",
+		);
 
 		// Close editor and ensure main viewer shows updated text with controls visible
 		await page.getByRole("button", { name: /close editor/i }).click();
-		const mainViewer = page.getByLabel("Interactive SVG viewer");
-		await expect(mainViewer).toBeVisible();
-		await expect(mainViewer.locator("text")).toContainText("Updated");
-		await expect(
-			page.getByRole("toolbar", { name: /svg viewer controls/i }),
-		).toBeVisible();
+		const pane = mainViewerPane(page);
+		await expect(viewer(pane)).toBeVisible();
+		await expect(svgDoc(pane).locator("svg text")).toContainText("Updated");
+		await expect(viewerToolbar(page)).toBeVisible();
 	});
 });
