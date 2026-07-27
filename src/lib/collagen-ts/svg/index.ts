@@ -36,7 +36,6 @@ import impactB64Url from "$lib/fonts/impact.woff2?url";
 /** Context passed through SVG generation */
 export interface SvgGenerationContext {
 	filesystem: InMemoryFileSystem;
-	baseDepth: number;
 	currentDir: string; // Current directory context for resolving relative paths
 }
 
@@ -300,7 +299,6 @@ export async function generateSvg(
 ): Promise<string> {
 	const context: SvgGenerationContext = {
 		filesystem,
-		baseDepth: 0,
 		currentDir: "", // Start at root directory
 	};
 
@@ -333,11 +331,7 @@ function createNestedContext(
 	// then no longer import anything above itself — `random-gibberish` imports a
 	// library shared across the whole skeleton exactly that way. Paths stay
 	// resolvable because `currentDir` tracks where we are instead.
-	return {
-		filesystem: parentContext.filesystem,
-		baseDepth: parentContext.baseDepth + 1,
-		currentDir: relativePath,
-	};
+	return { filesystem: parentContext.filesystem, currentDir: relativePath };
 }
 
 // =============================================================================

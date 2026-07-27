@@ -41,17 +41,6 @@ export interface BundledFontFace {
 /** Font face union type */
 export type FontFace = UserProvidedFontFace | BundledFontFace;
 
-// Helper type guards for font faces
-export function isUserProvidedFont(
-	font: FontFace,
-): font is UserProvidedFontFace {
-	return "path" in font;
-}
-
-export function isBundledFont(font: FontFace): font is BundledFontFace {
-	return !("path" in font);
-}
-
 // =============================================================================
 // Validated Types (after processing)
 // =============================================================================
@@ -132,9 +121,4 @@ export interface ValidationErrorList {
 export interface ValidationError {
 	errorType: string;
 	message: string;
-}
-
-/** Interface for types that can be validated */
-export interface Validatable<T> {
-	validate(errors: ValidationErrorList): T;
 }

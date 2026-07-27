@@ -18,8 +18,6 @@ export const BACKGROUND_STYLES = [
 	{ id: "solid-dark", name: "Solid Dark" },
 ] as const;
 
-export type BackgroundStyleId = (typeof BACKGROUND_STYLES)[number]["id"];
-
 // =============================================================================
 // Touch Utilities
 // =============================================================================
