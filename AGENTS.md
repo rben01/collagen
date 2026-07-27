@@ -98,12 +98,24 @@ Pages, so no path may be hardcoded. Use `$app/paths` — `base` is deprecated:
 
 The `svelte/no-navigation-without-resolve` lint rule enforces this.
 
-**`tests/examples/*/out.svg` is not verified by anything.** Vitest only collects
-`src/lib/collagen-ts/**`, and no test loads those fixtures from disk. They have
-drifted from real output — they still carry the pre-TypeScript `image/jpg` MIME
-type where the generator now emits `image/jpeg`. Treat them as illustrative, and
-never conclude a change is safe because they still match. Unit tests assert
-against expected SVG strings written inline in the test files.
+**`tests/examples/*/out.svg` is regenerable output, not hand-written.**
+`__tests__/example-fixtures.test.ts` rebuilds each skeleton and compares byte
+for byte, so if you change generated SVG these will fail. Regenerate rather than
+hand-editing:
+
+```bash
+npm run build:cli && node dist/cli.js -i tests/examples/<name>/skeleton -o tests/examples/<name>/out.svg
+```
+
+The one exception is `random-gibberish`, whose `out.svg` is genuine
+pre-TypeScript output that current code **cannot** reproduce — see the known
+regression below. Don't regenerate it.
+
+**Nested containers can't resolve Jsonnet imports above themselves.**
+`createNestedContext()` in `svg/index.ts` copies only the files beneath a
+container's own prefix, so an import like `../../shared/lib.libjsonnet` from
+inside a container fails. This worked pre-TypeScript; `random-gibberish` is the
+fixture that proves it, and there's a test pinning the current failure.
 
 **Some files are vendored or generated — don't hand-edit.**
 
