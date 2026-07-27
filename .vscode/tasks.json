@@ -4,128 +4,93 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"build",
-				"--release"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "dev",
+			"isBackground": true,
+			"problemMatcher": [],
 			"presentation": {
-				"reveal": "silent",
-				"panel": "shared"
+				"reveal": "always",
+				"panel": "dedicated"
 			},
-			"group": "build",
-			"label": "rust: cargo build (release) without fonts"
+			"label": "npm: dev (Vite dev server)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"build",
-				"--release",
-				"--feature",
-				"bundled_fonts"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "build",
+			"problemMatcher": ["$tsc"],
 			"presentation": {
 				"reveal": "silent",
 				"panel": "shared"
 			},
 			"group": "build",
-			"label": "rust: cargo build (release) with fonts"
+			"label": "npm: build (static site)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"build"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "build:cli",
+			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",
 				"panel": "shared"
 			},
 			"group": "build",
-			"label": "rust: cargo build (debug) without fonts"
+			"label": "npm: build:cli (bundle clgn)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"build",
-				"--features",
-				"bundled_fonts"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "check",
+			"problemMatcher": ["$tsc"],
 			"presentation": {
 				"reveal": "silent",
 				"panel": "shared"
 			},
 			"group": "build",
-			"label": "rust: cargo build (debug) with fonts"
+			"label": "npm: check (svelte-check)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"test"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "test:unit:run",
+			"problemMatcher": [],
 			"presentation": {
-				"reveal": "silent",
+				"reveal": "always",
 				"panel": "shared"
 			},
-			"group": "build",
-			"label": "rust: cargo test without fonts"
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"label": "npm: test:unit:run (Vitest)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"test",
-				"--features",
-				"bundled_fonts"
-			],
-			"problemMatcher": "$rustc",
+			"type": "npm",
+			"script": "test:e2e:run:chromium",
+			"problemMatcher": [],
 			"presentation": {
-				"reveal": "silent",
+				"reveal": "always",
 				"panel": "shared"
 			},
-			"group": "build",
-			"label": "rust: cargo test with fonts"
+			"group": "test",
+			"label": "npm: test:e2e:run:chromium (Playwright)"
 		},
 		{
-			"type": "process",
-			"command": "cargo",
-			"args": [
-				"doc",
-				"--no-deps",
-			],
-			"problemMatcher": {
-				"base": "$rustc",
-				"severity": "warning",
-				"applyTo": "allDocuments",
-				"pattern": [
-					{
-						"regexp": "^\\s*(warning|error):\\s*(.*)$",
-						"severity": 1,
-						"message": 2
-					},
-					{
-						"regexp": "^\\s*-->\\s*(.*):(\\d+):(\\d+)",
-						"file": 1,
-						"line": 2,
-						"column": 3
-					}
-				],
-			},
+			"type": "npm",
+			"script": "lint",
+			"problemMatcher": [],
 			"presentation": {
 				"reveal": "silent",
 				"panel": "shared"
 			},
-			"group": "build",
-			"label": "rust: cargo doc"
+			"label": "npm: lint (prettier + eslint)"
+		},
+		{
+			"type": "npm",
+			"script": "format",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"label": "npm: format (prettier --write)"
 		}
 	]
 }

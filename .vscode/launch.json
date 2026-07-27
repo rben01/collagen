@@ -5,56 +5,40 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"type": "lldb",
+			"type": "node",
 			"request": "launch",
-			"name": "Just run",
-			"cargo": {
-				"args": [
-					"run"
-				],
-				"filter": {
-					"name": "collagen",
-					"kind": "bin"
-				}
-			},
-			"args": [],
+			"name": "Debug CLI (clgn)",
+			// Edit `args` to point at the skeleton you want to render.
+			"program": "${workspaceFolder}/dist/cli.js",
+			"args": [
+				"-i",
+				"${workspaceFolder}/tests/examples/kitty-nesting-smiley/skeleton",
+				"-o",
+				"-"
+			],
+			"preLaunchTask": "npm: build:cli (bundle clgn)",
+			"console": "integratedTerminal",
+			"skipFiles": ["<node_internals>/**"],
 			"cwd": "${workspaceFolder}"
 		},
 		{
-			"type": "lldb",
+			"type": "node",
 			"request": "launch",
-			"name": "Debug executable 'collagen'",
-			"cargo": {
-				"args": [
-					"build",
-					"--bin=collagen",
-					"--package=collagen"
-				],
-				"filter": {
-					"name": "collagen",
-					"kind": "bin"
-				}
-			},
-			"args": [],
+			"name": "Debug unit tests (Vitest)",
+			"program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+			"args": ["run"],
+			"console": "integratedTerminal",
+			"skipFiles": ["<node_internals>/**"],
 			"cwd": "${workspaceFolder}"
 		},
 		{
-			"type": "lldb",
+			"type": "node",
 			"request": "launch",
-			"name": "Debug unit tests in executable 'collagen'",
-			"cargo": {
-				"args": [
-					"test",
-					"--no-run",
-					"--bin=collagen",
-					"--package=collagen"
-				],
-				"filter": {
-					"name": "collagen",
-					"kind": "bin"
-				}
-			},
-			"args": [],
+			"name": "Debug current unit test file (Vitest)",
+			"program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+			"args": ["run", "${relativeFile}"],
+			"console": "integratedTerminal",
+			"skipFiles": ["<node_internals>/**"],
 			"cwd": "${workspaceFolder}"
 		}
 	]
