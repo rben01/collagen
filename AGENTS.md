@@ -107,15 +107,13 @@ hand-editing:
 npm run build:cli && node dist/cli.js -i tests/examples/<name>/skeleton -o tests/examples/<name>/out.svg
 ```
 
-The one exception is `random-gibberish`, whose `out.svg` is genuine
-pre-TypeScript output that current code **cannot** reproduce — see the known
-regression below. Don't regenerate it.
-
-**Nested containers can't resolve Jsonnet imports above themselves.**
-`createNestedContext()` in `svg/index.ts` copies only the files beneath a
-container's own prefix, so an import like `../../shared/lib.libjsonnet` from
-inside a container fails. This worked pre-TypeScript; `random-gibberish` is the
-fixture that proves it, and there's a test pinning the current failure.
+**Containers share one filesystem; they are not sandboxed.**
+`createNestedContext()` in `svg/index.ts` keeps the parent's filesystem and just
+moves `currentDir`, and manifest lookup takes a directory. That's deliberate: a
+nested skeleton must be able to import a file above itself (`random-gibberish`
+imports a library shared across the whole skeleton). Re-rooting a copy at the
+container breaks that, which is how it broke before. Jsonnet imports resolve
+against the manifest's own directory, not the filesystem root.
 
 **Some files are vendored or generated — don't hand-edit.**
 

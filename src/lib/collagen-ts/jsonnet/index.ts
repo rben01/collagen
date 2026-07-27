@@ -49,12 +49,19 @@ export async function compileJsonnet(
 				throw new Error(`Failed to load Jsonnet import: ${path}`);
 			}
 		};
+		// Imports resolve against the manifest's own directory, not the
+		// filesystem root, so a nested skeleton can import a path that reaches
+		// above itself (e.g. a shared library at the top level).
+		const workingDir = manifestPath.includes("/")
+			? manifestPath.slice(0, manifestPath.lastIndexOf("/"))
+			: "";
+
 		// Compile the Jsonnet code with correct argument order
 		const result = SjsonnetMain.interpret(
 			jsonnetCode,
 			{},
 			{},
-			"",
+			workingDir,
 			resolverCallback,
 			loaderCallback,
 		);

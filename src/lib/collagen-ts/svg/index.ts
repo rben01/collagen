@@ -168,7 +168,8 @@ async function generateContainerTag(
 		// Create a new filesystem context for the nested folder
 		const nestedContext = createNestedContext(context, resolvedPath);
 
-		const nestedRootTag = await nestedContext.filesystem.generateRootTag();
+		const nestedRootTag =
+			await nestedContext.filesystem.generateRootTag(resolvedPath);
 
 		// Generate children content (not the full SVG wrapper)
 		const childrenContent = await Promise.all(
@@ -327,36 +328,15 @@ function createNestedContext(
 	parentContext: SvgGenerationContext,
 	relativePath: string,
 ): SvgGenerationContext {
-	// Get all files from parent filesystem that start with the relative path
-	const parentPaths = parentContext.filesystem.getPaths();
-
-	// Find all files that are in the nested folder
-	const prefix = relativePath.endsWith("/")
-		? relativePath
-		: relativePath + "/";
-
-	const nestedFilesystem = InMemoryFileSystem.createEmpty();
-
-	for (const path of parentPaths) {
-		if (path.startsWith(prefix)) {
-			// Remove the prefix to make paths relative to the nested folder
-			const nestedRelativePath = path.slice(prefix.length);
-			if (nestedRelativePath) {
-				// Get the original file from the parent filesystem
-				const fileContent = parentContext.filesystem.load(path);
-				// Add directly to nested filesystem without browser File API
-				nestedFilesystem.addFileContents(
-					nestedRelativePath,
-					fileContent.bytes,
-				);
-			}
-		}
-	}
-
+	// The filesystem is shared, not re-rooted at the container. Copying only the
+	// files beneath the container would sandbox it, and a nested manifest could
+	// then no longer import anything above itself — `random-gibberish` imports a
+	// library shared across the whole skeleton exactly that way. Paths stay
+	// resolvable because `currentDir` tracks where we are instead.
 	return {
-		filesystem: nestedFilesystem,
+		filesystem: parentContext.filesystem,
 		baseDepth: parentContext.baseDepth + 1,
-		currentDir: "", // Reset to root for nested context
+		currentDir: relativePath,
 	};
 }
 

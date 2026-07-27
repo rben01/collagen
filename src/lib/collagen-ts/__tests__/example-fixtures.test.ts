@@ -47,12 +47,6 @@ function findSkeletonRoot(exampleDir: string): string {
 	throw new Error(`No skeleton with a manifest found under ${exampleDir}`);
 }
 
-/**
- * `random-gibberish` cannot be generated at all right now, so it has no
- * reproducible `out.svg` and is asserted separately below.
- */
-const KNOWN_UNGENERATABLE = "random-gibberish";
-
 const exampleNames = readdirSync(EXAMPLES_DIR, { withFileTypes: true })
 	.filter(entry => entry.isDirectory())
 	.map(entry => entry.name)
@@ -64,8 +58,6 @@ describe("tests/examples reference outputs", () => {
 	});
 
 	for (const name of exampleNames) {
-		if (name === KNOWN_UNGENERATABLE) continue;
-
 		it(`${name} regenerates its checked-in out.svg exactly`, async () => {
 			const exampleDir = join(EXAMPLES_DIR, name);
 			const fs = await loadFromDisk(findSkeletonRoot(exampleDir));
@@ -79,31 +71,21 @@ describe("tests/examples reference outputs", () => {
 });
 
 /**
- * Known regression, deliberately pinned rather than hidden.
- *
- * `createNestedContext()` in `../svg/index.js` builds a container's filesystem
- * by copying only the files beneath that container's own prefix. A nested
- * manifest therefore cannot resolve a Jsonnet import that reaches outside its
- * directory, and `random-gibberish` does exactly that — its
- * `assets/child_image/collagen.jsonnet` imports
- * `../../shared/shared.libjsonnet`.
- *
- * This used to work: the checked-in `out.svg` contains the interpolated result
- * `nested!! x=100 y=this_is_y`, which is only reachable by resolving that
- * import. So `out.svg` here is genuine pre-TypeScript output that current code
- * cannot reproduce — do not regenerate it, and do not treat its presence as
- * evidence the feature works.
- *
- * When container imports are fixed, this test will start failing. That is the
- * signal to delete it and let the example rejoin the loop above.
+ * Regression guard: a nested skeleton must be able to import a file that lives
+ * above its own directory. `random-gibberish`'s
+ * `assets/child_image/collagen.jsonnet` imports `../../shared/shared.libjsonnet`
+ * and interpolates a value from it, which only succeeds if the container's
+ * Jsonnet imports resolve against the shared filesystem rather than a copy
+ * sandboxed to the container.
  */
-describe("known regression: container-scoped Jsonnet imports", () => {
-	it("random-gibberish still cannot resolve an import above its container", async () => {
-		const exampleDir = join(EXAMPLES_DIR, KNOWN_UNGENERATABLE);
+describe("container-scoped Jsonnet imports", () => {
+	it("resolves an import that reaches above the container", async () => {
+		const exampleDir = join(EXAMPLES_DIR, "random-gibberish");
 		const fs = await loadFromDisk(findSkeletonRoot(exampleDir));
 
-		await expect(fs.generateSvg()).rejects.toThrow(
-			/Failed to process container at \.\/assets\/child_image\//,
-		);
+		const svg = await fs.generateSvg();
+
+		// x comes from the shared library, y from the nested manifest itself
+		expect(svg).toContain("nested!! x=100 y=this_is_y");
 	});
 });

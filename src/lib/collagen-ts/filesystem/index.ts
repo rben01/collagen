@@ -272,12 +272,22 @@ export class InMemoryFileSystem {
 		return this.#files.size;
 	}
 
-	loadManifestContents(): { format: ManifestFormat; content: FileContent } {
+	/**
+	 * Find the manifest in `dir` (the filesystem root by default).
+	 *
+	 * `dir` is how nested skeletons are read: rather than re-rooting a copy of
+	 * the filesystem at the container, we keep one filesystem and point at the
+	 * container's directory, so imports that reach above it still resolve.
+	 */
+	loadManifestContents(dir: string = ""): {
+		format: ManifestFormat;
+		content: FileContent;
+	} {
 		let content;
-		if ((content = this.get("collagen.jsonnet", false))) {
+		if ((content = this.get(getManifestPath("jsonnet", dir), false))) {
 			return { format: "jsonnet", content };
 		}
-		if ((content = this.get("collagen.json", false))) {
+		if ((content = this.get(getManifestPath("json", dir), false))) {
 			return { format: "json", content };
 		}
 		throw new MissingManifestError();
@@ -289,8 +299,10 @@ export class InMemoryFileSystem {
 	 * Primarily used for testing, so we can test object loading separately from
 	 * validation.
 	 */
-	async generateUntypedObject() {
-		const { format: manifestFormat, content } = this.loadManifestContents();
+	async generateUntypedObject(dir: string = "") {
+		const { format: manifestFormat, content } =
+			this.loadManifestContents(dir);
+		const manifestPath = getManifestPath(manifestFormat, dir);
 
 		try {
 			// Convert bytes to text
@@ -299,29 +311,28 @@ export class InMemoryFileSystem {
 			if (manifestFormat === "json") {
 				return JSON.parse(text) as JsonObject;
 			} else {
-				return await compileJsonnet(
-					text,
-					this,
-					getManifestPath(manifestFormat),
-				);
+				return await compileJsonnet(text, this, manifestPath);
 			}
 		} catch (error) {
 			if (error instanceof SyntaxError) {
-				throw new JsonError(getManifestPath(manifestFormat), error.message);
+				throw new JsonError(manifestPath, error.message);
 			}
 			throw error;
 		}
 	}
 
-	async generateRootTag() {
+	async generateRootTag(dir: string = "") {
 		const { format: manifestFormat, content: _ } =
-			this.loadManifestContents();
+			this.loadManifestContents(dir);
 
 		try {
-			return validateDocument(await this.generateUntypedObject());
+			return validateDocument(await this.generateUntypedObject(dir));
 		} catch (error) {
 			if (error instanceof SyntaxError) {
-				throw new JsonError(getManifestPath(manifestFormat), error.message);
+				throw new JsonError(
+					getManifestPath(manifestFormat, dir),
+					error.message,
+				);
 			}
 			throw error;
 		}
@@ -344,14 +355,13 @@ export class InMemoryFileSystem {
 // Manifest Detection and Loading
 // =============================================================================
 
-/** Get manifest file path for a format */
-export function getManifestPath(format: ManifestFormat): string {
-	switch (format) {
-		case "jsonnet":
-			return "collagen.jsonnet";
-		case "json":
-			return "collagen.json";
-	}
+/** Get manifest file path for a format, optionally within a directory */
+export function getManifestPath(
+	format: ManifestFormat,
+	dir: string = "",
+): string {
+	const name = format === "jsonnet" ? "collagen.jsonnet" : "collagen.json";
+	return dir ? normalizedPathJoin(dir, name) : name;
 }
 
 // =============================================================================
