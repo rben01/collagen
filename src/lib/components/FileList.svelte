@@ -496,7 +496,10 @@ local diameter(r) = 2 * std.pi * r;
 		{/each}
 	</div>
 
-	<div class="file-list-bottom-hint" aria-hidden="true">
+	<!-- The region above points at this via aria-describedby, so it must keep
+	     this id and must not be aria-hidden, or the reference dangles and the
+	     description is announced as nothing. -->
+	<div id="file-list-hint" class="file-list-bottom-hint">
 		Click a text file above to edit it. To add files to your project, drop
 		them above or use the buttons below.
 	</div>

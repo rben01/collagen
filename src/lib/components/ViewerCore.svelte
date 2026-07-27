@@ -130,13 +130,22 @@
 		};
 
 		if (!prev) {
-			prevContainerDimensions = newContainerDimensions;
+			// Only seed from a container that has actually been laid out. This
+			// state is shared with the compact viewer, which is `display: none`
+			// and so measures 0x0; seeding {0, 0} would make the ratios below
+			// divide by zero, and `0 * Infinity` is NaN. A NaN pan silently
+			// invalidates the whole transform and freezes dragging until reset.
+			if (currentWidth > 0 && currentHeight > 0) {
+				prevContainerDimensions = newContainerDimensions;
+			}
 			return;
 		}
 
 		if (
 			currentWidth > 0 &&
 			currentHeight > 0 &&
+			prev.width > 0 &&
+			prev.height > 0 &&
 			(prev.width !== currentWidth || prev.height !== currentHeight)
 		) {
 			// Container dimensions changed - adjust pan to preserve the same relative position
