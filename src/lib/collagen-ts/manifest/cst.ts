@@ -57,7 +57,7 @@ export interface ObjectBody {
 	isComprehension: boolean;
 }
 
-function toObjectBody(node: SyntaxNode): ObjectBody | null {
+export function asObjectBody(node: SyntaxNode): ObjectBody | null {
 	const brace = node.getChild("{");
 	if (!brace) return null;
 	return {
@@ -82,7 +82,7 @@ export function objectBodies(tree: Tree): ObjectBody[] {
 			if (node.name !== "ObjectExpression" && node.name !== "ObjectMerge") {
 				return;
 			}
-			const body = toObjectBody(node.node);
+			const body = asObjectBody(node.node);
 			if (body) bodies.push(body);
 		},
 	});
@@ -101,7 +101,7 @@ export function objectBodyAtBrace(
 	if (parent.name !== "ObjectExpression" && parent.name !== "ObjectMerge") {
 		return null;
 	}
-	return toObjectBody(parent);
+	return asObjectBody(parent);
 }
 
 /** One `key: value` member of an object literal. */
