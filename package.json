@@ -13,6 +13,8 @@
 	],
 	"scripts": {
 		"build": "vite build",
+		"//build:parser": "echo 'regenerates the Lezer Jsonnet parser from jsonnet.grammar'",
+		"build:parser": "lezer-generator src/lib/collagen-ts/jsonnet/jsonnet.grammar -o src/lib/collagen-ts/jsonnet/jsonnet-parser.js && prettier --write src/lib/collagen-ts/jsonnet/jsonnet-parser.js src/lib/collagen-ts/jsonnet/jsonnet-parser.terms.js",
 		"build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --banner:js='#!/usr/bin/env node' --loader:.woff2=dataurl '--alias:$lib=./src/lib' --external:commander --external:chokidar",
 		"prepublishOnly": "npm run build:cli",
 		"dev": "vite",
