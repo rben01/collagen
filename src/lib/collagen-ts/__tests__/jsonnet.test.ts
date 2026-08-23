@@ -5,6 +5,11 @@
 import { describe, it, expect } from "vitest";
 import { generateSvgFromFiles, TEST_IMAGE_PNG } from "./test-utils.js";
 
+// These assert Jsonnet compiles correctly, not how fast it compiles. They
+// previously carried a 1000ms per-test budget, which raced sjsonnet's ~500ms
+// cold start and made the suite flaky under load. Timing budgets belong in
+// performance.test.ts, which has its own deliberate ones.
+
 describe("Jsonnet Support", () => {
 	it("should handle simple Jsonnet compilation", async () => {
 		const jsonnetManifest = `
@@ -26,7 +31,7 @@ describe("Jsonnet Support", () => {
 
 		const files = { "collagen.jsonnet": jsonnetManifest };
 		await expect(generateSvgFromFiles(files)).resolves.toContain("<svg");
-	}, 1000);
+	});
 
 	it("should handle Jsonnet with variables", async () => {
 		const jsonnetManifest = `
@@ -55,7 +60,7 @@ describe("Jsonnet Support", () => {
 		await expect(generateSvgFromFiles(files)).resolves.toContain(
 			'"0 0 200 200"',
 		);
-	}, 1000);
+	});
 
 	it("should handle Jsonnet with loops (pinwheel example)", async () => {
 		const pinwheelJsonnet = `
@@ -100,7 +105,7 @@ describe("Jsonnet Support", () => {
 		await expect(generateSvgFromFiles(files)).resolves.toContain(
 			'<line stroke="hsl(180, 100%, 50%)" stroke-linecap="round" stroke-width="5" x1="200" x2="200" y1="350" y2="50"',
 		);
-	}, 1000);
+	});
 
 	it("should handle Jsonnet with image references", async () => {
 		const jsonnetManifest = `
@@ -125,7 +130,7 @@ describe("Jsonnet Support", () => {
 		await expect(generateSvgFromFiles(files)).resolves.toContain(
 			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVQI12P4DwAAAQABXHKoZgAAAABJRU5ErkJggg==",
 		);
-	}, 1000);
+	});
 
 	it("should prefer jsonnet over json when both exist", async () => {
 		const jsonManifest = JSON.stringify({
@@ -160,5 +165,5 @@ describe("Jsonnet Support", () => {
 		await expect(generateSvgFromFiles(files)).resolves.toContain(
 			'fill="blue"',
 		);
-	}, 1000);
+	});
 });
