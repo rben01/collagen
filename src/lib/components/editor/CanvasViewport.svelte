@@ -102,7 +102,14 @@
 			if (node.hasAttribute?.("data-clgn-opaque")) opaque = node;
 		}
 		const resolved = opaque ?? hit.closest?.("[data-clgn-path]");
-		return resolved?.getAttribute("data-clgn-path") ?? null;
+		const path = resolved?.getAttribute("data-clgn-path") ?? null;
+
+		// The root <svg> is stamped too, and a press on blank artboard resolves
+		// to it. Treat that as a press on nothing: clicking empty space clears
+		// the selection everywhere else, and selecting the document would
+		// otherwise put resize handles around the whole drawing with no layer
+		// row or properties to match them.
+		return path === "" ? null : path;
 	}
 
 	/** The element a path names, inside the rendered document. */
