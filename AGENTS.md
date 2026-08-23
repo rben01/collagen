@@ -130,9 +130,16 @@ transformed inner element is `"Viewer content"`. Reuse the zoom/pan math in
 `src/lib/components/viewer/index.ts` rather than writing new geometry.
 
 **The `/docs` tutorial's code samples are real, runnable Jsonnet.** The `// (n)`
-callout markers are ordinary comments so snippets stay copy-pasteable — if you
-edit one, run it through `clgn` to confirm it still compiles. Its rendered
-output in `static/tutorial/` is generated from `tests/examples/` fixtures:
+callout markers are ordinary comments, so the samples stay valid — if you edit
+one, run it through `clgn` to confirm it still compiles. `CodeBlock.svelte`
+strips those markers at render time and re-renders them as numbered badges
+linked to their notes, so don't expect to find `// (n)` in the rendered page; an
+e2e test asserts it never appears. Highlighting comes from
+`jsonnet/highlight-static.ts`, which shares the editor's Lezer grammar and tag
+map but deliberately avoids CodeMirror so the page still prerenders.
+
+Its rendered output in `static/tutorial/` is generated from `tests/examples/`
+fixtures:
 
 ```bash
 npm run build:cli && node dist/cli.js -i <skeleton> -o static/tutorial/<name>.svg

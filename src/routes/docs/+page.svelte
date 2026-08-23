@@ -242,6 +242,7 @@ local text_color = '#000';
 			<p>And where <code>collagen.jsonnet</code> contains the following:</p>
 
 			<CodeBlock
+				id="ex1"
 				code={example01}
 				filename="example-01/collagen.jsonnet"
 				callouts={[
@@ -267,6 +268,7 @@ local text_color = '#000';
 			<p>Then, running the following command:</p>
 
 			<CodeBlock
+				id="cmd"
 				code="clgn -i example-01 -o example-01.svg"
 				language="bash"
 			/>
@@ -316,7 +318,11 @@ local text_color = '#000';
 
 			<p>Where <code>example-02/collagen.jsonnet</code> is below:</p>
 
-			<CodeBlock code={example02} filename="example-02/collagen.jsonnet" />
+			<CodeBlock
+				id="ex2"
+				code={example02}
+				filename="example-02/collagen.jsonnet"
+			/>
 
 			<p>
 				Here's the result when you run
@@ -349,6 +355,7 @@ local text_color = '#000';
 			</p>
 
 			<CodeBlock
+				id="ex3"
 				code={example03}
 				filename="example-03/collagen.jsonnet"
 				callouts={[

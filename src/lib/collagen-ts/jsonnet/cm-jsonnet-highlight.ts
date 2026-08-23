@@ -9,29 +9,13 @@ import {
 	LanguageSupport,
 	LRLanguage,
 } from "@codemirror/language";
-import { styleTags, tags as t } from "@lezer/highlight";
+import { jsonnetStyleTags } from "./style-tags";
 import { parser as unconfiguredParser } from "./jsonnet-parser";
 import { JSONNET_STDLIB_COMPLETIONS } from "./jsonnet-stdlib-completions";
 
 const parser = unconfiguredParser.configure({
 	props: [
-		styleTags({
-			LineComment: t.lineComment,
-			VariableName: t.variableName,
-			Boolean: t.bool,
-			String: t.string,
-			Keyword: t.keyword,
-			"( )": t.paren,
-			"[ ]": t.bracket,
-			"{ }": t.brace,
-			"assert else error false for function if import importstr importbin in local tailstrict then super true":
-				t.controlKeyword,
-			self: t.self,
-			Number: t.number,
-			null: t.null,
-			"CallExpression/VariableName": t.function(t.variableName),
-			"attrs children tag": t.attributeName,
-		}),
+		jsonnetStyleTags,
 		indentNodeProp.add({
 			Application: context =>
 				context.column(context.node.from) + context.unit,

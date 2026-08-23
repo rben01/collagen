@@ -40,21 +40,26 @@ const TUTORIAL_IMAGES = [
 
 /**
  * The code blocks in document order. `filename` is `null` for the block that
- * renders a shell command, which has no filename header.
+ * renders a shell command, which has no filename header. `id` is the `id` prop
+ * the page passes to `CodeBlock`; it namespaces the callout anchor ids, so the
+ * badge/note ids are derivable from it and can be checked without scraping.
  */
 const CODE_BLOCKS = [
 	{
+		id: "ex1",
 		filename: "example-01/collagen.jsonnet",
 		language: "jsonnet",
 		callouts: 4,
 	},
-	{ filename: null, language: "bash", callouts: 0 },
+	{ id: "cmd", filename: null, language: "bash", callouts: 0 },
 	{
+		id: "ex2",
 		filename: "example-02/collagen.jsonnet",
 		language: "jsonnet",
 		callouts: 0,
 	},
 	{
+		id: "ex3",
 		filename: "example-03/collagen.jsonnet",
 		language: "jsonnet",
 		callouts: 4,
@@ -86,14 +91,30 @@ async function expectImageLoaded(img: Locator) {
 		.toBe(true);
 }
 
-/** Extract the `// (n)` callout markers embedded in a code sample's text. */
-function calloutMarkersIn(code: string): number[] {
-	const markers: number[] = [];
-	for (const match of code.matchAll(/\/\/\s*\((\d+)\)/g)) {
-		markers.push(Number(match[1]));
-	}
-	markers.sort((a, b) => a - b);
-	return markers;
+/**
+ * The literal `// (n)` marker comments, as they appear in the *source* samples.
+ *
+ * `CodeBlock` strips these and re-renders them as badges, so seeing one in the
+ * rendered text means the stripping regressed and readers are looking at
+ * bookkeeping comments instead of clean, copy-pasteable Jsonnet.
+ */
+const LITERAL_MARKER = /\/\/\s*\(\d+\)/;
+
+/**
+ * Assert that an in-page `href` points at an element that exists, exactly once.
+ *
+ * Playwright will happily click a dangling `#anchor` and report success, so the
+ * only way to catch a badge that links nowhere is to check that some element
+ * owns the id. The count assertion also catches duplicate ids, which would make
+ * the anchor resolve to whichever element happens to come first.
+ */
+async function expectAnchorResolves(
+	page: Page,
+	href: string | null,
+	id: string,
+) {
+	expect(href).toBe(`#${id}`);
+	await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
 }
 
 // =============================================================================
@@ -256,35 +277,139 @@ test.describe("Docs page", () => {
 	for (const [index, spec] of CODE_BLOCKS.entries()) {
 		const label = spec.filename ?? spec.language;
 
-		test(`code block ${index + 1} (${label}) has callouts matching its markers`, async ({
+		test(`code block ${index + 1} (${label}) renders no literal callout markers`, async ({
 			page,
 		}) => {
 			const block = page.locator(".code-block").nth(index);
 			const code = (await block.locator("pre.code").textContent()) ?? "";
-			const markers = calloutMarkersIn(code);
-			const items = block.locator("ol.callouts li");
 
-			expect(markers).toHaveLength(spec.callouts);
-			await expect(items).toHaveCount(spec.callouts);
+			// The markers live in the samples as real comments so the snippets stay
+			// runnable; none of them may survive into what the reader sees
+			expect(code).not.toMatch(LITERAL_MARKER);
+		});
 
-			if (spec.callouts === 0) return;
+		test(`code block ${index + 1} (${label}) has ${spec.callouts} callouts wired to their notes`, async ({
+			page,
+		}) => {
+			const block = page.locator(".code-block").nth(index);
+			const badges = block.locator("pre.code a.callout-marker");
+			const notes = block.locator("ol.callouts li");
 
-			// Markers must be 1..n with no gaps, and each must have a list item
-			expect(markers).toEqual(
-				Array.from({ length: spec.callouts }, (_, i) => i + 1),
+			await expect(badges).toHaveCount(spec.callouts);
+			await expect(notes).toHaveCount(spec.callouts);
+
+			if (spec.callouts === 0) {
+				// Nothing to explain, so no explanation list either
+				await expect(block.locator("ol.callouts")).toHaveCount(0);
+				return;
+			}
+
+			const expectedNumbers = Array.from(
+				{ length: spec.callouts },
+				(_, i) => i + 1,
 			);
-			const values = await items.evaluateAll(els =>
+
+			// Every number 1..n gets exactly one badge. Deliberately compared as a
+			// sorted set, not in document order: a marker sits on the line it
+			// describes, and in example-03 callout 2 explains the comprehension,
+			// whose `for` clause trails the body it applies to. So the badges
+			// legitimately read 1, 3, 4, 2 down the page.
+			const badgeNumbers = await badges.evaluateAll(els =>
+				els.map(el => Number(el.textContent)),
+			);
+			expect([...badgeNumbers].sort((a, b) => a - b)).toEqual(
+				expectedNumbers,
+			);
+
+			// The notes, by contrast, are listed in numeric order; `value` drives
+			// the rendered list numbering
+			const values = await notes.evaluateAll(els =>
 				els.map(el => Number(el.getAttribute("value"))),
 			);
-			expect(values).toEqual(markers);
+			expect(values).toEqual(expectedNumbers);
 
-			// An explanation with no text explains nothing
-			const texts = await items.evaluateAll(els =>
-				els.map(el => (el.textContent ?? "").trim()),
-			);
+			// Badges and notes are addressed by id rather than by position, so the
+			// pairing is checked independently of the order they appear in
+			for (const n of expectedNumbers) {
+				const markerId = `${spec.id}-marker-${n}`;
+				const noteId = `${spec.id}-note-${n}`;
+
+				const badge = block.locator(
+					`pre.code a.callout-marker[id="${markerId}"]`,
+				);
+				const note = block.locator(`ol.callouts > li[id="${noteId}"]`);
+				await expect(badge).toHaveCount(1);
+				await expect(note).toHaveCount(1);
+
+				// The badge carrying id `-marker-n` must also read as `n`
+				await expect(badge).toHaveText(String(n));
+
+				// Badge -> note, and the target is that list item rather than
+				// merely some element that happens to own the id
+				await expectAnchorResolves(
+					page,
+					await badge.getAttribute("href"),
+					noteId,
+				);
+
+				// ...and note -> badge, back into this block's own code
+				const backref = note.locator("a.callout-backref");
+				await expect(backref).toHaveCount(1);
+				await expect(backref).toHaveText(String(n));
+				await expectAnchorResolves(
+					page,
+					await backref.getAttribute("href"),
+					markerId,
+				);
+			}
+
+			// An explanation with no text explains nothing. The prose lives in the
+			// `<span>`; the `<li>` itself also holds the backref's digit.
+			const texts = await notes
+				.locator("span")
+				.evaluateAll(els => els.map(el => (el.textContent ?? "").trim()));
+			expect(texts).toHaveLength(spec.callouts);
 			for (const text of texts) expect(text).not.toBe("");
 		});
 	}
+
+	test("clicking a callout badge jumps to its note, and the note jumps back", async ({
+		page,
+	}) => {
+		const badge = page.locator("a#ex1-marker-1");
+		const note = page.locator("li#ex1-note-1");
+
+		await badge.click();
+		await expect(page).toHaveURL(/#ex1-note-1$/);
+		await expect(note).toBeInViewport();
+
+		await note.locator("a.callout-backref").click();
+		await expect(page).toHaveURL(/#ex1-marker-1$/);
+		await expect(badge).toBeInViewport();
+	});
+
+	test("Jsonnet samples are syntax highlighted and the shell one-liner is not", async ({
+		page,
+	}) => {
+		for (const [index, spec] of CODE_BLOCKS.entries()) {
+			const tokens = page
+				.locator(".code-block")
+				.nth(index)
+				// Lezer's `classHighlighter` emits `tok-`-prefixed classes; a token
+				// may carry several, but the prefix always leads
+				.locator('pre.code span[class^="tok-"]');
+
+			if (spec.language === "jsonnet") {
+				expect(
+					await tokens.count(),
+					`block ${index + 1} (${spec.id}) has no highlighted tokens`,
+				).toBeGreaterThan(0);
+			} else {
+				// Only Jsonnet has a grammar here; anything else must pass through
+				await expect(tokens).toHaveCount(0);
+			}
+		}
+	});
 
 	// ==========================================================================
 	// Footnote
