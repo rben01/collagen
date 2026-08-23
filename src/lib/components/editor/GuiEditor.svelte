@@ -11,6 +11,7 @@
 		setAttribute,
 		moveChild,
 		insertChild,
+		removeChild,
 		type EditOutcome,
 	} from "$lib/collagen-ts/manifest/edit.js";
 	import {
@@ -21,6 +22,7 @@
 	} from "$lib/collagen-ts/manifest/geometry.js";
 	import type { Provenance } from "$lib/collagen-ts/manifest/provenance.js";
 	import type { XmlAttrs } from "$lib/collagen-ts/types/index.js";
+	import { isTypingInInput } from "../viewer/index.js";
 	import CanvasViewport from "./CanvasViewport.svelte";
 	import Inspector from "./Inspector.svelte";
 	import LayersPanel from "./LayersPanel.svelte";
@@ -438,7 +440,66 @@
 	function byIndex(a: string, b: string): number {
 		return (splitPath(a)?.index ?? 0) - (splitPath(b)?.index ?? 0);
 	}
+
+	function handleDelete() {
+		const path = editor.selectedPath;
+		const target = readManifest();
+		const where = path === null ? null : splitPath(path);
+		if (!target || !where) return;
+
+		const brace = braceFor(where.parentPath);
+		if (brace === null) {
+			editor.notice =
+				"This element cannot be removed here. Edit it as text.";
+			return;
+		}
+
+		const outcome = removeChild(target.source, brace, where.index);
+		commitOutcome(outcome, target.path);
+		if (outcome.ok) editor.select(null);
+	}
+
+	const TOOL_KEYS: Record<string, Tool> = {
+		v: "select",
+		r: "rect",
+		e: "ellipse",
+		l: "line",
+		t: "text",
+		h: "pan",
+	};
+
+	/**
+	 * Editor shortcuts.
+	 *
+	 * A window listener is safe here because this component only exists while
+	 * the visual editor is on screen, and `SvgDisplay` ignores keys unless it is
+	 * the active pane -- so the two never both act on one press.
+	 */
+	function handleKeydown(event: KeyboardEvent) {
+		if (isTypingInInput()) return;
+		if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+		if (event.key === "Escape") {
+			editor.select(null);
+			return;
+		}
+
+		if (event.key === "Delete" || event.key === "Backspace") {
+			if (editor.selectedPath === null) return;
+			event.preventDefault();
+			handleDelete();
+			return;
+		}
+
+		const tool = TOOL_KEYS[event.key.toLowerCase()];
+		if (tool) {
+			event.preventDefault();
+			editor.tool = tool;
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class="gui-editor">
 	<ToolPalette {editor} />

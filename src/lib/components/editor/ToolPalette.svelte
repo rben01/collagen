@@ -18,6 +18,7 @@
 		{ tool: "text", action: "tool-text", label: "Text", key: "T" },
 		{ tool: "pan", action: "tool-pan", label: "Pan", key: "H" },
 	];
+	// The shortcuts these titles promise are handled in `GuiEditor`.
 </script>
 
 <div
