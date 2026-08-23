@@ -54,14 +54,39 @@ const DEFAULT_STYLE: Style = {
 	bareKeys: true,
 };
 
-/** Infer a file's formatting conventions from what it already contains. */
+/**
+ * Infer a file's formatting conventions from what it already contains.
+ *
+ * A file that is currently valid JSON stays valid JSON, whatever its extension
+ * says. That matters most for a manifest with nothing to learn from: `{}` gives
+ * no evidence either way, and guessing Jsonnet there would write a bare key
+ * into a `.json` file and break it.
+ */
 export function detectStyle(source: string, tree: Tree): Style {
+	if (isJson(source)) {
+		return {
+			indentUnit: detectIndentUnit(source),
+			trailingComma: false,
+			quote: '"',
+			bareKeys: false,
+		};
+	}
+
 	return {
 		indentUnit: detectIndentUnit(source),
 		trailingComma: detectTrailingComma(source, tree),
 		quote: detectQuote(source, tree),
 		bareKeys: detectBareKeys(source, tree),
 	};
+}
+
+function isJson(source: string): boolean {
+	try {
+		JSON.parse(source);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 /**

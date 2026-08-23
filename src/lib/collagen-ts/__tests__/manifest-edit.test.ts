@@ -14,6 +14,7 @@ import { basename, dirname, join, relative } from "node:path";
 import {
 	insertChild,
 	moveChild,
+	printElement,
 	removeAttribute,
 	removeChild,
 	setAttribute,
@@ -613,5 +614,125 @@ describe("round-tripping the shipped examples", () => {
 			ref => numericAttribute(source, ref.braceFrom) !== null,
 		);
 		expect(withNumbers.length).toBeGreaterThan(0);
+	});
+});
+
+describe("structural edits keep every example valid", () => {
+	const manifests = exampleManifests("tests/examples");
+
+	/** Children of the root, as the layers tree would count them. */
+	function rootChildCount(value: unknown): number {
+		if (value === null || typeof value !== "object" || Array.isArray(value)) {
+			return 0;
+		}
+		const children = (value as Record<string, unknown>).children;
+		if (children === undefined || children === null) return 0;
+		return Array.isArray(children) ? children.length : 1;
+	}
+
+	it.each(manifests)(
+		"%s survives inserting a child at every position",
+		async path => {
+			const source = readFileSync(path, "utf8");
+			const root = skeletonRoot(path);
+			const fs = loadTree(root, root, InMemoryFileSystem.createEmpty());
+			const dir = relative(root, dirname(path));
+
+			const analysis = await fs.analyzeManifest(dir);
+			expect(analysis.ok ? "" : analysis.reason).toBe("");
+			if (!analysis.ok) return;
+
+			const rootBrace = analysis.provenance.sourceOf.get("")?.braceFrom;
+			if (rootBrace === undefined) return;
+
+			const before = rootChildCount(analysis.value);
+			for (let index = 0; index <= before; index++) {
+				const outcome = insertChild(
+					source,
+					rootBrace,
+					index,
+					printElement(source, "rect", { x: 1, y: 2 }),
+				);
+				// A manifest whose children come from a loop refuses, by design.
+				if (!outcome.ok) continue;
+
+				// The result must still be a manifest, with one more child.
+				const edited = loadTree(
+					root,
+					root,
+					InMemoryFileSystem.createEmpty(),
+				);
+				edited.addFileContents(
+					relative(root, path),
+					new TextEncoder().encode(outcome.source),
+				);
+				const after = await edited.analyzeManifest(dir);
+				expect(rootChildCount(after.value), `${path} @ ${index}`).toBe(
+					before + 1,
+				);
+			}
+		},
+	);
+
+	it.each(manifests)("%s survives removing each child", async path => {
+		const source = readFileSync(path, "utf8");
+		const root = skeletonRoot(path);
+		const fs = loadTree(root, root, InMemoryFileSystem.createEmpty());
+		const dir = relative(root, dirname(path));
+
+		const analysis = await fs.analyzeManifest(dir);
+		expect(analysis.ok ? "" : analysis.reason).toBe("");
+		if (!analysis.ok) return;
+
+		const rootBrace = analysis.provenance.sourceOf.get("")?.braceFrom;
+		if (rootBrace === undefined) return;
+
+		const before = rootChildCount(analysis.value);
+		for (let index = 0; index < before; index++) {
+			const outcome = removeChild(source, rootBrace, index);
+			if (!outcome.ok) continue;
+
+			const edited = loadTree(root, root, InMemoryFileSystem.createEmpty());
+			edited.addFileContents(
+				relative(root, path),
+				new TextEncoder().encode(outcome.source),
+			);
+			const after = await edited.analyzeManifest(dir);
+			expect(rootChildCount(after.value), `${path} @ ${index}`).toBe(
+				before - 1,
+			);
+		}
+	});
+
+	it.each(manifests)("%s survives reordering its children", async path => {
+		const source = readFileSync(path, "utf8");
+		const root = skeletonRoot(path);
+		const fs = loadTree(root, root, InMemoryFileSystem.createEmpty());
+		const dir = relative(root, dirname(path));
+
+		const analysis = await fs.analyzeManifest(dir);
+		expect(analysis.ok ? "" : analysis.reason).toBe("");
+		if (!analysis.ok) return;
+
+		const rootBrace = analysis.provenance.sourceOf.get("")?.braceFrom;
+		if (rootBrace === undefined) return;
+
+		const before = rootChildCount(analysis.value);
+		if (before < 2) return;
+
+		// Moving the last child to the front, then back, restores the manifest.
+		const moved = moveChild(source, rootBrace, before - 1, 0);
+		if (!moved.ok) return;
+
+		const edited = loadTree(root, root, InMemoryFileSystem.createEmpty());
+		edited.addFileContents(
+			relative(root, path),
+			new TextEncoder().encode(moved.source),
+		);
+		const after = await edited.analyzeManifest(dir);
+		expect(rootChildCount(after.value), path).toBe(before);
+
+		// And the order really changed.
+		expect(moved.source).not.toBe(source);
 	});
 });
