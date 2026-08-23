@@ -12,6 +12,11 @@ import {
 	JsonError,
 } from "../errors/index.js";
 import { base64Encode, generateSvg } from "../index.js";
+import {
+	analyzeJson,
+	analyzeJsonnet,
+	type ProvenanceResult,
+} from "../manifest/provenance.js";
 import { compileJsonnet, type JsonObject } from "../jsonnet/index.js";
 import { validateDocument } from "../validation/index.js";
 
@@ -338,8 +343,26 @@ export class InMemoryFileSystem {
 		}
 	}
 
-	async generateSvg() {
-		return generateSvg(await this.generateRootTag(), this);
+	async generateSvg(options: { annotate?: boolean } = {}) {
+		return generateSvg(await this.generateRootTag(), this, options);
+	}
+
+	/**
+	 * Locate every element of the manifest in its source text, for the visual
+	 * editor.
+	 *
+	 * Returns the evaluated manifest either way. When analysis fails the result
+	 * carries a reason, and the editor renders and selects but refuses to write
+	 * back rather than guessing at an edit.
+	 */
+	async analyzeManifest(dir: string = ""): Promise<ProvenanceResult> {
+		const { format, content } = this.loadManifestContents(dir);
+		const source = new TextDecoder().decode(content.bytes);
+		const manifestPath = getManifestPath(format, dir);
+
+		return format === "json"
+			? analyzeJson(source)
+			: analyzeJsonnet(source, this, manifestPath);
 	}
 
 	toJsonB64() {

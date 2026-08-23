@@ -158,7 +158,9 @@ IndexExpression {
 }
 
 SliceExpression {
-  expression !member "[" expression? ":" expression? (":" expression?)? "]"
+  expression !member "[" expression?
+    (":" expression? (":" expression?)? | "::" expression?)
+  "]"
 }
 
 SuperMemberExpression {
@@ -260,7 +262,7 @@ param {
 
 // Assert expression
 AssertExpression {
-  kw<"assert"> expression ";" expression
+  kw<"assert"> expression (":" expression)? ";" expression
 }
 
 // Import expressions

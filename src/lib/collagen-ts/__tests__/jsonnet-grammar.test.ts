@@ -74,6 +74,11 @@ describe("Jsonnet grammar", () => {
 			["text block", "{ x: |||\n  hi\n||| }"],
 			["indented text block", "{\n  x: |||\n    a\n    b\n  |||,\n}"],
 			["text block containing a blank line", "{ x: |||\n  a\n\n  b\n||| }"],
+			// `[::2]` tokenizes as `[` `::` `2` `]`, because longest-match makes
+			// `::` win over two `:` tokens.
+			["slice with a step and no bounds", "{ x: [1, 2, 3][::2] }"],
+			["slice with a step and a start", "{ x: [1, 2, 3][1::2] }"],
+			["assert with a message", "{ x: assert true : 'no'; 1 }"],
 		];
 
 		it.each(cases)("parses %s", (_name, code) => {
