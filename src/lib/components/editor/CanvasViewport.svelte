@@ -121,13 +121,16 @@
 	function boxFor(
 		path: string,
 	): { left: number; top: number; width: number; height: number } | null {
-		// Referenced so the box recomputes when any of these change.
+		// Referenced so the box recomputes when any of these change. The gesture
+		// is in there so the outline tracks the element during a drag: the
+		// preview is a CSS transform, which `getBoundingClientRect` reflects.
 		void scale;
 		void panX;
 		void panY;
 		void frameRevision;
 		void containerWidth;
 		void containerHeight;
+		void editor.gesture;
 
 		const element = elementFor(path);
 		if (!element || !frame || !container) return null;
