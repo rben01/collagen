@@ -6,11 +6,14 @@
 		layers,
 		editor,
 		onReorder,
+		onToggleVisible,
 	}: {
 		layers: LayerNode[];
 		editor: EditorState;
 		/** Move a child of `parentPath` from one index to another. */
 		onReorder: (parentPath: string, from: number, to: number) => void;
+		/** Show or hide one element. */
+		onToggleVisible: (path: string, visible: boolean) => void;
 	} = $props();
 
 	let dragging = $state<{ parentPath: string; index: number } | null>(null);
@@ -50,6 +53,21 @@
 			style:--depth={node.depth}
 		>
 			<span class="name">{node.label}</span>
+			{#if node.canHide}
+				<button
+					type="button"
+					class="visibility"
+					class:hidden={!node.visible}
+					aria-label={node.visible
+						? `Hide ${node.label}`
+						: `Show ${node.label}`}
+					title={node.visible ? "Hide" : "Show"}
+					onclick={event => {
+						event.stopPropagation();
+						onToggleVisible(node.path, !node.visible);
+					}}>{node.visible ? "◉" : "◎"}</button
+				>
+			{/if}
 			{#if node.groupSize > 1}
 				<span
 					class="badge"
@@ -138,8 +156,28 @@
 		white-space: nowrap;
 	}
 
-	.badge {
+	.visibility {
 		margin-left: auto;
+		padding: 0 0.2em;
+		border: 0;
+		border-radius: 0.25em;
+		background: none;
+		color: #9ca3af;
+		font-size: 0.9em;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.visibility.hidden {
+		color: #2563eb;
+	}
+
+	.layer.selected .visibility {
+		color: rgb(255 255 255 / 80%);
+	}
+
+	.badge {
+		margin-left: 0.25rem;
 		padding: 0 0.35em;
 		border-radius: 0.75em;
 		background: #e5e7eb;

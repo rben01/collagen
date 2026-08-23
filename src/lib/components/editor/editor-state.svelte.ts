@@ -8,14 +8,7 @@
  */
 
 /** What a click on the canvas does. */
-export type Tool =
-	| "select"
-	| "pan"
-	| "rect"
-	| "ellipse"
-	| "line"
-	| "text"
-	| "image";
+export type Tool = "select" | "pan" | "rect" | "ellipse" | "line" | "text";
 
 /** A drag in progress on the canvas. */
 export type Gesture =

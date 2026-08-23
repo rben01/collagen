@@ -22,6 +22,15 @@ export interface LayerNode {
 	label: string;
 	/** How many elements share this node's source construct. */
 	groupSize: number;
+	/**
+	 * Can this node be hidden?
+	 *
+	 * Only tags with an `attrs` object can, since hiding writes
+	 * `display: none` there. Bare text children have nowhere to put it.
+	 */
+	canHide: boolean;
+	/** False when this element is currently hidden. */
+	visible: boolean;
 	children: LayerNode[];
 }
 
@@ -96,6 +105,8 @@ function buildNode(
 			depth,
 			label: quote(value),
 			groupSize: 1,
+			canHide: false,
+			visible: true,
 			children: [],
 		};
 	}
@@ -108,6 +119,8 @@ function buildNode(
 			depth,
 			label: "element",
 			groupSize: 1,
+			canHide: false,
+			visible: true,
 			children: [],
 		};
 	}
@@ -118,6 +131,12 @@ function buildNode(
 		? (provenance?.multiplicity.get(`${ref.fileIndex}:${ref.braceFrom}`) ?? 1)
 		: 1;
 
+	const attrs = object.attrs;
+	const display =
+		attrs !== null && typeof attrs === "object" && !Array.isArray(attrs)
+			? (attrs as Record<string, JsonObject>).display
+			: undefined;
+
 	return {
 		path,
 		parentPath,
@@ -125,6 +144,8 @@ function buildNode(
 		depth,
 		label: labelFor(object),
 		groupSize,
+		canHide: typeof object.tag === "string",
+		visible: display !== "none",
 		children: childrenOf(object).map((child, i) =>
 			buildNode(child, path, i, depth + 1, provenance),
 		),

@@ -407,6 +407,29 @@
 		commitOutcome(removeAttribute(target.source, brace, key), target.path);
 	}
 
+	/**
+	 * Show or hide one element.
+	 *
+	 * Written as `display: none` in `attrs`, so it lives in the manifest and
+	 * survives a reload -- unlike a lock, which is only ever a hint to the
+	 * person editing and has no business in the output.
+	 */
+	function handleToggleVisible(path: string, visible: boolean) {
+		const target = readManifest();
+		const brace = braceFor(path);
+		if (!target || brace === null) {
+			editor.notice = "This element cannot be hidden here. Edit it as text.";
+			return;
+		}
+
+		commitOutcome(
+			visible
+				? removeAttribute(target.source, brace, "display")
+				: setAttribute(target.source, brace, "display", "none"),
+			target.path,
+		);
+	}
+
 	function handleReorder(parentPath: string, from: number, to: number) {
 		const target = readManifest();
 		const brace = braceFor(parentPath);
@@ -525,7 +548,12 @@
 	</div>
 
 	<aside class="panels">
-		<LayersPanel {layers} {editor} onReorder={handleReorder} />
+		<LayersPanel
+			{layers}
+			{editor}
+			onReorder={handleReorder}
+			onToggleVisible={handleToggleVisible}
+		/>
 		<Inspector
 			{editor}
 			tagLabel={selectedLabel ?? selectedTagName}
