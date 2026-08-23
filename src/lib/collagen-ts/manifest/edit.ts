@@ -17,6 +17,7 @@ import type { SyntaxNode, Tree } from "@lezer/common";
 import {
 	arrayElements,
 	asObjectBody,
+	enclosingComprehension,
 	fieldsOf,
 	findField,
 	objectBodyAtBrace,
@@ -27,6 +28,7 @@ import {
 	detectStyle,
 	indentAt,
 	isMultiline,
+	printJsonnet,
 	printKey,
 	printValue,
 	type Style,
@@ -557,4 +559,85 @@ function printArray(
 	const trailing = style.trailingComma ? "," : "";
 	const body = chunks.map(chunk => indent + chunk).join(",\n");
 	return `[\n${body}${trailing}\n${closeIndent}]`;
+}
+
+/**
+ * Replace the loop that produced an element with the elements it produced.
+ *
+ * This is the escape hatch behind "detach". Editing a loop body changes every
+ * element it makes, which is usually what someone wants -- they are editing the
+ * template. When they want one element to differ, the honest move is to stop
+ * having a loop, so the elements become ordinary literals that every other
+ * operation here already handles.
+ *
+ * It is lossy and one way: locals, imports, and computed values all bake down
+ * to fixed text. `values` must come from the plain evaluation, or markers get
+ * baked in with everything else.
+ */
+export function detachComprehension(
+	source: string,
+	braceFrom: number,
+	values: unknown[],
+): EditOutcome {
+	const tree = parseManifest(source);
+	const body = objectBodyAtBrace(tree, braceFrom);
+	if (!body) return blocked("not-found", "That element is no longer here.");
+
+	const comprehension = enclosingComprehension(body.node);
+	if (!comprehension) {
+		return blocked(
+			"computed",
+			"These elements do not come from a loop, so there is no loop to expand. They are built by shared code instead.",
+		);
+	}
+
+	const style = detectStyle(source, tree);
+	const indent = indentAt(source, comprehension.from);
+	return {
+		ok: true,
+		source: splice(
+			source,
+			comprehension.from,
+			comprehension.to,
+			printJsonnet(values, style, indent),
+		),
+	};
+}
+
+/** Render a new element for one of the drawing tools. */
+export function printElement(
+	source: string,
+	tagName: string,
+	attrs: Record<string, string | number>,
+	text?: string,
+): string {
+	const style = detectStyle(source, parseManifest(source));
+	const value: Record<string, unknown> = { tag: tagName, attrs };
+	if (text !== undefined) value.children = text;
+
+	// New elements are written on one line: they are small, and a fresh shape
+	// reads better beside its siblings than spread over six lines.
+	const parts: string[] = [];
+	for (const key in value) {
+		const item = value[key];
+		parts.push(
+			`${printKey(key, style)}: ${
+				key === "attrs"
+					? printInlineObject(attrs, style)
+					: printJsonnet(item, style)
+			}`,
+		);
+	}
+	return `{ ${parts.join(", ")} }`;
+}
+
+function printInlineObject(
+	attrs: Record<string, string | number>,
+	style: Style,
+): string {
+	const parts: string[] = [];
+	for (const key in attrs) {
+		parts.push(`${printKey(key, style)}: ${printValue(attrs[key], style)}`);
+	}
+	return parts.length === 0 ? "{}" : `{ ${parts.join(", ")} }`;
 }

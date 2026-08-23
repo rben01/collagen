@@ -209,3 +209,46 @@ export function isMultiline(source: string, node: SyntaxNode): boolean {
 export function elementCount(node: SyntaxNode): number {
 	return arrayElements(node).length;
 }
+
+/**
+ * Render a manifest value as Jsonnet, in this file's style.
+ *
+ * `std.manifestJsonEx` exists but always double-quotes keys, so it would not
+ * match a file that writes them bare or with single quotes.
+ */
+export function printJsonnet(
+	value: unknown,
+	style: Style,
+	indent: string = "",
+): string {
+	if (value === null) return "null";
+	if (typeof value === "boolean") return String(value);
+	if (typeof value === "number") return printNumber(value, 6);
+	if (typeof value === "string") return printString(value, style);
+
+	const inner = indent + style.indentUnit;
+	const trailing = style.trailingComma ? "," : "";
+
+	if (Array.isArray(value)) {
+		if (value.length === 0) return "[]";
+		const items = value
+			.map(item => inner + printJsonnet(item, style, inner))
+			.join(",\n");
+		return `[\n${items}${trailing}\n${indent}]`;
+	}
+
+	if (typeof value === "object") {
+		const entries: string[] = [];
+		for (const key in value as Record<string, unknown>) {
+			const item = (value as Record<string, unknown>)[key];
+			if (item === undefined) continue;
+			entries.push(
+				`${inner}${printKey(key, style)}: ${printJsonnet(item, style, inner)}`,
+			);
+		}
+		if (entries.length === 0) return "{}";
+		return `{\n${entries.join(",\n")}${trailing}\n${indent}}`;
+	}
+
+	throw new TypeError(`Cannot write ${typeof value} to a manifest`);
+}

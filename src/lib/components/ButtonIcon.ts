@@ -10,4 +10,13 @@ export type ButtonAction =
 	| "export-image"
 	| "trash"
 	| "minimize-editor"
-	| "download-project";
+	| "download-project"
+	| "tool-select"
+	| "tool-pan"
+	| "tool-rect"
+	| "tool-ellipse"
+	| "tool-line"
+	| "tool-text"
+	| "gui-mode"
+	| "code-mode"
+	| "detach";

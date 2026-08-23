@@ -71,6 +71,42 @@
 		--btn-bg: url("@tabler-icons/outline/folder-down.svg");
 	}
 
+	.tool-select {
+		--btn-bg: url("@tabler-icons/outline/pointer.svg");
+	}
+
+	.tool-pan {
+		--btn-bg: url("@tabler-icons/outline/hand-stop.svg");
+	}
+
+	.tool-rect {
+		--btn-bg: url("@tabler-icons/outline/square.svg");
+	}
+
+	.tool-ellipse {
+		--btn-bg: url("@tabler-icons/outline/circle.svg");
+	}
+
+	.tool-line {
+		--btn-bg: url("@tabler-icons/outline/line.svg");
+	}
+
+	.tool-text {
+		--btn-bg: url("@tabler-icons/outline/typography.svg");
+	}
+
+	.gui-mode {
+		--btn-bg: url("@tabler-icons/outline/click.svg");
+	}
+
+	.code-mode {
+		--btn-bg: url("@tabler-icons/outline/code.svg");
+	}
+
+	.detach {
+		--btn-bg: url("@tabler-icons/outline/arrows-split.svg");
+	}
+
 	@media (max-width: 1024px) {
 		.minimize-editor {
 			--btn-bg: url("@tabler-icons/filled/layout-bottombar-collapse.svg");
