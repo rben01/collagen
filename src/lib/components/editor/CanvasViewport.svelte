@@ -295,13 +295,24 @@
 		if (!element) return;
 		if (gesture.kind === "move") {
 			element.style.transform = `translate(${dx}px, ${dy}px)`;
-		} else {
-			const signX =
-				gesture.handle === "nw" || gesture.handle === "sw" ? 1 : 0;
-			const signY =
-				gesture.handle === "nw" || gesture.handle === "ne" ? 1 : 0;
-			element.style.transform = `translate(${dx * signX}px, ${dy * signY}px)`;
+			return;
 		}
+
+		// Preview a resize by scaling about the corner opposite the handle,
+		// which is the corner that stays put.
+		const box = userBoxFor(gesture.path);
+		if (!box || box.width === 0 || box.height === 0) return;
+
+		const left = gesture.handle === "nw" || gesture.handle === "sw";
+		const top = gesture.handle === "nw" || gesture.handle === "ne";
+		const scaleX = Math.max(1, box.width + (left ? -dx : dx)) / box.width;
+		const scaleY = Math.max(1, box.height + (top ? -dy : dy)) / box.height;
+		const anchorX = left ? box.x + box.width : box.x;
+		const anchorY = top ? box.y + box.height : box.y;
+
+		element.style.transform =
+			`translate(${anchorX - anchorX * scaleX}px, ` +
+			`${anchorY - anchorY * scaleY}px) scale(${scaleX}, ${scaleY})`;
 	}
 
 	function handlePointerUp() {

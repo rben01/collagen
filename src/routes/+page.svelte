@@ -283,7 +283,7 @@
 </svelte:head>
 
 {#snippet modeToggle()}
-	<div class="control-group" role="group" aria-label="Editing mode">
+	<div class="mode-bar control-group" role="group" aria-label="Editing mode">
 		<ControlButton
 			action="gui-mode"
 			ariaLabel="Visual editor"
@@ -408,22 +408,20 @@
 				<RightPane ariaLabelContent="Image viewer" content={imageContent} />
 			{:else if mode === "gui"}
 				{#snippet guiContent()}
-					<div class="gui-shell">
-						<div class="mode-bar">
-							{@render modeToggle()}
-						</div>
+					<div class="mode-shell">
+						{@render modeToggle()}
 						<GuiEditor bind:filesData editor={editorState} />
 					</div>
 				{/snippet}
 				<RightPane ariaLabelContent="Visual editor" content={guiContent} />
 			{:else}
 				{#snippet rightViewer()}
-					{#if started}
-						<div class="mode-bar floating">
+					<div class="mode-shell">
+						{#if started}
 							{@render modeToggle()}
-						</div>
-					{/if}
-					{@render svgViewerContent(true, false, true)}
+						{/if}
+						{@render svgViewerContent(true, false, true)}
+					</div>
 				{/snippet}
 				<RightPane
 					ariaLabelContent="Generated SVG display"
@@ -512,7 +510,7 @@
 
 	/* right pane styling handled by RightPane */
 
-	.gui-shell {
+	.mode-shell {
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -520,24 +518,14 @@
 		min-height: 0;
 	}
 
+	/* Its own row rather than a slot in the viewer's toolbar: this chooses which
+	   editor is on screen, so it outranks that toolbar, and it has to stay
+	   reachable when the viewer is showing an error instead of a drawing. */
 	.mode-bar {
-		display: flex;
 		justify-content: flex-end;
-		padding: 0.375rem;
-		background: #f9fafb;
+		padding: 0.375rem 0.5rem;
+		background: #f3f4f6;
 		border-bottom: 1px solid #e5e7eb;
-	}
-
-	/* Over the viewer, the toggle sits above its toolbar rather than adding a
-	   second bar and shortening the canvas. */
-	.mode-bar.floating {
-		position: absolute;
-		top: 0.375rem;
-		right: 0.5rem;
-		z-index: 2;
-		padding: 0;
-		background: none;
-		border: 0;
 	}
 
 	.waiting-state {
