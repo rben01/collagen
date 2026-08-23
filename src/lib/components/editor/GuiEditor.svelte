@@ -173,9 +173,52 @@
 		}
 	}
 
-	function writeManifest(path: string, source: string) {
+	/**
+	 * Undo history, as whole-source snapshots.
+	 *
+	 * A manifest is a few kilobytes, so snapshots cost nothing, and every
+	 * operation here is already a whole-source rewrite. This is per-mode: the
+	 * text editor keeps CodeMirror's own history, which does not see these
+	 * edits. Sharing one stack across both would mean keeping a CodeMirror
+	 * EditorState alive for every file whether or not its editor is open.
+	 */
+	let undoStack = $state<string[]>([]);
+	let redoStack = $state<string[]>([]);
+	const HISTORY_LIMIT = 100;
+
+	/** Write the manifest with no history bookkeeping. */
+	function putManifest(path: string, source: string) {
 		filesData.fs.addFileContents(path, textEncoder.encode(source), true);
 		filesData = { fs: filesData.fs };
+	}
+
+	function writeManifest(path: string, source: string) {
+		const current = readManifest();
+		if (current && current.source !== source) {
+			undoStack = [...undoStack.slice(-(HISTORY_LIMIT - 1)), current.source];
+			redoStack = [];
+		}
+		putManifest(path, source);
+	}
+
+	function undo() {
+		const current = readManifest();
+		if (!current || undoStack.length === 0) return;
+		const previous = undoStack[undoStack.length - 1];
+		undoStack = undoStack.slice(0, -1);
+		redoStack = [...redoStack, current.source];
+		editor.notice = null;
+		putManifest(current.path, previous);
+	}
+
+	function redo() {
+		const current = readManifest();
+		if (!current || redoStack.length === 0) return;
+		const next = redoStack[redoStack.length - 1];
+		redoStack = redoStack.slice(0, -1);
+		undoStack = [...undoStack, current.source];
+		editor.notice = null;
+		putManifest(current.path, next);
 	}
 
 	/** The source offset of the object literal that produced `path`. */
@@ -500,6 +543,14 @@
 	 */
 	function handleKeydown(event: KeyboardEvent) {
 		if (isTypingInInput()) return;
+
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+			event.preventDefault();
+			if (event.shiftKey) redo();
+			else undo();
+			return;
+		}
+
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 
 		if (event.key === "Escape") {
