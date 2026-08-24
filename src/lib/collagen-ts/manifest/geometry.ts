@@ -192,3 +192,26 @@ export function moveEdits(
 		]
 	);
 }
+
+/**
+ * Drop the edits that would write back a value already there.
+ *
+ * Attempting them is not merely wasteful. A resize from the south-east handle
+ * leaves `x` and `y` alone, and writing them anyway makes the whole gesture
+ * fail on an element whose `x` happens to be an expression -- reporting a
+ * refusal about an attribute the drag never touched.
+ *
+ * Comparison is by rendered text, because a manifest may hold `40` or `"40"`
+ * and both mean the same thing to SVG.
+ */
+export function changedEdits(current: XmlAttrs, edits: AttrEdit[]): AttrEdit[] {
+	const changed: AttrEdit[] = [];
+	for (const edit of edits) {
+		const existing = current[edit.key];
+		if (existing !== undefined && String(existing) === String(edit.value)) {
+			continue;
+		}
+		changed.push(edit);
+	}
+	return changed;
+}

@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
+	changedEdits,
 	composeTranslate,
 	moveEdits,
 	resizeEdits,
@@ -123,5 +124,42 @@ describe("resizeEdits", () => {
 
 	it("declines a shape with no size attributes", () => {
 		expect(resizeEdits("path", 0, 0, 10, 10)).toBeNull();
+	});
+});
+
+describe("changedEdits", () => {
+	it("drops an edit that writes back the value already there", () => {
+		// The case that mattered: a south-east resize leaves x and y alone, and
+		// attempting them anyway failed the whole gesture when x was computed.
+		const edits = [
+			{ key: "x", value: 40 },
+			{ key: "y", value: 30 },
+			{ key: "width", value: 180 },
+			{ key: "height", value: 100 },
+		];
+		expect(
+			changedEdits({ x: 40, y: 30, width: 120, height: 70 }, edits),
+		).toEqual([
+			{ key: "width", value: 180 },
+			{ key: "height", value: 100 },
+		]);
+	});
+
+	it("treats a number and its string form as the same value", () => {
+		expect(changedEdits({ x: "40" }, [{ key: "x", value: 40 }])).toEqual([]);
+	});
+
+	it("keeps an edit for an attribute that is not there yet", () => {
+		expect(changedEdits({}, [{ key: "fill", value: "red" }])).toEqual([
+			{ key: "fill", value: "red" },
+		]);
+	});
+
+	it("keeps everything when everything changed", () => {
+		const edits = [
+			{ key: "x", value: 1 },
+			{ key: "y", value: 2 },
+		];
+		expect(changedEdits({ x: 0, y: 0 }, edits)).toEqual(edits);
 	});
 });

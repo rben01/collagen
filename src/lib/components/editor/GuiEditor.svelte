@@ -15,6 +15,7 @@
 		type EditOutcome,
 	} from "$lib/collagen-ts/manifest/edit.js";
 	import {
+		changedEdits,
 		composeTranslate,
 		resizeEdits,
 		translateEdits,
@@ -250,8 +251,11 @@
 			return false;
 		}
 
+		const changes = changedEdits(attrsAt(path), edits);
+		if (changes.length === 0) return true;
+
 		let source = target.source;
-		for (const edit of edits) {
+		for (const edit of changes) {
 			const outcome: EditOutcome = setAttribute(
 				source,
 				brace,
