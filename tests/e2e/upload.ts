@@ -2,7 +2,19 @@ import { expect, type Page } from "@playwright/test";
 import { Buffer } from "node:buffer";
 import { fileListRegion } from "./helpers";
 
-export type ProjectFiles = Record<string, string>;
+/**
+ * A file whose bytes are not text, carried as base64.
+ *
+ * Every other fixture in here is a string because that is what it is. An image
+ * cannot be: both upload paths would encode the string as UTF-8, and a PNG's
+ * signature alone has three bytes above 127, so what reached the app would be
+ * mangled and the browser would have nothing it could decode.
+ */
+export interface BinaryFile {
+	base64: string;
+}
+
+export type ProjectFiles = Record<string, string | BinaryFile>;
 
 const _sampleProjectContents = {
 	// Valid single file projects
@@ -106,14 +118,22 @@ const _sampleProjectContents = {
 };
 export type ProjectName = keyof typeof _sampleProjectContents;
 
-// magic to make { [f1]: content } | { [f2]: content } => { [f1]: { content, type } } | { [f2]: { content, type } }
+/** A file as the upload paths want it: one string, plus how to read it. */
+interface StagedFile {
+	content: string;
+	type: string;
+	/** True when `content` is base64 rather than the bytes themselves. */
+	base64: boolean;
+}
+
+// magic to make { [f1]: content } | { [f2]: content } => { [f1]: StagedFile } | { [f2]: StagedFile }
 // and *not* { [f1] | [f2]: content }
 type Projectified<T> = T extends unknown
-	? { [K in keyof T]: { content: T[K]; type: string } }
+	? { [K in keyof T]: StagedFile }
 	: never;
 
-function projectify<T extends Record<string, string>>(project: T) {
-	const o = {} as Record<keyof T, { content: string; type: string }>;
+function projectify<T extends ProjectFiles>(project: T) {
+	const o = {} as Record<keyof T, StagedFile>;
 
 	const mimeTypes = {
 		json: "application/json",
@@ -126,7 +146,8 @@ function projectify<T extends Record<string, string>>(project: T) {
 	};
 
 	for (const path in project) {
-		const content = project[path];
+		const value = project[path];
+		const base64 = typeof value !== "string";
 
 		const extn = path.match(/.+\.([^.]+)$/);
 		const type =
@@ -134,17 +155,14 @@ function projectify<T extends Record<string, string>>(project: T) {
 				? mimeTypes.txt
 				: (mimeTypes[extn[1] as keyof typeof mimeTypes] ?? mimeTypes.txt);
 
-		o[path] = { content, type };
+		o[path] = { content: base64 ? value.base64 : value, type, base64 };
 	}
 
 	return o as Projectified<T>;
 }
 
 const sampleProjects = (() => {
-	const o = {} as Record<
-		ProjectName,
-		Record<string, { content: string; type: string }>
-	>;
+	const o = {} as Record<ProjectName, Record<string, StagedFile>>;
 	for (const projectName in _sampleProjectContents) {
 		o[projectName as ProjectName] = projectify(
 			_sampleProjectContents[projectName as ProjectName],
@@ -276,8 +294,12 @@ export async function uploadWithFilePicker(
 			);
 		}
 		relPathsByName[name] = path;
-		const { content, type } = projectFiles[path];
-		payload.push({ name, mimeType: type, buffer: Buffer.from(content) });
+		const { content, type, base64 } = projectFiles[path];
+		payload.push({
+			name,
+			mimeType: type,
+			buffer: Buffer.from(content, base64 ? "base64" : "utf8"),
+		});
 	}
 
 	await stageRelativePaths(page, relPathsByName);
@@ -320,8 +342,11 @@ export async function uploadWithDragAndDrop(
 
 			const dt = new DataTransfer();
 			for (const path in fileData) {
-				const { content, type } = fileData[path];
-				dt.items.add(new File([content], path, { type }));
+				const { content, type, base64 } = fileData[path];
+				const body: BlobPart = base64
+					? Uint8Array.from(atob(content), c => c.charCodeAt(0))
+					: content;
+				dt.items.add(new File([body], path, { type }));
 			}
 
 			for (const type of ["dragenter", "dragover", "drop"]) {

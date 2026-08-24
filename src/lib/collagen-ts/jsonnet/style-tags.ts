@@ -8,12 +8,16 @@
 
 import { styleTags, tags as t } from "@lezer/highlight";
 
+// Every key here must name a node the grammar actually produces, or it is a
+// silent no-op. This grammar has no `VariableName` or `Keyword` node — plain
+// names are `Identifier`, and keywords are @specialize'd into their own node
+// types — and it has no content-aware nodes for manifest keys such as `attrs`.
 export const jsonnetStyleTags = styleTags({
 	LineComment: t.lineComment,
-	VariableName: t.variableName,
+	BlockComment: t.blockComment,
 	Boolean: t.bool,
 	String: t.string,
-	Keyword: t.keyword,
+	TextBlock: t.string,
 	"( )": t.paren,
 	"[ ]": t.bracket,
 	"{ }": t.brace,
@@ -22,6 +26,4 @@ export const jsonnetStyleTags = styleTags({
 	self: t.self,
 	Number: t.number,
 	null: t.null,
-	"CallExpression/VariableName": t.function(t.variableName),
-	"attrs children tag": t.attributeName,
 });

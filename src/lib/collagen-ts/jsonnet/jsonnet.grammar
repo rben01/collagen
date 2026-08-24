@@ -57,6 +57,7 @@ expression[@isGroup=Expression] {
   Super |
   Dollar |
   String |
+  TextBlock |
   Number |
   Identifier
 }
@@ -75,12 +76,16 @@ ObjectExpression {
   "{" objBody? "}"
 }
 
-// TODO: ObjectComprehension conflicts with Field syntax - needs manual resolution
-// ObjectComprehension would be: { [expression]: expression for x in expression }
-// This conflicts with Field: { [expression]: expression }
+// Object comprehensions share `objBody` with ordinary objects rather than
+// getting their own rule, which would need a GLR conflict marker to tell
+// `{ [k]: v }` from `{ [k]: v for x in xs }` on one token of lookahead. The
+// cost is that this grammar also accepts `{ a: 1, [k]: 2 for x in xs }`, which
+// Jsonnet rejects ("object comprehension must have a single field with a
+// dynamic key"). Being looser than the evaluator is safe here; being stricter
+// is not, which is what the missing `/` operator used to be.
 
 objBody {
-  objMember objRest* ","?
+  objMember objRest* ","? (forSpec compSpec*)?
 }
 
 objRest {
@@ -153,7 +158,9 @@ IndexExpression {
 }
 
 SliceExpression {
-  expression !member "[" expression? ":" expression? (":" expression?)? "]"
+  expression !member "[" expression?
+    (":" expression? (":" expression?)? | "::" expression?)
+  "]"
 }
 
 SuperMemberExpression {
@@ -213,7 +220,7 @@ ConditionalExpression {
 
 // Binary expressions
 BinaryExpression {
-  expression !times (times { "*" } | mod { "%" }) expression |
+  expression !times (times { "*" } | div { "/" } | mod { "%" }) expression |
   expression !plus (plus { "+" } | minus { "-" }) expression |
   expression !shift (lshift { "<<" } | rshift { ">>" }) expression |
   expression !compare (lt { "<" } | le { "<=" } | gt { ">" } | ge { ">=" } | kw<"in">) expression |
@@ -255,7 +262,7 @@ param {
 
 // Assert expression
 AssertExpression {
-  kw<"assert"> expression ";" expression
+  kw<"assert"> expression (":" expression)? ";" expression
 }
 
 // Import expressions
@@ -289,10 +296,15 @@ ParenthesizedExpression {
 // Keywords helper - produces specialized tokens from identifier
 kw<word> { @specialize[@name={word}]<identifier, word> }
 
+@external tokens textBlock from "./text-block-tokenizer.js" { TextBlock }
+
 @skip { space | LineComment | BlockComment }
 
 @tokens {
-  // Comments first (more specific patterns for / character)
+  // `//` and `/*` must win over the `/` division operator. Longest-match alone
+  // does not settle it, because both can start a token in the same context.
+  @precedence { LineComment, BlockComment, "/" }
+
   LineComment { "#" ![\n\r]* | "//" ![\n\r]* }
 
   BlockComment { "/*" blockCommentRest }
@@ -314,15 +326,12 @@ kw<word> { @specialize[@name={word}]<identifier, word> }
     @digit+ ("." @digit+)? ($[eE] $[+-]? @digit+)?
   }
 
-  // Strings - all forms except text blocks
-  // TODO: Text blocks (|||..|||) require external tokenization
-  // due to complex indentation-based content rules
+  // Text blocks are handled by the external tokenizer above.
   String {
     doubleQuotedString |
     singleQuotedString |
     verbatimDoubleQuotedString |
     verbatimSingleQuotedString
-    // | textBlockString  // Commented out - needs external tokenizer
   }
 
   doubleQuotedString {
@@ -346,15 +355,16 @@ kw<word> { @specialize[@name={word}]<identifier, word> }
 
 
   stringEscape {
-    "\\" ($["'\\bfnrt/] | "u" @digit @digit @digit @digit)
+    "\\" ($["'\\bfnrt/] | "u" hex hex hex hex)
   }
+
+  hex { $[0-9a-fA-F] }
 
   // Single-character symbols
   "{" "}" "[" "]" "," "." "(" ")" ";"
 
   // Operators - order matters for tokenization
-  "+" "-" "*" "%"
-  // "/" is handled implicitly due to comment conflicts
+  "+" "-" "*" "%" "/"
   "<<" ">>"
   "<" "<=" ">" ">=" "==" "!="
   "&" "^" "|"

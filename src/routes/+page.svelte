@@ -14,12 +14,29 @@
 	import SvgDisplay from "$lib/components/SvgDisplay.svelte";
 	import TextEditor from "$lib/components/TextEditor.svelte";
 	import UploadErrorPane from "$lib/components/UploadErrorPane.svelte";
+	import ControlButton from "$lib/components/ControlButton.svelte";
+	import GuiEditor from "$lib/components/editor/GuiEditor.svelte";
+	import { EditorState } from "$lib/components/editor/editor-state.svelte.js";
 	import { onMount, tick, untrack } from "svelte";
 
 	type SideViewerState =
 		| null // SVG viewer (default)
 		| { type: "textEditor"; filePath: string }
 		| { type: "imageViewer"; imagePath: string };
+
+	/**
+	 * Which editor the main pane shows.
+	 *
+	 * Both write the same manifest file, so the two stay in step through the
+	 * regeneration effect below rather than through anything of their own.
+	 */
+	let mode = $state<"view" | "gui">("view");
+
+	/**
+	 * Held here rather than inside the editor so a selection survives toggling
+	 * to the text editor and back.
+	 */
+	const editorState = new EditorState();
 
 	let error: string | null = $state(null);
 	let showLoading = $state(false);
@@ -128,6 +145,8 @@
 		width: number;
 		height: number;
 	} | null>(null);
+
+	let started = $derived(filesData.fs.getFileCount() > 0);
 
 	// Derived values for template compatibility
 	let editorPath = $derived(
@@ -263,11 +282,27 @@
 	<meta name="description" content="An easier way to generate SVG" />
 </svelte:head>
 
+{#snippet modeToggle()}
+	<div class="mode-bar control-group" role="group" aria-label="Editing mode">
+		<ControlButton
+			action="gui-mode"
+			ariaLabel="Visual editor"
+			title="Edit visually"
+			active={mode === "gui"}
+			onclick={() => (mode = "gui")}
+		/>
+		<ControlButton
+			action="code-mode"
+			ariaLabel="Rendered output"
+			title="Show the rendered SVG"
+			active={mode === "view"}
+			onclick={() => (mode = "view")}
+		/>
+	</div>
+{/snippet}
+
 <main>
-	<div
-		class="app-layout"
-		class:started={filesData && filesData.fs.getFileCount() > 0}
-	>
+	<div class="app-layout" class:started>
 		{#snippet svgViewerContent(
 			controlsVisible: boolean,
 			compact: boolean,
@@ -371,9 +406,22 @@
 					/>
 				{/snippet}
 				<RightPane ariaLabelContent="Image viewer" content={imageContent} />
+			{:else if mode === "gui"}
+				{#snippet guiContent()}
+					<div class="mode-shell">
+						{@render modeToggle()}
+						<GuiEditor bind:filesData editor={editorState} />
+					</div>
+				{/snippet}
+				<RightPane ariaLabelContent="Visual editor" content={guiContent} />
 			{:else}
 				{#snippet rightViewer()}
-					{@render svgViewerContent(true, false, true)}
+					<div class="mode-shell">
+						{#if started}
+							{@render modeToggle()}
+						{/if}
+						{@render svgViewerContent(true, false, true)}
+					</div>
 				{/snippet}
 				<RightPane
 					ariaLabelContent="Generated SVG display"
@@ -461,6 +509,24 @@
 	}
 
 	/* right pane styling handled by RightPane */
+
+	.mode-shell {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+	}
+
+	/* Its own row rather than a slot in the viewer's toolbar: this chooses which
+	   editor is on screen, so it outranks that toolbar, and it has to stay
+	   reachable when the viewer is showing an error instead of a drawing. */
+	.mode-bar {
+		justify-content: flex-end;
+		padding: 0.375rem 0.5rem;
+		background: #f3f4f6;
+		border-bottom: 1px solid #e5e7eb;
+	}
 
 	.waiting-state {
 		flex: 1;

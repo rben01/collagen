@@ -37,6 +37,14 @@ As with most terminal commands, you can terminate it with kbd:[Ctrl-C].
 
 https://rben01.github.io/collagen/docs[Up and Running With Collagen] walks through several examples that serve as a good starting point for creating a manifest.
 You can try them out immediately in the https://rben01.github.io/collagen[in-browser editor].
+
+The in-browser editor has two modes.
+Write the manifest as text, or edit the image directly: drag shapes to move them, drag their handles to resize them, draw new ones, place any image from your project, and reorder layers.
+Both modes edit the same manifest file, so you can switch between them at any time.
+
+Direct editing writes back into your manifest as a text edit, which leaves your comments, formatting, variables, and imports alone.
+When several elements come from one loop, the editor says so and edits the loop body, so all of them change together.
+To change one of them on its own, detach the loop, which replaces it with the elements it produced.
 More examples are available as test cases in `tests/examples`.
 
 

@@ -28,6 +28,7 @@ npm run check                  # svelte-check + sveltekit sync
 npm run test:unit:run          # vitest, once
 npm run test:e2e:run:chromium  # playwright, chromium only (much faster)
 npm run build:cli              # bundle src/cli/ -> dist/cli.js
+npm run build:parser           # regenerate the Lezer Jsonnet parser
 ```
 
 Never type `npx` yourself; always go through `npm run ...`. (Some scripts use
@@ -114,6 +115,49 @@ nested skeleton must be able to import a file above itself (`random-gibberish`
 imports a library shared across the whole skeleton). Re-rooting a copy at the
 container breaks that, which is how it broke before. Jsonnet imports resolve
 against the manifest's own directory, not the filesystem root.
+
+**The Jsonnet grammar must never reject what sjsonnet accepts.** The two
+disagreed for a long time: `jsonnet.grammar` had no `/` operator, so `width / 2`
+produced error nodes while sjsonnet evaluated it happily. Everything built on
+the parse tree then silently skipped real code. Being _looser_ than sjsonnet is
+safe — the grammar accepts a malformed object comprehension that Jsonnet
+rejects, and sjsonnet reports the real error. Being stricter is not.
+`__tests__/jsonnet-grammar.test.ts` pins this down by parsing and evaluating the
+same constructs and comparing the two. After editing the grammar, run
+`npm run build:parser`.
+
+**The visual editor finds elements by instrumenting the source.**
+`manifest/provenance.ts` inserts a `__clgn_src` field into every tag-shaped
+object literal, evaluates _that_, and reads the marker back off each object.
+Objects carry their fields wherever they flow, so all N elements a loop produces
+share one marker — which is the grouping signal. Things to know:
+
+- **Grouping is marker multiplicity, not "came from a loop".**
+  `local mk(c) = {tag: "rect", fill: c}; children: [mk("red"), mk("blue")]`
+  groups too, with no comprehension anywhere. Only a comprehension can be
+  detached; shared code cannot.
+- **Only object literals holding a tag key get a marker** (`tag`, `image_path`,
+  `attrs`, `children`, and so on). Marking everything would perturb evaluation,
+  because an extra field is observable through `std.objectFields`, `std.length`,
+  object equality, and `std.manifestJson`. Narrowing is what keeps the fallback
+  rare rather than routine.
+- **Four gates guard it**, and each failure still returns the plain evaluation
+  so the canvas keeps rendering. Losing provenance costs write-back, nothing
+  else.
+- **The marker never reaches validation.** Callers get a stripped tree plus a
+  separate path map, so nothing downstream has to tolerate a foreign key — and
+  no marker can leak into an XML attribute.
+- `generateSvg`'s `annotate` option stamps `data-clgn-path`. **It is off by
+  default**, or `tests/examples/*/out.svg` stops matching byte for byte.
+- Paths (`children[1].children[0]`) come from two separate walks — the marker
+  harvest and SVG generation. They must agree on every string, or hit-testing
+  selects the wrong element. Tests compare them directly.
+
+**Manifest edits are text splices, never re-serialization.** A Lezer tree is
+read-only and holds no whitespace, so printing one back out destroys comments,
+formatting, and every `local` in the file. `manifest/edit.ts` splices at node
+offsets instead, and matches the file's own indent, quote, and trailing-comma
+style, because the shipped examples genuinely disagree about all three.
 
 **Some files are vendored or generated — don't hand-edit.**
 

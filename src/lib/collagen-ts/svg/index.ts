@@ -37,6 +37,56 @@ import impactB64Url from "$lib/fonts/impact.woff2?url";
 export interface SvgGenerationContext {
 	filesystem: InMemoryFileSystem;
 	currentDir: string; // Current directory context for resolving relative paths
+	/**
+	 * Stamp every element with the manifest path that produced it, for the
+	 * visual editor to hit-test against.
+	 *
+	 * Off by default, so ordinary output stays byte for byte what it was.
+	 */
+	annotate?: boolean;
+}
+
+/**
+ * Add the editor's provenance attribute to a tag's attributes.
+ *
+ * Appended last so a manifest that happens to set `data-clgn-path` itself
+ * cannot shadow the real one, matching how `generateImageTag` guarantees its
+ * own `href` wins.
+ */
+function annotated(
+	attrs: XmlAttrs,
+	context: SvgGenerationContext,
+	path: string,
+	opaque: boolean = false,
+): XmlAttrs {
+	if (!context.annotate) return attrs;
+	return opaque
+		? { ...attrs, "data-clgn-path": path, "data-clgn-opaque": "" }
+		: { ...attrs, "data-clgn-path": path };
+}
+
+/**
+ * The path of the `i`th child of `parentPath`.
+ *
+ * Kept identical to `manifest/provenance.ts`'s `childPath`, since the two walks
+ * have to agree on every string for hit-testing to resolve.
+ */
+function childPath(parentPath: string, i: number): string {
+	return parentPath === "" ? `children[${i}]` : `${parentPath}.children[${i}]`;
+}
+
+/** Generate each child of a tag, numbering them for provenance. */
+async function generateChildren(
+	children: AnyChildTag[],
+	context: SvgGenerationContext,
+	path: string,
+): Promise<string> {
+	const parts = await Promise.all(
+		Array.from({ length: children.length }, (_, i) =>
+			generateAnyChildTag(children[i], context, childPath(path, i)),
+		),
+	);
+	return parts.join("");
 }
 
 // =============================================================================
@@ -100,15 +150,17 @@ function writeTextContent(text: string): string {
 async function generateGenericTag(
 	tag: GenericTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
-	const childrenContent = await Promise.all(
-		tag.children.map(child => generateAnyChildTag(child, context)),
-	);
-
-	const content = childrenContent.join("");
+	const content = await generateChildren(tag.children, context, path);
 	const isSelfClosing = content === "" && isSelfClosingTag(tag.tagName);
 
-	return writeTag(tag.tagName, tag.attrs, content, isSelfClosing);
+	return writeTag(
+		tag.tagName,
+		annotated(tag.attrs, context, path),
+		content,
+		isSelfClosing,
+	);
 }
 
 /** Generate SVG for a text tag */
@@ -116,6 +168,8 @@ async function generateTextTag(
 	tag: TextTag,
 	_context: SvgGenerationContext,
 ): Promise<string> {
+	// Bare escaped text, so there is no element to carry a path. The editor
+	// attributes text to its parent element and edits it from there.
 	return writeTextContent(tag.text);
 }
 
@@ -123,6 +177,7 @@ async function generateTextTag(
 async function generateImageTag(
 	tag: ImageTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
 	try {
 		// Resolve image path relative to current directory
@@ -139,14 +194,13 @@ async function generateImageTag(
 		const dataUri = `data:image/${imageKind};base64,${base64Data}`;
 
 		// Create image attributes
-		const imageAttrs: XmlAttrs = { ...tag.attrs, href: dataUri };
-
-		// Generate child content
-		const childrenContent = await Promise.all(
-			tag.children.map(child => generateAnyChildTag(child, context)),
+		const imageAttrs: XmlAttrs = annotated(
+			{ ...tag.attrs, href: dataUri },
+			context,
+			path,
 		);
 
-		const content = childrenContent.join("");
+		const content = await generateChildren(tag.children, context, path);
 		return writeTag("image", imageAttrs, content, content === "");
 	} catch (error) {
 		throw new ImageError(
@@ -159,6 +213,7 @@ async function generateImageTag(
 async function generateContainerTag(
 	tag: ContainerTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
 	try {
 		// Resolve container path relative to current directory
@@ -170,17 +225,25 @@ async function generateContainerTag(
 		const nestedRootTag =
 			await nestedContext.filesystem.generateRootTag(resolvedPath);
 
-		// Generate children content (not the full SVG wrapper)
-		const childrenContent = await Promise.all(
-			nestedRootTag.children.map(child =>
-				generateAnyChildTag(child, nestedContext),
+		// Generate children content (not the full SVG wrapper).
+		//
+		// The nested children come from a different manifest, so the outer
+		// path does not extend into them. The group is marked opaque and the
+		// editor resolves any hit inside it to the container itself.
+		const nestedContent = await Promise.all(
+			Array.from({ length: nestedRootTag.children.length }, (_, i) =>
+				generateAnyChildTag(nestedRootTag.children[i], nestedContext, ""),
 			),
 		);
 
-		const content = childrenContent.join("");
+		const content = nestedContent.join("");
 
 		// Wrap in a group with the nested root's attributes
-		return writeTag("g", nestedRootTag.attrs, content);
+		return writeTag(
+			"g",
+			annotated(nestedRootTag.attrs, context, path, true),
+			content,
+		);
 	} catch (error) {
 		throw new XmlError(
 			`Failed to process container at ${tag.clgnPath}: ${String(error)}`,
@@ -192,6 +255,7 @@ async function generateContainerTag(
 async function generateFontTag(
 	tag: FontTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
 	try {
 		let styleContent = "";
@@ -227,7 +291,11 @@ async function generateFontTag(
 		}
 
 		const fullStyleContent = `<style>${styleContent}</style>`;
-		return writeTag("defs", tag.attrs, fullStyleContent);
+		return writeTag(
+			"defs",
+			annotated(tag.attrs, context, path),
+			fullStyleContent,
+		);
 	} catch (error) {
 		throw new FontError(`Failed to process fonts: ${String(error)}`);
 	}
@@ -237,6 +305,7 @@ async function generateFontTag(
 async function generateNestedSvgTag(
 	tag: NestedSvgTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
 	try {
 		// Resolve SVG path relative to current directory
@@ -251,8 +320,12 @@ async function generateNestedSvgTag(
 		// Remove XML header if present
 		svgText = svgText.replace(/^\s*<\?xml.*?\?>/i, "").trim();
 
-		// Wrap in group with attributes
-		return writeTag("g", tag.attrs, svgText);
+		// Wrap in group with attributes.
+		//
+		// The file's contents are spliced in unparsed, so anything inside is
+		// foreign and may carry its own `data-clgn-*`. The group is marked
+		// opaque so the editor never trusts a path found within it.
+		return writeTag("g", annotated(tag.attrs, context, path, true), svgText);
 	} catch (error) {
 		throw new XmlError(
 			`Failed to process nested SVG at ${tag.svgPath}: ${String(error)}`,
@@ -264,20 +337,21 @@ async function generateNestedSvgTag(
 async function generateAnyChildTag(
 	tag: AnyChildTag,
 	context: SvgGenerationContext,
+	path: string,
 ): Promise<string> {
 	switch (tag.type) {
 		case "generic":
-			return generateGenericTag(tag, context);
+			return generateGenericTag(tag, context, path);
 		case "text":
 			return generateTextTag(tag, context);
 		case "image":
-			return generateImageTag(tag, context);
+			return generateImageTag(tag, context, path);
 		case "container":
-			return generateContainerTag(tag, context);
+			return generateContainerTag(tag, context, path);
 		case "font":
-			return generateFontTag(tag, context);
+			return generateFontTag(tag, context, path);
 		case "nested-svg":
-			return generateNestedSvgTag(tag, context);
+			return generateNestedSvgTag(tag, context, path);
 		default: {
 			// TypeScript exhaustiveness check
 			const _exhaustive: never = tag;
@@ -296,10 +370,12 @@ async function generateAnyChildTag(
 export async function generateSvg(
 	rootTag: RootTag,
 	filesystem: InMemoryFileSystem,
+	options: { annotate?: boolean } = {},
 ): Promise<string> {
 	const context: SvgGenerationContext = {
 		filesystem,
 		currentDir: "", // Start at root directory
+		annotate: options.annotate,
 	};
 
 	// Ensure xmlns attribute is present
@@ -308,13 +384,8 @@ export async function generateSvg(
 		...rootTag.attrs,
 	};
 
-	// Generate children content
-	const childrenContent = await Promise.all(
-		rootTag.children.map(child => generateAnyChildTag(child, context)),
-	);
-
-	const content = childrenContent.join("");
-	return writeTag("svg", svgAttrs, content);
+	const content = await generateChildren(rootTag.children, context, "");
+	return writeTag("svg", annotated(svgAttrs, context, ""), content);
 }
 
 // =============================================================================
