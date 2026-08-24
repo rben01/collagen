@@ -245,7 +245,10 @@
 	function applyEdits(
 		path: string,
 		edits: AttrEdit[],
-		{ quiet = false }: { quiet?: boolean } = {},
+		{
+			quiet = false,
+			overrideComputed = true,
+		}: { quiet?: boolean; overrideComputed?: boolean } = {},
 	): boolean {
 		const target = readManifest();
 		const brace = braceFor(path);
@@ -267,6 +270,7 @@
 				brace,
 				edit.key,
 				edit.value,
+				{ overrideComputed },
 			);
 			if (!outcome.ok) {
 				if (!quiet) editor.notice = outcome.reason;
@@ -300,8 +304,16 @@
 
 		// Editing `x` and `y` is preferred: those are what the author wrote and
 		// what they will read back.
+		// `overrideComputed: false` matters for an element a loop produced. A
+		// drag is a relative motion, and merging an absolute coordinate onto
+		// the shared template would stack every instance on one spot.
 		const direct = translateEdits(tagName, attrs, dx, dy);
-		if (direct && applyEdits(path, direct, { quiet: true })) return;
+		if (
+			direct &&
+			applyEdits(path, direct, { quiet: true, overrideComputed: false })
+		) {
+			return;
+		}
 
 		// They may be expressions, though, as anything inside a loop usually is.
 		// A transform composes on top of whatever they evaluate to, so dragging
@@ -331,7 +343,9 @@
 			editor.notice = `A <${tagName}> has no width and height to set. Move it instead, or edit it as text.`;
 			return;
 		}
-		applyEdits(path, edits);
+		// Same reasoning as a move: an absolute size merged onto a shared
+		// template would make every instance identical.
+		applyEdits(path, edits, { overrideComputed: false });
 	}
 
 	/**
@@ -472,12 +486,25 @@
 			rootBrace,
 			childCount,
 			elementText,
+			// The evaluated manifest settles what a computed `children` really
+			// is, which the source alone cannot say.
+			{ childrenAreList: rootChildrenAreList() },
 		);
 		commitOutcome(outcome, target.path);
 		if (outcome.ok) {
 			editor.tool = "select";
 			editor.select(`children[${childCount}]`);
 		}
+	}
+
+	/** Does the root's `children` evaluate to a list, rather than a lone child? */
+	function rootChildrenAreList(): boolean {
+		if (manifest === null || typeof manifest !== "object") return true;
+		const children = (manifest as Record<string, JsonObject>).children;
+		// Absent children become a new list, so either answer serves.
+		return children === undefined || children === null
+			? true
+			: Array.isArray(children);
 	}
 
 	function handleSetAttr(key: string, value: string) {

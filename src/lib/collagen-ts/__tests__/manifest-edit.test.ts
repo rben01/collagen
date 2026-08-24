@@ -181,30 +181,56 @@ describe("setAttribute when the key is missing", () => {
 	});
 });
 
-describe("setAttribute when it cannot splice", () => {
-	it("refuses to overwrite a computed value, and says what it is", () => {
-		const source = "{ tag: 'rect', attrs: { x: cx + dx } }";
-		const outcome = setAttribute(source, 0, "x", 5);
-		expect(outcome.ok).toBe(false);
-		if (outcome.ok) return;
-		expect(outcome.blockedBy).toBe("computed");
-		expect(outcome.reason).toContain("cx + dx");
+describe("setAttribute when the value is not a literal", () => {
+	it("merges over a computed value rather than destroying it", () => {
+		const source =
+			"local cx = 1; local dx = 2; { tag: 'rect', attrs: { x: cx + dx } }";
+		const brace = source.indexOf("{ tag:");
+		const outcome = setAttribute(source, brace, "x", 5);
+		if (!outcome.ok) throw new Error(outcome.reason);
+
+		// The expression survives; the merge decides the value.
+		expect(outcome.source).toContain("x: cx + dx");
+		expect(evaluate(outcome.source)).toEqual({
+			tag: "rect",
+			attrs: { x: 5 },
+		});
 	});
 
-	it("refuses when attrs itself is computed", () => {
-		const source = "{ tag: 'rect', attrs: makeAttrs(1) }";
-		const outcome = setAttribute(source, 0, "x", 5);
-		expect(outcome.ok).toBe(false);
-		if (outcome.ok) return;
-		expect(outcome.blockedBy).toBe("computed");
+	it("lets the override be removed again, restoring the expression", () => {
+		const source =
+			"local cx = 1; local dx = 2; { tag: 'rect', attrs: { x: cx + dx } }";
+		const brace = source.indexOf("{ tag:");
+		const set = setAttribute(source, brace, "x", 5);
+		if (!set.ok) throw new Error(set.reason);
+		const unset = removeAttribute(set.source, brace, "x");
+		if (!unset.ok) throw new Error(unset.reason);
+
+		expect(evaluate(unset.source)).toEqual({ tag: "rect", attrs: { x: 3 } });
 	});
 
-	it("refuses to add a key beside a computed one, which could collide", () => {
-		const source = "{ tag: 'rect', attrs: { [k]: 1 } }";
-		const outcome = setAttribute(source, 0, "x", 5);
-		expect(outcome.ok).toBe(false);
-		if (outcome.ok) return;
-		expect(outcome.blockedBy).toBe("dynamic-key");
+	it("merges beside a computed key rather than risking a duplicate", () => {
+		// Two fields of one name is an error, and `[k]` might turn out to be
+		// the key being added. A merge cannot collide.
+		const source = "local k = 'fill'; { tag: 'rect', attrs: { [k]: 'red' } }";
+		const brace = source.indexOf("{ tag:");
+		const outcome = setAttribute(source, brace, "x", 5);
+		if (!outcome.ok) throw new Error(outcome.reason);
+		expect(evaluate(outcome.source)).toEqual({
+			tag: "rect",
+			attrs: { fill: "red", x: 5 },
+		});
+	});
+
+	it("merges even when the computed key is the one being set", () => {
+		const source = "local k = 'x'; { tag: 'rect', attrs: { [k]: 1 } }";
+		const brace = source.indexOf("{ tag:");
+		const outcome = setAttribute(source, brace, "x", 5);
+		if (!outcome.ok) throw new Error(outcome.reason);
+		expect(evaluate(outcome.source)).toEqual({
+			tag: "rect",
+			attrs: { x: 5 },
+		});
 	});
 
 	it("reports a target that is no longer there", () => {
@@ -339,14 +365,6 @@ describe("insertChild", () => {
 		expect(expectOk(insertChild(source, 0, 1, "{ tag: 'circle' }"))).toBe(
 			"{ tag: 'g', children: [{ tag: 'rect' }, { tag: 'circle' }] }",
 		);
-	});
-
-	it("refuses to insert into a loop, and says to detach it", () => {
-		const source = "{ children: [{ tag: 'c' } for i in std.range(0, 2)] }";
-		const outcome = insertChild(source, 0, 0, "{ tag: 'rect' }");
-		expect(outcome.ok).toBe(false);
-		if (outcome.ok) return;
-		expect(outcome.reason).toContain("Detach");
 	});
 });
 
@@ -788,5 +806,191 @@ describe("printElement", () => {
 		const svg = await fs.generateSvg();
 		expect(svg).toContain("<image");
 		expect(svg).toContain('x="1"');
+	});
+});
+
+describe("editing around computed values", () => {
+	/** Evaluate and return the children the manifest produces. */
+	function childrenOf(source: string): unknown[] {
+		const result = evaluate(source) as { children: unknown[] };
+		return result.children;
+	}
+
+	describe("insertChild appends rather than refusing", () => {
+		it("joins the elements a loop produces, leaving the loop alone", () => {
+			const source =
+				"{ children: [{ tag: 'c', i: i } for i in std.range(0, 2)] }";
+			const outcome = insertChild(source, 0, 3, "{ tag: 'new' }");
+			if (!outcome.ok) throw new Error(outcome.reason);
+
+			expect(outcome.source).toContain("for i in std.range(0, 2)");
+			expect(outcome.source).toContain("+ [{ tag: 'new' }]");
+
+			const children = childrenOf(outcome.source);
+			expect(children).toHaveLength(4);
+			expect(children[3]).toEqual({ tag: "new" });
+		});
+
+		it("puts it first when asked for index zero", () => {
+			const source =
+				"{ children: [{ tag: 'c', i: i } for i in std.range(0, 1)] }";
+			const outcome = insertChild(source, 0, 0, "{ tag: 'new' }");
+			if (!outcome.ok) throw new Error(outcome.reason);
+
+			const children = childrenOf(outcome.source);
+			expect(children[0]).toEqual({ tag: "new" });
+			expect(children).toHaveLength(3);
+		});
+
+		it("joins what a function returns", () => {
+			const source = "local rows() = [{ tag: 'a' }]; { children: rows() }";
+			const outcome = insertChild(
+				source,
+				source.indexOf("{ children"),
+				1,
+				"{ tag: 'new' }",
+			);
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(childrenOf(outcome.source)).toEqual([
+				{ tag: "a" },
+				{ tag: "new" },
+			]);
+		});
+
+		it("lands inside the same literal when appending twice", () => {
+			// Otherwise the manifest grows `+ [..] + [..] + [..]`.
+			const source = "{ children: [{ i: i } for i in std.range(0, 0)] }";
+			const first = insertChild(source, 0, 1, "{ tag: 'a' }");
+			if (!first.ok) throw new Error(first.reason);
+			const second = insertChild(first.source, 0, 2, "{ tag: 'b' }");
+			if (!second.ok) throw new Error(second.reason);
+
+			expect(second.source.match(/\+ \[/g)).toHaveLength(1);
+			expect(childrenOf(second.source)).toEqual([
+				{ i: 0 },
+				{ tag: "a" },
+				{ tag: "b" },
+			]);
+		});
+
+		it("wraps a lone computed child rather than concatenating onto it", () => {
+			// `"text" + [x]` does not fail in Jsonnet, it stringifies, so a
+			// computed value that is not a list has to be wrapped.
+			const source = "local caption = 'hi'; { children: caption }";
+			const outcome = insertChild(
+				source,
+				source.indexOf("{ children"),
+				1,
+				"{ tag: 'new' }",
+				{ childrenAreList: false },
+			);
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(childrenOf(outcome.source)).toEqual(["hi", { tag: "new" }]);
+		});
+	});
+
+	describe("setAttribute merges onto computed attrs", () => {
+		it("sets an entry without disturbing the expression", () => {
+			const source =
+				"local base() = { fill: 'red' }; { tag: 'r', attrs: base() }";
+			const brace = source.indexOf("{ tag:");
+			const outcome = setAttribute(source, brace, "x", 5);
+			if (!outcome.ok) throw new Error(outcome.reason);
+
+			expect(outcome.source).toContain("base() + { x: 5 }");
+			expect(evaluate(outcome.source)).toEqual({
+				tag: "r",
+				attrs: { fill: "red", x: 5 },
+			});
+		});
+
+		it("reuses the merge object on a second edit", () => {
+			const source =
+				"local base() = { fill: 'red' }; { tag: 'r', attrs: base() }";
+			const brace = source.indexOf("{ tag:");
+			const first = setAttribute(source, brace, "x", 5);
+			if (!first.ok) throw new Error(first.reason);
+			const second = setAttribute(first.source, brace, "y", 9);
+			if (!second.ok) throw new Error(second.reason);
+
+			expect(second.source.match(/\+ \{/g)).toHaveLength(1);
+			expect(evaluate(second.source)).toEqual({
+				tag: "r",
+				attrs: { fill: "red", x: 5, y: 9 },
+			});
+		});
+
+		it("overrides a value the expression already set", () => {
+			const source = "local base() = { x: 1 }; { tag: 'r', attrs: base() }";
+			const brace = source.indexOf("{ tag:");
+			const outcome = setAttribute(source, brace, "x", 42);
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(evaluate(outcome.source)).toEqual({
+				tag: "r",
+				attrs: { x: 42 },
+			});
+		});
+
+		it("still edits an adjacency merge in place", () => {
+			// `base { x: 1 }` already had a literal body to write into.
+			const source =
+				"local base = { fill: 'red' }; { tag: 'r', attrs: base { x: 1 } }";
+			const brace = source.indexOf("{ tag:");
+			const outcome = setAttribute(source, brace, "x", 7);
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(outcome.source).toContain("base { x: 7 }");
+		});
+	});
+});
+
+describe("overrideComputed tells a typed value from a dragged one", () => {
+	// Four circles from one loop, spaced by an expression.
+	const source = [
+		"{",
+		"\tchildren: [",
+		"\t\t{ tag: 'circle', attrs: { cx: 70 + i * 90, cy: 210, r: 26 } }",
+		"\t\tfor i in std.range(0, 3)",
+		"\t],",
+		"}",
+	].join("\n");
+	const brace = source.indexOf("{ tag:");
+
+	function centres(edited: string): number[] {
+		const result = evaluate(edited) as {
+			children: { attrs: { cx: number } }[];
+		};
+		return result.children.map(child => child.attrs.cx);
+	}
+
+	it("keeps the instances apart when a drag refuses to override", () => {
+		// A drag says "move by so much". Merging an absolute `cx` onto the
+		// template these four share would stack all four on one spot, so the
+		// editor refuses and composes a transform instead.
+		const outcome = setAttribute(source, brace, "cx", 160, {
+			overrideComputed: false,
+		});
+		expect(outcome.ok).toBe(false);
+		if (outcome.ok) return;
+		expect(outcome.blockedBy).toBe("computed");
+		expect(centres(source)).toEqual([70, 160, 250, 340]);
+	});
+
+	it("does override when someone types the value, which means all of them", () => {
+		const outcome = setAttribute(source, brace, "cx", 160);
+		if (!outcome.ok) throw new Error(outcome.reason);
+		// Every instance takes the typed value, which is what editing a shared
+		// template means, and the banner says so before the edit is made.
+		expect(centres(outcome.source)).toEqual([160, 160, 160, 160]);
+	});
+
+	it("still splices a literal when a drag can reach one", () => {
+		// `cy` is a plain number, so a drag edits it directly rather than
+		// reaching for a transform.
+		const outcome = setAttribute(source, brace, "cy", 240, {
+			overrideComputed: false,
+		});
+		if (!outcome.ok) throw new Error(outcome.reason);
+		expect(outcome.source).toContain("cy: 240");
+		expect(outcome.source).toContain("cx: 70 + i * 90");
 	});
 });

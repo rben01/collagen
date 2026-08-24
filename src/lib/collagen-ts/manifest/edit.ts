@@ -38,10 +38,15 @@ import {
 export type BlockReason =
 	/** Nothing is at the offset the editor asked about. */
 	| "not-found"
-	/** The value is an expression, so overwriting it would destroy a computation. */
-	| "computed"
-	/** The object builds its keys dynamically, so inserting one risks a duplicate. */
-	| "dynamic-key";
+	/**
+	 * There is nothing here to change.
+	 *
+	 * Note that a computed *value* is no longer a refusal: an attribute can be
+	 * merged over, and children can be appended to. This is for the cases where
+	 * the manifest decides something as it runs and no splice can reach it --
+	 * removing or reordering children a loop produced, say.
+	 */
+	| "computed";
 
 export type EditOutcome =
 	| { ok: true; source: string }
@@ -143,6 +148,20 @@ function splice(
 	return source.slice(0, from) + text + source.slice(to);
 }
 
+/**
+ * The literal on the right of a `<something> + <literal>` expression.
+ *
+ * This is how an edit reaches into work it did before. Having appended once,
+ * `children` reads `makeRows() + [{...}]`; appending again must land inside
+ * that array rather than bolting on a second `+ [...]`, or the manifest grows a
+ * chain of them.
+ */
+function appendedLiteral(node: SyntaxNode, kind: string): SyntaxNode | null {
+	if (node.name !== "BinaryExpression" || !node.getChild("+")) return null;
+	const last = node.lastChild;
+	return last && last.name === kind ? last : null;
+}
+
 /** Does this object build any of its keys at evaluation time? */
 function hasDynamicKey(body: ObjectBody, source: string): boolean {
 	for (const field of fieldsOf(body, source)) {
@@ -156,12 +175,20 @@ function hasDynamicKey(body: ObjectBody, source: string): boolean {
  *
  * This is the workhorse: moving, resizing, recoloring, and retyping all reduce
  * to it.
+ *
+ * Where the value is computed, the expression is merged over rather than
+ * destroyed. Pass `overrideComputed: false` to refuse instead, which is what a
+ * drag wants: a drag says "move this by so much", and writing an absolute
+ * coordinate onto a template shared by four elements would stack all four on
+ * the same spot. The caller then falls back to a transform, which is relative
+ * and keeps them apart.
  */
 export function setAttribute(
 	source: string,
 	braceFrom: number,
 	key: string,
 	value: string | number,
+	{ overrideComputed = true }: { overrideComputed?: boolean } = {},
 ): EditOutcome {
 	const target = resolveTarget(source, braceFrom);
 	if (!target) return blocked("not-found", "That element is no longer here.");
@@ -171,32 +198,60 @@ export function setAttribute(
 
 	if (!attrsField) {
 		const member = `${printKey("attrs", style)}: { ${printKey(key, style)}: ${printValue(value, style)} }`;
+		// A computed key might turn out to be `attrs`, and two fields of one
+		// name is an error. Merging cannot collide: the later one simply wins.
 		if (hasDynamicKey(body, source)) {
-			return blocked(
-				"dynamic-key",
-				"This element builds its keys as it runs, so adding `attrs` here could collide with one.",
-			);
+			return {
+				ok: true,
+				source: splice(
+					source,
+					body.node.to,
+					body.node.to,
+					` + { ${member} }`,
+				),
+			};
 		}
 		return { ok: true, source: insertMember(source, body, member, style) };
 	}
 
-	const attrsBody = asObjectBody(attrsField.valueNode);
+	// `attrs` may be computed -- built by a function, or held in a variable.
+	// Jsonnet can merge an object onto whatever it evaluates to, with the right
+	// side winning, so an entry can be set without touching the expression.
+	const merged = appendedLiteral(attrsField.valueNode, "ObjectExpression");
+	const attrsBody = asObjectBody(merged ?? attrsField.valueNode);
 	if (!attrsBody) {
-		return blocked(
-			"computed",
-			`\`attrs\` is computed here (\`${source.slice(attrsField.valueNode.from, attrsField.valueNode.to)}\`), so the editor cannot change one of its entries.`,
-		);
+		if (!overrideComputed) {
+			return blocked(
+				"computed",
+				`\`attrs\` is computed here (\`${source.slice(attrsField.valueNode.from, attrsField.valueNode.to)}\`).`,
+			);
+		}
+		const member = `${printKey(key, style)}: ${printValue(value, style)}`;
+		return {
+			ok: true,
+			source: splice(
+				source,
+				attrsField.valueNode.to,
+				attrsField.valueNode.to,
+				` + { ${member} }`,
+			),
+		};
 	}
 
 	const existing = findField(attrsBody, source, key);
 	if (!existing) {
-		if (hasDynamicKey(attrsBody, source)) {
-			return blocked(
-				"dynamic-key",
-				`\`attrs\` builds its keys as it runs, so adding \`${key}\` could collide with one.`,
-			);
-		}
 		const member = `${printKey(key, style)}: ${printValue(value, style)}`;
+		if (hasDynamicKey(attrsBody, source)) {
+			return {
+				ok: true,
+				source: splice(
+					source,
+					attrsBody.node.to,
+					attrsBody.node.to,
+					` + { ${member} }`,
+				),
+			};
+		}
 		return {
 			ok: true,
 			source: insertMember(source, attrsBody, member, style),
@@ -205,11 +260,28 @@ export function setAttribute(
 
 	const range = literalRange(existing.valueNode);
 	if (!range) {
-		const text = source.slice(existing.valueNode.from, existing.valueNode.to);
-		return blocked(
-			"computed",
-			`\`${key}\` is computed here (\`${text}\`). Changing it would replace the expression with a fixed value.`,
-		);
+		if (!overrideComputed) {
+			const text = source.slice(
+				existing.valueNode.from,
+				existing.valueNode.to,
+			);
+			return blocked(
+				"computed",
+				`\`${key}\` is computed here (\`${text}\`).`,
+			);
+		}
+		// The value is an expression. Overwriting it would throw away whatever
+		// it computes, so merge over the top instead: Jsonnet lets the right
+		// side win, and deleting the merge later brings the expression back.
+		return {
+			ok: true,
+			source: splice(
+				source,
+				attrsField.valueNode.to,
+				attrsField.valueNode.to,
+				` + { ${printKey(key, style)}: ${printValue(value, style)} }`,
+			),
+		};
 	}
 
 	return {
@@ -228,11 +300,16 @@ export function removeAttribute(
 	if (!target) return blocked("not-found", "That element is no longer here.");
 
 	const attrsField = findField(target.body, source, "attrs");
-	const attrsBody = attrsField && asObjectBody(attrsField.valueNode);
+	if (!attrsField) return { ok: true, source };
+
+	// Look in the merge first, so what `setAttribute` wrote can be taken back
+	// out -- removing an override restores whatever the expression computes.
+	const merged = appendedLiteral(attrsField.valueNode, "ObjectExpression");
+	const attrsBody = asObjectBody(merged ?? attrsField.valueNode);
 	if (!attrsBody) {
 		return blocked(
 			"computed",
-			"This element has no plain `attrs` to change.",
+			"This element builds its attributes as it runs, so there is no entry here to remove.",
 		);
 	}
 
@@ -327,12 +404,24 @@ function childrenArray(source: string, body: ObjectBody): SyntaxNode | null {
  * Insert a child element into a tag, at `index`.
  *
  * `elementText` is written by the caller, which knows what tag it is building.
+ *
+ * Children that are computed -- produced by a loop, a function, a variable --
+ * are appended to rather than refused. Jsonnet concatenates lists with `+`, so
+ * the new element joins whatever the expression produces and the expression is
+ * left alone. Only the ends are reachable that way, so an `index` in the middle
+ * of a computed list lands at one end.
+ *
+ * `childrenAreList` says whether that computed value is a list. It matters
+ * because `"text" + [x]` does not fail in Jsonnet, it quietly stringifies the
+ * array onto the end, so a lone computed child has to be wrapped instead of
+ * concatenated. A comprehension is known to be a list without being told.
  */
 export function insertChild(
 	source: string,
 	parentBraceFrom: number,
 	index: number,
 	elementText: string,
+	{ childrenAreList = true }: { childrenAreList?: boolean } = {},
 ): EditOutcome {
 	const target = resolveTarget(source, parentBraceFrom);
 	if (!target) return blocked("not-found", "That element is no longer here.");
@@ -342,31 +431,35 @@ export function insertChild(
 
 	// No `children` at all: write the whole field.
 	if (!field) {
-		if (hasDynamicKey(body, source)) {
-			return blocked(
-				"dynamic-key",
-				"This element builds its keys as it runs, so adding `children` could collide with one.",
-			);
-		}
 		const member = `${printKey("children", style)}: [${elementText}]`;
+		if (hasDynamicKey(body, source)) {
+			return {
+				ok: true,
+				source: splice(
+					source,
+					body.node.to,
+					body.node.to,
+					` + { ${member} }`,
+				),
+			};
+		}
 		return { ok: true, source: insertMember(source, body, member, style) };
 	}
 
-	// A lone child object: wrap it in an array first, matching how validation
-	// already treats it.
-	if (field.valueNode.name !== "ArrayExpression") {
-		if (field.valueNode.name === "ArrayComprehension") {
-			return blocked(
-				"computed",
-				"These children come from a loop. Detach it first to add one alongside them.",
-			);
-		}
-		if (!asObjectBody(field.valueNode)) {
-			return blocked(
-				"computed",
-				`\`children\` is computed here (\`${source.slice(field.valueNode.from, field.valueNode.to)}\`).`,
-			);
-		}
+	if (field.valueNode.name === "ArrayExpression") {
+		return insertElement(source, field.valueNode, index, elementText, style);
+	}
+
+	// Already appended to once: land inside that literal rather than bolting on
+	// a second `+ [...]`.
+	const appended = appendedLiteral(field.valueNode, "ArrayExpression");
+	if (appended) {
+		return insertElement(source, appended, index, elementText, style);
+	}
+
+	// A lone child object, which validation already treats as a list of one.
+	// Wrapping keeps it that way and reads better than a concatenation.
+	if (asObjectBody(field.valueNode)) {
 		const existing = source.slice(field.valueNode.from, field.valueNode.to);
 		const parts =
 			index <= 0 ? [elementText, existing] : [existing, elementText];
@@ -381,7 +474,38 @@ export function insertChild(
 		};
 	}
 
-	return insertElement(source, field.valueNode, index, elementText, style);
+	// Anything else is computed: a loop, a function call, a variable. A
+	// comprehension is a list whatever the caller believes; otherwise trust what
+	// it was told.
+	const isList =
+		field.valueNode.name === "ArrayComprehension" || childrenAreList;
+	const existing = source.slice(field.valueNode.from, field.valueNode.to);
+
+	// A loop usually spans several lines, and hanging a long one-line array off
+	// the end of it reads badly. Follow the shape of what is already there.
+	const indent = indentAt(source, field.node.from) + style.indentUnit;
+	const wrap = (text: string) =>
+		isMultiline(source, field.valueNode)
+			? `[\n${indent}${text}${style.trailingComma ? "," : ""}\n${indentAt(source, field.node.from)}]`
+			: `[${text}]`;
+
+	const replacement = isList
+		? index <= 0
+			? `${wrap(elementText)} + ${existing}`
+			: `${existing} + ${wrap(elementText)}`
+		: index <= 0
+			? `[${elementText}, ${existing}]`
+			: `[${existing}, ${elementText}]`;
+
+	return {
+		ok: true,
+		source: splice(
+			source,
+			field.valueNode.from,
+			field.valueNode.to,
+			replacement,
+		),
+	};
 }
 
 /** Splice a new element into an array literal at `index`. */
@@ -453,7 +577,7 @@ export function removeChild(
 	if (!array) {
 		return blocked(
 			"computed",
-			"These children are not a plain list, so the editor cannot remove one.",
+			"These children are built as the manifest runs, so there is no entry here to remove. Detach the loop, or edit it as text.",
 		);
 	}
 
@@ -489,7 +613,7 @@ export function moveChild(
 	if (!array) {
 		return blocked(
 			"computed",
-			"These children are not a plain list, so the editor cannot reorder them.",
+			"These children are built as the manifest runs, so their order is decided there. Detach the loop, or edit it as text.",
 		);
 	}
 
