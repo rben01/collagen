@@ -501,15 +501,24 @@
 	 * selection to whatever now sits at that index.
 	 */
 	function followReorder(parentPath: string, from: number, to: number) {
-		const selected = editor.selectedPath;
-		if (selected === null) return;
+		editor.selectedPath = renumber(editor.selectedPath, parentPath, from, to);
+		editor.hoveredPath = renumber(editor.hoveredPath, parentPath, from, to);
+	}
 
-		const where = splitPath(selected);
-		if (!where || where.parentPath !== parentPath) return;
+	/** `path` after the element at `from` moves to `to` among its siblings. */
+	function renumber(
+		path: string | null,
+		parentPath: string,
+		from: number,
+		to: number,
+	): string | null {
+		if (path === null) return null;
+
+		const where = splitPath(path);
+		if (!where || where.parentPath !== parentPath) return path;
 
 		const moved = shiftIndex(where.index, from, to);
-		if (moved === where.index) return;
-		editor.selectedPath = childPath(parentPath, moved);
+		return moved === where.index ? path : childPath(parentPath, moved);
 	}
 
 	/** Where index `i` ends up once the element at `from` moves to `to`. */

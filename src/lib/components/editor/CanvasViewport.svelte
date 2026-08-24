@@ -256,6 +256,11 @@
 				startY: local.y,
 				x: local.x,
 				y: local.y,
+				moved: false,
+				// Screen coordinates are kept only to measure the threshold; the
+				// rest of the gesture works in user units.
+				pressX: event.clientX,
+				pressY: event.clientY,
 			};
 			return;
 		}
@@ -320,8 +325,21 @@
 		}
 
 		if (gesture.kind === "draw") {
+			const travelled = hasTravelled(
+				event.clientX - gesture.pressX,
+				event.clientY - gesture.pressY,
+			);
+			if (!gesture.moved && !travelled) return;
+
 			const local = toUserSpace(event.clientX, event.clientY);
-			if (local) editor.gesture = { ...gesture, x: local.x, y: local.y };
+			if (local) {
+				editor.gesture = {
+					...gesture,
+					x: local.x,
+					y: local.y,
+					moved: true,
+				};
+			}
 			return;
 		}
 
@@ -387,6 +405,8 @@
 		if (gesture.kind === "none" || gesture.kind === "pan") return;
 
 		if (gesture.kind === "draw") {
+			// A tremor is not a shape.
+			if (!gesture.moved) return;
 			const x = Math.min(gesture.startX, gesture.x);
 			const y = Math.min(gesture.startY, gesture.y);
 			const width = Math.abs(gesture.x - gesture.startX);
@@ -487,7 +507,7 @@
 	class:over-shape={editor.tool === "select" &&
 		editor.gesture.kind === "none" &&
 		editor.hoveredPath !== null}
-	class:moving={editor.gesture.kind === "move"}
+	class:moving={editor.gesture.kind === "move" && editor.gesture.moved}
 	bind:this={container}
 	bind:clientWidth={containerWidth}
 	bind:clientHeight={containerHeight}

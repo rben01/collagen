@@ -34,7 +34,19 @@ export type Gesture =
 			dy: number;
 			moved: boolean;
 	  }
-	| { kind: "draw"; startX: number; startY: number; x: number; y: number };
+	| {
+			kind: "draw";
+			/** Where the drag began, in the drawing's own user units. */
+			startX: number;
+			startY: number;
+			/** Where it is now, in the same units. */
+			x: number;
+			y: number;
+			/** Where the press landed on screen, for measuring the threshold. */
+			pressX: number;
+			pressY: number;
+			moved: boolean;
+	  };
 
 export type ResizeHandle = "nw" | "ne" | "sw" | "se";
 
