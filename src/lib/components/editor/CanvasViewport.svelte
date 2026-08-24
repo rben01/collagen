@@ -4,6 +4,7 @@
 		calculateZoomToPoint,
 		CONTENT_PADDING,
 	} from "../viewer/index.js";
+	import { resizeEdits } from "../../collagen-ts/manifest/geometry.js";
 	import type { EditorState, ResizeHandle } from "./editor-state.svelte.js";
 
 	let {
@@ -44,6 +45,20 @@
 	let frameRevision = $state(0);
 
 	const HANDLES: ResizeHandle[] = ["nw", "ne", "sw", "se"];
+
+	/**
+	 * How far the pointer must travel before a press counts as a drag.
+	 *
+	 * Without this, the hand tremor in an ordinary click writes a real edit to
+	 * the manifest and an entry to the undo stack. Selecting something must not
+	 * modify the document.
+	 */
+	const DRAG_THRESHOLD = 3;
+
+	/** Has this gesture travelled far enough to act on? */
+	function hasTravelled(dxScreen: number, dyScreen: number): boolean {
+		return Math.hypot(dxScreen, dyScreen) >= DRAG_THRESHOLD;
+	}
 
 	/** The SVG's own coordinate system, read from its viewBox. */
 	const viewBox = $derived.by(() => {
@@ -160,6 +175,21 @@
 	const selectionBox = $derived(
 		editor.selectedPath === null ? null : boxFor(editor.selectedPath),
 	);
+
+	/**
+	 * Can the selection be resized?
+	 *
+	 * Handles on a `<text>` or a `<path>` promise something the editor cannot
+	 * do: dragging one only ever produced a refusal. The tag comes off the
+	 * rendered element, which is the same thing `resizeEdits` dispatches on.
+	 */
+	const canResize = $derived.by(() => {
+		void frameRevision;
+		if (editor.selectedPath === null) return false;
+		const element = elementFor(editor.selectedPath);
+		if (!element) return false;
+		return resizeEdits(element.tagName, 0, 0, 1, 1) !== null;
+	});
 	const hoverBox = $derived(
 		editor.hoveredPath === null || editor.hoveredPath === editor.selectedPath
 			? null
@@ -241,6 +271,7 @@
 			startY: event.clientY,
 			dx: 0,
 			dy: 0,
+			moved: false,
 		};
 	}
 
@@ -255,6 +286,7 @@
 			startY: event.clientY,
 			dx: 0,
 			dy: 0,
+			moved: false,
 		};
 	}
 
@@ -293,10 +325,15 @@
 			return;
 		}
 
+		const screenDx = event.clientX - gesture.startX;
+		const screenDy = event.clientY - gesture.startY;
+		// Below the threshold this is still a click, so nothing is previewed.
+		if (!gesture.moved && !hasTravelled(screenDx, screenDy)) return;
+
 		const perUnit = screenPerUnit();
-		const dx = (event.clientX - gesture.startX) / perUnit;
-		const dy = (event.clientY - gesture.startY) / perUnit;
-		editor.gesture = { ...gesture, dx, dy };
+		const dx = screenDx / perUnit;
+		const dy = screenDy / perUnit;
+		editor.gesture = { ...gesture, dx, dy, moved: true };
 
 		// Preview by transforming the rendered element directly. Regenerating
 		// per frame would re-encode every embedded image, which stalls on any
@@ -325,6 +362,25 @@
 			`${anchorY - anchorY * scaleY}px) scale(${scaleX}, ${scaleY})`;
 	}
 
+	/**
+	 * Abandon the gesture in flight, leaving the document untouched.
+	 *
+	 * Both Escape and `pointercancel` land here. Without the second, a gesture
+	 * the browser takes away -- a system swipe, a lost pointer capture -- leaves
+	 * the element following the cursor with no button held.
+	 */
+	export function abortGesture(): boolean {
+		const gesture = editor.gesture;
+		if (gesture.kind === "none") return false;
+
+		editor.gesture = { kind: "none" };
+		if (gesture.kind === "move" || gesture.kind === "resize") {
+			const element = elementFor(gesture.path) as SVGElement | null;
+			if (element) element.style.transform = "";
+		}
+		return true;
+	}
+
 	function handlePointerUp() {
 		const gesture = editor.gesture;
 		editor.gesture = { kind: "none" };
@@ -339,11 +395,13 @@
 			return;
 		}
 
+		// A press that never travelled is a click. It selected something, which
+		// is all it should do.
+		if (!gesture.moved) return;
+
 		// Drop the preview transform; the regenerated SVG carries the real value.
 		const element = elementFor(gesture.path) as SVGElement | null;
 		if (element) element.style.transform = "";
-
-		if (gesture.dx === 0 && gesture.dy === 0) return;
 
 		if (gesture.kind === "move") {
 			onMove(gesture.path, gesture.dx, gesture.dy);
@@ -411,6 +469,7 @@
 <svelte:window
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
+	onpointercancel={() => abortGesture()}
 />
 
 <!--
@@ -423,7 +482,12 @@
 <div
 	class="canvas"
 	class:panning={editor.gesture.kind === "pan"}
+	class:pannable={editor.tool === "pan"}
 	class:drawing={editor.tool !== "select" && editor.tool !== "pan"}
+	class:over-shape={editor.tool === "select" &&
+		editor.gesture.kind === "none" &&
+		editor.hoveredPath !== null}
+	class:moving={editor.gesture.kind === "move"}
 	bind:this={container}
 	bind:clientWidth={containerWidth}
 	bind:clientHeight={containerHeight}
@@ -481,7 +545,7 @@
 				style:width="{selectionBox.width}px"
 				style:height="{selectionBox.height}px"
 			></div>
-			{#each HANDLES as handle (handle)}
+			{#each canResize ? HANDLES : [] as handle (handle)}
 				<button
 					type="button"
 					class="handle {handle}"
@@ -538,8 +602,18 @@
 		outline-offset: -2px;
 	}
 
-	.canvas.panning {
+	/* The pan tool has to look grabbable before it is grabbed. */
+	.canvas.pannable {
+		cursor: grab;
+	}
+
+	.canvas.panning,
+	.canvas.moving {
 		cursor: grabbing;
+	}
+
+	.canvas.over-shape {
+		cursor: move;
 	}
 
 	.canvas.drawing {

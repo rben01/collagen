@@ -21,6 +21,8 @@ export type Gesture =
 			startY: number;
 			dx: number;
 			dy: number;
+			/** True once the pointer has travelled far enough to be a drag. */
+			moved: boolean;
 	  }
 	| {
 			kind: "resize";
@@ -30,6 +32,7 @@ export type Gesture =
 			startY: number;
 			dx: number;
 			dy: number;
+			moved: boolean;
 	  }
 	| { kind: "draw"; startX: number; startY: number; x: number; y: number };
 

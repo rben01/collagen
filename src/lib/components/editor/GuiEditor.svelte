@@ -20,7 +20,10 @@
 		translateEdits,
 		type AttrEdit,
 	} from "$lib/collagen-ts/manifest/geometry.js";
-	import type { Provenance } from "$lib/collagen-ts/manifest/provenance.js";
+	import {
+		childPath,
+		type Provenance,
+	} from "$lib/collagen-ts/manifest/provenance.js";
 	import type { XmlAttrs } from "$lib/collagen-ts/types/index.js";
 	import { isTypingInInput } from "../viewer/index.js";
 	import CanvasViewport from "./CanvasViewport.svelte";
@@ -480,7 +483,37 @@
 			editor.notice = "These layers cannot be reordered here. Edit as text.";
 			return;
 		}
-		commitOutcome(moveChild(target.source, brace, from, to), target.path);
+
+		const outcome = moveChild(target.source, brace, from, to);
+		commitOutcome(outcome, target.path);
+		if (outcome.ok) followReorder(parentPath, from, to);
+	}
+
+	/**
+	 * Keep the selection on the element it was on.
+	 *
+	 * A path is an index, so reordering renumbers siblings underneath it. Left
+	 * alone, dragging a layer past the selected one silently moves the
+	 * selection to whatever now sits at that index.
+	 */
+	function followReorder(parentPath: string, from: number, to: number) {
+		const selected = editor.selectedPath;
+		if (selected === null) return;
+
+		const where = splitPath(selected);
+		if (!where || where.parentPath !== parentPath) return;
+
+		const moved = shiftIndex(where.index, from, to);
+		if (moved === where.index) return;
+		editor.selectedPath = childPath(parentPath, moved);
+	}
+
+	/** Where index `i` ends up once the element at `from` moves to `to`. */
+	function shiftIndex(i: number, from: number, to: number): number {
+		if (i === from) return to;
+		if (from < to && i > from && i <= to) return i - 1;
+		if (to < from && i >= to && i < from) return i + 1;
+		return i;
 	}
 
 	function handleDetach() {
@@ -554,6 +587,9 @@
 		if (event.metaKey || event.ctrlKey || event.altKey) return;
 
 		if (event.key === "Escape") {
+			// A drag in flight is the more immediate thing to call off, and
+			// abandoning it must not also throw away the selection.
+			if (canvas?.abortGesture()) return;
 			editor.select(null);
 			return;
 		}

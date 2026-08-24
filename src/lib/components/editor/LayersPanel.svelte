@@ -17,13 +17,43 @@
 	} = $props();
 
 	let dragging = $state<{ parentPath: string; index: number } | null>(null);
+	/** The row the pointer is currently over, so the landing place is visible. */
+	let dropTarget = $state<string | null>(null);
+
+	/** Can the dragged row land on this one? Only siblings can be reordered. */
+	function canDropOn(node: LayerNode): boolean {
+		return (
+			dragging !== null &&
+			dragging.parentPath === node.parentPath &&
+			dragging.index !== node.index
+		);
+	}
+
+	function dragOver(event: DragEvent, node: LayerNode) {
+		if (!canDropOn(node)) return;
+		// Only a prevented dragover marks a valid drop target.
+		event.preventDefault();
+		dropTarget = node.path;
+	}
 
 	function drop(node: LayerNode) {
 		const source = dragging;
-		dragging = null;
+		endDrag();
 		if (!source || source.parentPath !== node.parentPath) return;
 		if (source.index === node.index) return;
 		onReorder(node.parentPath, source.index, node.index);
+	}
+
+	/**
+	 * Forget the drag.
+	 *
+	 * Needed on `dragend` as well as on drop: a drag abandoned with Escape
+	 * fires no drop, and leaving `dragging` set meant the next row released on
+	 * would reorder as though the abandoned drag were still in progress.
+	 */
+	function endDrag() {
+		dragging = null;
+		dropTarget = null;
 	}
 </script>
 
@@ -33,6 +63,9 @@
 			class="layer"
 			class:selected={editor.selectedPath === node.path}
 			class:grouped={node.groupSize > 1}
+			class:dragging={dragging?.parentPath === node.parentPath &&
+				dragging?.index === node.index}
+			class:drop-target={dropTarget === node.path}
 			draggable="true"
 			role="treeitem"
 			aria-selected={editor.selectedPath === node.path}
@@ -48,7 +81,11 @@
 			onmouseleave={() => (editor.hoveredPath = null)}
 			ondragstart={() =>
 				(dragging = { parentPath: node.parentPath, index: node.index })}
-			ondragover={event => event.preventDefault()}
+			ondragend={endDrag}
+			ondragover={event => dragOver(event, node)}
+			ondragleave={() => {
+				if (dropTarget === node.path) dropTarget = null;
+			}}
 			ondrop={() => drop(node)}
 			style:--depth={node.depth}
 		>
@@ -148,6 +185,16 @@
 	.layer.selected {
 		background: #2563eb;
 		color: #fff;
+	}
+
+	.layer.dragging {
+		opacity: 0.4;
+	}
+
+	/* Where the row will land. A line rather than a fill, so it reads as a
+	   position between rows and not as a second selection. */
+	.layer.drop-target {
+		box-shadow: inset 0 -2px 0 #2563eb;
 	}
 
 	.name {
