@@ -151,6 +151,34 @@ const LOOP_PROJECT: ProjectFiles = {
 };
 
 /**
+ * Four circles from one comprehension, one computed attribute and three
+ * literal ones.
+ *
+ * The mixture is the point. `cx` is written `70 + i * 90`, which is what the
+ * properties panel has to show in place of the `160` the second instance
+ * comes to; `cy`, `r` and `fill` are plain values, which is what a literal row
+ * and its offer to be edited as code are for. The loop sits directly in
+ * `children` rather than inside a `<g>`, so the four instances are
+ * `children[0]` through `children[3]`.
+ */
+const EXPRESSION_PROJECT: ProjectFiles = {
+	"collagen.jsonnet": `{
+	attrs: { viewBox: "0 0 400 300" },
+	children: [
+		{ tag: "circle", attrs: { cx: 70 + i * 90, cy: 150, r: 26, fill: "#f59e0b" } }
+		for i in std.range(0, 3)
+	],
+}
+`,
+};
+
+/** What `70 + i * 90` comes to for each of the four, in user units. */
+const FANNED_CX = [70, 160, 250, 340] as const;
+
+/** The `cy` all four of them share, so a click can find any one of them. */
+const FANNED_CY = 150;
+
+/**
  * A manifest the editor refuses to edit.
  *
  * `std.objectFields` enumerates a tag object, so it would observe the marker
@@ -315,6 +343,23 @@ function attributeInput(page: Page, key: string): Locator {
 }
 
 /**
+ * The `= 160` beside an expression, saying what it comes to for the instance
+ * that is selected.
+ *
+ * It is a reading rather than a control, so it carries no role and no label
+ * and its title is the only handle on it. Scoped to the panel because a title
+ * is a tooltip, and tooltips are not unique by construction.
+ */
+function evaluatedBadge(page: Page): Locator {
+	return inspectorPanel(page).getByTitle("What it comes to here");
+}
+
+/** The toggle that turns one literal attribute's row into a code field. */
+function asCodeToggle(page: Page, key: string): Locator {
+	return page.getByLabel(`Edit ${key} as an expression`);
+}
+
+/**
  * The image picker, which stands in for the Inspector while the Image tool is
  * up.
  *
@@ -375,8 +420,14 @@ async function toClient(
 	};
 }
 
-/** Press, drag, and release between two points in the SVG's user units. */
-async function dragOnCanvas(
+/**
+ * Press and travel between two points in the SVG's user units, leaving the
+ * button down.
+ *
+ * Split out of {@link dragOnCanvas} for the tests that measure what letting go
+ * looks like: those have to do the releasing themselves, inside the page.
+ */
+async function beginDragOnCanvas(
 	page: Page,
 	from: readonly [number, number],
 	to: readonly [number, number],
@@ -386,7 +437,117 @@ async function dragOnCanvas(
 	await page.mouse.move(start.x, start.y);
 	await page.mouse.down();
 	await page.mouse.move(end.x, end.y, { steps: 8 });
+}
+
+/** Press, drag, and release between two points in the SVG's user units. */
+async function dragOnCanvas(
+	page: Page,
+	from: readonly [number, number],
+	to: readonly [number, number],
+): Promise<void> {
+	await beginDragOnCanvas(page, from, to);
 	await page.mouse.up();
+}
+
+/**
+ * Press a resize handle and travel a number of client pixels, leaving the
+ * button down. The grip is taken by the handle's own box, because grabbing the
+ * handle is what a user does.
+ *
+ * Pixels rather than user units, and for a sharper reason than
+ * {@link pressAndTravel}'s. The two ends of this gesture are found by
+ * different routes: the grip by the page's own drawing of the corner, the
+ * destination by {@link toClient}'s arithmetic. Those disagree by a few pixels
+ * -- the drawing inside the frame is inset by the document's own margin, which
+ * a linear mapping across the whole frame cannot see -- and on a thirty-unit
+ * drag the gap is most of a tolerance. Measuring the travel in pixels at both
+ * ends closes it.
+ */
+async function beginResizeTravel(
+	page: Page,
+	handle: (typeof RESIZE_HANDLES)[number],
+	dxPixels: number,
+	dyPixels: number,
+): Promise<void> {
+	const grip = await page.getByLabel(handle).boundingBox();
+	expect(
+		grip,
+		`the ${handle} handle should have a bounding box`,
+	).not.toBeNull();
+	const x = Math.round(grip!.x + grip!.width / 2);
+	const y = Math.round(grip!.y + grip!.height / 2);
+	await page.mouse.move(x, y);
+	await page.mouse.down();
+	await page.mouse.move(x + dxPixels, y + dyPixels, { steps: 8 });
+}
+
+/** A box measured inside the canvas frame, in that document's own pixels. */
+interface FrameBox {
+	left: number;
+	right: number;
+	top: number;
+	bottom: number;
+	width: number;
+	height: number;
+}
+
+/**
+ * Where a drawn element sits right now, measured inside the canvas frame.
+ *
+ * Everything else in this file measures through Playwright, in page
+ * coordinates. This cannot: it is the "before" of a comparison whose other two
+ * readings are taken inside the page, by {@link releaseAndSample}, and two
+ * coordinate systems separated by the frame's offset would not compare.
+ */
+function edgesInFrame(page: Page, path: string): Promise<FrameBox> {
+	return artboard(page).evaluate((frame, target) => {
+		const element = (
+			frame as HTMLIFrameElement
+		).contentDocument?.querySelector(`[data-clgn-path="${target}"]`);
+		if (!element) throw new Error(`Nothing is drawn at ${target}.`);
+		return element.getBoundingClientRect().toJSON() as FrameBox;
+	}, path);
+}
+
+/**
+ * Release the drag in flight, reading where the element sits either side of
+ * the release without yielding in between.
+ *
+ * The window this exists to measure is the one between letting go and the
+ * regenerated drawing arriving -- a write, an evaluation, and a frame reload,
+ * a few tens of milliseconds all told. Sampling it from the test side cannot
+ * work: every round trip is a task boundary, and a pane the browser considers
+ * hidden throttles timers and animation frames until the window has already
+ * closed. So the release and both readings happen together, in one task,
+ * inside the page. `getBoundingClientRect` forces layout, so the reading taken
+ * straight after `pointerup` is of a settled box rather than a stale one.
+ *
+ * The release is the only synthesized event; the press and the travel before
+ * it are real input, as everywhere else here. `page.mouse.up()` cannot stand in
+ * for it because it returns over the wire, by which time the drawing may
+ * already have been replaced -- and the caller still has to send it afterwards,
+ * since the real button is genuinely still down.
+ */
+function releaseAndSample(
+	page: Page,
+	path: string,
+): Promise<{ during: FrameBox; after: FrameBox; transform: string }> {
+	return artboard(page).evaluate((frame, target) => {
+		const element = (
+			frame as HTMLIFrameElement
+		).contentDocument?.querySelector(`[data-clgn-path="${target}"]`);
+		if (!element) throw new Error(`Nothing is drawn at ${target}.`);
+
+		const during = element.getBoundingClientRect().toJSON() as FrameBox;
+		window.dispatchEvent(
+			new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }),
+		);
+		return {
+			during,
+			after: element.getBoundingClientRect().toJSON() as FrameBox,
+			transform: (element as SVGElement).style.transform,
+		};
+	}, path);
 }
 
 /** Screen pixels per SVG user unit, which is the currency of the threshold. */
@@ -884,6 +1045,151 @@ test.describe("Dragging a static shape", () => {
 		const circle = elementAt(page, "children[1]");
 		await expect(circle).toHaveAttribute("cx", "300");
 		await expect(circle).toHaveAttribute("cy", "200");
+	});
+});
+
+// =============================================================================
+// Letting go of a drag
+// =============================================================================
+
+/*
+ * Releasing used to clear the preview transform there and then. The real change
+ * is not on screen at that point -- it has to be spliced into the manifest,
+ * written, evaluated, generated and loaded into the frame -- so for that whole
+ * stretch the element was drawn back where the drag began: a visible jump
+ * backwards before it landed. The preview now stays up until the regenerated
+ * drawing replaces it, and is dropped at once only where no redraw is coming.
+ *
+ * Both halves need pinning. A "fix" that never cleared the preview would pass
+ * the first two tests below and leave a refused drag showing the user a
+ * position the document does not hold, permanently; the third is what says so.
+ */
+
+test.describe("Letting go of a drag", () => {
+	test("a released move stays where it was dropped", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, STATIC_PROJECT);
+		await openVisualEditor(page);
+
+		const rect = elementAt(page, "children[0]");
+		const before = await edgesInFrame(page, "children[0]");
+
+		// From the rect's middle, 60 right and 40 down.
+		await beginDragOnCanvas(page, [105, 75], [165, 115]);
+		// Waiting for the preview is what makes the reading below meaningful:
+		// a sample taken before the drag had previewed anything would compare
+		// two identical boxes and call it a pass.
+		await expect(rect).toHaveAttribute("style", /translate/);
+
+		const sample = await releaseAndSample(page, "children[0]");
+		await page.mouse.up();
+
+		expect(
+			sample.during.left,
+			"the drag should have previewed the move",
+		).toBeGreaterThan(before.left + 20);
+		// The whole of the regression: this reading is of the very frame the
+		// release produced, and the element must still be under the cursor
+		// rather than back at `before.left`.
+		expect(
+			sample.after.left,
+			"the element should not snap back on release",
+		).toBeCloseTo(sample.during.left, 3);
+		expect(
+			sample.transform,
+			"the preview should still be up, holding the element there",
+		).toMatch(/translate/);
+
+		// It is a preview and not the answer, though: once the regenerated
+		// drawing lands it carries the committed coordinates, with nothing left
+		// over on top of them.
+		await expectAttrNear(rect, "x", 110);
+		await expectAttrNear(rect, "y", 80);
+		await expect(rect).not.toHaveAttribute("style", /translate/);
+	});
+
+	test("a released resize stays at the size it was dragged to", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, STATIC_PROJECT);
+		await openVisualEditor(page);
+
+		const rect = elementAt(page, "children[0]");
+		await clickOnCanvas(page, 105, 75);
+		await expect(selectionOutline(page)).toBeVisible();
+		const perUnit = await pixelsPerUnit(page);
+		const before = await edgesInFrame(page, "children[0]");
+
+		// The rect spans (50, 40) to (160, 110). Its south-east corner travels
+		// 60 pixels right and 45 down, which anchors the north-west one and
+		// grows the box by about 40 units by 30.
+		await beginResizeTravel(page, "Resize se", 60, 45);
+		await expect(rect).toHaveAttribute("style", /scale/);
+
+		const sample = await releaseAndSample(page, "children[0]");
+		await page.mouse.up();
+
+		// The right edge, not the left: a resize previews by scaling about the
+		// corner that stays put, so the corner that was dragged is the only one
+		// that moved and the only one a snap back would take with it.
+		expect(
+			sample.during.right,
+			"the drag should have previewed the resize",
+		).toBeGreaterThan(before.right + 20);
+		expect(
+			sample.after.right,
+			"the element should not snap back to its old size on release",
+		).toBeCloseTo(sample.during.right, 3);
+		expect(
+			sample.transform,
+			"the preview should still be up, holding the element at that size",
+		).toMatch(/scale/);
+
+		await expectAttrNear(rect, "width", 110 + 60 / perUnit);
+		await expectAttrNear(rect, "height", 70 + 45 / perUnit);
+		// Anchored, not moved.
+		await expectAttrNear(rect, "x", 50);
+		await expectAttrNear(rect, "y", 40);
+		await expect(rect).not.toHaveAttribute("style", /scale/);
+	});
+
+	test("a refused move drops its preview at once, no redraw being due", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, OPAQUE_PROJECT);
+		await openVisualEditor(page);
+
+		const rect = elementAt(page, "children[0]");
+		const before = await edgesInFrame(page, "children[0]");
+
+		// This manifest cannot be written back to, so the drag will be refused
+		// and nothing will be regenerated. A preview held here would be held
+		// for good, showing a position the document does not hold.
+		await beginDragOnCanvas(page, [100, 80], [160, 130]);
+		await expect(rect).toHaveAttribute("style", /translate/);
+
+		const sample = await releaseAndSample(page, "children[0]");
+		await page.mouse.up();
+
+		expect(
+			sample.during.left,
+			"the drag should have previewed the move",
+		).toBeGreaterThan(before.left + 20);
+		expect(
+			sample.after.left,
+			"a refused move should let go of its preview at once",
+		).toBeCloseTo(before.left, 3);
+		expect(sample.transform).toBe("");
+
+		await expect(
+			page.getByText("This element cannot be edited here. Edit it as text."),
+		).toBeVisible();
+		await expect(rect).toHaveAttribute("x", "40");
+		await expect(rect).toHaveAttribute("y", "40");
 	});
 });
 
@@ -1582,19 +1888,10 @@ test.describe("Placing an image", () => {
 		await expect(placed).toBeAttached({ timeout: 10000 });
 		await expectAttrNear(placed, "width", 200);
 
-		// The south-east corner sits at (220, 255); drag it 40 right and 30
-		// down, which anchors the north-west corner and grows the box. The grip
-		// is taken by its own box rather than by that corner in user units,
-		// because grabbing the handle is what a user does.
-		const grip = await page.getByLabel("Resize se").boundingBox();
-		expect(grip, "the se handle should have a bounding box").not.toBeNull();
-		const target = await toClient(page, 260, 285);
-		await page.mouse.move(
-			grip!.x + grip!.width / 2,
-			grip!.y + grip!.height / 2,
-		);
-		await page.mouse.down();
-		await page.mouse.move(target.x, target.y, { steps: 8 });
+		// The south-east corner sits at (220, 255); drag it 40 units right and
+		// 30 down, which anchors the north-west corner and grows the box.
+		const perUnit = await pixelsPerUnit(page);
+		await beginResizeTravel(page, "Resize se", 40 * perUnit, 30 * perUnit);
 		await page.mouse.up();
 
 		await expectAttrNear(placed, "width", 240);
@@ -1678,6 +1975,193 @@ test.describe("Properties panel", () => {
 
 		const source = await manifestSource(page, "collagen.json");
 		expect(source).not.toContain(`"height"`);
+	});
+});
+
+// =============================================================================
+// Expressions behind computed attributes
+// =============================================================================
+
+/*
+ * The panel shows how an attribute is *written*, not only what it comes to.
+ * Selecting the second of four circles a loop produced used to show `cx` as
+ * 160, which is true and useless: the thing worth editing is `70 + i * 90`,
+ * the loop body itself, and it was invisible from the canvas.
+ *
+ * A literal keeps its typed widget -- a swatch beats the text `'#f59e0b'` --
+ * and gains a toggle to be edited as code instead. The toggle is explicit
+ * because inference is a trap here: `120 + i * 18` is obviously an expression,
+ * but a `fill` of `red` is a colour and not a variable named red.
+ */
+
+test.describe("Expressions in the properties panel", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, EXPRESSION_PROJECT);
+		await openVisualEditor(page);
+		await expect(canvasDoc(page).locator("circle")).toHaveCount(4);
+	});
+
+	/** The four instances, in the order the comprehension emits them. */
+	function circles(page: Page): Locator {
+		return canvasDoc(page).locator("circle");
+	}
+
+	test("shows a computed attribute as it is written, and what it comes to", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[1], FANNED_CY);
+
+		// The drawing says 160. The panel says what the manifest says, which is
+		// the loop body, with the 160 alongside as a reading.
+		await expect(elementAt(page, "children[1]")).toHaveAttribute("cx", "160");
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+		await expect(evaluatedBadge(page)).toHaveText("= 160");
+
+		// One badge, not four: the literals are shown as the values they are,
+		// and a value has nothing to evaluate to.
+		await expect(evaluatedBadge(page)).toHaveCount(1);
+		await expect(attributeInput(page, "cy")).toHaveValue("150");
+		await expect(attributeInput(page, "r")).toHaveValue("26");
+	});
+
+	test("keeps the expression as the selection moves, and moves the reading", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[0], FANNED_CY);
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+		await expect(evaluatedBadge(page)).toHaveText("= 70");
+
+		await clickOnCanvas(page, FANNED_CX[3], FANNED_CY);
+
+		// Every instance shares one source object, so the text on offer is the
+		// same text however many of them there are. Only the reading differs.
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+		await expect(evaluatedBadge(page)).toHaveText("= 340");
+	});
+
+	test("editing the expression rewrites the loop body, so all four move", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[1], FANNED_CY);
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+
+		await attributeInput(page, "cx").fill("40 + i * 60");
+		await attributeInput(page, "cx").press("Enter");
+
+		// 40, 100, 160, 220: one instance was selected, and the edit landed on
+		// the body all four are built from.
+		for (let i = 0; i < 4; i++) {
+			await expect(circles(page).nth(i)).toHaveAttribute(
+				"cx",
+				String(40 + i * 60),
+				{ timeout: 10000 },
+			);
+		}
+
+		const source = await manifestSource(page, "collagen.jsonnet");
+		expect(source).toContain("cx: 40 + i * 60");
+		// Verbatim, not quoted. `cx: "40 + i * 60"` is a string, which SVG
+		// drops on the floor, and it would have made the loop pointless.
+		expect(source).not.toContain(`cx: "40 + i * 60"`);
+		expect(source).toContain("for i in std.range(0, 3)");
+	});
+
+	test("shows a literal as a value, and offers to make it code", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[0], FANNED_CY);
+
+		// `cy` is a plain 150, so it stays a value field with no reading
+		// beside it — the only badge on screen is the one `cx` earns.
+		await expect(attributeInput(page, "cy")).toHaveValue("150");
+		await expect(evaluatedBadge(page)).toHaveCount(1);
+		await expect(asCodeToggle(page, "cy")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+
+		// `fill` is the clearest evidence that the toggle really swaps the
+		// widget: the swatch shows the colour, and the source text is that
+		// same colour with the quotes it is written with.
+		await expect(attributeInput(page, "fill")).toHaveValue("#f59e0b");
+		await asCodeToggle(page, "fill").click();
+		await expect(asCodeToggle(page, "fill")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(attributeInput(page, "fill")).toHaveValue('"#f59e0b"');
+	});
+
+	test("a constant switched to code can then vary with the loop", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[0], FANNED_CY);
+		await expect(attributeInput(page, "cy")).toHaveValue("150");
+		// All four sit on the same line to begin with.
+		for (let i = 0; i < 4; i++) {
+			await expect(circles(page).nth(i)).toHaveAttribute("cy", "150");
+		}
+
+		await asCodeToggle(page, "cy").click();
+		// Seeded with the literal's own source text, so the field opens on
+		// what is already there rather than on nothing.
+		await expect(attributeInput(page, "cy")).toHaveValue("150");
+
+		await attributeInput(page, "cy").fill("120 + i * 18");
+		await attributeInput(page, "cy").press("Enter");
+
+		// 120, 138, 156, 174: the constant has become something that varies,
+		// which is the whole reason the toggle exists.
+		for (let i = 0; i < 4; i++) {
+			await expect(circles(page).nth(i)).toHaveAttribute(
+				"cy",
+				String(120 + i * 18),
+				{ timeout: 10000 },
+			);
+		}
+
+		const source = await manifestSource(page, "collagen.jsonnet");
+		expect(source).toContain("cy: 120 + i * 18");
+		// The bug the toggle exists to prevent: typing an expression into a
+		// plain value field wrote `cy: "120 + i * 18"`, a string.
+		expect(source).not.toContain(`cy: "120 + i * 18"`);
+	});
+
+	test("offers no such toggle on an attribute that is already code", async ({
+		page,
+	}) => {
+		await clickOnCanvas(page, FANNED_CX[0], FANNED_CY);
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+
+		await expect(asCodeToggle(page, "cx")).toHaveCount(0);
+		// The literals on the same element do have one, so this is a toggle
+		// withheld from `cx` rather than a feature that is off.
+		await expect(asCodeToggle(page, "r")).toHaveCount(1);
+		await expect(asCodeToggle(page, "cy")).toHaveCount(1);
+	});
+
+	test("refuses Jsonnet that does not parse, and writes nothing", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+		await clickOnCanvas(page, FANNED_CX[0], FANNED_CY);
+		await expect(attributeInput(page, "cx")).toHaveValue("70 + i * 90");
+
+		await attributeInput(page, "cx").fill("70 +");
+		await attributeInput(page, "cx").press("Enter");
+
+		await expect(page.getByText(/is not valid Jsonnet/)).toBeVisible();
+
+		// The drawing is still a drawing. Accepting this would have left the
+		// manifest unparseable, which takes the whole canvas down with it.
+		await expect(circles(page)).toHaveCount(4);
+		for (let i = 0; i < 4; i++) {
+			await expect(circles(page).nth(i)).toHaveAttribute(
+				"cx",
+				String(FANNED_CX[i]),
+			);
+		}
+		expect(await manifestSource(page, "collagen.jsonnet")).toBe(before);
 	});
 });
 
