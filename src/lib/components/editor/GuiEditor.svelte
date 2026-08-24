@@ -614,7 +614,7 @@
 <div class="gui-editor">
 	<ToolPalette {editor} />
 
-	<div class="stage">
+	<div class="canvas-area">
 		{#if analysisError}
 			<p class="error">{analysisError}</p>
 		{:else if annotatedSvg}
@@ -663,7 +663,7 @@
 		min-height: 0;
 	}
 
-	.stage {
+	.canvas-area {
 		display: flex;
 		flex: 1;
 		min-width: 0;
