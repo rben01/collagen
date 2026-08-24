@@ -268,6 +268,15 @@
 	 * Every splice lands inside the tag's own braces, which come after the
 	 * offset itself, so the offset stays valid across all of them.
 	 */
+	/**
+	 * What an edit did.
+	 *
+	 * The canvas needs "unchanged" and "refused" told apart from "changed",
+	 * because only the last brings a regenerated drawing to replace the preview
+	 * it is holding.
+	 */
+	type EditResult = "changed" | "unchanged" | "refused";
+
 	function applyEdits(
 		path: string,
 		edits: AttrEdit[],
@@ -275,7 +284,7 @@
 			quiet = false,
 			overrideComputed = true,
 		}: { quiet?: boolean; overrideComputed?: boolean } = {},
-	): boolean {
+	): EditResult {
 		const target = readManifest();
 		const brace = braceFor(path);
 		if (!target || brace === null) {
@@ -283,11 +292,11 @@
 				editor.notice =
 					"This element cannot be edited here. Edit it as text.";
 			}
-			return false;
+			return "refused";
 		}
 
 		const changes = changedEdits(attrsAt(path), edits);
-		if (changes.length === 0) return true;
+		if (changes.length === 0) return "unchanged";
 
 		let source = target.source;
 		for (const edit of changes) {
@@ -300,14 +309,14 @@
 			);
 			if (!outcome.ok) {
 				if (!quiet) editor.notice = outcome.reason;
-				return false;
+				return "refused";
 			}
 			source = outcome.source;
 		}
 
 		editor.notice = null;
 		writeManifest(target.path, source);
-		return true;
+		return "changed";
 	}
 
 	function commitOutcome(outcome: EditOutcome, path: string) {
@@ -319,11 +328,11 @@
 		writeManifest(path, outcome.source);
 	}
 
-	function handleMove(path: string, dx: number, dy: number) {
+	function handleMove(path: string, dx: number, dy: number): boolean {
 		const tagName = tagNameAt(path);
 		if (tagName === null) {
 			editor.notice = "This element has no position of its own to change.";
-			return;
+			return false;
 		}
 
 		const attrs = attrsAt(path);
@@ -334,19 +343,25 @@
 		// drag is a relative motion, and merging an absolute coordinate onto
 		// the shared template would stack every instance on one spot.
 		const direct = translateEdits(tagName, attrs, dx, dy);
-		if (
-			direct &&
-			applyEdits(path, direct, { quiet: true, overrideComputed: false })
-		) {
-			return;
+		if (direct) {
+			const result = applyEdits(path, direct, {
+				quiet: true,
+				overrideComputed: false,
+			});
+			if (result !== "refused") return result === "changed";
 		}
 
 		// They may be expressions, though, as anything inside a loop usually is.
 		// A transform composes on top of whatever they evaluate to, so dragging
 		// keeps working where overwriting the expression would not.
-		applyEdits(path, [
-			{ key: "transform", value: composeTranslate(attrs.transform, dx, dy) },
-		]);
+		return (
+			applyEdits(path, [
+				{
+					key: "transform",
+					value: composeTranslate(attrs.transform, dx, dy),
+				},
+			]) === "changed"
+		);
 	}
 
 	function handleResize(
@@ -355,23 +370,23 @@
 		y: number,
 		width: number,
 		height: number,
-	) {
+	): boolean {
 		const tagName = tagNameAt(path);
 		if (tagName === null) {
 			// Silence here was the worst of it: the handles are drawn from the
 			// rendered element's own tag, so they appeared and did nothing.
 			editor.notice = "This element has no size of its own to change.";
-			return;
+			return false;
 		}
 
 		const edits = resizeEdits(tagName, x, y, width, height);
 		if (!edits) {
 			editor.notice = `A <${tagName}> has no width and height to set. Move it instead, or edit it as text.`;
-			return;
+			return false;
 		}
 		// Same reasoning as a move: an absolute size merged onto a shared
 		// template would make every instance identical.
-		applyEdits(path, edits, { overrideComputed: false });
+		return applyEdits(path, edits, { overrideComputed: false }) === "changed";
 	}
 
 	/**

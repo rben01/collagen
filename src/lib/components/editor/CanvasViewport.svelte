@@ -23,16 +23,21 @@
 		scale?: number;
 		panX?: number;
 		panY?: number;
-		/** Commit a move, in user units. */
-		onMove: (path: string, dx: number, dy: number) => void;
-		/** Commit a resize to a new box, in user units. */
+		/**
+		 * Commit a move, in user units.
+		 *
+		 * Returns whether the drawing will be regenerated. False means the
+		 * preview has to go now, because nothing is coming to replace it.
+		 */
+		onMove: (path: string, dx: number, dy: number) => boolean;
+		/** Commit a resize to a new box, in user units. Returns as `onMove` does. */
 		onResize: (
 			path: string,
 			x: number,
 			y: number,
 			width: number,
 			height: number,
-		) => void;
+		) => boolean;
 		/** Commit a newly drawn shape, in user units. */
 		onDraw: (x: number, y: number, width: number, height: number) => void;
 	} = $props();
@@ -434,28 +439,43 @@
 
 		// A press that never travelled is a click. It selected something, which
 		// is all it should do.
-		if (!gesture.moved) return;
+		if (!gesture.moved) {
+			clearPreview(gesture.path);
+			return;
+		}
 
-		// Drop the preview transform; the regenerated SVG carries the real value.
-		const element = elementFor(gesture.path) as SVGElement | null;
-		if (element) element.style.transform = "";
-
+		// The preview stays up until the regenerated drawing replaces it.
+		// Clearing it here instead would snap the element back to where the drag
+		// began and hold it there for the length of a write, an evaluation and
+		// a reload -- a visible jump backwards before it lands.
 		if (gesture.kind === "move") {
-			onMove(gesture.path, gesture.dx, gesture.dy);
+			if (!onMove(gesture.path, gesture.dx, gesture.dy)) {
+				clearPreview(gesture.path);
+			}
 			return;
 		}
 
 		const box = userBoxFor(gesture.path);
-		if (!box) return;
+		if (!box) {
+			clearPreview(gesture.path);
+			return;
+		}
 		const left = gesture.handle === "nw" || gesture.handle === "sw";
 		const top = gesture.handle === "nw" || gesture.handle === "ne";
-		onResize(
+		const committed = onResize(
 			gesture.path,
 			box.x + (left ? gesture.dx : 0),
 			box.y + (top ? gesture.dy : 0),
 			Math.max(1, box.width + (left ? -gesture.dx : gesture.dx)),
 			Math.max(1, box.height + (top ? -gesture.dy : gesture.dy)),
 		);
+		if (!committed) clearPreview(gesture.path);
+	}
+
+	/** Take the preview transform off an element, if it still has one. */
+	function clearPreview(path: string) {
+		const element = elementFor(path) as SVGElement | null;
+		if (element) element.style.transform = "";
 	}
 
 	/** An element's box in the SVG's user units. */
