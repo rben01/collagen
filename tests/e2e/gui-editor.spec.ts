@@ -216,6 +216,16 @@ function selectionOutline(page: Page): Locator {
 	return designCanvas(page).locator(".outline.selected");
 }
 
+/**
+ * The dashed outline drawn around whatever the pointer is over.
+ *
+ * Decorative like the selection outline, and the only thing on screen that
+ * says which element the editor considers hovered.
+ */
+function hoverOutline(page: Page): Locator {
+	return designCanvas(page).locator(".outline.hover");
+}
+
 /** Every resize handle, by the label each one carries. */
 const RESIZE_HANDLES = [
 	"Resize nw",
@@ -440,14 +450,62 @@ async function expectAttrNear(
  */
 async function expectCursor(page: Page, expected: string): Promise<void> {
 	await expect
-		.poll(
-			() =>
-				designCanvas(page).evaluate(
-					element => getComputedStyle(element).cursor,
-				),
-			{ message: `the canvas cursor should be ${expected}` },
-		)
+		.poll(() => canvasCursor(page), {
+			message: `the canvas cursor should be ${expected}`,
+		})
 		.toBe(expected);
+}
+
+/** The canvas's cursor right now, with no waiting. */
+function canvasCursor(page: Page): Promise<string> {
+	return designCanvas(page).evaluate(
+		element => getComputedStyle(element).cursor,
+	);
+}
+
+/**
+ * Wait for two elements to settle on the same box, within `tolerance` pixels.
+ *
+ * This is how an overlay drawn *around* something is checked to be around the
+ * thing it claims: the outline carries no identity of its own, so the only
+ * evidence of which element it is highlighting is where it is. Both boxes are
+ * re-measured on every poll, because the drawing is rebuilt asynchronously
+ * after an edit and the two settle a frame apart. On failure both boxes are
+ * reported, so a highlight on the wrong element reads as the wrong box.
+ */
+async function expectBoxesMatch(
+	outline: Locator,
+	element: Locator,
+	tolerance = 2,
+): Promise<void> {
+	const describe = (box: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	}) =>
+		`(${box.x.toFixed(1)}, ${box.y.toFixed(1)}) ${box.width.toFixed(1)}×${box.height.toFixed(1)}`;
+
+	await expect
+		.poll(
+			async () => {
+				const box = await outline.boundingBox();
+				const target = await element.boundingBox();
+				if (!box) return "the outline has no box";
+				if (!target) return "the element has no box";
+				const off = Math.max(
+					Math.abs(box.x - target.x),
+					Math.abs(box.y - target.y),
+					Math.abs(box.width - target.width),
+					Math.abs(box.height - target.height),
+				);
+				return off <= tolerance
+					? "the same box"
+					: `outline ${describe(box)}, element ${describe(target)}`;
+			},
+			{ timeout: 10000, message: "the outline should sit on the element" },
+		)
+		.toBe("the same box");
 }
 
 /** Wait for the layer rows to read, top to bottom, exactly like this. */
@@ -917,6 +975,45 @@ test.describe("Drawing a new shape", () => {
 		await expect(layerRows(page)).toHaveCount(3);
 		await expect(elementAt(page, "children[3]")).toHaveCount(0);
 	});
+
+	test("a press with a tremor draws nothing either", async ({ page }) => {
+		const before = await manifestSource(page, "collagen.json");
+		await toolButton(page, "Rectangle").click();
+
+		// The test above travels zero pixels, which every implementation
+		// refuses: the box comes out exactly 0 wide. These two do travel, and
+		// are still inside the three-pixel threshold — a hand tremor, not a
+		// drawing. The diagonal one matters most: it is the only one whose box
+		// has a non-zero width *and* height, so it is the one that used to be
+		// written out as a sliver rect.
+		for (const [dx, dy] of [
+			[1, 0],
+			[2, 2],
+		] as const) {
+			await pressAndTravel(page, [200, 150], dx, dy);
+			await page.mouse.up();
+
+			await expect(layerRows(page)).toHaveCount(2);
+			await expect(elementAt(page, "children[2]")).toHaveCount(0);
+		}
+
+		// Byte for byte: no sliver, and so no undo entry either.
+		expect(await manifestSource(page, "collagen.json")).toBe(before);
+
+		// The positive control. No tool button is clicked again first, so this
+		// also says the tremors left the Rectangle tool selected — drawing a
+		// shape is what reverts it, and nothing was drawn. (The tool survives
+		// the trip through the text editor for the same reason the selection
+		// does: it lives on the page's `EditorState`.)
+		await dragOnCanvas(page, [200, 150], [300, 225]);
+		const drawn = elementAt(page, "children[2]");
+		await expect(drawn).toBeAttached({ timeout: 10000 });
+		await expectAttrNear(drawn, "x", 200);
+		await expectAttrNear(drawn, "y", 150);
+		await expectAttrNear(drawn, "width", 100);
+		await expectAttrNear(drawn, "height", 75);
+		await expect(layerRows(page)).toHaveCount(3);
+	});
 });
 
 // =============================================================================
@@ -1254,6 +1351,41 @@ test.describe("What the cursor promises", () => {
 		await expectCursor(page, "grabbing");
 		await page.mouse.up();
 	});
+
+	test("a press that has not travelled yet does not", async ({ page }) => {
+		const overShape = await toClient(page, RECT_CENTRE[0], RECT_CENTRE[1]);
+		await page.mouse.move(overShape.x, overShape.y);
+		await expectCursor(page, "move");
+
+		// One pixel: pressed, but not yet a drag.
+		const at = await pressAndTravel(page, RECT_CENTRE, 1, 0);
+
+		// The press has landed *and* been painted — it selected the rect, which
+		// the same render pass shows — so the cursor read below is of a settled
+		// frame rather than of one the page has not got to yet. Without this
+		// the assertion could pass by being early.
+		await expect(layerRows(page).nth(ROW.rect)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		// Deliberately an inequality. What it reads today is `default`, because
+		// `over-shape` is switched off for the duration of any gesture — so a
+		// press on a shape currently drops the move cursor on the way to
+		// earning `grabbing`. Pinning `default` would pin that flicker; the fix
+		// under test is only that `grabbing` has to be earned.
+		expect(
+			await canvasCursor(page),
+			"a press that has not travelled has not earned the grabbing cursor",
+		).not.toBe("grabbing");
+
+		// Past the threshold it is a drag, and now says so.
+		await page.mouse.move(at.x + 40, at.y);
+		await expectCursor(page, "grabbing");
+
+		await page.mouse.up();
+		// Released over the shape it just moved, so it is back to an offer.
+		await expectCursor(page, "move");
+	});
 });
 
 // =============================================================================
@@ -1348,5 +1480,48 @@ test.describe("Dragging a layer row", () => {
 		);
 		await expect(attributeInput(page, "width")).toHaveValue("120");
 		await expect(attributeInput(page, "font-size")).toHaveCount(0);
+	});
+
+	test("carries the hover highlight with it too", async ({ page }) => {
+		// Hovering from the canvas, not from the panel. `hoveredPath` is
+		// recomputed from whatever is under the pointer on every `pointermove`,
+		// so the hover has to be set somewhere the reorder will not move the
+		// pointer off — and the reorder itself is dispatched events, which move
+		// no pointer. Resting on the rect is the one arrangement in which the
+		// hover survives long enough to be looked at.
+		const over = await toClient(page, RECT_CENTRE[0], RECT_CENTRE[1]);
+		await page.mouse.move(over.x, over.y);
+
+		// Nothing is selected, which matters: the hover outline is suppressed
+		// on the selection, so a stray click here would erase the evidence.
+		await expect(hoverOutline(page)).toBeVisible();
+		await expectBoxesMatch(
+			hoverOutline(page),
+			elementAt(page, "children[0]"),
+		);
+
+		// The circle, from the bottom of the tree to the top. That pushes the
+		// hovered rect from `children[0]` down to `children[1]`.
+		await fireLayerDrag(page, [
+			["dragstart", ROW.circle],
+			["dragover", ROW.rect],
+			["drop", ROW.rect],
+			["dragend", ROW.circle],
+		]);
+		await expectLayerOrder(page, [
+			"<circle>",
+			"<rect>",
+			"<text>",
+			'"Collagen"',
+		]);
+
+		// Still on the rect — and the two shapes are nowhere near each other,
+		// so a highlight left behind on `children[0]` is now a highlight around
+		// the circle, which this cannot mistake for a pass.
+		await expect(hoverOutline(page)).toBeVisible();
+		await expectBoxesMatch(
+			hoverOutline(page),
+			elementAt(page, "children[1]"),
+		);
 	});
 });
