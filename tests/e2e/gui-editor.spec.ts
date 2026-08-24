@@ -124,6 +124,42 @@ const OPAQUE_PROJECT: ProjectFiles = {
 `,
 };
 
+/**
+ * One shape of each kind the pointer and layer fixes care about.
+ *
+ * `<text>` earns its place twice over. It is a tag `resizeEdits` has no case
+ * for, so it is what proves handles stay off an element that cannot be
+ * resized; and its lone text child is a layer row whose `parentPath` is
+ * `children[1]` rather than the root, which makes it the one row a top-level
+ * sibling must never accept as a drop target.
+ */
+const POINTER_PROJECT: ProjectFiles = {
+	"collagen.jsonnet": `{
+	attrs: { viewBox: "0 0 400 300" },
+	children: [
+		{ tag: "rect", attrs: { x: 40, y: 30, width: 120, height: 70, fill: "#3b82f6" } },
+		{ tag: "text", attrs: { x: 200, y: 130, "font-size": 26, fill: "#111827" }, children: "Collagen" },
+		{ tag: "circle", attrs: { cx: 300, cy: 220, r: 40, fill: "#f59e0b" } },
+	],
+}
+`,
+};
+
+/** The middle of {@link POINTER_PROJECT}'s rect, which spans (40, 30)–(160, 100). */
+const RECT_CENTRE = [100, 65] as const;
+
+/**
+ * Which layer row is which, once {@link POINTER_PROJECT} is a tree.
+ *
+ * Rows 0, 1 and 3 are the top-level siblings. Row 2 is the `<text>`'s own text
+ * child, one level down. Dragging between the wrong pair of these is how a
+ * reordering test passes without testing anything.
+ */
+const ROW = { rect: 0, text: 1, textChild: 2, circle: 3 } as const;
+
+/** The row labels {@link POINTER_PROJECT} starts with, top to bottom. */
+const POINTER_LAYERS = ["<rect>", "<text>", '"Collagen"', "<circle>"];
+
 // =============================================================================
 // Locators
 // =============================================================================
@@ -168,6 +204,25 @@ function canvasDoc(page: Page): FrameLocator {
 function elementAt(page: Page, path: string): Locator {
 	return canvasDoc(page).locator(`[data-clgn-path="${path}"]`);
 }
+
+/**
+ * The outline drawn around the selection.
+ *
+ * Decorative, with no role and no label, so a CSS selector is the only handle
+ * on it — and it is needed: resize handles are drawn inside this outline, so
+ * "no handles" would pass just as happily when nothing at all is selected.
+ */
+function selectionOutline(page: Page): Locator {
+	return designCanvas(page).locator(".outline.selected");
+}
+
+/** Every resize handle, by the label each one carries. */
+const RESIZE_HANDLES = [
+	"Resize nw",
+	"Resize ne",
+	"Resize sw",
+	"Resize se",
+] as const;
 
 function toolButton(page: Page, name: string): Locator {
 	return page.getByRole("toolbar", { name: "Drawing tools" }).getByLabel(name);
@@ -238,6 +293,78 @@ async function dragOnCanvas(
 	await page.mouse.up();
 }
 
+/** Screen pixels per SVG user unit, which is the currency of the threshold. */
+async function pixelsPerUnit(page: Page): Promise<number> {
+	const box = await artboard(page).boundingBox();
+	expect(box, "the artboard should have a bounding box").not.toBeNull();
+	return box!.width / VIEW_BOX.width;
+}
+
+/**
+ * Press at a point in user units, travel a whole number of client pixels, and
+ * leave the button down. Returns where the pointer ended up.
+ *
+ * {@link dragOnCanvas} speaks user units, which is the right currency for "put
+ * that shape here". The drag threshold is measured in client pixels, so probing
+ * it needs the other one. The press point is rounded to whole pixels first, so
+ * the offset the page sees is exactly the one asked for rather than one either
+ * side of it once Chromium quantizes the coordinates.
+ */
+async function pressAndTravel(
+	page: Page,
+	at: readonly [number, number],
+	dxPixels: number,
+	dyPixels: number,
+): Promise<{ x: number; y: number }> {
+	const point = await toClient(page, at[0], at[1]);
+	const x = Math.round(point.x);
+	const y = Math.round(point.y);
+	await page.mouse.move(x, y);
+	await page.mouse.down();
+	await page.mouse.move(x + dxPixels, y + dyPixels);
+	return { x: x + dxPixels, y: y + dyPixels };
+}
+
+/** One HTML5 drag event, aimed at a layer row by its position in the tree. */
+type LayerDragStep = [type: string, row: number];
+
+/**
+ * Dispatch HTML5 drag events at layer rows.
+ *
+ * Everything else in this file drives real input through `page.mouse`, on
+ * purpose. This cannot: HTML5 drag and drop is a second event stream the
+ * browser synthesizes from a native drag session, and no mouse API can abandon
+ * one halfway — firing `dragstart` with no `drop` is exactly the case the panel
+ * used to get wrong, so it has to be reachable. The events land on the real
+ * rows and the panel's own handlers run unmodified; what is *not* exercised is
+ * the browser's own session, so the drag image and the `dropEffect`
+ * negotiation are assumed to work.
+ *
+ * Each call carries its own `DataTransfer` because the panel never reads one.
+ * Threading a shared object between calls would add page-global state to buy
+ * nothing.
+ */
+async function fireLayerDrag(
+	page: Page,
+	steps: LayerDragStep[],
+): Promise<void> {
+	await page.evaluate(sequence => {
+		const rows = document.querySelectorAll('[role="treeitem"]');
+		const transfer = new DataTransfer();
+		for (const [type, index] of sequence) {
+			const row = rows[index];
+			if (!row) throw new Error(`No layer row at index ${index}.`);
+			row.dispatchEvent(
+				new DragEvent(type, {
+					bubbles: true,
+					cancelable: true,
+					dataTransfer: transfer,
+				}),
+			);
+		}
+	}, steps);
+}
+
 /** Click a point in the SVG's user units. */
 async function clickOnCanvas(
 	page: Page,
@@ -301,6 +428,39 @@ async function expectAttrNear(
 			},
 		)
 		.toBe(expected);
+}
+
+/**
+ * Wait for the canvas to settle on a cursor.
+ *
+ * The cursor is the whole of the affordance: nothing else on screen says a
+ * shape can be dragged or the canvas can be grabbed. It comes from a class the
+ * component toggles, so it is read back as computed style rather than as a
+ * class name, which is what a user would see.
+ */
+async function expectCursor(page: Page, expected: string): Promise<void> {
+	await expect
+		.poll(
+			() =>
+				designCanvas(page).evaluate(
+					element => getComputedStyle(element).cursor,
+				),
+			{ message: `the canvas cursor should be ${expected}` },
+		)
+		.toBe(expected);
+}
+
+/** Wait for the layer rows to read, top to bottom, exactly like this. */
+async function expectLayerOrder(
+	page: Page,
+	labels: readonly string[],
+): Promise<void> {
+	await expect(layerRows(page)).toHaveCount(labels.length);
+	for (let i = 0; i < labels.length; i++) {
+		await expect(layerRows(page).nth(i)).toContainText(labels[i], {
+			timeout: 10000,
+		});
+	}
 }
 
 /** The horizontal position of each of a locator's `count` matches. */
@@ -873,5 +1033,320 @@ test.describe("A manifest the editor cannot analyze", () => {
 			"width",
 			"120",
 		);
+	});
+});
+
+// =============================================================================
+// When a press is not a drag
+// =============================================================================
+
+test.describe("Telling a click from a drag", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, POINTER_PROJECT);
+		await openVisualEditor(page);
+	});
+
+	test("a press with a pixel or two of jitter selects and writes nothing", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+		const rect = elementAt(page, "children[0]");
+
+		// Two hand tremors: one pixel, then a diagonal 2.83 that is still shy
+		// of the three-pixel threshold.
+		for (const [dx, dy] of [
+			[1, 0],
+			[2, 2],
+		] as const) {
+			await pressAndTravel(page, RECT_CENTRE, dx, dy);
+			await page.mouse.up();
+
+			// It selected, which is the whole of what a click should do.
+			await expect(layerRows(page).nth(ROW.rect)).toHaveAttribute(
+				"aria-selected",
+				"true",
+			);
+			await expect(rect).toHaveAttribute("x", "40");
+			await expect(rect).toHaveAttribute("y", "30");
+		}
+
+		// Byte for byte: no edit, and so no undo entry either.
+		expect(await manifestSource(page, "collagen.jsonnet")).toBe(before);
+	});
+
+	test("a press that travels past the threshold still moves the shape", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+		const perUnit = await pixelsPerUnit(page);
+		const rect = elementAt(page, "children[0]");
+
+		await pressAndTravel(page, RECT_CENTRE, 40, 0);
+		await page.mouse.up();
+
+		// The whole travel is committed, not the travel past the threshold.
+		await expectAttrNear(rect, "x", 40 + 40 / perUnit);
+		await expect(rect).toHaveAttribute("y", "30");
+
+		const source = await manifestSource(page, "collagen.jsonnet");
+		expect(source, "the manifest should have been rewritten").not.toBe(
+			before,
+		);
+		expect(source).not.toContain("x: 40,");
+		expect(source).toContain("y: 30,");
+	});
+
+	test("pointercancel abandons the drag in flight", async ({ page }) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+		const rect = elementAt(page, "children[0]");
+
+		const at = await pressAndTravel(page, RECT_CENTRE, 40, 0);
+		// The preview is a CSS transform on the rendered element, so the style
+		// attribute is the visible proof that a drag is under way.
+		await expect(rect).toHaveAttribute("style", /translate/);
+
+		// `page.mouse` cannot produce this one. `pointercancel` is the browser
+		// taking a gesture away — a system swipe, a lost pointer capture — not
+		// something an input device sends, so Playwright has no API for it.
+		// Every other gesture in this file is real input; this single event is
+		// synthesized, on `window`, which is where `CanvasViewport` listens.
+		await page.evaluate(() => {
+			window.dispatchEvent(
+				new PointerEvent("pointercancel", { bubbles: true, pointerId: 1 }),
+			);
+		});
+
+		await expect(rect).not.toHaveAttribute("style", /translate/);
+
+		// The button is still down, and the pointer must no longer drag.
+		await page.mouse.move(at.x + 40, at.y + 20);
+		await expect(rect).not.toHaveAttribute("style", /translate/);
+		await page.mouse.up();
+
+		await expect(rect).toHaveAttribute("x", "40");
+		await expect(rect).toHaveAttribute("y", "30");
+		expect(await manifestSource(page, "collagen.jsonnet")).toBe(before);
+	});
+
+	test("Escape abandons the drag but keeps the selection", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+		const rect = elementAt(page, "children[0]");
+
+		const at = await pressAndTravel(page, RECT_CENTRE, 40, 0);
+		await expect(rect).toHaveAttribute("style", /translate/);
+
+		await page.keyboard.press("Escape");
+		await expect(rect).not.toHaveAttribute("style", /translate/);
+		// Calling the drag off must not also throw the selection away.
+		await expect(layerRows(page).nth(ROW.rect)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		// Carrying on and releasing commits nothing either.
+		await page.mouse.move(at.x + 40, at.y + 20);
+		await page.mouse.up();
+		await expect(rect).toHaveAttribute("x", "40");
+		await expect(rect).toHaveAttribute("y", "30");
+
+		// A second Escape has no drag left to call off, so it does the other
+		// thing Escape means here.
+		await page.keyboard.press("Escape");
+		await expect(layerRows(page).nth(ROW.rect)).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+		await expect(
+			page.getByText("Select something on the canvas."),
+		).toBeVisible();
+
+		expect(await manifestSource(page, "collagen.jsonnet")).toBe(before);
+	});
+});
+
+// =============================================================================
+// Resize handles
+// =============================================================================
+
+test.describe("Resize handles", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, POINTER_PROJECT);
+		await openVisualEditor(page);
+	});
+
+	// Selecting from the layers panel rather than the canvas: hit-testing a
+	// `<text>` means landing on a glyph rather than on its box, which has
+	// nothing to do with what is being pinned here.
+
+	test("are absent on an element the editor cannot resize", async ({
+		page,
+	}) => {
+		await layerRows(page).nth(ROW.text).click();
+
+		// The `<text>` really is selected, so zero handles means zero handles
+		// and not "nothing to draw them around".
+		await expect(layerRows(page).nth(ROW.text)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await expect(attributeInput(page, "font-size")).toHaveValue("26");
+		await expect(selectionOutline(page)).toBeVisible();
+
+		for (const handle of RESIZE_HANDLES) {
+			await expect(page.getByLabel(handle)).toHaveCount(0);
+		}
+	});
+
+	test("are drawn, all four, on one it can", async ({ page }) => {
+		await layerRows(page).nth(ROW.rect).click();
+
+		await expect(attributeInput(page, "width")).toHaveValue("120");
+		await expect(selectionOutline(page)).toBeVisible();
+
+		for (const handle of RESIZE_HANDLES) {
+			await expect(page.getByLabel(handle)).toHaveCount(1);
+		}
+	});
+});
+
+// =============================================================================
+// Cursor affordances
+// =============================================================================
+
+test.describe("What the cursor promises", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, POINTER_PROJECT);
+		await openVisualEditor(page);
+	});
+
+	test("the pan tool reads as grabbable, then as grabbed", async ({
+		page,
+	}) => {
+		await toolButton(page, "Pan").click();
+		await expectCursor(page, "grab");
+
+		const point = await toClient(page, 200, 150);
+		await page.mouse.move(point.x, point.y);
+		await page.mouse.down();
+		await expectCursor(page, "grabbing");
+
+		await page.mouse.up();
+		await expectCursor(page, "grab");
+	});
+
+	test("the select tool reads as movable over a shape, plain over blank canvas", async ({
+		page,
+	}) => {
+		const overShape = await toClient(page, RECT_CENTRE[0], RECT_CENTRE[1]);
+		await page.mouse.move(overShape.x, overShape.y);
+		await expectCursor(page, "move");
+
+		// Nothing is drawn in the top-right corner of this artboard.
+		const overBlank = await toClient(page, 380, 20);
+		await page.mouse.move(overBlank.x, overBlank.y);
+		await expectCursor(page, "default");
+	});
+
+	test("a drag under way reads as grabbed", async ({ page }) => {
+		await pressAndTravel(page, RECT_CENTRE, 40, 0);
+		await expectCursor(page, "grabbing");
+		await page.mouse.up();
+	});
+});
+
+// =============================================================================
+// Reordering layers
+// =============================================================================
+
+test.describe("Dragging a layer row", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, POINTER_PROJECT);
+		await openVisualEditor(page);
+		await expectLayerOrder(page, POINTER_LAYERS);
+	});
+
+	test("abandoned with no drop, does not reorder the next row released on", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.jsonnet");
+
+		// Escape during an HTML5 drag fires `dragend` and no `drop` at all.
+		await fireLayerDrag(page, [
+			["dragstart", ROW.rect],
+			["dragend", ROW.rect],
+		]);
+		// Releasing on another row afterwards is a new press, not the tail of
+		// the abandoned drag. The same two events do reorder when a drag really
+		// is in flight, which the selection test below relies on.
+		await fireLayerDrag(page, [
+			["dragover", ROW.circle],
+			["drop", ROW.circle],
+		]);
+
+		// The write would be synchronous, so this is the assertion that cannot
+		// pass by arriving before the damage.
+		expect(await manifestSource(page, "collagen.jsonnet")).toBe(before);
+		await expectLayerOrder(page, POINTER_LAYERS);
+	});
+
+	test("shows which row is moving and where it would land", async ({
+		page,
+	}) => {
+		await fireLayerDrag(page, [["dragstart", ROW.rect]]);
+		await expect(layerRows(page).nth(ROW.rect)).toHaveClass(/dragging/);
+
+		await fireLayerDrag(page, [["dragover", ROW.circle]]);
+		await expect(layerRows(page).nth(ROW.circle)).toHaveClass(/drop-target/);
+
+		// The `<text>`'s own text child is not a sibling of the rect — its
+		// `parentPath` is `children[1]` — so it can never be where the rect
+		// lands, and must not offer itself as somewhere it could.
+		await fireLayerDrag(page, [
+			["dragleave", ROW.circle],
+			["dragover", ROW.textChild],
+		]);
+		await expect(layersTree(page).locator(".drop-target")).toHaveCount(0);
+
+		await fireLayerDrag(page, [["dragend", ROW.rect]]);
+		await expect(layersTree(page).locator(".dragging")).toHaveCount(0);
+		await expect(layersTree(page).locator(".drop-target")).toHaveCount(0);
+	});
+
+	test("carries the selection with it", async ({ page }) => {
+		await layerRows(page).nth(ROW.rect).click();
+		await expect(layerRows(page).nth(ROW.rect)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await expect(attributeInput(page, "width")).toHaveValue("120");
+
+		// The rect from index 0 to index 2, past the `<text>` it sat above.
+		await fireLayerDrag(page, [
+			["dragstart", ROW.rect],
+			["dragover", ROW.circle],
+			["drop", ROW.circle],
+			["dragend", ROW.rect],
+		]);
+
+		await expectLayerOrder(page, [
+			"<text>",
+			'"Collagen"',
+			"<circle>",
+			"<rect>",
+		]);
+
+		// Still the rect, not whatever now sits at the index it used to hold.
+		await expect(layerRows(page).nth(3)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await expect(layerRows(page).nth(0)).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+		await expect(attributeInput(page, "width")).toHaveValue("120");
+		await expect(attributeInput(page, "font-size")).toHaveCount(0);
 	});
 });
