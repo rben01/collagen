@@ -1,9 +1,5 @@
 <script lang="ts">
-	import {
-		calculateConstrainedDimensions,
-		calculateZoomToPoint,
-		CONTENT_PADDING,
-	} from "../viewer/index.js";
+	import { calculateZoomToPoint, CONTENT_PADDING } from "../viewer/index.js";
 	import { resizeEdits } from "../../collagen-ts/manifest/geometry.js";
 	import type { EditorState, ResizeHandle } from "./editor-state.svelte.js";
 
@@ -23,16 +19,21 @@
 		scale?: number;
 		panX?: number;
 		panY?: number;
-		/** Commit a move, in user units. */
-		onMove: (path: string, dx: number, dy: number) => void;
-		/** Commit a resize to a new box, in user units. */
+		/**
+		 * Commit a move, in user units.
+		 *
+		 * Returns whether the drawing will be regenerated. False means the
+		 * preview has to go now, because nothing is coming to replace it.
+		 */
+		onMove: (path: string, dx: number, dy: number) => boolean;
+		/** Commit a resize to a new box, in user units. Returns as `onMove` does. */
 		onResize: (
 			path: string,
 			x: number,
 			y: number,
 			width: number,
 			height: number,
-		) => void;
+		) => boolean;
 		/** Commit a newly drawn shape, in user units. */
 		onDraw: (x: number, y: number, width: number, height: number) => void;
 	} = $props();
@@ -70,20 +71,81 @@
 		return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] };
 	});
 
-	const constrained = $derived(
-		calculateConstrainedDimensions(
-			viewBox?.width ?? null,
-			viewBox?.height ?? null,
-			containerWidth,
-			containerHeight,
-			CONTENT_PADDING,
-		),
+	/**
+	 * The frame's size, fitted to the drawing's proportions exactly.
+	 *
+	 * `calculateConstrainedDimensions` is not used here, though the rest of the
+	 * viewer's maths is. It subtracts its padding from both axes after fitting,
+	 * which leaves the result a fraction off the viewBox's aspect ratio -- for a
+	 * 4:3 drawing in this pane, 589 by 440 rather than 589 by 441.75. The
+	 * drawing then either overflows the frame and is clipped, or letterboxes
+	 * inside it, and either way a pointer coordinate no longer converts cleanly.
+	 * Taking the padding off first and fitting after keeps the two in step.
+	 */
+	const constrained = $derived.by(() => {
+		if (!viewBox || viewBox.width === 0 || viewBox.height === 0) {
+			return { width: containerWidth, height: containerHeight };
+		}
+		const availableWidth = Math.max(0, containerWidth - CONTENT_PADDING);
+		const availableHeight = Math.max(0, containerHeight - CONTENT_PADDING);
+		const scale = Math.min(
+			availableWidth / viewBox.width,
+			availableHeight / viewBox.height,
+		);
+		return { width: viewBox.width * scale, height: viewBox.height * scale };
+	});
+
+	/**
+	 * The drawing, wrapped in a document that does not inset it.
+	 *
+	 * A bare SVG in `srcdoc` lands inside a body with the default 8px margin,
+	 * which pushes the drawing off the frame's origin and shrinks it. Every
+	 * pointer coordinate is then converted against a span the drawing does not
+	 * actually occupy.
+	 */
+	const frameDocument = $derived(
+		`<!doctype html><meta charset="utf-8">` +
+			`<style>html,body{margin:0;padding:0;overflow:hidden}` +
+			`svg{display:block;width:100%;height:100%}</style>${svg}`,
 	);
+
+	/**
+	 * The drawing's box in the page's own coordinates, the viewer's zoom and pan
+	 * included.
+	 *
+	 * Measured from the `<svg>` itself rather than the frame around it. The
+	 * frame is sized by `calculateConstrainedDimensions`, which subtracts its
+	 * padding from both axes and so does not hold the viewBox's aspect ratio
+	 * exactly; the drawing letterboxes itself inside whatever it is given. Using
+	 * the frame's width would make every gesture a little short.
+	 */
+	function drawingRect(): {
+		left: number;
+		top: number;
+		width: number;
+		height: number;
+	} | null {
+		const drawing = frame?.contentDocument?.querySelector("svg");
+		if (!drawing || !frame) return null;
+
+		const frameRect = frame.getBoundingClientRect();
+		if (frameRect.width === 0 || constrained.width === 0) return null;
+
+		const factor = frameRect.width / constrained.width;
+		const inner = drawing.getBoundingClientRect();
+		return {
+			left: frameRect.left + inner.left * factor,
+			top: frameRect.top + inner.top * factor,
+			width: inner.width * factor,
+			height: inner.height * factor,
+		};
+	}
 
 	/** Screen pixels per SVG user unit, including the viewer's own zoom. */
 	function screenPerUnit(): number {
-		if (!frame || !viewBox || viewBox.width === 0) return 1;
-		return frame.getBoundingClientRect().width / viewBox.width;
+		const drawing = drawingRect();
+		if (!drawing || !viewBox || viewBox.width === 0) return 1;
+		return drawing.width / viewBox.width;
 	}
 
 	/** A client point in the iframe's own CSS pixels, for `elementFromPoint`. */
@@ -300,11 +362,17 @@
 		clientX: number,
 		clientY: number,
 	): { x: number; y: number } | null {
-		const local = toFrameSpace(clientX, clientY);
-		if (!local || !viewBox || constrained.width === 0) return null;
+		const drawing = drawingRect();
+		if (!drawing || !viewBox || drawing.width === 0 || drawing.height === 0) {
+			return null;
+		}
 		return {
-			x: viewBox.x + (local.x / constrained.width) * viewBox.width,
-			y: viewBox.y + (local.y / constrained.height) * viewBox.height,
+			x:
+				viewBox.x +
+				((clientX - drawing.left) / drawing.width) * viewBox.width,
+			y:
+				viewBox.y +
+				((clientY - drawing.top) / drawing.height) * viewBox.height,
 		};
 	}
 
@@ -434,28 +502,43 @@
 
 		// A press that never travelled is a click. It selected something, which
 		// is all it should do.
-		if (!gesture.moved) return;
+		if (!gesture.moved) {
+			clearPreview(gesture.path);
+			return;
+		}
 
-		// Drop the preview transform; the regenerated SVG carries the real value.
-		const element = elementFor(gesture.path) as SVGElement | null;
-		if (element) element.style.transform = "";
-
+		// The preview stays up until the regenerated drawing replaces it.
+		// Clearing it here instead would snap the element back to where the drag
+		// began and hold it there for the length of a write, an evaluation and
+		// a reload -- a visible jump backwards before it lands.
 		if (gesture.kind === "move") {
-			onMove(gesture.path, gesture.dx, gesture.dy);
+			if (!onMove(gesture.path, gesture.dx, gesture.dy)) {
+				clearPreview(gesture.path);
+			}
 			return;
 		}
 
 		const box = userBoxFor(gesture.path);
-		if (!box) return;
+		if (!box) {
+			clearPreview(gesture.path);
+			return;
+		}
 		const left = gesture.handle === "nw" || gesture.handle === "sw";
 		const top = gesture.handle === "nw" || gesture.handle === "ne";
-		onResize(
+		const committed = onResize(
 			gesture.path,
 			box.x + (left ? gesture.dx : 0),
 			box.y + (top ? gesture.dy : 0),
 			Math.max(1, box.width + (left ? -gesture.dx : gesture.dx)),
 			Math.max(1, box.height + (top ? -gesture.dy : gesture.dy)),
 		);
+		if (!committed) clearPreview(gesture.path);
+	}
+
+	/** Take the preview transform off an element, if it still has one. */
+	function clearPreview(path: string) {
+		const element = elementFor(path) as SVGElement | null;
+		if (element) element.style.transform = "";
 	}
 
 	/** An element's box in the SVG's user units. */
@@ -491,14 +574,14 @@
 		};
 	});
 
-	/** The container-relative position of the SVG's origin. */
+	/** The container-relative position of the drawing's origin. */
 	function boxOrigin(): { left: number; top: number } | null {
-		if (!frame || !container) return null;
-		const frameRect = frame.getBoundingClientRect();
+		const drawing = drawingRect();
+		if (!drawing || !container) return null;
 		const containerRect = container.getBoundingClientRect();
 		return {
-			left: frameRect.left - containerRect.left,
-			top: frameRect.top - containerRect.top,
+			left: drawing.left - containerRect.left,
+			top: drawing.top - containerRect.top,
 		};
 	}
 </script>
@@ -548,7 +631,7 @@
 			bind:this={frame}
 			title="Design canvas contents"
 			sandbox="allow-same-origin"
-			srcdoc={svg}
+			srcdoc={frameDocument}
 			width={constrained.width}
 			height={constrained.height}
 			style:width="{constrained.width}px"

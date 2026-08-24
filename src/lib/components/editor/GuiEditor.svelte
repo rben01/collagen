@@ -5,6 +5,7 @@
 	} from "$lib/collagen-ts/filesystem/index.js";
 	import type { JsonObject } from "$lib/collagen-ts/jsonnet/index.js";
 	import {
+		attributeSources,
 		detachComprehension,
 		printElement,
 		removeAttribute,
@@ -12,6 +13,8 @@
 		moveChild,
 		insertChild,
 		removeChild,
+		setAttributeExpression,
+		type AttributeSource,
 		type EditOutcome,
 	} from "$lib/collagen-ts/manifest/edit.js";
 	import {
@@ -31,7 +34,7 @@
 	import { isTypingInInput } from "../viewer/index.js";
 	import CanvasViewport from "./CanvasViewport.svelte";
 	import ImagePicker, { type ProjectImage } from "./ImagePicker.svelte";
-	import Inspector from "./Inspector.svelte";
+	import Inspector, { type AttrRow } from "./Inspector.svelte";
 	import LayersPanel from "./LayersPanel.svelte";
 	import ToolPalette from "./ToolPalette.svelte";
 	import { EditorState, type Tool } from "./editor-state.svelte.js";
@@ -100,6 +103,20 @@
 			: nodeAtPath(manifest, editor.selectedPath),
 	);
 
+	/**
+	 * How the selection's attributes are written, keyed by name.
+	 *
+	 * For an element a loop produced, every instance shares one source object,
+	 * so these are the loop body's own expressions.
+	 */
+	const attributeText = $derived.by(() => {
+		const target = readManifest();
+		const brace =
+			editor.selectedPath === null ? null : braceFor(editor.selectedPath);
+		if (!target || brace === null) return new Map<string, AttributeSource>();
+		return attributeSources(target.source, brace);
+	});
+
 	const selectedAttrs = $derived.by(() => {
 		if (
 			selectedNode === null ||
@@ -112,12 +129,21 @@
 		if (attrs === null || typeof attrs !== "object" || Array.isArray(attrs)) {
 			return [];
 		}
-		const rows: { key: string; value: string | number }[] = [];
+		const rows: AttrRow[] = [];
 		for (const key in attrs as Record<string, JsonObject>) {
 			const value = (attrs as Record<string, JsonObject>)[key];
-			if (typeof value === "string" || typeof value === "number") {
-				rows.push({ key, value });
-			}
+			if (typeof value !== "string" && typeof value !== "number") continue;
+
+			// Carry the source text for every attribute the manifest spells
+			// out, literal or not. The panel shows a computed one as code
+			// straight away, and lets a literal be switched to code on request.
+			const written = attributeText.get(key);
+			rows.push({
+				key,
+				value,
+				source: written?.text,
+				isLiteral: written?.isLiteral ?? true,
+			});
 		}
 		return rows;
 	});
@@ -242,6 +268,15 @@
 	 * Every splice lands inside the tag's own braces, which come after the
 	 * offset itself, so the offset stays valid across all of them.
 	 */
+	/**
+	 * What an edit did.
+	 *
+	 * The canvas needs "unchanged" and "refused" told apart from "changed",
+	 * because only the last brings a regenerated drawing to replace the preview
+	 * it is holding.
+	 */
+	type EditResult = "changed" | "unchanged" | "refused";
+
 	function applyEdits(
 		path: string,
 		edits: AttrEdit[],
@@ -249,7 +284,7 @@
 			quiet = false,
 			overrideComputed = true,
 		}: { quiet?: boolean; overrideComputed?: boolean } = {},
-	): boolean {
+	): EditResult {
 		const target = readManifest();
 		const brace = braceFor(path);
 		if (!target || brace === null) {
@@ -257,11 +292,11 @@
 				editor.notice =
 					"This element cannot be edited here. Edit it as text.";
 			}
-			return false;
+			return "refused";
 		}
 
 		const changes = changedEdits(attrsAt(path), edits);
-		if (changes.length === 0) return true;
+		if (changes.length === 0) return "unchanged";
 
 		let source = target.source;
 		for (const edit of changes) {
@@ -274,14 +309,14 @@
 			);
 			if (!outcome.ok) {
 				if (!quiet) editor.notice = outcome.reason;
-				return false;
+				return "refused";
 			}
 			source = outcome.source;
 		}
 
 		editor.notice = null;
 		writeManifest(target.path, source);
-		return true;
+		return "changed";
 	}
 
 	function commitOutcome(outcome: EditOutcome, path: string) {
@@ -293,11 +328,11 @@
 		writeManifest(path, outcome.source);
 	}
 
-	function handleMove(path: string, dx: number, dy: number) {
+	function handleMove(path: string, dx: number, dy: number): boolean {
 		const tagName = tagNameAt(path);
 		if (tagName === null) {
 			editor.notice = "This element has no position of its own to change.";
-			return;
+			return false;
 		}
 
 		const attrs = attrsAt(path);
@@ -308,19 +343,25 @@
 		// drag is a relative motion, and merging an absolute coordinate onto
 		// the shared template would stack every instance on one spot.
 		const direct = translateEdits(tagName, attrs, dx, dy);
-		if (
-			direct &&
-			applyEdits(path, direct, { quiet: true, overrideComputed: false })
-		) {
-			return;
+		if (direct) {
+			const result = applyEdits(path, direct, {
+				quiet: true,
+				overrideComputed: false,
+			});
+			if (result !== "refused") return result === "changed";
 		}
 
 		// They may be expressions, though, as anything inside a loop usually is.
 		// A transform composes on top of whatever they evaluate to, so dragging
 		// keeps working where overwriting the expression would not.
-		applyEdits(path, [
-			{ key: "transform", value: composeTranslate(attrs.transform, dx, dy) },
-		]);
+		return (
+			applyEdits(path, [
+				{
+					key: "transform",
+					value: composeTranslate(attrs.transform, dx, dy),
+				},
+			]) === "changed"
+		);
 	}
 
 	function handleResize(
@@ -329,23 +370,23 @@
 		y: number,
 		width: number,
 		height: number,
-	) {
+	): boolean {
 		const tagName = tagNameAt(path);
 		if (tagName === null) {
 			// Silence here was the worst of it: the handles are drawn from the
 			// rendered element's own tag, so they appeared and did nothing.
 			editor.notice = "This element has no size of its own to change.";
-			return;
+			return false;
 		}
 
 		const edits = resizeEdits(tagName, x, y, width, height);
 		if (!edits) {
 			editor.notice = `A <${tagName}> has no width and height to set. Move it instead, or edit it as text.`;
-			return;
+			return false;
 		}
 		// Same reasoning as a move: an absolute size merged onto a shared
 		// template would make every instance identical.
-		applyEdits(path, edits, { overrideComputed: false });
+		return applyEdits(path, edits, { overrideComputed: false }) === "changed";
 	}
 
 	/**
@@ -515,6 +556,25 @@
 		const parsed =
 			value.trim() !== "" && Number.isFinite(asNumber) ? asNumber : value;
 		applyEdits(editor.selectedPath, [{ key, value: parsed }]);
+	}
+
+	/**
+	 * Replace an attribute with raw Jsonnet.
+	 *
+	 * Where the selection came from a loop this rewrites the loop body, so
+	 * every instance changes -- which is the point of showing the expression
+	 * rather than one instance's value.
+	 */
+	function handleSetExpression(key: string, expression: string) {
+		const target = readManifest();
+		const brace =
+			editor.selectedPath === null ? null : braceFor(editor.selectedPath);
+		if (!target || brace === null) return;
+
+		commitOutcome(
+			setAttributeExpression(target.source, brace, key, expression),
+			target.path,
+		);
 	}
 
 	function handleRemoveAttr(key: string) {
@@ -750,6 +810,7 @@
 				{groupKind}
 				canDetach={groupKind === "loop"}
 				onSet={handleSetAttr}
+				onSetExpression={handleSetExpression}
 				onRemove={handleRemoveAttr}
 				onDetach={handleDetach}
 			/>

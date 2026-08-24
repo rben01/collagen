@@ -4,7 +4,19 @@
 	/** One editable attribute of the selection. */
 	export interface AttrRow {
 		key: string;
+		/** What it comes to for the element that is selected. */
 		value: string | number;
+		/**
+		 * How it is written, when a span of the manifest spells it out.
+		 *
+		 * For an element a loop produced, every instance shares one source
+		 * object, so this is the loop body's own text -- `70 + i * 90` rather
+		 * than `160`. Absent when the attribute arrives some other way, through
+		 * a merge or an `attrs` that is itself computed.
+		 */
+		source?: string;
+		/** True when that text is a plain value rather than something computed. */
+		isLiteral: boolean;
 	}
 
 	let {
@@ -14,6 +26,7 @@
 		groupKind,
 		canDetach,
 		onSet,
+		onSetExpression,
 		onRemove,
 		onDetach,
 	}: {
@@ -24,6 +37,8 @@
 		groupKind: "loop" | "shared" | null;
 		canDetach: boolean;
 		onSet: (key: string, value: string) => void;
+		/** Replace an attribute's value with raw Jsonnet. */
+		onSetExpression: (key: string, expression: string) => void;
 		onRemove: (key: string) => void;
 		onDetach: () => void;
 	} = $props();
@@ -70,6 +85,20 @@
 		return out;
 	});
 
+	/**
+	 * Rows the reader has asked to edit as code.
+	 *
+	 * A computed attribute is always shown this way. A literal is not, until
+	 * asked: typing `i * 90` into a plain value field would write the string
+	 * "i * 90", and guessing which is meant from the text would be worse -- a
+	 * `fill` of `red` is a colour, not a variable named red.
+	 */
+	let asCode = $state<Record<string, boolean>>({});
+
+	function editsAsCode(row: AttrRow): boolean {
+		return row.source !== undefined && (!row.isLiteral || asCode[row.key]);
+	}
+
 	/** Does this attribute read as a color the browser can show in a swatch? */
 	function isColor(key: string, value: string | number): boolean {
 		return (
@@ -115,8 +144,23 @@
 			<dl>
 				{#each section.rows as row (row.key)}
 					<dt><label for="attr-{row.key}">{row.key}</label></dt>
-					<dd>
-						{#if isColor(row.key, row.value)}
+					<dd class:wide={editsAsCode(row)}>
+						{#if editsAsCode(row)}
+							<input
+								type="text"
+								class="expression"
+								id="attr-{row.key}"
+								value={row.source}
+								spellcheck="false"
+								onchange={event =>
+									onSetExpression(row.key, event.currentTarget.value)}
+							/>
+							{#if String(row.value) !== row.source}
+								<span class="evaluated" title="What it comes to here"
+									>= {row.value}</span
+								>
+							{/if}
+						{:else if isColor(row.key, row.value)}
 							<input
 								type="color"
 								id="attr-{row.key}"
@@ -132,6 +176,21 @@
 								onchange={event =>
 									onSet(row.key, event.currentTarget.value)}
 							/>
+						{/if}
+						{#if row.source !== undefined && row.isLiteral}
+							<button
+								type="button"
+								class="as-code"
+								class:on={asCode[row.key]}
+								aria-pressed={asCode[row.key] ?? false}
+								aria-label="Edit {row.key} as an expression"
+								title="Edit as an expression, so it can vary with the loop"
+								onclick={() =>
+									(asCode = {
+										...asCode,
+										[row.key]: !asCode[row.key],
+									})}>&fnof;</button
+							>
 						{/if}
 						<button
 							type="button"
@@ -229,6 +288,30 @@
 		min-width: 0;
 	}
 
+	/* An expression needs the room to be read. Truncating `70 + i * 90` to
+	   `70 + i *` defeats the point of showing it, so a code row drops onto its
+	   own line and takes the whole width. */
+	dd.wide {
+		grid-column: 1 / -1;
+		margin-bottom: 0.25rem;
+	}
+
+	/* An expression is code, so it is set in the mono face and given the room
+	   that a value does not need. */
+	input.expression {
+		border-color: #c7d2fe;
+		background: #f5f3ff;
+	}
+
+	.evaluated {
+		flex: 0 0 auto;
+		color: #6b7280;
+		font-family: var(--mono-font-family);
+		font-size: 0.75em;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
 	input[type="text"] {
 		flex: 1;
 		min-width: 0;
@@ -251,6 +334,29 @@
 	input:focus-visible {
 		outline: 2px solid #2563eb;
 		outline-offset: 1px;
+	}
+
+	.as-code {
+		flex: 0 0 auto;
+		padding: 0 0.3em;
+		border: 0;
+		border-radius: 0.25em;
+		background: none;
+		color: #9ca3af;
+		font-family: var(--mono-font-family);
+		font-style: italic;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.as-code:hover {
+		background: #f5f3ff;
+		color: #4f46e5;
+	}
+
+	.as-code.on {
+		background: #ede9fe;
+		color: #4f46e5;
 	}
 
 	.remove {
