@@ -450,6 +450,26 @@ async function dragOnCanvas(
 }
 
 /**
+ * Press, drag, and release between two points in the page's own pixels.
+ *
+ * The same gesture as {@link dragOnCanvas}, with no user units anywhere in it.
+ * That is the whole difference, and the reason it exists: `toClient` converts a
+ * user unit by assuming the viewBox spans the frame's box, which is the very
+ * assumption "Where a gesture lands" below is checking, so a test that goes
+ * through it is comparing the app's arithmetic against a copy of itself.
+ */
+async function dragOnPage(
+	page: Page,
+	from: { x: number; y: number },
+	to: { x: number; y: number },
+): Promise<void> {
+	await page.mouse.move(from.x, from.y);
+	await page.mouse.down();
+	await page.mouse.move(to.x, to.y, { steps: 8 });
+	await page.mouse.up();
+}
+
+/**
  * Press a resize handle and travel a number of client pixels, leaving the
  * button down. The grip is taken by the handle's own box, because grabbing the
  * handle is what a user does.
@@ -507,6 +527,68 @@ function edgesInFrame(page: Page, path: string): Promise<FrameBox> {
 		if (!element) throw new Error(`Nothing is drawn at ${target}.`);
 		return element.getBoundingClientRect().toJSON() as FrameBox;
 	}, path);
+}
+
+/**
+ * The same six numbers as a {@link FrameBox}, on the page's side of the frame.
+ *
+ * Distinct in name only, because the two are separated by the frame's offset
+ * and by the viewer's own scale, and mixing them up is exactly the mistake the
+ * tests below exist to catch.
+ */
+type PageBox = FrameBox;
+
+/**
+ * The canvas frame's box on the page, with the factor its contents are
+ * magnified by on the way out.
+ *
+ * The frame sits inside `.stage`, which carries the viewer's zoom as a CSS
+ * transform, so a length measured inside the frame's document is multiplied by
+ * `factor` before it reaches the page. `clientWidth` is the frame's own
+ * untransformed width, which is what makes that ratio readable at all.
+ */
+async function frameOnPage(page: Page): Promise<PageBox & { factor: number }> {
+	const box = await artboard(page).boundingBox();
+	expect(box, "the artboard should have a bounding box").not.toBeNull();
+
+	const clientWidth = await artboard(page).evaluate(
+		frame => (frame as HTMLIFrameElement).clientWidth,
+	);
+	expect(
+		clientWidth,
+		"the artboard should have been laid out",
+	).toBeGreaterThan(0);
+
+	return {
+		left: box!.x,
+		top: box!.y,
+		right: box!.x + box!.width,
+		bottom: box!.y + box!.height,
+		width: box!.width,
+		height: box!.height,
+		factor: box!.width / clientWidth,
+	};
+}
+
+/**
+ * Where an element drawn inside the frame sits on the page.
+ *
+ * Deliberately free of user units: the reading is taken from the element's own
+ * box inside the frame and carried across by the frame's offset and scale, so
+ * it can be compared with the page coordinates a pointer actually visited.
+ */
+async function elementOnPage(page: Page, path: string): Promise<PageBox> {
+	const frame = await frameOnPage(page);
+	const inner = await edgesInFrame(page, path);
+	const k = frame.factor;
+	return {
+		left: frame.left + inner.left * k,
+		top: frame.top + inner.top * k,
+		right: frame.left + inner.right * k,
+		bottom: frame.top + inner.bottom * k,
+		width: inner.width * k,
+		height: inner.height * k,
+	};
 }
 
 /**
@@ -715,6 +797,53 @@ async function expectAttrNear(
 			},
 		)
 		.toBe(expected);
+}
+
+/**
+ * Wait for a drawn element's four edges to settle on four page coordinates,
+ * within `tolerance` pixels.
+ *
+ * The expected numbers are page coordinates a pointer visited, not user units
+ * converted into them, which is what makes this an independent reading rather
+ * than a restatement of the app's own arithmetic. Polled, because the drawing
+ * is rebuilt asynchronously after every edit; all four gaps are reported at
+ * once, signed, so a near miss reads as a near miss and its direction is
+ * visible.
+ */
+async function expectEdgesOnPage(
+	page: Page,
+	path: string,
+	expected: { left: number; top: number; right: number; bottom: number },
+	tolerance = 1,
+): Promise<void> {
+	await expect(elementAt(page, path)).toBeAttached({ timeout: 10000 });
+	await expect
+		.poll(
+			async () => {
+				const box = await elementOnPage(page, path);
+				const gaps = {
+					left: box.left - expected.left,
+					top: box.top - expected.top,
+					right: box.right - expected.right,
+					bottom: box.bottom - expected.bottom,
+				};
+				const off = Math.max(
+					Math.abs(gaps.left),
+					Math.abs(gaps.top),
+					Math.abs(gaps.right),
+					Math.abs(gaps.bottom),
+				);
+				return off <= tolerance
+					? "where the pointer put it"
+					: `off by left ${gaps.left.toFixed(2)}, top ${gaps.top.toFixed(2)}` +
+							`, right ${gaps.right.toFixed(2)}, bottom ${gaps.bottom.toFixed(2)}`;
+			},
+			{
+				timeout: 10000,
+				message: `${path} should sit within ${tolerance}px of the pointer`,
+			},
+		)
+		.toBe("where the pointer put it");
 }
 
 /**
@@ -1466,6 +1595,159 @@ test.describe("Drawing a new shape", () => {
 		await expectAttrNear(drawn, "width", 100);
 		await expectAttrNear(drawn, "height", 75);
 		await expect(layerRows(page)).toHaveCount(3);
+	});
+});
+
+// =============================================================================
+// Where a gesture lands
+// =============================================================================
+
+/*
+ * A gesture has to land exactly where the pointer put it, and two faults used
+ * to conspire against that.
+ *
+ * A bare SVG in `srcdoc` sits in a body with the default 8px margin, so the
+ * drawing was inset from the frame's origin and smaller than it -- 573px of
+ * drawing inside a 589px frame -- while every pointer conversion assumed it
+ * filled the frame. And the fit subtracted its padding from both axes *after*
+ * fitting, so the frame it sized was a fraction off the viewBox's aspect ratio:
+ * 589 by 440 for a 4:3 drawing that wants 589 by 441.75. Between them, a drag
+ * committed about 3% less travel than the pointer made, and a shape drawn near
+ * an edge landed as much as four user units from the cursor. Nothing looked
+ * broken, because the preview used the same wrong scale and tracked the pointer
+ * down with it.
+ *
+ * Nothing in here may go through {@link toClient}. That helper maps a user unit
+ * across the frame's whole box -- precisely the assumption that was wrong -- so
+ * a test written in user units checks the app's arithmetic against a copy of
+ * its own mistake and the two errors cancel. "Drawing a new shape" above passed
+ * throughout the bug for exactly that reason, which is why these are separate
+ * tests rather than tightened assertions on those. What is compared here is the
+ * page coordinates the pointer visited against the page coordinates the drawn
+ * element ended up at, with user units left out of the loop entirely.
+ *
+ * The gestures reach for the corners, because that is where the old error was
+ * largest. At the centre of the artboard it was zero -- which is where the
+ * existing drawing test happens to press.
+ */
+
+test.describe("Where a gesture lands", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, STATIC_PROJECT);
+		await openVisualEditor(page);
+	});
+
+	test("a rectangle drawn corner to corner sits on the pointer", async ({
+		page,
+	}) => {
+		const frame = await frameOnPage(page);
+		// A dozen pixels in from opposite corners, and asymmetric on both axes
+		// so that a stray transposition of x and y cannot pass. Whole pixels,
+		// because Chromium quantizes pointer coordinates and the expectation
+		// has to be the point the page actually saw.
+		const from = {
+			x: Math.round(frame.left + 12),
+			y: Math.round(frame.top + 10),
+		};
+		const to = {
+			x: Math.round(frame.right - 14),
+			y: Math.round(frame.bottom - 12),
+		};
+
+		await toolButton(page, "Rectangle").click();
+		await dragOnPage(page, from, to);
+
+		// A rect is drawn with a fill and no stroke, so its rendered box is
+		// exactly the box that was asked for, with no half-stroke around it.
+		await expectEdgesOnPage(page, "children[2]", {
+			left: from.x,
+			top: from.y,
+			right: to.x,
+			bottom: to.y,
+		});
+	});
+
+	test("the drawing fills its frame, with nothing inset around it", async ({
+		page,
+	}) => {
+		const measured = await artboard(page).evaluate(element => {
+			const frame = element as HTMLIFrameElement;
+			const doc = frame.contentDocument;
+			const drawing = doc?.querySelector("svg");
+			if (!doc || !drawing) throw new Error("The frame holds no drawing.");
+			const style = getComputedStyle(doc.body);
+			return {
+				margin: [
+					style.marginLeft,
+					style.marginTop,
+					style.marginRight,
+					style.marginBottom,
+				],
+				drawing: drawing.getBoundingClientRect().toJSON() as FrameBox,
+				frame: { width: frame.clientWidth, height: frame.clientHeight },
+			};
+		});
+
+		// Half of the fault, named directly. The default 8px on all four sides
+		// is what pushed the drawing off the frame's origin.
+		expect(
+			measured.margin,
+			"the frame document should carry no body margin",
+		).toEqual(["0px", "0px", "0px", "0px"]);
+
+		// And the other half of the same statement: the drawing occupies the
+		// frame, so measuring one is measuring the other.
+		expect(measured.drawing.left).toBeCloseTo(0, 0);
+		expect(measured.drawing.top).toBeCloseTo(0, 0);
+		expect(measured.drawing.width).toBeCloseTo(measured.frame.width, 0);
+		expect(measured.drawing.height).toBeCloseTo(measured.frame.height, 0);
+	});
+
+	test("the frame is fitted to the artboard's proportions", async ({
+		page,
+	}) => {
+		const wanted = VIEW_BOX.width / VIEW_BOX.height;
+		const frame = await frameOnPage(page);
+		const ratio = frame.width / frame.height;
+
+		// The old fit came out at 1.3386 against the 1.3333 a 4:3 artboard
+		// wants, so the threshold has to be well under that half-percent. A
+		// looser one here would let the distortion back in, and the drawing
+		// would go back to letterboxing itself inside a frame the pointer
+		// conversions think it fills.
+		expect(
+			Math.abs(ratio - wanted),
+			`the frame is ${frame.width.toFixed(2)}×${frame.height.toFixed(2)}, ` +
+				`a ratio of ${ratio.toFixed(4)} against the ${wanted.toFixed(4)} wanted`,
+		).toBeLessThan(0.002);
+	});
+
+	test("a move drag travels exactly as far as the pointer did", async ({
+		page,
+	}) => {
+		const before = await elementOnPage(page, "children[0]");
+		// The grip is the rect's own middle as drawn on the page, so this
+		// gesture never converts a coordinate in either direction.
+		const from = {
+			x: Math.round((before.left + before.right) / 2),
+			y: Math.round((before.top + before.bottom) / 2),
+		};
+		// Far enough that the 3% the old code lost -- about 2.7px over this
+		// distance -- is several times the tolerance, and down-right so the
+		// rect stays clear of the artboard's edges.
+		const travel = { dx: 90, dy: 60 };
+
+		await dragOnPage(page, from, {
+			x: from.x + travel.dx,
+			y: from.y + travel.dy,
+		});
+
+		await expectEdgesOnPage(page, "children[0]", {
+			left: before.left + travel.dx,
+			top: before.top + travel.dy,
+			right: before.right + travel.dx,
+			bottom: before.bottom + travel.dy,
+		});
 	});
 });
 
