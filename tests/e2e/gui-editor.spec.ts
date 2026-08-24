@@ -36,6 +36,7 @@ import {
 	getEditorText,
 	mainViewerPane,
 	openFileInEditor,
+	svgDoc,
 	textEditorPane,
 } from "./helpers";
 
@@ -72,6 +73,58 @@ const STATIC_PROJECT: ProjectFiles = {
 		2,
 	),
 };
+
+/**
+ * Two solid-colour PNGs, whose only interesting property is their shape.
+ *
+ * They are written out as base64 rather than generated because the assertions
+ * about placement all turn on the intrinsic size, and a literal is the only
+ * way to be sure what that is. 40×20 and 20×60 are deliberately unalike: both
+ * are placed into the same 4:3 box below, so one has to letterbox and the
+ * other has to pillarbox, which are the two branches of the fit.
+ */
+const WIDE_PNG = {
+	base64:
+		"iVBORw0KGgoAAAANSUhEUgAAACgAAAAUCAIAAABwJOjsAAAAJElEQVR42mPQzbo2IIhh1OJR" +
+		"i0ctHrV41OJRi0ctHrV45FgMAHFmdN23uFIdAAAAAElFTkSuQmCC",
+};
+const TALL_PNG = {
+	base64:
+		"iVBORw0KGgoAAAANSUhEUgAAABQAAAA8CAIAAADpFA0BAAAAKUlEQVR42u3LMQ0AAAgDsBnC" +
+		"IELRgwdemvRtpusssizLsizLsizL8se8vHj6S6SNsLQAAAAASUVORK5CYII=",
+};
+
+/**
+ * {@link STATIC_PROJECT}, plus two images the manifest does not yet mention.
+ *
+ * Two of them, so nothing is chosen for the user: a project with exactly one
+ * image chooses it, which would make the "nothing chosen" case unreachable.
+ * `photos/tall.png` sits in a subfolder to pin down two separate things — the
+ * picker shows the basename, and the manifest gets the whole path.
+ */
+const IMAGE_PROJECT: ProjectFiles = {
+	...STATIC_PROJECT,
+	"wide.png": WIDE_PNG,
+	"photos/tall.png": TALL_PNG,
+};
+
+/** The same, with the one image that leaves the picker nothing to ask. */
+const ONE_IMAGE_PROJECT: ProjectFiles = {
+	...STATIC_PROJECT,
+	"photos/tall.png": TALL_PNG,
+};
+
+/**
+ * The box every placement drag draws, in user units: 200 by 150, so 4:3.
+ *
+ * It is clear of both of {@link STATIC_PROJECT}'s shapes — the rect ends at
+ * y = 110 and the circle starts at x = 260 — so the press that begins the drag
+ * lands on blank artboard, as a user reaching for empty space would.
+ */
+const DRAW_BOX = { from: [20, 130], to: [220, 280] } as const;
+
+/** Where {@link DRAW_BOX}'s middle is, which is what a fitted image centres on. */
+const DRAW_BOX_CENTRE = { x: 120, y: 205 } as const;
 
 /**
  * One statically written rect, plus four circles from a single comprehension.
@@ -261,6 +314,39 @@ function attributeInput(page: Page, key: string): Locator {
 	return page.getByLabel(key, { exact: true });
 }
 
+/**
+ * The image picker, which stands in for the Inspector while the Image tool is
+ * up.
+ *
+ * Neither panel carries a role or a label of its own, so a class is the only
+ * handle on either — and *which of the two is on screen* is the whole subject
+ * of several tests below, so "the picker is visible" has to be distinguishable
+ * from "the Inspector is visible" rather than inferred from what is inside it.
+ */
+function imagePicker(page: Page): Locator {
+	return visualEditorPane(page).locator(".picker");
+}
+
+function inspectorPanel(page: Page): Locator {
+	return visualEditorPane(page).locator(".inspector");
+}
+
+/** Every image the picker is offering, in the order it lists them. */
+function imageChoices(page: Page): Locator {
+	return imagePicker(page).getByRole("button");
+}
+
+/**
+ * One image in the picker, by its project-relative path.
+ *
+ * The path is the button's `title`, and it is the only thing about a row that
+ * is certainly unique: what the row *shows* is the basename, and two images in
+ * different folders can share one.
+ */
+function imageChoice(page: Page, path: string): Locator {
+	return imagePicker(page).getByTitle(path);
+}
+
 // =============================================================================
 // Actions
 // =============================================================================
@@ -388,6 +474,36 @@ async function clickOnCanvas(
 }
 
 /**
+ * Pick up the Image tool and choose one of the project's images.
+ *
+ * The wait for the size to appear is load-bearing, not tidiness. `fitInside`
+ * is handed the intrinsic size the picker measured, and deliberately falls
+ * back to the box exactly as drawn when the browser has not decoded the file
+ * yet — so a drag that outran the decode would quietly exercise the fallback
+ * and the proportions assertions would be testing nothing. It has to come
+ * *after* the click, too: choosing rebuilds the list, which restarts every
+ * thumbnail's load.
+ */
+async function chooseImage(
+	page: Page,
+	path: string,
+	size: string,
+): Promise<void> {
+	await toolButton(page, "Image").click();
+	await expect(imagePicker(page)).toBeVisible();
+
+	const choice = imageChoice(page, path);
+	await choice.click();
+	await expect(choice).toHaveAttribute("aria-pressed", "true");
+	await expect(choice).toContainText(size, { timeout: 10000 });
+}
+
+/** Draw {@link DRAW_BOX} on the canvas with whatever tool is up. */
+async function drawTheBox(page: Page): Promise<void> {
+	await dragOnCanvas(page, DRAW_BOX.from, DRAW_BOX.to);
+}
+
+/**
  * The manifest's current text, read back through the app's own text editor.
  *
  * Opening a file replaces the right pane, so the visual editor is restored
@@ -438,6 +554,36 @@ async function expectAttrNear(
 			},
 		)
 		.toBe(expected);
+}
+
+/**
+ * Wait for a placed image to settle on the box the fit should have chosen.
+ *
+ * The four numbers go through {@link expectAttrNear}, which allows the pixel
+ * of slack every gesture in this file carries — and because the expected `x`
+ * and `y` are the *centred* ones, passing them is also what says the image was
+ * centred rather than pinned to a corner.
+ *
+ * The ratio is then checked far more tightly. It does not depend on where the
+ * drag landed, only on whether the proportions survived at all, so the same
+ * slack there would let through exactly the failure this exists to catch: the
+ * drawn box is 4:3, and both images placed into it are emphatically not.
+ */
+async function expectFittedImage(
+	image: Locator,
+	expected: { x: number; y: number; width: number; height: number },
+): Promise<void> {
+	await expectAttrNear(image, "width", expected.width);
+	await expectAttrNear(image, "height", expected.height);
+	await expectAttrNear(image, "x", expected.x);
+	await expectAttrNear(image, "y", expected.y);
+
+	const width = Number(await image.getAttribute("width"));
+	const height = Number(await image.getAttribute("height"));
+	expect(
+		width / height,
+		"the placed image should keep its proportions",
+	).toBeCloseTo(expected.width / expected.height, 2);
 }
 
 /**
@@ -582,6 +728,7 @@ test.describe("Editing mode toggle", () => {
 			"Ellipse",
 			"Line",
 			"Text",
+			"Image",
 			"Pan",
 		]) {
 			await expect(toolButton(page, name)).toBeVisible();
@@ -1013,6 +1160,476 @@ test.describe("Drawing a new shape", () => {
 		await expectAttrNear(drawn, "width", 100);
 		await expectAttrNear(drawn, "height", 75);
 		await expect(layerRows(page)).toHaveCount(3);
+	});
+});
+
+// =============================================================================
+// Choosing an image
+// =============================================================================
+
+test.describe("The image picker", () => {
+	test("takes the Inspector's place while the Image tool is up", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, IMAGE_PROJECT);
+		await openVisualEditor(page);
+
+		// The Inspector holds the panel until the Image tool is picked up.
+		await expect(inspectorPanel(page)).toBeVisible();
+		await expect(imagePicker(page)).toHaveCount(0);
+
+		await toolButton(page, "Image").click();
+
+		await expect(imagePicker(page)).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Place an image" }),
+		).toBeVisible();
+		// Not merely covered up: the two panels are mutually exclusive, which
+		// is the reason notices had to move out of the Inspector.
+		await expect(inspectorPanel(page)).toHaveCount(0);
+
+		await toolButton(page, "Select").click();
+
+		await expect(inspectorPanel(page)).toBeVisible();
+		await expect(imagePicker(page)).toHaveCount(0);
+	});
+
+	test("answers to the I key, and hands the panel back on V", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, IMAGE_PROJECT);
+		await openVisualEditor(page);
+		await expect(inspectorPanel(page)).toBeVisible();
+
+		await page.keyboard.press("i");
+		await expect(imagePicker(page)).toBeVisible();
+
+		await page.keyboard.press("v");
+		await expect(inspectorPanel(page)).toBeVisible();
+		await expect(imagePicker(page)).toHaveCount(0);
+	});
+
+	test("lists every image, by basename and intrinsic size, sorted by path", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, IMAGE_PROJECT);
+		await openVisualEditor(page);
+		await toolButton(page, "Image").click();
+
+		// Two, so the manifest and every other non-image file in the project
+		// are absent rather than merely further down the list.
+		await expect(imageChoices(page)).toHaveCount(2);
+
+		// Sorted by path, so `photos/tall.png` comes first — which is the
+		// opposite of the order the basenames alone would give, and the
+		// opposite of the order they were uploaded in.
+		await expect(imageChoices(page).nth(0)).toContainText("tall.png");
+		await expect(imageChoices(page).nth(1)).toContainText("wide.png");
+
+		// The basename is what is shown; the path is what identifies the row.
+		await expect(imageChoice(page, "photos/tall.png")).toContainText(
+			"tall.png",
+			{ timeout: 10000 },
+		);
+		await expect(imageChoice(page, "photos/tall.png")).not.toContainText(
+			"photos/",
+		);
+
+		// Intrinsic size, which is the browser's own reading of the file
+		// rather than anything the test told it.
+		await expect(imageChoice(page, "photos/tall.png")).toContainText(
+			"20×60",
+			{ timeout: 10000 },
+		);
+		await expect(imageChoice(page, "wide.png")).toContainText("40×20", {
+			timeout: 10000,
+		});
+	});
+
+	test("chooses for you when the project holds exactly one image", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, ONE_IMAGE_PROJECT);
+		await openVisualEditor(page);
+		await toolButton(page, "Image").click();
+
+		await expect(imageChoices(page)).toHaveCount(1);
+		// Nothing was clicked. With one image there is nothing to ask.
+		await expect(imageChoice(page, "photos/tall.png")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+	});
+
+	test("marks one image at a time, and moves the mark when another is picked", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, IMAGE_PROJECT);
+		await openVisualEditor(page);
+		await toolButton(page, "Image").click();
+		await expect(imageChoices(page)).toHaveCount(2);
+
+		// Two images, so the auto-choice above does not apply and the picker
+		// starts with the question genuinely open.
+		for (const path of ["photos/tall.png", "wide.png"]) {
+			await expect(imageChoice(page, path)).toHaveAttribute(
+				"aria-pressed",
+				"false",
+			);
+		}
+
+		await imageChoice(page, "wide.png").click();
+		await expect(imageChoice(page, "wide.png")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(imageChoice(page, "photos/tall.png")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+
+		await imageChoice(page, "photos/tall.png").click();
+		await expect(imageChoice(page, "photos/tall.png")).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(imageChoice(page, "wide.png")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+	});
+
+	test("says so, and offers nothing, when the project has no images", async ({
+		page,
+		browserName,
+	}) => {
+		await uploadProject(browserName, page, STATIC_PROJECT);
+		await openVisualEditor(page);
+		await toolButton(page, "Image").click();
+
+		await expect(imagePicker(page).locator(".empty")).toHaveText(
+			"This project has no images yet. Add one to the file list on the " +
+				"left, then come back.",
+		);
+		await expect(imageChoices(page)).toHaveCount(0);
+	});
+});
+
+// =============================================================================
+// Placing an image
+// =============================================================================
+
+test.describe("Placing an image", () => {
+	test.beforeEach(async ({ page, browserName }) => {
+		await uploadProject(browserName, page, IMAGE_PROJECT);
+		await openVisualEditor(page);
+	});
+
+	test("a drag writes an image element the drawing and the manifest agree on", async ({
+		page,
+	}) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+		// An `<image>`, not a `<rect>` with a picture in it.
+		expect(await placed.evaluate(node => node.tagName)).toBe("image");
+
+		// It joins the layers tree under its own name, and becomes the
+		// selection, exactly as a drawn shape does.
+		await expect(layerRows(page)).toHaveCount(3);
+		await expect(layerRows(page).nth(2)).toContainText("image wide.png");
+		await expect(layerRows(page).nth(2)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+
+		const source = await manifestSource(page, "collagen.json");
+		expect(source).toContain(`"image_path": "wide.png"`);
+		// The primary key decides the kind of tag, so an image must not also
+		// carry a `tag` — validation dispatches on exactly one of them.
+		expect(source.match(/"tag":\s*"rect"/g)).toHaveLength(1);
+		expect(source).toContain(`"x": ${await placed.getAttribute("x")}`);
+		expect(source).toContain(
+			`"width": ${await placed.getAttribute("width")}`,
+		);
+	});
+
+	test("writes the whole project-relative path, not the basename it shows", async ({
+		page,
+	}) => {
+		await chooseImage(page, "photos/tall.png", "20×60");
+		await drawTheBox(page);
+		await expect(elementAt(page, "children[2]")).toBeAttached({
+			timeout: 10000,
+		});
+
+		const source = await manifestSource(page, "collagen.json");
+		expect(source).toContain(`"image_path": "photos/tall.png"`);
+		// The row is labelled `tall.png`; writing that is what would happen if
+		// the basename the picker displays were mistaken for the identity, and
+		// the image would then fail to resolve.
+		expect(source).not.toContain(`"image_path": "tall.png"`);
+	});
+
+	test("letterboxes a wide image inside the box that was drawn", async ({
+		page,
+	}) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+
+		// 2:1 into a 4:3 box 200 by 150: the width fills and the height does
+		// not, leaving 25 units of letterbox above and below. Stretching to the
+		// box would give 200 by 150, which is what this rules out.
+		await expectFittedImage(placed, {
+			x: DRAW_BOX.from[0],
+			y: DRAW_BOX_CENTRE.y - 50,
+			width: 200,
+			height: 100,
+		});
+	});
+
+	test("pillarboxes a tall image inside the very same box", async ({
+		page,
+	}) => {
+		await chooseImage(page, "photos/tall.png", "20×60");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+
+		// 1:3 into the same box: now the height fills instead, which is the
+		// other branch of the fit. The pair is the point — a fit that only ever
+		// matched one axis would pass whichever test happened to agree with it.
+		await expectFittedImage(placed, {
+			x: DRAW_BOX_CENTRE.x - 25,
+			y: DRAW_BOX.from[1],
+			width: 50,
+			height: 150,
+		});
+	});
+
+	test("refuses a drag with no image chosen, and says why", async ({
+		page,
+	}) => {
+		const before = await manifestSource(page, "collagen.json");
+
+		await toolButton(page, "Image").click();
+		await expect(imageChoices(page)).toHaveCount(2);
+		// Two images, so nothing has been chosen for the user.
+		await expect(imageChoice(page, "wide.png")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
+
+		await drawTheBox(page);
+
+		// The notice lives in the panel column rather than in the Inspector,
+		// which is not on screen at all right now — this is the refusal that
+		// used to be written somewhere invisible.
+		await expect(
+			page.getByText("Choose an image on the right first."),
+		).toBeVisible();
+		await expect(imagePicker(page)).toBeVisible();
+
+		// Nothing placed, and the manifest byte for byte as it was.
+		await expect(layerRows(page)).toHaveCount(2);
+		await expect(elementAt(page, "children[2]")).toHaveCount(0);
+		expect(await manifestSource(page, "collagen.json")).toBe(before);
+
+		// The positive control, without picking the tool up again: choosing an
+		// image and drawing the same box now does place one. So the refusal was
+		// the missing choice and not a drag the canvas never saw.
+		await imageChoice(page, "wide.png").click();
+		await expect(imageChoice(page, "wide.png")).toContainText("40×20", {
+			timeout: 10000,
+		});
+		await drawTheBox(page);
+		await expect(elementAt(page, "children[2]")).toBeAttached({
+			timeout: 10000,
+		});
+		await expect(layerRows(page)).toHaveCount(3);
+	});
+
+	test("reverts to Select once the image is placed", async ({ page }) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+		await expect(elementAt(page, "children[2]")).toBeAttached({
+			timeout: 10000,
+		});
+
+		// The panel comes back, which is the visible half of the claim.
+		await expect(inspectorPanel(page)).toBeVisible();
+		await expect(imagePicker(page)).toHaveCount(0);
+
+		// And the behavioural half: the next press selects what is under it
+		// rather than placing a second copy of the image.
+		await clickOnCanvas(page, 105, 75);
+		await expect(layerRows(page)).toHaveCount(3);
+		await expect(layerRows(page).nth(0)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await expect(attributeInput(page, "width")).toHaveValue("110");
+	});
+
+	test("leaves a placed image selectable, with its geometry on show", async ({
+		page,
+	}) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+
+		// Away and back again, so this is a selection the pointer made rather
+		// than the one placing it left behind.
+		await clickOnCanvas(page, 380, 20);
+		await expect(layerRows(page).nth(2)).toHaveAttribute(
+			"aria-selected",
+			"false",
+		);
+
+		await clickOnCanvas(page, DRAW_BOX_CENTRE.x, DRAW_BOX_CENTRE.y);
+
+		await expect(layerRows(page).nth(2)).toHaveAttribute(
+			"aria-selected",
+			"true",
+		);
+		await expect(inspectorPanel(page)).toContainText("image wide.png");
+		// Against the drawing rather than against numbers of its own: what
+		// this is pinning is that the Inspector shows the placed image's
+		// geometry, which is a claim about the panel and not about the fit.
+		for (const key of ["x", "y", "width", "height"]) {
+			await expect(attributeInput(page, key)).toHaveValue(
+				(await placed.getAttribute(key))!,
+			);
+		}
+	});
+
+	test("draws all four resize handles on a placed image", async ({ page }) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+		await expect(elementAt(page, "children[2]")).toBeAttached({
+			timeout: 10000,
+		});
+		await expect(selectionOutline(page)).toBeVisible();
+
+		// `<image>` has a width and a height to set, so `resizeEdits` handles
+		// it and the handles are offered. Whether dragging one does anything
+		// is the next test, which is a different question — and, right now, a
+		// different answer.
+		for (const handle of RESIZE_HANDLES) {
+			await expect(page.getByLabel(handle)).toHaveCount(1);
+		}
+	});
+
+	/*
+	 * These two guard a bug that shipped and was fixed: `tagNameAt` read
+	 * `node.tag` and nothing else, so an element whose primary key is
+	 * `image_path` came back nameless. Moving refused with a misleading notice
+	 * and resizing did nothing at all -- while `canResize` went on drawing four
+	 * handles, because it dispatches on the *rendered* element's tag, which is
+	 * `image` and which `resizeEdits` accepts. Inert handles are the one thing
+	 * the comment above `canResize` exists to forbid.
+	 */
+
+	test("a placed image can be moved like any other element", async ({
+		page,
+	}) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+		await expectAttrNear(placed, "x", 20);
+		await expectAttrNear(placed, "y", 155);
+
+		// From the placed image's middle, 60 right and 20 down.
+		await dragOnCanvas(
+			page,
+			[DRAW_BOX_CENTRE.x, DRAW_BOX_CENTRE.y],
+			[DRAW_BOX_CENTRE.x + 60, DRAW_BOX_CENTRE.y + 20],
+		);
+
+		await expectAttrNear(placed, "x", 80);
+		await expectAttrNear(placed, "y", 175);
+		// `<image>` positions itself with `x` and `y`, so those are what a move
+		// should rewrite — not a transform wrapped around them.
+		await expect(placed).not.toHaveAttribute("transform", /.*/);
+
+		const source = await manifestSource(page, "collagen.json");
+		expect(source).toContain(`"x": ${await placed.getAttribute("x")}`);
+		expect(source).toContain(`"y": ${await placed.getAttribute("y")}`);
+	});
+
+	test("a placed image can be resized by the handles it is given", async ({
+		page,
+	}) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+
+		const placed = elementAt(page, "children[2]");
+		await expect(placed).toBeAttached({ timeout: 10000 });
+		await expectAttrNear(placed, "width", 200);
+
+		// The south-east corner sits at (220, 255); drag it 40 right and 30
+		// down, which anchors the north-west corner and grows the box. The grip
+		// is taken by its own box rather than by that corner in user units,
+		// because grabbing the handle is what a user does.
+		const grip = await page.getByLabel("Resize se").boundingBox();
+		expect(grip, "the se handle should have a bounding box").not.toBeNull();
+		const target = await toClient(page, 260, 285);
+		await page.mouse.move(
+			grip!.x + grip!.width / 2,
+			grip!.y + grip!.height / 2,
+		);
+		await page.mouse.down();
+		await page.mouse.move(target.x, target.y, { steps: 8 });
+		await page.mouse.up();
+
+		await expectAttrNear(placed, "width", 240);
+		await expectAttrNear(placed, "height", 130);
+		// Anchored, not moved.
+		await expectAttrNear(placed, "x", 20);
+		await expectAttrNear(placed, "y", 155);
+
+		const source = await manifestSource(page, "collagen.json");
+		expect(source).toContain(
+			`"width": ${await placed.getAttribute("width")}`,
+		);
+	});
+
+	test("embeds the file itself in the generated SVG", async ({ page }) => {
+		await chooseImage(page, "wide.png", "40×20");
+		await drawTheBox(page);
+		await expect(elementAt(page, "children[2]")).toBeAttached({
+			timeout: 10000,
+		});
+
+		// The rendered pane, not the canvas: this is the file a user would
+		// download, and embedding every asset is the whole point of Collagen.
+		await renderedModeButton(page).click();
+		await expect(mainViewerPane(page)).toBeVisible();
+
+		const embedded = svgDoc(mainViewerPane(page)).locator("image");
+		await expect(embedded).toHaveCount(1);
+		// Byte for byte the PNG that was uploaded, so this says *which* image
+		// was embedded and not merely that some data URI was written.
+		await expect(embedded).toHaveAttribute(
+			"href",
+			`data:image/png;base64,${WIDE_PNG.base64}`,
+			{ timeout: 10000 },
+		);
 	});
 });
 

@@ -51,6 +51,31 @@ function labelFor(value: Record<string, JsonObject>): string {
 	return "element";
 }
 
+/**
+ * The SVG element a manifest node renders as, when its geometry can be edited.
+ *
+ * Mirrors the dispatch in `svg/index.ts`: a generic tag renders as itself, an
+ * `image_path` as `<image>`, an `svg_path` as a `<g>` wrapping the file.
+ *
+ * Null means there is nowhere to write a geometry change, for one of two
+ * reasons. A text child renders as bare escaped text with no element of its
+ * own. And a `clgn_path` container renders as a `<g>` but its schema accepts
+ * *only* that key -- `validateContainerTag` rejects `attrs` outright -- so
+ * writing a transform onto one would break the manifest. A `fonts` block
+ * renders as `<defs>`, which has no geometry to speak of.
+ */
+export function editableElementName(value: JsonObject): string | null {
+	if (value === null || typeof value !== "object" || Array.isArray(value)) {
+		return null;
+	}
+
+	const object = value as Record<string, JsonObject>;
+	if (typeof object.tag === "string") return object.tag;
+	if (typeof object.image_path === "string") return "image";
+	if (typeof object.svg_path === "string") return "g";
+	return null;
+}
+
 function basename(path: string): string {
 	const slash = path.lastIndexOf("/");
 	return slash === -1 ? path : path.slice(slash + 1);

@@ -37,6 +37,7 @@
 	import { EditorState, type Tool } from "./editor-state.svelte.js";
 	import {
 		buildLayers,
+		editableElementName,
 		groupOf,
 		nodeAtPath,
 		splitPath,
@@ -291,7 +292,7 @@
 	function handleMove(path: string, dx: number, dy: number) {
 		const tagName = tagNameAt(path);
 		if (tagName === null) {
-			editor.notice = "Only elements with a tag can be moved.";
+			editor.notice = "This element has no position of its own to change.";
 			return;
 		}
 
@@ -318,7 +319,12 @@
 		height: number,
 	) {
 		const tagName = tagNameAt(path);
-		if (tagName === null) return;
+		if (tagName === null) {
+			// Silence here was the worst of it: the handles are drawn from the
+			// rendered element's own tag, so they appeared and did nothing.
+			editor.notice = "This element has no size of its own to change.";
+			return;
+		}
 
 		const edits = resizeEdits(tagName, x, y, width, height);
 		if (!edits) {
@@ -328,13 +334,15 @@
 		applyEdits(path, edits);
 	}
 
+	/**
+	 * What kind of SVG element this path renders as, for the geometry helpers.
+	 *
+	 * Reading `tag` alone was wrong: an image element's primary key is
+	 * `image_path` and it carries no `tag`, so every image refused to move and
+	 * resized silently, with four live handles drawn over it.
+	 */
 	function tagNameAt(path: string): string | null {
-		const node = nodeAtPath(manifest, path);
-		if (node === null || typeof node !== "object" || Array.isArray(node)) {
-			return null;
-		}
-		const tag = (node as Record<string, JsonObject>).tag;
-		return typeof tag === "string" ? tag : null;
+		return editableElementName(nodeAtPath(manifest, path));
 	}
 
 	function attrsAt(path: string): XmlAttrs {

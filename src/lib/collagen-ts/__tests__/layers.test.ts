@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import { InMemoryFileSystem } from "../filesystem/index.js";
 import {
 	buildLayers,
+	editableElementName,
 	groupOf,
 	nodeAtPath,
 	splitPath,
@@ -205,5 +206,67 @@ describe("detaching a loop", () => {
 		expect(outcome.ok).toBe(false);
 		if (outcome.ok) return;
 		expect(outcome.reason).toContain("shared code");
+	});
+});
+
+describe("editableElementName", () => {
+	it("names a generic tag after itself", () => {
+		expect(editableElementName({ tag: "rect" })).toBe("rect");
+	});
+
+	it("names an image element, which carries no tag at all", () => {
+		// The bug this guards: reading `tag` alone returned null here, so every
+		// placed image refused to move and resized silently.
+		expect(editableElementName({ image_path: "cat.jpg" })).toBe("image");
+	});
+
+	it("names an included SVG, which renders as a group", () => {
+		expect(editableElementName({ svg_path: "logo.svg" })).toBe("g");
+	});
+
+	it("refuses a container, whose schema forbids attrs", () => {
+		// `validateContainerTag` accepts only `clgn_path`, so writing a
+		// transform onto one would break the manifest.
+		expect(editableElementName({ clgn_path: "nested" })).toBeNull();
+	});
+
+	it("refuses a fonts block, which has no geometry", () => {
+		expect(editableElementName({ fonts: [{ name: "Impact" }] })).toBeNull();
+	});
+
+	it("refuses a text child, which renders as bare text", () => {
+		expect(editableElementName("hello")).toBeNull();
+	});
+
+	it("agrees with what the generator actually emits", async () => {
+		// The mapping is a copy of the dispatch in `svg/index.ts`, so pin it
+		// against real output rather than trusting the two to stay in step.
+		const source = `{
+			children: [
+				{ tag: "circle" },
+				{ image_path: "cat.jpg" },
+				{ svg_path: "logo.svg" },
+			],
+		}`;
+		const fs = InMemoryFileSystem.createEmpty();
+		fs.addFileContents("collagen.jsonnet", new TextEncoder().encode(source));
+		fs.addFileContents("cat.jpg", new Uint8Array([1, 2, 3]));
+		fs.addFileContents("logo.svg", new TextEncoder().encode("<svg></svg>"));
+
+		const svg = await fs.generateSvg({ annotate: true });
+		const result = await fs.analyzeManifest();
+		if (!result.ok) throw new Error(result.reason);
+
+		for (const [index, expected] of [
+			[0, "circle"],
+			[1, "image"],
+			[2, "g"],
+		] as const) {
+			const path = `children[${index}]`;
+			const node = nodeAtPath(result.value, path)!;
+			expect(editableElementName(node), path).toBe(expected);
+			// And that really is the element name in the output.
+			expect(svg).toContain(`<${expected} `);
+		}
 	});
 });
