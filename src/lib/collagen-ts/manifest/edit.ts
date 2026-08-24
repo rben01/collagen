@@ -18,6 +18,7 @@ import {
 	arrayElements,
 	asObjectBody,
 	enclosingComprehension,
+	firstParseError,
 	fieldsOf,
 	findField,
 	objectBodyAtBrace,
@@ -771,4 +772,106 @@ function printInlineObject(
 		parts.push(`${printKey(key, style)}: ${printValue(attrs[key], style)}`);
 	}
 	return parts.length === 0 ? "{}" : `{ ${parts.join(", ")} }`;
+}
+
+/** How one attribute is written in the manifest. */
+export interface AttributeSource {
+	/** The text between the colon and the comma, exactly as written. */
+	text: string;
+	/**
+	 * True when that text is a plain value rather than something computed.
+	 *
+	 * A literal is worth editing as a value, with a colour swatch or a number
+	 * field. An expression has to be edited as text, because that is what it is.
+	 */
+	isLiteral: boolean;
+}
+
+/**
+ * How each of a tag's attributes is written, as opposed to what it evaluates to.
+ *
+ * This is what lets the editor show `70 + i * 90` rather than `160`. For an
+ * element a loop produced there is one source object behind every instance, so
+ * the expression returned here *is* the loop body, and editing it changes all
+ * of them.
+ *
+ * Attributes that reach the element some other way -- through a merge, or an
+ * `attrs` that is itself computed -- are absent, because no span of the file
+ * spells them out.
+ */
+export function attributeSources(
+	source: string,
+	braceFrom: number,
+): Map<string, AttributeSource> {
+	const found = new Map<string, AttributeSource>();
+
+	const body = objectBodyAtBrace(parseManifest(source), braceFrom);
+	if (!body) return found;
+
+	const attrsField = findField(body, source, "attrs");
+	const attrsBody = attrsField && asObjectBody(attrsField.valueNode);
+	if (!attrsBody) return found;
+
+	for (const field of fieldsOf(attrsBody, source)) {
+		if (field.name === null) continue;
+		found.set(field.name, {
+			text: source.slice(field.valueNode.from, field.valueNode.to),
+			isLiteral: literalRange(field.valueNode) !== null,
+		});
+	}
+	return found;
+}
+
+/**
+ * Replace an attribute's value with raw Jsonnet.
+ *
+ * Unlike `setAttribute` this does not quote or format what it is given: the
+ * caller is writing an expression, and `i * 90` must not become `"i * 90"`.
+ *
+ * The result is parsed before it is returned, so a typo cannot leave the
+ * manifest in a state the editor can no longer analyze. Whether the expression
+ * *means* anything -- whether `i` is in scope here -- is left to sjsonnet,
+ * whose error names the line and says what is missing.
+ */
+export function setAttributeExpression(
+	source: string,
+	braceFrom: number,
+	key: string,
+	expression: string,
+): EditOutcome {
+	const trimmed = expression.trim();
+	if (trimmed === "") {
+		return blocked("not-found", "An attribute needs a value.");
+	}
+
+	const body = objectBodyAtBrace(parseManifest(source), braceFrom);
+	if (!body) return blocked("not-found", "That element is no longer here.");
+
+	const attrsField = findField(body, source, "attrs");
+	const attrsBody = attrsField && asObjectBody(attrsField.valueNode);
+	if (!attrsBody) {
+		return blocked(
+			"computed",
+			"This element builds its attributes as it runs, so there is no expression here to edit.",
+		);
+	}
+
+	const existing = findField(attrsBody, source, key);
+	if (!existing) {
+		return blocked("not-found", `\`${key}\` is no longer here.`);
+	}
+
+	const next = splice(
+		source,
+		existing.valueNode.from,
+		existing.valueNode.to,
+		trimmed,
+	);
+
+	const errorAt = firstParseError(parseManifest(next));
+	if (errorAt !== null) {
+		return blocked("computed", `\`${trimmed}\` is not valid Jsonnet.`);
+	}
+
+	return { ok: true, source: next };
 }

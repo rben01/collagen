@@ -5,6 +5,7 @@
 	} from "$lib/collagen-ts/filesystem/index.js";
 	import type { JsonObject } from "$lib/collagen-ts/jsonnet/index.js";
 	import {
+		attributeSources,
 		detachComprehension,
 		printElement,
 		removeAttribute,
@@ -12,6 +13,8 @@
 		moveChild,
 		insertChild,
 		removeChild,
+		setAttributeExpression,
+		type AttributeSource,
 		type EditOutcome,
 	} from "$lib/collagen-ts/manifest/edit.js";
 	import {
@@ -31,7 +34,7 @@
 	import { isTypingInInput } from "../viewer/index.js";
 	import CanvasViewport from "./CanvasViewport.svelte";
 	import ImagePicker, { type ProjectImage } from "./ImagePicker.svelte";
-	import Inspector from "./Inspector.svelte";
+	import Inspector, { type AttrRow } from "./Inspector.svelte";
 	import LayersPanel from "./LayersPanel.svelte";
 	import ToolPalette from "./ToolPalette.svelte";
 	import { EditorState, type Tool } from "./editor-state.svelte.js";
@@ -100,6 +103,20 @@
 			: nodeAtPath(manifest, editor.selectedPath),
 	);
 
+	/**
+	 * How the selection's attributes are written, keyed by name.
+	 *
+	 * For an element a loop produced, every instance shares one source object,
+	 * so these are the loop body's own expressions.
+	 */
+	const attributeText = $derived.by(() => {
+		const target = readManifest();
+		const brace =
+			editor.selectedPath === null ? null : braceFor(editor.selectedPath);
+		if (!target || brace === null) return new Map<string, AttributeSource>();
+		return attributeSources(target.source, brace);
+	});
+
 	const selectedAttrs = $derived.by(() => {
 		if (
 			selectedNode === null ||
@@ -112,12 +129,21 @@
 		if (attrs === null || typeof attrs !== "object" || Array.isArray(attrs)) {
 			return [];
 		}
-		const rows: { key: string; value: string | number }[] = [];
+		const rows: AttrRow[] = [];
 		for (const key in attrs as Record<string, JsonObject>) {
 			const value = (attrs as Record<string, JsonObject>)[key];
-			if (typeof value === "string" || typeof value === "number") {
-				rows.push({ key, value });
-			}
+			if (typeof value !== "string" && typeof value !== "number") continue;
+
+			// Carry the source text for every attribute the manifest spells
+			// out, literal or not. The panel shows a computed one as code
+			// straight away, and lets a literal be switched to code on request.
+			const written = attributeText.get(key);
+			rows.push({
+				key,
+				value,
+				source: written?.text,
+				isLiteral: written?.isLiteral ?? true,
+			});
 		}
 		return rows;
 	});
@@ -517,6 +543,25 @@
 		applyEdits(editor.selectedPath, [{ key, value: parsed }]);
 	}
 
+	/**
+	 * Replace an attribute with raw Jsonnet.
+	 *
+	 * Where the selection came from a loop this rewrites the loop body, so
+	 * every instance changes -- which is the point of showing the expression
+	 * rather than one instance's value.
+	 */
+	function handleSetExpression(key: string, expression: string) {
+		const target = readManifest();
+		const brace =
+			editor.selectedPath === null ? null : braceFor(editor.selectedPath);
+		if (!target || brace === null) return;
+
+		commitOutcome(
+			setAttributeExpression(target.source, brace, key, expression),
+			target.path,
+		);
+	}
+
 	function handleRemoveAttr(key: string) {
 		const target = readManifest();
 		const brace =
@@ -750,6 +795,7 @@
 				{groupKind}
 				canDetach={groupKind === "loop"}
 				onSet={handleSetAttr}
+				onSetExpression={handleSetExpression}
 				onRemove={handleRemoveAttr}
 				onDetach={handleDetach}
 			/>

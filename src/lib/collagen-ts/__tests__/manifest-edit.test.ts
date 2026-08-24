@@ -12,12 +12,14 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import {
+	attributeSources,
 	insertChild,
 	moveChild,
 	printElement,
 	removeAttribute,
 	removeChild,
 	setAttribute,
+	setAttributeExpression,
 } from "../manifest/edit.js";
 import {
 	asObjectBody,
@@ -992,5 +994,105 @@ describe("overrideComputed tells a typed value from a dragged one", () => {
 		if (!outcome.ok) throw new Error(outcome.reason);
 		expect(outcome.source).toContain("cy: 240");
 		expect(outcome.source).toContain("cx: 70 + i * 90");
+	});
+});
+
+describe("reading and writing attribute expressions", () => {
+	const loop = [
+		"{",
+		"\tchildren: [",
+		"\t\t{ tag: 'circle', attrs: { cx: 70 + i * 90, cy: 210, fill: '#f00' } }",
+		"\t\tfor i in std.range(0, 3)",
+		"\t],",
+		"}",
+	].join("\n");
+	const brace = loop.indexOf("{ tag:");
+
+	describe("attributeSources", () => {
+		it("returns the loop body's own text, not one instance's value", () => {
+			const sources = attributeSources(loop, brace);
+			expect(sources.get("cx")).toEqual({
+				text: "70 + i * 90",
+				isLiteral: false,
+			});
+		});
+
+		it("marks plain values as literals, so they keep their typed widgets", () => {
+			const sources = attributeSources(loop, brace);
+			expect(sources.get("cy")).toEqual({ text: "210", isLiteral: true });
+			expect(sources.get("fill")).toEqual({
+				text: "'#f00'",
+				isLiteral: true,
+			});
+		});
+
+		it("is empty when the attributes are themselves computed", () => {
+			const source = "local mk() = { x: 1 }; { tag: 'r', attrs: mk() }";
+			expect(attributeSources(source, source.indexOf("{ tag:")).size).toBe(
+				0,
+			);
+		});
+	});
+
+	describe("setAttributeExpression", () => {
+		it("rewrites the loop body, so every instance changes", () => {
+			const outcome = setAttributeExpression(
+				loop,
+				brace,
+				"cx",
+				"50 + i * 40",
+			);
+			if (!outcome.ok) throw new Error(outcome.reason);
+
+			expect(outcome.source).toContain("cx: 50 + i * 40");
+			const result = evaluate(outcome.source) as {
+				children: { attrs: { cx: number } }[];
+			};
+			expect(result.children.map(c => c.attrs.cx)).toEqual([
+				50, 90, 130, 170,
+			]);
+		});
+
+		it("writes the text as given, without quoting it", () => {
+			// The whole point: `i * 90` must not become the string "i * 90".
+			const outcome = setAttributeExpression(loop, brace, "cy", "i * 20");
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(outcome.source).toContain("cy: i * 20");
+			expect(outcome.source).not.toContain('"i * 20"');
+		});
+
+		it("turns a literal into an expression", () => {
+			const outcome = setAttributeExpression(
+				loop,
+				brace,
+				"cy",
+				"210 + i * 5",
+			);
+			if (!outcome.ok) throw new Error(outcome.reason);
+			const result = evaluate(outcome.source) as {
+				children: { attrs: { cy: number } }[];
+			};
+			expect(result.children.map(c => c.attrs.cy)).toEqual([
+				210, 215, 220, 225,
+			]);
+		});
+
+		it("leaves everything else alone", () => {
+			const outcome = setAttributeExpression(loop, brace, "cx", "1");
+			if (!outcome.ok) throw new Error(outcome.reason);
+			expect(outcome.source).toBe(loop.replace("70 + i * 90", "1"));
+		});
+
+		it("refuses text that is not Jsonnet, rather than breaking the file", () => {
+			const outcome = setAttributeExpression(loop, brace, "cx", "70 +");
+			expect(outcome.ok).toBe(false);
+			if (outcome.ok) return;
+			expect(outcome.reason).toContain("not valid Jsonnet");
+		});
+
+		it("refuses an empty value", () => {
+			const outcome = setAttributeExpression(loop, brace, "cx", "   ");
+			expect(outcome.ok).toBe(false);
+		});
 	});
 });
