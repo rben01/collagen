@@ -312,7 +312,12 @@
 		const gesture = editor.gesture;
 
 		if (gesture.kind === "none") {
-			if (editor.tool === "select") {
+			// Only speak for the pointer while it is over the canvas. This
+			// handler is on the window, so it sees moves across the whole page,
+			// and answering for those overwrote the hover the layers panel had
+			// just set -- boundary events fire before `pointermove`, so the
+			// panel's value was undone within the same gesture, every time.
+			if (editor.tool === "select" && isOverCanvas(event)) {
 				editor.hoveredPath = pathAt(event.clientX, event.clientY);
 			}
 			return;
@@ -397,6 +402,18 @@
 			if (element) element.style.transform = "";
 		}
 		return true;
+	}
+
+	/** Is the pointer within the canvas itself? */
+	function isOverCanvas(event: PointerEvent): boolean {
+		if (!container) return false;
+		const rect = container.getBoundingClientRect();
+		return (
+			event.clientX >= rect.left &&
+			event.clientX <= rect.right &&
+			event.clientY >= rect.top &&
+			event.clientY <= rect.bottom
+		);
 	}
 
 	function handlePointerUp() {
@@ -505,13 +522,17 @@
 	class:pannable={editor.tool === "pan"}
 	class:drawing={editor.tool !== "select" && editor.tool !== "pan"}
 	class:over-shape={editor.tool === "select" &&
-		editor.gesture.kind === "none" &&
-		editor.hoveredPath !== null}
+		editor.hoveredPath !== null &&
+		(editor.gesture.kind === "none" ||
+			(editor.gesture.kind === "move" && !editor.gesture.moved))}
 	class:moving={editor.gesture.kind === "move" && editor.gesture.moved}
 	bind:this={container}
 	bind:clientWidth={containerWidth}
 	bind:clientHeight={containerHeight}
 	onpointerdown={handlePointerDown}
+	onpointerleave={() => {
+		if (editor.gesture.kind === "none") editor.hoveredPath = null;
+	}}
 	onwheel={handleWheel}
 	role="application"
 	aria-label="Design canvas"
