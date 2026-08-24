@@ -604,15 +604,22 @@ export function detachComprehension(
 	};
 }
 
-/** Render a new element for one of the drawing tools. */
+/**
+ * Render a new element for one of the drawing tools.
+ *
+ * `primaryKey` is the field that decides what kind of tag this is: `tag` for a
+ * shape, `image_path` for a placed image. Validation dispatches on it, so it
+ * has to come first and there has to be exactly one.
+ */
 export function printElement(
 	source: string,
-	tagName: string,
+	primaryKey: string,
+	primaryValue: string,
 	attrs: Record<string, string | number>,
 	text?: string,
 ): string {
 	const style = detectStyle(source, parseManifest(source));
-	const value: Record<string, unknown> = { tag: tagName, attrs };
+	const value: Record<string, unknown> = { [primaryKey]: primaryValue, attrs };
 	if (text !== undefined) value.children = text;
 
 	// New elements are written on one line: they are small, and a fresh shape

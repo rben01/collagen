@@ -95,6 +95,10 @@
 		--btn-bg: url("@tabler-icons/outline/typography.svg");
 	}
 
+	.tool-image {
+		--btn-bg: url("@tabler-icons/outline/photo.svg");
+	}
+
 	.gui-mode {
 		--btn-bg: url("@tabler-icons/outline/click.svg");
 	}

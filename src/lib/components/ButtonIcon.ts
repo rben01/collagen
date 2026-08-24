@@ -17,6 +17,7 @@ export type ButtonAction =
 	| "tool-ellipse"
 	| "tool-line"
 	| "tool-text"
+	| "tool-image"
 	| "gui-mode"
 	| "code-mode"
 	| "detach";

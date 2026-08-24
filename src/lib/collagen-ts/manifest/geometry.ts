@@ -215,3 +215,46 @@ export function changedEdits(current: XmlAttrs, edits: AttrEdit[]): AttrEdit[] {
 	}
 	return changed;
 }
+
+/** A rectangle in the drawing's own user units. */
+export interface Box {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+/**
+ * Fit content of a given shape inside a box, centred, keeping its proportions.
+ *
+ * Stretching a photograph to whatever rectangle the hand drew is never what was
+ * meant, so the image is letterboxed instead. A natural size that is not known
+ * yet -- the browser may not have decoded the file -- leaves the box as drawn
+ * rather than making the user wait for it.
+ */
+export function fitInside(
+	box: Box,
+	naturalWidth: number | null,
+	naturalHeight: number | null,
+): Box {
+	if (
+		naturalWidth === null ||
+		naturalHeight === null ||
+		naturalWidth <= 0 ||
+		naturalHeight <= 0 ||
+		box.width <= 0 ||
+		box.height <= 0
+	) {
+		return box;
+	}
+
+	const scale = Math.min(box.width / naturalWidth, box.height / naturalHeight);
+	const width = naturalWidth * scale;
+	const height = naturalHeight * scale;
+	return {
+		x: box.x + (box.width - width) / 2,
+		y: box.y + (box.height - height) / 2,
+		width,
+		height,
+	};
+}

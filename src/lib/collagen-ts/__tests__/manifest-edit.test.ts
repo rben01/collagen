@@ -651,7 +651,7 @@ describe("structural edits keep every example valid", () => {
 					source,
 					rootBrace,
 					index,
-					printElement(source, "rect", { x: 1, y: 2 }),
+					printElement(source, "tag", "rect", { x: 1, y: 2 }),
 				);
 				// A manifest whose children come from a loop refuses, by design.
 				if (!outcome.ok) continue;
@@ -734,5 +734,59 @@ describe("structural edits keep every example valid", () => {
 
 		// And the order really changed.
 		expect(moved.source).not.toBe(source);
+	});
+});
+
+describe("printElement", () => {
+	const jsonnetSource = '{ children: [{ tag: "rect" }] }';
+	const jsonSource = '{"children": [{"tag": "rect"}]}';
+
+	it("writes a shape with `tag` as its primary key", () => {
+		expect(printElement(jsonnetSource, "tag", "rect", { x: 1 })).toBe(
+			'{ tag: "rect", attrs: { x: 1 } }',
+		);
+	});
+
+	it("writes an image with `image_path` instead", () => {
+		// Validation dispatches on the primary key, so an image tag must carry
+		// `image_path` and no `tag`.
+		expect(
+			printElement(jsonnetSource, "image_path", "photos/cat.jpg", {
+				x: 1,
+				width: 10,
+			}),
+		).toBe('{ image_path: "photos/cat.jpg", attrs: { x: 1, width: 10 } }');
+	});
+
+	it("quotes keys in a JSON manifest", () => {
+		expect(printElement(jsonSource, "image_path", "cat.jpg", { x: 1 })).toBe(
+			'{ "image_path": "cat.jpg", "attrs": { "x": 1 } }',
+		);
+	});
+
+	it("adds text content when given some", () => {
+		expect(printElement(jsonnetSource, "tag", "text", { x: 1 }, "Hi")).toBe(
+			'{ tag: "text", attrs: { x: 1 }, children: "Hi" }',
+		);
+	});
+
+	it("produces something the pipeline accepts", async () => {
+		const element = printElement(jsonnetSource, "image_path", "cat.jpg", {
+			x: 1,
+			y: 2,
+		});
+		const outcome = insertChild(jsonnetSource, 0, 1, element);
+		if (!outcome.ok) throw new Error(outcome.reason);
+
+		const fs = InMemoryFileSystem.createEmpty();
+		fs.addFileContents(
+			"collagen.jsonnet",
+			new TextEncoder().encode(outcome.source),
+		);
+		fs.addFileContents("cat.jpg", new Uint8Array([1, 2, 3]));
+
+		const svg = await fs.generateSvg();
+		expect(svg).toContain("<image");
+		expect(svg).toContain('x="1"');
 	});
 });

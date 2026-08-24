@@ -8,7 +8,14 @@
  */
 
 /** What a click on the canvas does. */
-export type Tool = "select" | "pan" | "rect" | "ellipse" | "line" | "text";
+export type Tool =
+	| "select"
+	| "pan"
+	| "rect"
+	| "ellipse"
+	| "line"
+	| "text"
+	| "image";
 
 /** A drag in progress on the canvas. */
 export type Gesture =
@@ -52,6 +59,14 @@ export type ResizeHandle = "nw" | "ne" | "sw" | "se";
 
 export class EditorState {
 	tool = $state<Tool>("select");
+
+	/**
+	 * Which of the project's images the Image tool will place.
+	 *
+	 * Chosen before drawing, the way a stamp is inked before it is pressed, so
+	 * the drag itself only has to say where and how big.
+	 */
+	imagePath = $state<string | null>(null);
 	selectedPath = $state<string | null>(null);
 	hoveredPath = $state<string | null>(null);
 	gesture = $state<Gesture>({ kind: "none" });

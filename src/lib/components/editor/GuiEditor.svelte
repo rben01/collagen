@@ -17,6 +17,8 @@
 	import {
 		changedEdits,
 		composeTranslate,
+		fitInside,
+		type Box,
 		resizeEdits,
 		translateEdits,
 		type AttrEdit,
@@ -28,6 +30,7 @@
 	import type { XmlAttrs } from "$lib/collagen-ts/types/index.js";
 	import { isTypingInInput } from "../viewer/index.js";
 	import CanvasViewport from "./CanvasViewport.svelte";
+	import ImagePicker, { type ProjectImage } from "./ImagePicker.svelte";
 	import Inspector from "./Inspector.svelte";
 	import LayersPanel from "./LayersPanel.svelte";
 	import ToolPalette from "./ToolPalette.svelte";
@@ -49,6 +52,8 @@
 	let manifest = $state<JsonObject>(null);
 	let provenance = $state<Provenance | null>(null);
 	let analysisError = $state<string | null>(null);
+
+	let projectImages = $state<ProjectImage[]>([]);
 
 	let scale = $state(1);
 	let panX = $state(0);
@@ -363,7 +368,7 @@
 		const round = (n: number) => Number(n.toFixed(2));
 		switch (tool) {
 			case "rect":
-				return printElement(source, "rect", {
+				return printElement(source, "tag", "rect", {
 					x: round(x),
 					y: round(y),
 					width: round(width),
@@ -371,7 +376,7 @@
 					fill: "#3b82f6",
 				});
 			case "ellipse":
-				return printElement(source, "ellipse", {
+				return printElement(source, "tag", "ellipse", {
 					cx: round(x + width / 2),
 					cy: round(y + height / 2),
 					rx: round(width / 2),
@@ -379,7 +384,7 @@
 					fill: "#3b82f6",
 				});
 			case "line":
-				return printElement(source, "line", {
+				return printElement(source, "tag", "line", {
 					x1: round(x),
 					y1: round(y),
 					x2: round(x + width),
@@ -387,9 +392,22 @@
 					stroke: "#111827",
 					"stroke-width": 2,
 				});
+			case "image": {
+				const chosen = editor.imagePath;
+				if (chosen === null) return null;
+
+				const box = fitToBox(chosen, { x, y, width, height });
+				return printElement(source, "image_path", chosen, {
+					x: round(box.x),
+					y: round(box.y),
+					width: round(box.width),
+					height: round(box.height),
+				});
+			}
 			case "text":
 				return printElement(
 					source,
+					"tag",
 					"text",
 					{
 						x: round(x),
@@ -404,9 +422,24 @@
 		}
 	}
 
+	/** The box an image should occupy when placed in the box that was drawn. */
+	function fitToBox(path: string, box: Box): Box {
+		const image = projectImages.find(candidate => candidate.path === path);
+		return fitInside(
+			box,
+			image?.naturalWidth ?? null,
+			image?.naturalHeight ?? null,
+		);
+	}
+
 	function handleDraw(x: number, y: number, width: number, height: number) {
 		const target = readManifest();
 		if (!target) return;
+
+		if (editor.tool === "image" && editor.imagePath === null) {
+			editor.notice = "Choose an image on the right first.";
+			return;
+		}
 
 		const elementText = newElement(
 			editor.tool,
@@ -577,6 +610,7 @@
 		e: "ellipse",
 		l: "line",
 		t: "text",
+		i: "image",
 		h: "pan",
 	};
 
@@ -648,23 +682,43 @@
 	</div>
 
 	<aside class="panels">
+		<!--
+			Notices live here rather than in the Inspector, which the image
+			picker replaces: a refusal has to be readable whichever panel is
+			showing, and "choose an image first" appears precisely when the
+			Inspector is not on screen.
+		-->
+		{#if editor.readOnlyReason}
+			<p class="notice read-only">{editor.readOnlyReason}</p>
+		{/if}
+		{#if editor.notice}
+			<p class="notice">{editor.notice}</p>
+		{/if}
+
 		<LayersPanel
 			{layers}
 			{editor}
 			onReorder={handleReorder}
 			onToggleVisible={handleToggleVisible}
 		/>
-		<Inspector
-			{editor}
-			tagLabel={selectedLabel ?? selectedTagName}
-			attrs={selectedAttrs}
-			groupSize={selectionGroup.length}
-			{groupKind}
-			canDetach={groupKind === "loop"}
-			onSet={handleSetAttr}
-			onRemove={handleRemoveAttr}
-			onDetach={handleDetach}
-		/>
+		{#if editor.tool === "image"}
+			<ImagePicker
+				filesystem={filesData.fs}
+				bind:selected={editor.imagePath}
+				bind:images={projectImages}
+			/>
+		{:else}
+			<Inspector
+				tagLabel={selectedLabel ?? selectedTagName}
+				attrs={selectedAttrs}
+				groupSize={selectionGroup.length}
+				{groupKind}
+				canDetach={groupKind === "loop"}
+				onSet={handleSetAttr}
+				onRemove={handleRemoveAttr}
+				onDetach={handleDetach}
+			/>
+		{/if}
 	</aside>
 </div>
 
@@ -692,12 +746,27 @@
 		background: #fff;
 	}
 
-	.panels > :global(*:first-child) {
+	.panels > :global(.layers) {
 		flex: 1 1 45%;
 	}
 
-	.panels > :global(*:last-child) {
+	.panels > :global(.inspector),
+	.panels > :global(.picker) {
 		flex: 1 1 55%;
+	}
+
+	.notice {
+		flex: 0 0 auto;
+		margin: 0;
+		padding: 0.5em 0.75em;
+		background: #fef2f2;
+		color: #b91c1c;
+		font-size: 0.8em;
+	}
+
+	.notice.read-only {
+		background: #fffbeb;
+		color: #92400e;
 	}
 
 	.error {

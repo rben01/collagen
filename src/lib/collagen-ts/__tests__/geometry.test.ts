@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
 	changedEdits,
 	composeTranslate,
+	fitInside,
 	moveEdits,
 	resizeEdits,
 	translateEdits,
@@ -161,5 +162,50 @@ describe("changedEdits", () => {
 			{ key: "y", value: 2 },
 		];
 		expect(changedEdits({ x: 0, y: 0 }, edits)).toEqual(edits);
+	});
+});
+
+describe("fitInside", () => {
+	const box = { x: 100, y: 100, width: 200, height: 150 };
+
+	it("letterboxes a wide image, centred vertically", () => {
+		// 2:1 into a 4:3 box: the width fills, the height does not.
+		expect(fitInside(box, 40, 20)).toEqual({
+			x: 100,
+			y: 125,
+			width: 200,
+			height: 100,
+		});
+	});
+
+	it("pillarboxes a tall image, centred horizontally", () => {
+		// 1:3 into a 4:3 box: the height fills.
+		expect(fitInside(box, 20, 60)).toEqual({
+			x: 175,
+			y: 100,
+			width: 50,
+			height: 150,
+		});
+	});
+
+	it("fills a box of exactly the same proportions", () => {
+		expect(fitInside(box, 4, 3)).toEqual(box);
+	});
+
+	it("keeps proportions rather than stretching", () => {
+		const fitted = fitInside(box, 40, 20);
+		expect(fitted.width / fitted.height).toBeCloseTo(2, 10);
+	});
+
+	it("uses the box as drawn when the natural size is not known yet", () => {
+		// The browser may not have decoded the file. Better to place it than to
+		// make the user wait.
+		expect(fitInside(box, null, null)).toEqual(box);
+		expect(fitInside(box, 0, 0)).toEqual(box);
+	});
+
+	it("leaves a box with no area alone", () => {
+		const empty = { x: 0, y: 0, width: 0, height: 0 };
+		expect(fitInside(empty, 40, 20)).toEqual(empty);
 	});
 });

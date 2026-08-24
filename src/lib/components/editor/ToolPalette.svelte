@@ -16,6 +16,7 @@
 		{ tool: "ellipse", action: "tool-ellipse", label: "Ellipse", key: "E" },
 		{ tool: "line", action: "tool-line", label: "Line", key: "L" },
 		{ tool: "text", action: "tool-text", label: "Text", key: "T" },
+		{ tool: "image", action: "tool-image", label: "Image", key: "I" },
 		{ tool: "pan", action: "tool-pan", label: "Pan", key: "H" },
 	];
 	// The shortcuts these titles promise are handled in `GuiEditor`.

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ControlButton from "../ControlButton.svelte";
-	import type { EditorState } from "./editor-state.svelte.js";
 
 	/** One editable attribute of the selection. */
 	export interface AttrRow {
@@ -9,7 +8,6 @@
 	}
 
 	let {
-		editor,
 		tagLabel,
 		attrs,
 		groupSize,
@@ -19,7 +17,6 @@
 		onRemove,
 		onDetach,
 	}: {
-		editor: EditorState;
 		tagLabel: string | null;
 		attrs: AttrRow[];
 		groupSize: number;
@@ -86,10 +83,6 @@
 <div class="inspector">
 	<h3>Properties</h3>
 
-	{#if editor.readOnlyReason}
-		<p class="notice read-only">{editor.readOnlyReason}</p>
-	{/if}
-
 	{#if tagLabel === null}
 		<p class="empty">Select something on the canvas.</p>
 	{:else}
@@ -115,10 +108,6 @@
 					/>
 				{/if}
 			</div>
-		{/if}
-
-		{#if editor.notice}
-			<p class="notice">{editor.notice}</p>
 		{/if}
 
 		{#each sections as section (section.title)}
@@ -195,23 +184,10 @@
 		color: #111827;
 	}
 
-	.empty,
-	.notice {
+	.empty {
 		margin: 0.25rem 0;
 		font-size: 0.8em;
 		color: #6b7280;
-	}
-
-	.notice {
-		padding: 0.4em 0.6em;
-		border-radius: 0.375em;
-		background: #fef2f2;
-		color: #b91c1c;
-	}
-
-	.notice.read-only {
-		background: #fffbeb;
-		color: #92400e;
 	}
 
 	.group-banner {
